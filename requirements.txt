@@ -1,0 +1,6 @@
+opencv-python
+numpy
+pyautogui
+accessible_output2
+scipy
+Pillow

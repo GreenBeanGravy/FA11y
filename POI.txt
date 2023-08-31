@@ -1,0 +1,16 @@
+Frenzy Fields,885,762
+The Trailer Park,924,672
+The Racetrack,1080,650
+Relentless Retreat,750,850
+Mega City,1070,750
+Kenjutsu Crossing,1153,909
+Steamy Springs,970,860
+Knotty Nets,1270,800
+Brutal Bastion,1090,420
+Shady Stilts,920,350
+Breakwater Bay,720,360
+Eclipsed Estate,770,450
+Rumble Ruins,850,600
+Creeky Compound,930,320
+Sanguine Suites,1190,360
+Slappy Shores,1182,548
