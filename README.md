@@ -5,9 +5,7 @@ FA11y aims to make Fortnite's GUI elements accessible to blind players. With FA1
 
 - Get simple directions to Points of Interest (POIs)
 - Have your Health, Shield, and Weapon Rarity read out loud
-- Place a ping on the center of the storm for easier navigation
-
-FA11y uses computer vision, Python's pyautogui library, and screen readers to make these features available.
+- Place a ping on the center of the storm to avoid dying
 
 ## Keybinds
 Here are the keybindings for FA11y:
