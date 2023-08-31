@@ -8,7 +8,6 @@ FA11y aims to make Fortnite's GUI elements accessible to blind players. With FA1
 - Place a ping on the center of the storm to avoid dying
 
 ## Keybinds
-Here are the keybindings for FA11y:
 
 - **`]` (Right Bracket)**: Open the POI selection menu
 - **`Enter` / `Space`**: Select a POI in the menu
