@@ -17,7 +17,7 @@ FA11y aims to make Fortnite's GUI elements accessible to blind players. With FA1
 - **`` ` `` (Grave Accent / Backtick)**: Run icon detection to give directions to the selected POI
 
 ## Installation
-First, you'll need Python 3.6 or later installed on your machine.
+First, you'll need Python 3.9 or later installed on your machine.
 
 1. Download the latest release.
 2. Open a CMD/Terminal window in the folder where you downloaded FA11y.
