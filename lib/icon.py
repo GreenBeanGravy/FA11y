@@ -7,14 +7,15 @@ import time
 import tkinter as tk
 from tkinter import ttk
 from accessible_output2.outputs.auto import Auto
+from lib.storm import start_storm_detection
 
 speaker = Auto()
 
 # Define the minimum white shape size and the region of interest
-min_shape_size = 1500  # The minimum amount of white pixels in a contour in order to be counted
-max_shape_size = 3000  # The maximum amount of white pixels in a contour in order to be counted, prevents the next-storm outline from being counted most of the time
-roi_start_orig = (621, 182)  # Top-left corner of the map
-roi_end_orig = (1342, 964)  # Bottom-right corner of the map
+min_shape_size = 1200  # The minimum amount of white pixels in a contour in order to be counted
+max_shape_size = 2700 # The maximum amount of white pixels in a contour in order to be counted, prevents the storm-movement outline from being counted most of the time
+roi_start_orig = (590, 190)  # Top-left corner of the map
+roi_end_orig = (1490, 1010)  # Bottom-right corner of the map
 
 VK_RIGHT_BRACKET = 0xDD
 VK_GRAVE_ACCENT = 0xC0
@@ -37,6 +38,7 @@ def select_poi_tk():
         selected_poi = poi
         # Speak the selected POI name immediately
         speak(f"{selected_poi} selected")
+        pyautogui.click()
         root.destroy()
 
     def on_navigate(poi_name):
@@ -102,10 +104,15 @@ def get_relative_direction(vector, target_bearing):
     return 'in front of'
 
 def calculate_distance(point1, point2):
-    return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2) * 2
+    return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2) * 3.15
 
-# Load Points of Interest (POIs)
+# Create the POI list
 pois = []
+
+# Add 'Safe Zone' to pois
+pois.append(("Safe Zone", 0, 0))  # 0, 0 is a placeholder; we'll update these coordinates later
+
+# Load POIs from the text file
 with open('POI.txt', 'r') as file:
     for line in file.readlines():
         name, x, y = line.strip().split(',')
@@ -113,7 +120,7 @@ with open('POI.txt', 'r') as file:
 
 def start_icon_detection():
     global right_bracket_key_down, grave_accent_key_down
-    global selected_poi  # Make sure selected_poi is globally defined
+    global selected_poi
 
     while True:
         # Capture the "]" key press to open Tkinter window for POI selection
@@ -133,13 +140,33 @@ def start_icon_detection():
         grave_accent_key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(VK_GRAVE_ACCENT))
         if grave_accent_key_current_state and not grave_accent_key_down:
             print("Starting icon detection for one cycle.")
-
+        
+            # Initialize selected_coordinates to None
+            selected_coordinates = None
+        
             # Check if a POI has been selected
             if selected_poi is None:
                 print("No POI has been selected. Please select a POI first by pressing the right bracket key.")
                 speaker.speak("No P O I has been selected. Please select a P O I first by pressing the right bracket key.")
+            else:
+                # Special handling for the "Safe Zone"
+                if selected_poi == "Safe Zone":
+                    # Run the Storm detection script and get coordinates
+                    safe_zone_coords = start_storm_detection()
+                    selected_coordinates = safe_zone_coords
+                else:
+                    for name, x, y in pois:
+                        if name == selected_poi:
+                            selected_coordinates = (x, y)
+                            break
+        
+            # If selected_coordinates were found, move the mouse to that location and click
+            if selected_coordinates:
+                pyautogui.moveTo(selected_coordinates[0], selected_coordinates[1], duration=0.01)
+                pyautogui.click()
+                pyautogui.click()
 
-            pyautogui.moveTo(1900, 1000, duration=0.1, tween=pyautogui.easeInOutQuad)
+            pyautogui.moveTo(1900, 1000, duration=0.01, tween=pyautogui.easeInOutQuad)
             screenshot = pyautogui.screenshot()
             screenshot_np = np.array(screenshot)
             screenshot_np = cv2.resize(screenshot_np, None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
@@ -176,7 +203,7 @@ def start_icon_detection():
                         relative_position_to_poi = get_relative_direction(relative_position_vector, bearing)
                         min_distance = calculate_distance(center_mass_screen, selected_coordinates)
                         
-                        if min_distance <= 50:
+                        if min_distance <= 40:
                             print(f"You are at {selected_poi}")
                             speaker.speak(f"You are at {selected_poi}")
                         else:
