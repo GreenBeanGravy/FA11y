@@ -33,10 +33,6 @@ First, you'll need Python 3.9 or later installed on your machine.
 - While in-game, press `M` to open your map.
 - While the map is open, press the `` ` `` (Grave Accent / Backtick) key.
 
-### Storm Detection
-- While in-game, press `M` to open your map.
-- While the map is open, press the key combo `ALT + S` to ping the center of the storm. Listen for the stereo sound, close the map, turn in that direction, and repeat.
-
 ### Health and Shield
 - While in-game, simply press `H` to check your health and shield values.
 
