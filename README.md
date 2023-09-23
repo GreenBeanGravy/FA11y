@@ -1,18 +1,19 @@
 # FA11y: Fortnite Accessibility Tool for Blind Players
 
 ## About
-FA11y aims to make Fortnite's GUI elements accessible to blind players. With FA11y, you can:
+FA11y aims to make many important elements of Fortnite accessible to blind players. With FA11y, you can:
 
-- Get simple directions to Points of Interest (POIs)
-- Have your Health, Shield, and Weapon Rarity read out loud
-- Place a ping on the center of the storm to avoid dying
+- Get directions to Points of Interest (POIs) and place a marker on them
+- Read how much Health and Shield you have
+- Check the rarity of weapons in your inventory
+- Get directions to the Safe Zone, away from the number one killer of blind players, the storm!
 
 ## Keybinds
 
 - **`]` (Right Bracket)**: Open the POI selection menu
 - **`Enter` / `Space`**: Select a POI in the menu
 - **`Up Arrow` / `Down Arrow`**: Navigate through the POI menu
-- **`[` (Left Bracket)**: Enable rarity detection while in the inventory
+- **`[` (Left Bracket)**: Check the rarity of the currently selected item in your inventory. Use the left and right arrow keys to navigate between items.
 - **`H`**: Invoke health and shield detection
 - **`` ` `` (Grave Accent / Backtick)**: Run icon detection to give directions to the selected POI
 
@@ -29,7 +30,7 @@ First, you'll need Python 3.9 or later installed on your machine.
 
 ## Usage
 
-### POI Directions/Icon Detection
+### POI and Safe Zone directions
 - While in-game, press `M` to open your map.
 - While the map is open, press the `` ` `` (Grave Accent / Backtick) key.
 
