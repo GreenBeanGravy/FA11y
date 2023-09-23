@@ -33,6 +33,10 @@ def select_poi_tk():
     def speak(s):
         speaker.speak(s)
 
+    def delayed_speak(s):
+        time.sleep(0.2)
+        speak(s)
+
     def on_select(poi):
         global selected_poi
         selected_poi = poi
@@ -69,9 +73,11 @@ def select_poi_tk():
     root.bind('<Down>', navigate)
     root.bind('<Return>', lambda event: on_select(root.focus_get().cget("text")))
 
-    # Give focus to the first button
+    # Give focus to the first button and start speaking in a new thread
     if buttons:
         buttons[0].focus_set()
+        t = threading.Thread(target=delayed_speak, args=(buttons[0].cget("text"),))
+        t.start()
 
     # Bring the window to the front and give it focus
     root.lift()
@@ -164,7 +170,7 @@ def start_icon_detection():
             if selected_coordinates:
                 pyautogui.moveTo(selected_coordinates[0], selected_coordinates[1], duration=0.01)
                 pyautogui.click()
-                pyautogui.click()
+                pyautogui.click(button='right')
 
             pyautogui.moveTo(1900, 1000, duration=0.01, tween=pyautogui.easeInOutQuad)
             screenshot = pyautogui.screenshot()
