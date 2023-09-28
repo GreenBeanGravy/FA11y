@@ -19,7 +19,7 @@ def main():
     mouse_thread.daemon = True
     mouse_thread.start()
 
-    print("Mouse Movement, Player Icon, storm, and health/shield/rarity detection are now running in the background. Press any key followed by Enter in this window to exit.")
+    print("Mouse Movement, Player Icon, storm, and health/shield/rarity detection are now running in the background. Press Enter in this window to exit.")
 
     input()  # Wait for user input to exit the program
 
