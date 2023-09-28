@@ -13,7 +13,7 @@ speaker = Auto()
 
 # Define the minimum white shape size and the region of interest
 min_shape_size = 1200  # The minimum amount of white pixels in a contour in order to be counted
-max_shape_size = 2700 # The maximum amount of white pixels in a contour in order to be counted, prevents the storm-movement outline from being counted most of the time
+max_shape_size = 2200 # The maximum amount of white pixels in a contour in order to be counted, prevents the storm-movement outline from being counted most of the time
 roi_start_orig = (590, 190)  # Top-left corner of the map
 roi_end_orig = (1490, 1010)  # Bottom-right corner of the map
 
@@ -227,7 +227,7 @@ def start_icon_detection():
     
             else:
                 print("Could not locate the player icon")
-                speaker.speak(f"Could not locate the player icon")
+                speaker.speak(f"Could not locate the player icon. Make sure to jump from the Battle Bus first!")
             
             print("Icon detection cycle completed.")
 
