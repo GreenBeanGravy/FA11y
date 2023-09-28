@@ -18,14 +18,12 @@ FA11y aims to make many important elements of Fortnite accessible to blind playe
 - **`` ` `` (Grave Accent / Backtick)**: Run icon detection to give directions to the selected POI
 
 ## Installation
-First, you'll need Python 3.9 or later installed on your machine.
+First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you check the box to "add Python to Path" during installation!
 
 1. Download the latest release.
 2. Open a CMD/Terminal window in the folder where you downloaded FA11y.
-3. Install the required Python packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
+3. Install the required Python packages using the command:
+    `pip install -r requirements.txt`
 4. Optional: Add your own Points of Interest (POIs) in `POI.txt`
 
 ## Usage
@@ -40,3 +38,15 @@ First, you'll need Python 3.9 or later installed on your machine.
 ### Rarity
 - While in-game, open your inventory using the `I` key. 
 - Press your `[` (Left Bracket) key to check the rarity of your currently selected weapon. You can change the selected weapon using the left and right arrow keys.
+
+## Upcoming Features, the farther down you go the better it gets!
+- Your height off the ground while skydiving.
+- The amount of eliminations you have.
+- The amount of players remaining in a match.
+- Other important map icons, such as combat caches, radar towers, supply drops, etc.
+- A system that will notify you when to jump from the Battle Bus in order to take the shortest distance possible to your currently selected POI.
+- More expansion on how you look around, the ability to toggle this feature, change keybinds, change sensitivity, everything!
+- Full Fortnite GUI access.
+- The ability to change all of your keybinds and the ability to apply and share your keybinds with others!
+- The ability to change every game setting, including applying and sharing presets!
+- Full stereo audio feedback aim assist.
