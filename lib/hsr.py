@@ -101,7 +101,7 @@ def start_health_shield_rarity_detection():
                 lbracket_key_down = lbracket_key_current_state
                 continue  # Skip the rest of the loop iteration
             # Check rarity
-            x, y = 1214, 987
+            x, y = 1205, 650
             pixel_color = pyautogui.pixel(x, y)
             found = False
             for rarity, color in rarity_colors.items():
