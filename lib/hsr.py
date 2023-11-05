@@ -36,7 +36,7 @@ shield_decreases = [3, 4, 3]
 
 def check_inventory_open():
     # Check if the inventory is open by verifying a specific pixel's color.
-    x, y = 1829, 1036
+    x, y = 1616, 1034
     pixel_color = pyautogui.pixel(x, y)
     white_color = (255, 255, 255)
     if not all(abs(pc - tc) <= 10 for pc, tc in zip(pixel_color, white_color)):
@@ -96,10 +96,6 @@ def start_health_shield_rarity_detection():
     
         # If the "[" key was just pressed
         if lbracket_key_current_state and not lbracket_key_down:
-            # First, check if the inventory is open
-            if not check_inventory_open():
-                lbracket_key_down = lbracket_key_current_state
-                continue  # Skip the rest of the loop iteration
             # Check rarity
             x, y = 1205, 650
             pixel_color = pyautogui.pixel(x, y)
