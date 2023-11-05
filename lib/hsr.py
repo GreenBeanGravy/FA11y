@@ -36,7 +36,7 @@ shield_decreases = [3, 4, 3]
 
 def check_inventory_open():
     # Check if the inventory is open by verifying a specific pixel's color.
-    x, y = 1616, 1034
+    x, y = 1829, 1036
     pixel_color = pyautogui.pixel(x, y)
     white_color = (255, 255, 255)
     if not all(abs(pc - tc) <= 10 for pc, tc in zip(pixel_color, white_color)):
