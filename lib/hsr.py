@@ -97,7 +97,7 @@ def start_health_shield_rarity_detection():
         # If the "[" key was just pressed
         if lbracket_key_current_state and not lbracket_key_down:
             # Check rarity
-            x, y = 1205, 650
+            x, y = 1205, 730
             pixel_color = pyautogui.pixel(x, y)
             found = False
             for rarity, color in rarity_colors.items():
