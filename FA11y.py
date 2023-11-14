@@ -1,13 +1,21 @@
 import threading
+import os
 from lib.icon import start_icon_detection
 from lib.hsr import start_health_shield_rarity_detection
 from lib.mouse import mouse_movement
 
 def read_config():
-    with open('config.txt', 'r') as file:
+    config_file = 'config.txt'
+    default_config = 'MouseKeys = false\n'
+
+    # Check if config file exists, create with default settings if it doesn't
+    if not os.path.exists(config_file):
+        with open(config_file, 'w') as file:
+            file.write(default_config)
+
+    with open(config_file, 'r') as file:
         for line in file:
             if 'MouseKeys' in line:
-                # Check for 'true' regardless of case, default to 'false' otherwise
                 return line.split('=')[1].strip().lower() == 'true'
     return False  # Default to False if not found or unknown value
 
