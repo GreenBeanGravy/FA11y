@@ -39,13 +39,18 @@ First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you 
 - While in-game, open your inventory using the `I` key. 
 - Press your `[` (Left Bracket) key to check the rarity of your currently selected weapon. You can change the selected weapon using the left and right arrow keys.
 
+### Mouse Keys
+- While NumLock is on, use the arrow keys to move the mouse around in game, currently using a sensitivity made for the default Fortnite values.
+- 4 turns left, 8 turns up, 6 turns right, 2 turns down, and 0 turns you 180 degrees.
+- Edit the `config.txt` file to toggle the Mouse Keys on and off.
+
 ## Upcoming Features, the farther down you go the better it gets!
 - Your height off the ground while skydiving.
 - The amount of eliminations you have.
 - The amount of players remaining in a match.
 - Other important map icons, such as combat caches, radar towers, supply drops, etc.
 - A system that will notify you when to jump from the Battle Bus in order to take the shortest distance possible to your currently selected POI.
-- More expansion on how you look around, the ability to toggle this feature, change keybinds, change sensitivity, everything!
+- More expansion on how you look around, ~~the ability to toggle this feature~~, change keybinds, change sensitivity, everything!
 - Full Fortnite GUI access.
 - The ability to change all of your keybinds and the ability to apply and share your keybinds with others!
 - The ability to change every game setting, including applying and sharing presets!
