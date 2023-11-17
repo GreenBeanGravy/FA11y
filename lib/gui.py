@@ -1,6 +1,7 @@
 import tkinter as tk
 import threading
 import time
+import pyautogui
 import ctypes
 from accessible_output2.outputs.auto import Auto
 
@@ -30,6 +31,7 @@ def select_poi_tk():
         selected_poi = poi
         speak(f"{selected_poi} selected")
         update_config_file(selected_poi)
+        pyautogui.click()
         root.destroy()
 
     buttons = []
