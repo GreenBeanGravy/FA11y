@@ -3,6 +3,8 @@ from accessible_output2.outputs.auto import Auto
 from lib.storm import start_storm_detection
 import configparser
 
+pyautogui.FAILSAFE = False
+
 speaker = Auto()
 
 # Constants
@@ -46,7 +48,7 @@ def icon_detection_cycle(selected_poi):
         return
 
     # Special handling for 'Storm' POI
-    if selected_poi[0].lower() == 'storm':
+    if selected_poi[0].lower() == 'safe zone':
         selected_coordinates = start_storm_detection()
     else:
         selected_coordinates = (int(selected_poi[1]), int(selected_poi[2]))
