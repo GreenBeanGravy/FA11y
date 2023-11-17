@@ -1,22 +1,24 @@
-import threading
-import os
+import os, configparser, threading
 from lib.icon import start_icon_detection
 from lib.hsr import start_health_shield_rarity_detection
 from lib.mouse import mouse_movement
+from lib.gui import start_gui_activation
 
 def read_config():
     config_file = 'config.txt'
-    default_config = 'MouseKeys = false\n'
+    default_config = '[SETTINGS]\nMouseKeys = false\n'
 
     # Check if config file exists, create with default settings if it doesn't
     if not os.path.exists(config_file):
         with open(config_file, 'w') as file:
             file.write(default_config)
 
-    with open(config_file, 'r') as file:
-        for line in file:
-            if 'MouseKeys' in line:
-                return line.split('=')[1].strip().lower() == 'true'
+    config = configparser.ConfigParser()
+    config.read(config_file)
+
+    if 'SETTINGS' in config and 'MouseKeys' in config['SETTINGS']:
+        return config['SETTINGS']['MouseKeys'].strip().lower() == 'true'
+    
     return False  # Default to False if not found or unknown value
 
 def main():
@@ -27,6 +29,11 @@ def main():
     icon_thread.daemon = True
     icon_thread.start()
     active_threads.append("Player Icon")
+
+    icon_thread = threading.Thread(target=start_gui_activation)
+    icon_thread.daemon = True
+    icon_thread.start()
+    active_threads.append("GUI")
 
     # Start the health, shield, and rarity detection function in a separate thread
     hsr_thread = threading.Thread(target=start_health_shield_rarity_detection)
