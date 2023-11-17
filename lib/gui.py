@@ -72,7 +72,7 @@ def update_config_file(selected_poi_name):
         for line in lines:
             if line.strip().startswith('selected_poi'):
                 if selected_poi_name == "Safe Zone":
-                    file.write('selected_poi = Storm, 0, 0\n')
+                    file.write('selected_poi = Safe Zone, 0, 0\n')
                 else:
                     file.write(f'selected_poi = {selected_poi_name}, {poi_entry[1]}, {poi_entry[2]}\n')
             else:
