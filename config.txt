@@ -1,1 +1,4 @@
+[SETTINGS]
 MouseKeys = false
+[POI]
+selected_poi = Tilted Towers, 850, 560
