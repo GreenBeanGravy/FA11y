@@ -36,14 +36,30 @@ def start_health_shield_rarity_detection():
             check_value(453, 950, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
 
         h_key_down = h_key_current_state
+
         lbracket_key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(VK_LBRACKET))
         if lbracket_key_current_state and not lbracket_key_down:
-            pixel_color = pyautogui.pixel(1205, 650)
+            # First check at coordinates (1205, 777)
+            pixel_color = pyautogui.pixel(1205, 777)
+            rarity_found = False
+
             for rarity, color in rarity_colors.items():
                 if pixel_within_tolerance(pixel_color, color, rarity_tolerance):
                     speaker.speak(rarity)
+                    rarity_found = True
                     break
-            else:
-                speaker.speak('No Rarity Found.')
+
+            # Second check at coordinates (1205, 802) if the first one fails
+            if not rarity_found:
+                pixel_color = pyautogui.pixel(1205, 802)
+                for rarity, color in rarity_colors.items():
+                    if pixel_within_tolerance(pixel_color, color, rarity_tolerance):
+                        speaker.speak(rarity)
+                        rarity_found = True
+                        break
+
+            # If neither check finds a rarity
+            if not rarity_found:
+                speaker.speak('Cannot find rarity.')
         
         lbracket_key_down = lbracket_key_current_state
