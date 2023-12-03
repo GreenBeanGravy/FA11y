@@ -16,6 +16,7 @@ FA11y aims to make many important elements of Fortnite accessible to blind playe
 - **`[` (Left Bracket)**: Check the rarity of the currently selected item in your inventory. Use the left and right arrow keys to navigate between items.
 - **`H`**: Invoke health and shield detection
 - **`` ` `` (Grave Accent / Backtick)**: Run icon detection to give directions to the selected POI
+- **``Shift + ` `` (Shift + Grave Accent / Backtick)**: Create a new custom POI at your current location.
 
 ## Installation
 First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you check the box to "add Python to Path" during installation!
@@ -31,6 +32,10 @@ First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you 
 ### POI and Safe Zone directions
 - While in-game, press `M` to open your map.
 - While the map is open, press the `` ` `` (Grave Accent / Backtick) key.
+
+### Create a custom POI
+- While in-game, press `M` to open your map.
+- While the map is open, press the key combo ``Shift + ` `` (Shift + Grave Accent / Backtick) key.
 
 ### Health and Shield
 - While in-game, simply press `H` to check your health and shield values.
