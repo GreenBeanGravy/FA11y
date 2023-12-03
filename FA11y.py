@@ -2,7 +2,7 @@ import os, configparser, threading
 from lib.icon import start_icon_detection
 from lib.hsr import start_health_shield_rarity_detection
 from lib.mouse import mouse_movement
-from lib.gui import start_gui_activation
+from lib.guis.gui import start_gui_activation
 
 def read_config():
     config_file = 'config.txt'
