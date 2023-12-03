@@ -11,7 +11,7 @@ FA11y aims to make many important elements of Fortnite accessible to blind playe
 ## Keybinds
 
 - **`]` (Right Bracket)**: Open the POI selection menu
-- - **`` TAB ``: Toggles between GAME POIs and CUSTOM POIs within the POI selection menu.
+- `` TAB ``: Toggles between GAME POIs and CUSTOM POIs within the POI selection menu.
 - **`Enter` / `Space`**: Select a POI in the menu
 - **`Up Arrow` / `Down Arrow`**: Navigate through the POI menu
 - **`[` (Left Bracket)**: Check the rarity of the currently selected item in your inventory. Use the left and right arrow keys to navigate between items.
