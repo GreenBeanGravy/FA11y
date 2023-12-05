@@ -1,6 +1,7 @@
 import cv2, numpy as np, pyautogui, ctypes, threading, time, win32api, configparser
 from accessible_output2.outputs.auto import Auto
 from lib.storm import start_storm_detection
+from lib.object_finder import find_the_train, find_combat_cache, find_storm_tower
 import lib.guis.gui as gui
 
 pyautogui.FAILSAFE = False
@@ -8,7 +9,7 @@ pyautogui.FAILSAFE = False
 speaker = Auto()
 
 # Constants
-min_shape_size, max_shape_size = 1200, 2200
+min_shape_size, max_shape_size = 1000, 2300
 roi_start_orig, roi_end_orig = (590, 190), (1490, 1010)
 VK_GRAVE_ACCENT = 0xC0
 VK_SHIFT = 0x10
@@ -20,13 +21,23 @@ def load_config():
     poi_data = config['POI']['selected_poi']
     return tuple(poi_data.split(', '))
 
-def get_relative_direction(vector, target_bearing):
-    adjusted_vector = np.array([vector[0], -vector[1]])
-    degree, target_bearing = (np.degrees(np.arctan2(adjusted_vector[1], adjusted_vector[0])) + 360) % 360, (target_bearing + 360) % 360
-    relative_bearing = (degree - target_bearing + 360) % 360
+def get_relative_direction(front_vector, poi_vector):
+    # Calculate angle of front vector
+    front_angle = np.degrees(np.arctan2(front_vector[1], front_vector[0]))
+
+    # Calculate angle of POI vector
+    poi_angle = np.degrees(np.arctan2(poi_vector[1], poi_vector[0]))
+
+    # Calculate relative angle (POI's angle in relation to the contour's front)
+    relative_angle = (poi_angle - front_angle + 360) % 360
+
+    # Define compass brackets and labels with in-between directions
     compass_brackets = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
-    compass_labels = ['behind', 'behind and slightly left', 'left', 'behind and slightly right', 'right', 'slightly right', 'in front', 'slightly left']
-    return next((compass_labels[i] for i, val in enumerate(compass_brackets) if relative_bearing < val), 'in front')
+    compass_labels = ['in front', 'slightly right', 'right', 'behind and slightly right', 
+                      'behind', 'behind and slightly left', 'left', 'slightly left']
+
+    # Find the relative direction
+    return next((compass_labels[i] for i, val in enumerate(compass_brackets) if relative_angle < val), 'in front')
 
 def calculate_distance(point1, point2):
     return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2) * 3.25
@@ -64,22 +75,30 @@ def icon_detection_cycle(selected_poi):
 
     # Rest of the function for normal operation
     if selected_poi[0].lower() == 'none':
-        speaker.speak("No POI selected. Please update the config file.")
+        speaker.speak("No POI selected. Please select a POI first.")
         return
 
-    # Special handling for 'Storm' POI
-    if selected_poi[0].lower() == 'safe zone':
-        selected_coordinates = start_storm_detection()
+    # Special handling for game objects
+    if selected_poi[0].lower() == 'the train':
+        poi_location = find_the_train()
+    elif selected_poi[0].lower() == 'combat cache':
+        poi_location = find_combat_cache()
+    elif selected_poi[0].lower() == 'storm tower':
+        poi_location = find_storm_tower()
+    elif selected_poi[0].lower() == 'safe zone':
+        poi_location = start_storm_detection()
     else:
-        selected_coordinates = (int(selected_poi[1]), int(selected_poi[2]))
+        poi_location = (int(selected_poi[1]), int(selected_poi[2]))
 
-    if not selected_coordinates:
+    if not poi_location:
+        speaker.speak(f"{selected_poi[0]} not located.")
         return
 
-    pyautogui.moveTo(*selected_coordinates, duration=0.01)
+    # Move and click at the located POI
+    pyautogui.moveTo(*poi_location, duration=0.01)
     pyautogui.click()
     pyautogui.click(button='right')
-    process_screenshot(selected_coordinates, selected_poi)
+    process_screenshot(poi_location, selected_poi)
 
 def process_screenshot(selected_coordinates, selected_poi):
     screenshot = np.array(pyautogui.screenshot())
@@ -93,7 +112,7 @@ def process_screenshot(selected_coordinates, selected_poi):
     _, binary_image = cv2.threshold(roi_gray, 229, 255, cv2.THRESH_BINARY)
 
     # Remove the comment below to check if the conversion to black-and-white is functioning
-    # cv2.imwrite('output.png', binary_image)
+    #cv2.imwrite('output.png', binary_image)
 
     valid_contours = find_valid_contours(binary_image)  # Updated to use binary_image
     if valid_contours:
@@ -115,24 +134,23 @@ def process_contour(contour, roi_color, selected_coordinates, selected_poi):
     center_mass_screen = ((center_mass[0] // 4) + roi_start_orig[0], (center_mass[1] // 4) + roi_start_orig[1])
     hull = cv2.convexHull(contour)
 
-
     if selected_coordinates is not None:
         if len(hull) > 2:
             vertices = np.squeeze(hull)
             distances = [np.linalg.norm(v - center_mass) for v in vertices]
             farthest_vertex = vertices[np.argmax(distances)]
             direction_vector = farthest_vertex - np.array(center_mass)
-    
-            # Corrected calculation for the bearing of the contour
-            direction_degree = (450 - np.degrees(np.arctan2(direction_vector[1], direction_vector[0]))) % 360
-    
-            # Corrected calculation for the bearing from the contour to the POI
+
+            # Contour direction: Angle from contour's center to its farthest vertex
+            direction_degree = (np.degrees(np.arctan2(direction_vector[1], direction_vector[0])) + 360) % 360
+
+            # POI direction: Angle from contour's center to the POI
             dx = selected_coordinates[0] - center_mass_screen[0]
             dy = selected_coordinates[1] - center_mass_screen[1]
-            poi_degree = (450 - np.degrees(np.arctan2(dy, dx))) % 360
-    
+            poi_degree = (np.degrees(np.arctan2(dy, dx)) + 360) % 360
+
             relative_position_vector = np.array(selected_coordinates) - np.array(center_mass_screen)
-            relative_position_to_poi = get_relative_direction(relative_position_vector, direction_degree)
+            relative_position_to_poi = get_relative_direction(direction_vector, relative_position_vector)
             min_distance = calculate_distance(center_mass_screen, selected_coordinates)
             announce_position(selected_poi, relative_position_to_poi, min_distance)
     
@@ -158,7 +176,7 @@ def process_contour(contour, roi_color, selected_coordinates, selected_poi):
             cv2.putText(roi_color, f"POI Direction: {poi_degree:.2f} degrees", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
             # Remove the comment below to enable debug screenshots
-            # cv2.imwrite('debug.png', roi_color)
+            #cv2.imwrite('debug.png', roi_color)
 
     return center_mass_screen
     
