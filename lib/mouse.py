@@ -1,10 +1,14 @@
 import ctypes
+import time
+import threading
 
 # Constants
+VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9 = 0x61, 0x63, 0x65, 0x67, 0x69
 VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6 = 0x62, 0x68, 0x60, 0x64, 0x66
-INPUT_MOUSE, MOUSEEVENTF_MOVE = 0, 0x0001
+INPUT_MOUSE, MOUSEEVENTF_MOVE, MOUSEEVENTF_WHEEL = 0, 0x0001, 0x0800
 MOUSE_SENSITIVITY = 40
-TURN_AROUND_MOVE = 1158  # Large move to the right for turning around
+TURN_AROUND_MOVE = 1158
+SMOOTH_MOVE_DURATION = 0.01  # Reduced duration for faster movement
 
 # Structures for input simulation
 class MOUSEINPUT(ctypes.Structure):
@@ -19,40 +23,52 @@ class INPUT(ctypes.Structure):
     _fields_ = [("type", ctypes.c_ulong),
                 ("ii", MOUSEINPUT)]
 
-def move_mouse(dx, dy):
-    x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=dx, dy=dy, mouseData=0, dwFlags=MOUSEEVENTF_MOVE, time=0, dwExtraInfo=None))
+def smooth_move_mouse(dx, dy, duration):
+    def move():
+        steps = 5
+        step_dx = dx // steps
+        step_dy = dy // steps
+        step_duration = duration / steps
+
+        for _ in range(steps):
+            x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=step_dx, dy=step_dy, mouseData=0, dwFlags=MOUSEEVENTF_MOVE, time=0, dwExtraInfo=None))
+            ctypes.windll.user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
+            time.sleep(step_duration)
+
+    threading.Thread(target=move).start()
+
+def mouse_scroll(amount):
+    x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=amount, dwFlags=MOUSEEVENTF_WHEEL, time=0, dwExtraInfo=None))
     ctypes.windll.user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
 def mouse_movement():
-    numpad2_key_down, numpad8_key_down, numpad0_key_down, numpad4_key_down, numpad6_key_down = False, False, False, False, False
-    
+    numpad_keys_down = {key: False for key in [VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9, VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6]}
+
     while True:
-        # Check if the Numpad 2 key is down
-        numpad2_key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(VK_NUMPAD2))
-        if numpad2_key_current_state and not numpad2_key_down:
-            move_mouse(0, MOUSE_SENSITIVITY)
-        numpad2_key_down = numpad2_key_current_state
+        for key in numpad_keys_down:
+            key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(key))
+            if key_current_state and not numpad_keys_down[key]:
+                if key == VK_NUMPAD1:
+                    smooth_move_mouse(-2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
+                elif key == VK_NUMPAD3:
+                    smooth_move_mouse(2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
+                elif key == VK_NUMPAD7:
+                    mouse_scroll(120)  # Scroll up
+                elif key == VK_NUMPAD9:
+                    mouse_scroll(-120)  # Scroll down
+                elif key == VK_NUMPAD5:
+                    smooth_move_mouse(0, 2000, SMOOTH_MOVE_DURATION)
+                    time.sleep(0.1)
+                    smooth_move_mouse(0, -580, SMOOTH_MOVE_DURATION)  # Move 580 up
+                elif key == VK_NUMPAD2:
+                    smooth_move_mouse(0, MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION)
+                elif key == VK_NUMPAD8:
+                    smooth_move_mouse(0, -MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION)
+                elif key == VK_NUMPAD0:
+                    smooth_move_mouse(TURN_AROUND_MOVE, 0, SMOOTH_MOVE_DURATION)
+                elif key == VK_NUMPAD4:
+                    smooth_move_mouse(-MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
+                elif key == VK_NUMPAD6:
+                    smooth_move_mouse(MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
 
-        # Check if the Numpad 8 key is down
-        numpad8_key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(VK_NUMPAD8))
-        if numpad8_key_current_state and not numpad8_key_down:
-            move_mouse(0, -MOUSE_SENSITIVITY)
-        numpad8_key_down = numpad8_key_current_state
-
-        # Check if the Numpad 0 key is down
-        numpad0_key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(VK_NUMPAD0))
-        if numpad0_key_current_state and not numpad0_key_down:
-            move_mouse(TURN_AROUND_MOVE, 0)
-        numpad0_key_down = numpad0_key_current_state
-
-        # Check if the Numpad 4 key is down
-        numpad4_key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(VK_NUMPAD4))
-        if numpad4_key_current_state and not numpad4_key_down:
-            move_mouse(-MOUSE_SENSITIVITY, 0)
-        numpad4_key_down = numpad4_key_current_state
-
-        # Check if the Numpad 6 key is down
-        numpad6_key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(VK_NUMPAD6))
-        if numpad6_key_current_state and not numpad6_key_down:
-            move_mouse(MOUSE_SENSITIVITY, 0)
-        numpad6_key_down = numpad6_key_current_state
+            numpad_keys_down[key] = key_current_state
