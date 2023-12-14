@@ -58,12 +58,12 @@ def select_poi_tk():
             current_poi_set = (current_poi_set + 1) % 3  # Forward
         else:
             current_poi_set = (current_poi_set - 1) % 3  # Backward
-
+    
         for widget in buttons_frame.winfo_children():
             widget.destroy()
-
+    
         if current_poi_set == 0:
-            pois_to_use = [("Safe Zone", 0, 0)] + pois_from_file
+            pois_to_use = [("Safe Zone", 0, 0), ("Closest", 0, 0)] + pois_from_file
             speaker.speak("Game POIs")
         elif current_poi_set == 1:
             pois_to_use = load_custom_pois()
@@ -179,9 +179,8 @@ def update_config_file(selected_poi_name):
     with open('CONFIG.txt', 'w') as file:
         for line in lines:
             if line.strip().startswith('selected_poi'):
-                if selected_poi_name in [poi[0] for poi in game_objects + [("Safe Zone", 0, 0)]]:  # Include Safe Zone in the check
-                    # For game objects and Safe Zone, write 0, 0 as coordinates
-                    file.write(f'selected_poi = {selected_poi_name}, 0, 0\n')
+                if selected_poi_name in [poi[0] for poi in game_objects + [("Safe Zone", 0, 0), ("Closest", 0, 0)]]:  # Include 'Closest P O I' in the check
+                    file.write(f'selected_poi = {selected_poi_name.lower()}, 0, 0\n')  # Use lower case for 'closest'
                 else:
                     # Find the selected POI in the combined list
                     poi_entry = next((poi for poi in combined_pois if poi[0] == selected_poi_name), None)
