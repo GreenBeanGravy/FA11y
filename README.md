@@ -23,10 +23,10 @@ FA11y aims to make many important elements of Fortnite accessible to blind playe
 First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you check the box to "add Python to Path" during installation!
 
 1. Download the latest release.
-2. Open a CMD/Terminal window in the folder where you downloaded FA11y.
-3. Install the required Python packages using the command:
-    `pip install -r requirements.txt`
-4. Optional: Add your own Points of Interest (POIs) in `POI.txt`
+2. Extract and place the folder anywhere. Make sure you do not place the folder inside of the Fortnite directory, or inside of any System Folders.
+3. Open the folder, and run `installer.py`. Wait until it closes to proceed.
+4. Viola! You should now be able to run `FA11y.py` with no issues.
+5. Optional: Add your own Points of Interest (POIs) in `POI.txt`
 
 ## Usage
 
@@ -46,9 +46,9 @@ First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you 
 - Press your `[` (Left Bracket) key to check the rarity of your currently selected weapon. You can change the selected weapon using the left and right arrow keys.
 
 ### Mouse Keys
-- While NumLock is on, use the arrow keys to move the mouse around in game, currently using a sensitivity made for the default Fortnite values.
-- 4 turns left, 8 turns up, 6 turns right, 2 turns down, and 0 turns you 180 degrees.
-- Edit the `config.txt` file to toggle the Mouse Keys on and off.
+- While NumLock is on, use the NumPad arrow keys to move the mouse around in game, currently using a sensitivity made for the default Fortnite values.
+- 4 turns slightly left, 1 turns left, 8 turns up, 6 turns slightly right, 3 turns right, 2 turns down, 0 turns you 180 degrees, 5 recenters the camera, 9 invokes a scroll-down, and 7 invokes a scroll-up.
+- Edit the `config.txt` file to toggle the Mouse Keys on and off by changing the variable `MouseKeys` to True/False.
 
 ## Upcoming Features, the farther down you go the better it gets!
 - Your height off the ground while skydiving.
