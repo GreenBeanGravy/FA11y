@@ -57,11 +57,13 @@ def icon_detection_cycle(selected_poi):
         speaker.speak("No POI selected. Please select a POI first.")
         return
 
-    poi_name, poi_location = handle_poi_selection(selected_poi, center_mass_screen)
-    if poi_location:
-        perform_poi_actions(poi_location, (poi_name, selected_poi[1], selected_poi[2]))
-    else:
-        speaker.speak(f"{poi_name} not located.")
+    result = handle_poi_selection(selected_poi, center_mass_screen)
+    if result is not None:
+        poi_name, poi_location = result
+        if poi_location:
+            perform_poi_actions(poi_location, (poi_name, selected_poi[1], selected_poi[2]))
+        else:
+            speaker.speak(f"{poi_name} not located.")
 
 def find_player_icon_location():
     screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
@@ -71,10 +73,10 @@ def find_player_icon_location():
 
 def handle_poi_selection(selected_poi, center_mass_screen):
     special_poi_handlers = {
-        'the train': find_the_train,
-        'combat cache': find_combat_cache,
-        'storm tower': find_storm_tower,
-        'safe zone': start_storm_detection,
+        'the train': lambda: (selected_poi[0], find_the_train()),
+        'combat cache': lambda: (selected_poi[0], find_combat_cache()),
+        'storm tower': lambda: (selected_poi[0], find_storm_tower()),
+        'safe zone': lambda: (selected_poi[0], start_storm_detection()),
         'closest': lambda: find_closest_poi(center_mass_screen, load_poi_from_file()) if center_mass_screen else (None, None)
     }
     result = special_poi_handlers.get(selected_poi[0].lower(), lambda: (selected_poi[0], (int(selected_poi[1]), int(selected_poi[2]))))()
