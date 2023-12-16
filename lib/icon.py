@@ -8,7 +8,7 @@ pyautogui.FAILSAFE = False
 speaker = Auto()
 
 # Constants
-min_shape_size, max_shape_size = 1000, 2300
+min_shape_size, max_shape_size = 1300, 2000
 roi_start_orig, roi_end_orig = (590, 190), (1490, 1010)
 VK_GRAVE_ACCENT, VK_SHIFT = 0xC0, 0x10
 grave_accent_key_down = False
@@ -98,6 +98,9 @@ def find_valid_contours(binary_image):
 
 def process_contour(contour, roi_color, selected_coordinates, selected_poi):
     M = cv2.moments(contour)
+    contour_area = cv2.contourArea(contour)
+    print(f"Contour Area (Number of pixels inside the contour): {contour_area}")
+
     center_mass_screen = ((int(M["m10"] / M["m00"]) // 4) + roi_start_orig[0], (int(M["m01"] / M["m00"]) // 4) + roi_start_orig[1])
     if selected_coordinates:
         process_drawing_and_announce(contour, roi_color, center_mass_screen, selected_coordinates, selected_poi, M)
@@ -111,6 +114,11 @@ def process_drawing_and_announce(contour, roi_color, center_mass_screen, selecte
         direction_vector = farthest_vertex - center_mass
         draw_contour_elements(roi_color, contour, center_mass, farthest_vertex, selected_coordinates)
         announce_position(selected_poi, get_relative_direction(direction_vector, np.array(selected_coordinates) - center_mass_screen), calculate_distance(center_mass_screen, selected_coordinates))
+        # Uncomment the line below to enable debug screenshots
+        #save_screenshot_with_contour(roi_color)  # Save the screenshot with the contour
+
+def save_screenshot_with_contour(roi_color):
+    cv2.imwrite('debug.png', roi_color)
 
 def draw_contour_elements(roi_color, contour, center_mass, farthest_vertex, selected_poi_screen):
     cv2.drawContours(roi_color, [contour], -1, (0, 255, 0), 3)
