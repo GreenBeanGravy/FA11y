@@ -1,17 +1,17 @@
-import cv2, numpy as np, pyautogui, ctypes, threading, time, win32api, configparser
+import cv2, numpy as np, pyautogui, ctypes, threading, time, win32api, configparser, keyboard
 from accessible_output2.outputs.auto import Auto
 from lib.storm import start_storm_detection
 from lib.object_finder import find_the_train, find_combat_cache, find_storm_tower
 import lib.guis.gui as gui
+from pynput.keyboard import Controller, Key
 
 pyautogui.FAILSAFE = False
 speaker = Auto()
+keyboard_controller = Controller()
 
 # Constants
 min_shape_size, max_shape_size = 1300, 2000
 roi_start_orig, roi_end_orig = (590, 190), (1490, 1010)
-VK_GRAVE_ACCENT, VK_SHIFT = 0xC0, 0x10
-grave_accent_key_down = False
 
 def load_poi_from_file():
     with open('poi.txt', 'r') as file:
@@ -35,21 +35,34 @@ def get_relative_direction(front_vector, poi_vector):
 def calculate_distance(point1, point2):
     return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2) * 3.25
 
+def check_pixel_color(x, y, color=(127, 211, 255), tolerance=20):
+    screenshot = np.array(pyautogui.screenshot())
+    pixel_color = screenshot[y, x]
+    return all(abs(pixel_color[i] - color[i]) <= tolerance for i in range(3))
+
+def press_key(key):
+    keyboard.press(key)
+    time.sleep(0.1)
+    keyboard.release(key)
+
+def click_mouse(x, y, duration=0.05):
+    pyautogui.moveTo(x, y, duration=duration)
+    pyautogui.click()
+
 def start_icon_detection():
-    global grave_accent_key_down
-    while True:
-        selected_poi = load_config()
-        grave_accent_key_down = check_and_toggle_key(VK_GRAVE_ACCENT, grave_accent_key_down, lambda: icon_detection_cycle(selected_poi))
-        time.sleep(0.01)
+    selected_poi = load_config()
+    icon_detection_cycle(selected_poi, False)
 
-def check_and_toggle_key(key, key_down, action):
-    current_state = bool(ctypes.windll.user32.GetAsyncKeyState(key))
-    if current_state and not key_down: action()
-    return current_state
+def create_custom_poi():
+    selected_poi = load_config()
+    icon_detection_cycle(selected_poi, True)
 
-def icon_detection_cycle(selected_poi):
+def icon_detection_cycle(selected_poi, is_create_custom_poi):
     center_mass_screen = find_player_icon_location()
-    if center_mass_screen and win32api.GetAsyncKeyState(VK_SHIFT) < 0:
+    if not center_mass_screen:
+        return
+
+    if is_create_custom_poi:
         gui.create_gui(f"{center_mass_screen[0]},{center_mass_screen[1]}")
         return
 
