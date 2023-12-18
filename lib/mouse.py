@@ -85,7 +85,7 @@ def mouse_movement():
                 elif key == VK_NUMPAD5:
                     smooth_move_mouse(0, 2000, SMOOTH_MOVE_DURATION)
                     time.sleep(0.1)
-                    smooth_move_mouse(0, -830, SMOOTH_MOVE_DURATION)  # Move 830 up
+                    smooth_move_mouse(0, -580, SMOOTH_MOVE_DURATION)  # Move 580 up
                 elif key == VK_NUMPAD2:
                     smooth_move_mouse(0, MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION)
                 elif key == VK_NUMPAD8:
