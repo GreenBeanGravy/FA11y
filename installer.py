@@ -10,7 +10,7 @@ def check_python_version():
     if sys.version_info.major == 3 and sys.version_info.minor == 9:
         return True
     else:
-        print(f"Python 3.9 is not in use, you are using Python version {sys.version_info.major}.{sys.version_info.minor}. Press enter to continue anyways.")
+        print(f"Python 3.9 is not in use, you are using Python version {sys.version_info.major}.{sys.version_info.minor}. Accessible Output 2 requires Python 3.9.x to function properly. Press Enter to install anyways.")
         input()
         return False
 
