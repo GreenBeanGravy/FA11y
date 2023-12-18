@@ -7,8 +7,9 @@ FA11y aims to make many important elements of Fortnite accessible to blind playe
 - Read how much Health and Shield you have
 - Check the rarity of weapons in your inventory
 - Get directions to the Safe Zone, away from the number one killer of blind players, the storm!
+- Much, much, much more!
 
-## Keybinds
+## DEFAULT Keybinds
 
 - **`]` (Right Bracket)**: Open the POI selection menu
 - `` TAB `` + `` SHIFT + TAB ``: Cycles between GAME POIs, CUSTOM POIs, and GAME OBJECTS within the POI selection menu.
@@ -18,15 +19,27 @@ FA11y aims to make many important elements of Fortnite accessible to blind playe
 - **`H`**: Invoke health and shield detection
 - **`` ` `` (Grave Accent / Backtick)**: Run icon detection to give directions to the selected POI
 - **``Shift + ` `` (Shift + Grave Accent / Backtick)**: Create a new custom POI at your current location.
+- **`Left Control`**: Left clicks
+- **`Right Control`**: Right clicks
+- **`Num5`**: Recenter the camera
+- **`Num4`**: Turns slightly left
+- **`Num1`**: Turns left
+- **`Num6`**: Turns slightly right
+- **`Num3`**: Turns right
+- **`Num8`**: Looks up
+- **`Num2`**: Looks down
+- **`Num0`**: Turns 180 degrees
+- **`Num7`**: Scrolls up
+- **`Num9`**: Scrolls down
 
 ## Installation
-First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you check the box to "add Python to Path" during installation!
+First, you'll need any version of Python 3.9 installed. MAKE SURE you check the box to "add Python to Path" during installation!
 
 1. Download the latest release.
 2. Extract and place the folder anywhere. Make sure you do not place the folder inside of the Fortnite directory, or inside of any System Folders.
 3. Open the folder, and run `installer.py`. Wait until it closes to proceed.
 4. Viola! You should now be able to run `FA11y.py` with no issues.
-5. Optional: Add your own Points of Interest (POIs) in `POI.txt`
+5. Optional: Add your own Points of Interest (POIs) in `CUSTOM_POI.txt`
 
 ## Usage
 
@@ -47,7 +60,7 @@ First, you'll need Python 3.9 or later installed on your machine. MAKE SURE you 
 
 ### Mouse Keys
 - While NumLock is on, use the NumPad arrow keys to move the mouse around in game, currently using a sensitivity made for the default Fortnite values.
-- 4 turns slightly left, 1 turns left, 8 turns up, 6 turns slightly right, 3 turns right, 2 turns down, 0 turns you 180 degrees, 5 recenters the camera, 9 invokes a scroll-down, and 7 invokes a scroll-up.
+- By default, 4 turns slightly left, 1 turns left, 8 turns up, 6 turns slightly right, 3 turns right, 2 turns down, 0 turns you 180 degrees, 5 recenters the camera, 9 invokes a scroll-down, and 7 invokes a scroll-up.
 - Edit the `config.txt` file to toggle the Mouse Keys on and off by changing the variable `MouseKeys` to True/False.
 
 ## Upcoming Features, the farther down you go the better it gets!
