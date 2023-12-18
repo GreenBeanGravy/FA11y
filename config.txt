@@ -1,4 +1,20 @@
 [SETTINGS]
-MouseKeys = false
+MouseKeys = true
+UsingResetSensitivity = false
+[SCRIPT KEYBINDS]
+Locate Player Icon = `
+Create Custom POI = \
+Fire = lctrl
+Target = rctrl
+Turn Left = num 1
+Turn Slightly Left = num 4
+Turn Right = num 3
+Turn Slightly Right = num 6
+Look Up = num 8
+Look Down = num 2
+Turn Around = num 0
+Recenter = num 5
+Scroll Up = num 7
+Scroll Down = num 9
 [POI]
-selected_poi = Tilted Towers, 850, 560
+selected_poi = closest, 0, 0
