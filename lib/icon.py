@@ -35,7 +35,7 @@ def get_relative_direction(front_vector, poi_vector):
 def calculate_distance(point1, point2):
     return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2) * 3.25
 
-def check_pixel_color(x, y, color=(127, 211, 255), tolerance=20):
+def check_pixel_color(x, y, color=(247, 255, 26), tolerance=10):
     screenshot = np.array(pyautogui.screenshot())
     pixel_color = screenshot[y, x]
     return all(abs(pixel_color[i] - color[i]) <= tolerance for i in range(3))
@@ -59,7 +59,7 @@ def create_custom_poi():
 
 def icon_detection_cycle(selected_poi, is_create_custom_poi):
     # Check if the specific pixel color matches
-    if not check_pixel_color(90, 605, color=(127, 211, 255), tolerance=15):
+    if not check_pixel_color(95, 65, color=(247, 255, 26), tolerance=10):
         # If the color doesn't match, say so and break
         speaker.speak("Map is not open! Please open Map with M")
         return
