@@ -1,9 +1,12 @@
-import os, configparser, threading, time, ctypes, keyboard
+import os, configparser, threading, time, ctypes, keyboard, subprocess
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection, create_custom_poi
 from lib.hsr import start_health_shield_rarity_detection
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
 from lib.guis.gui import start_gui_activation
+
+# Check for updates at the start
+subprocess.call(['python', 'updater.py'])
 
 speaker = Auto()
 
