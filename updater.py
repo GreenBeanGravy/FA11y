@@ -100,12 +100,16 @@ def process_updates(repo, repo_files, update_mode, script_name):
             if github_content is None or not file_needs_update(file_path, github_content):
                 continue
 
+            directory_name = os.path.dirname(file_path)
+            if directory_name and not os.path.exists(directory_name):
+                os.makedirs(directory_name, exist_ok=True)
+
             if update_mode != 'manual':
                 with open(file_path, 'wb') as file:
                     file.write(github_content)
                 print(f"Updated {file_path}")
             else:
-                choice = input(f"Update available for {file_path}. Do you want to update? (Y/N): ").strip().lower()
+                choice = input(f"Update available for {file_path}. Apply update? (Y/N): ").strip().lower()
                 if choice == 'y':
                     with open(file_path, 'wb') as file:
                         file.write(github_content)
