@@ -109,7 +109,7 @@ def process_updates(repo, repo_files, update_mode, script_name):
                     file.write(github_content)
                 print(f"Updated {file_path}")
             else:
-                choice = input(f"Update available for {file_path}. Apply update? (Y/N): ").strip().lower()
+                choice = input(f"Update available for {file_path}. Do you want to update? (Y/N): ").strip().lower()
                 if choice == 'y':
                     with open(file_path, 'wb') as file:
                         file.write(github_content)
