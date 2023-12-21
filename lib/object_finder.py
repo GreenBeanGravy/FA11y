@@ -29,7 +29,7 @@ def find_combat_cache():
     screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
     similarity, location = find_image_on_screen('icons/Combat Cache.png', screen)
 
-    if similarity >= 0.7:
+    if similarity >= 0.65:
         return location
     else:
         return None
