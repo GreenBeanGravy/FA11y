@@ -5,10 +5,17 @@ from lib.hsr import start_health_shield_rarity_detection
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
 from lib.guis.gui import start_gui_activation
 
-# Check for updates at the start
-subprocess.call(['python', 'updater.py'])
+# Function to check and apply updates
+def check_and_apply_updates():
+    result = subprocess.call(['python', 'updater.py'])
+    if result == 0:  # updater.py indicates a restart is needed
+        print("Updater has applied an update and a restart is required.")
+        speaker.speak("Updater has applied an update, restarting")
+        os.execv(__file__, sys.argv)  # Restart the script
 
 speaker = Auto()
+
+check_and_apply_updates()
 
 # Constants
 VK_NUMLOCK = 0x90
