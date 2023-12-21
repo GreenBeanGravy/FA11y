@@ -91,7 +91,7 @@ def process_updates(repo, repo_files, update_mode, script_name):
                 print(f"Updated {file_path}")
 
 def user_confirms_update(file_path):
-    choice = input(f"Update available for {file_path}. Update file? (Y/N): ").strip().lower()
+    choice = input(f"Update available for {file_path}. Do you want to update? (Y/N): ").strip().lower()
     return choice == 'y'
 
 def apply_update(file_path, github_content):
