@@ -58,13 +58,6 @@ def create_custom_poi():
     icon_detection_cycle(selected_poi, True)
 
 def icon_detection_cycle(selected_poi, is_create_custom_poi):
-    # Check if the specific pixel color matches
-    if not check_pixel_color(95, 65, color=(247, 255, 26), tolerance=10):
-        # If the color doesn't match, say so and break
-        speaker.speak("Map is not open! Please open Map with M")
-        return
-
-    # Run the normal icon detection process
     center_mass_screen = find_player_icon_location()
     if not center_mass_screen:
         return
@@ -84,10 +77,6 @@ def icon_detection_cycle(selected_poi, is_create_custom_poi):
                 perform_poi_actions(poi_location, (poi_name, selected_poi[1], selected_poi[2]))
             else:
                 speaker.speak(f"{poi_name} not located.")
-
-    # Move the mouse to 1810, 1030 and click after the process
-    pyautogui.moveTo(1810, 1030, duration=0.1)
-    pyautogui.click()
 
 def find_player_icon_location():
     screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
