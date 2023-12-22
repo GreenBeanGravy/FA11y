@@ -91,7 +91,7 @@ def handle_movement(action, reset_sensitivity):
 
 # Function to handle scroll actions
 def handle_scroll(action):
-    scroll_amount = 3
+    scroll_amount = 16
     if action == 'scroll up':
         mouse_scroll(scroll_amount)
     elif action == 'scroll down':
