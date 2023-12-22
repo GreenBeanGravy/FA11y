@@ -62,7 +62,7 @@ def check_controller_input(reset_sensitivity):
     while True:
         events = inputs.get_gamepad()
         for event in events:
-            if event.ev_type == 'Key' and event.code == 'BTN_EAST' and event.state == 1:
+            if event.ev_type == 'Key' and event.code == 'BTN_WEST' and event.state == 1:
                 handle_movement('recenter', reset_sensitivity)
         time.sleep(0.01)
 
