@@ -20,8 +20,6 @@ def install_required_modules():
 if not check_python_version():
     sys.exit(1)
 
-install_required_modules()
-
 speaker = Auto()
 
 def get_repo_files(repo, branch='main'):
@@ -123,11 +121,17 @@ def process_updates(repo, repo_files, update_mode, script_name):
 
 def main():
     script_name = os.path.basename(__file__)  # Get the name of the current script
-    check_python_version()
 
+    # First, check if the script itself needs an update
     if update_script("GreenBeanGravy/FA11y", script_name):
         print("Script updated. Please restart the script to use the updated version.")
         return
+
+    # Check Python version and install modules after checking the script update
+    if not check_python_version():
+        sys.exit(1)
+
+    install_required_modules()
 
     if check_for_updates("GreenBeanGravy/FA11y", script_name):
         update_mode = input("Updates available. Press Enter to update all files automatically or type 'manual' to select updates manually: ").strip().lower()
