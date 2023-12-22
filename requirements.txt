@@ -6,3 +6,4 @@ accessible_output2
 scipy
 Pillow
 configparser
+inputs
