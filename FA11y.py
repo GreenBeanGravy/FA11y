@@ -202,10 +202,10 @@ def main():
     gui_thread.start()
     print("GUI Activation started in a separate thread, starting HSR detection..")
 
-    controller_thread = threading.Thread(target=check_controller_input, args=(reset_sensitivity,))
-    controller_thread.daemon = True
-    controller_thread.start()
-    print("Controller Binds started!")
+    #controller_thread = threading.Thread(target=check_controller_input, args=(reset_sensitivity,))
+    #controller_thread.daemon = True
+    #controller_thread.start()
+    #print("Controller Binds started!")
 
     try:
         hsr_thread = threading.Thread(target=start_health_shield_rarity_detection)
