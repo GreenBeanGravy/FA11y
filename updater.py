@@ -96,6 +96,10 @@ def process_updates(repo, repo_files, update_mode, script_name):
             if file_path == 'config.txt' and os.path.exists(file_path):
                 continue
 
+            # Check if the file is 'CUSTOM_POI.txt' and if it already exists
+            if file_path == 'CUSTOM_POI.txt' and os.path.exists(file_path):
+                continue  # Do not update 'CUSTOM_POI.txt' if it already exists
+
             github_content = download_file(repo, file_path)
             if github_content is None or not file_needs_update(file_path, github_content):
                 continue
