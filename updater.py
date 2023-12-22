@@ -8,7 +8,7 @@ def check_python_version():
     if sys.version_info.major == 3 and sys.version_info.minor == 9:
         return True
     else:
-        print(f"Python 3.9 is not in use. You are using Python {sys.version_info.major}.{sys.version_info.minor}.")
+        print(f"You are not using Python 3.9, errors may occur. You are using Python {sys.version_info.major}.{sys.version_info.minor}.")
         return False
 
 def install_required_modules():
@@ -16,9 +16,6 @@ def install_required_modules():
     modules = ['requests', 'accessible_output2']
     subprocess.run([sys.executable, '-m', 'pip', 'install'] + modules, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("Required modules installed!")
-
-if not check_python_version():
-    sys.exit(1)
 
 speaker = Auto()
 
@@ -127,10 +124,6 @@ def main():
     if update_script("GreenBeanGravy/FA11y", script_name):
         print("Script updated. Please restart the script to use the updated version.")
         return
-
-    # Check Python version and install modules after checking the script update
-    if not check_python_version():
-        sys.exit(1)
 
     install_required_modules()
 
