@@ -1,4 +1,4 @@
-import os, configparser, threading, time, ctypes, keyboard, subprocess
+import os, configparser, threading, time, ctypes, keyboard, subprocess, inputs
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection, create_custom_poi
 from lib.hsr import start_health_shield_rarity_detection
@@ -57,6 +57,14 @@ VK_KEY_CODES = {
 
 # Global state
 key_state = {}
+
+def check_controller_input(reset_sensitivity):
+    while True:
+        events = inputs.get_gamepad()
+        for event in events:
+            if event.ev_type == 'Key' and event.code == 'BTN_EAST' and event.state == 1:
+                handle_movement('recenter', reset_sensitivity)
+        time.sleep(0.01)
 
 # Function to handle movement-related actions
 def handle_movement(action, reset_sensitivity):
@@ -193,6 +201,11 @@ def main():
     gui_thread.daemon = True
     gui_thread.start()
     print("GUI Activation started in a separate thread, starting HSR detection..")
+
+    controller_thread = threading.Thread(target=check_controller_input, args=(reset_sensitivity,))
+    controller_thread.daemon = True
+    controller_thread.start()
+    print("Controller Binds started!")
 
     try:
         hsr_thread = threading.Thread(target=start_health_shield_rarity_detection)
