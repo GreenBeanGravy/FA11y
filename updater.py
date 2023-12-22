@@ -69,7 +69,8 @@ def check_for_updates(repo, script_name):
             continue
 
         if file_path.endswith(('.py', '.txt', '.png')):
-            if file_path == 'config.txt' and os.path.exists(file_path):
+            # Skip 'config.txt' and 'CUSTOM_POI.txt' if they already exist
+            if (file_path == 'config.txt' or file_path == 'CUSTOM_POI.txt') and os.path.exists(file_path):
                 continue
 
             if file_path.endswith(script_name):
