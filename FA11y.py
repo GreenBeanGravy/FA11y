@@ -58,6 +58,9 @@ VK_KEY_CODES = {
 # Global state
 key_state = {}
 
+def is_numlock_on():
+    return ctypes.windll.user32.GetKeyState(VK_NUMLOCK) & 1 != 0
+
 def check_controller_input(reset_sensitivity):
     while True:
         events = inputs.get_gamepad()
@@ -123,6 +126,8 @@ def key_listener(key_bindings):
     print("Key Listener started")
 
     while True:
+        numlock_on = is_numlock_on()  # Check the NumLock status
+
         for action, key in key_bindings.items():
             vk_code = VK_KEY_CODES.get(key, None)
             try:
@@ -132,6 +137,10 @@ def key_listener(key_bindings):
                 continue
 
             action_lower = action.lower()
+
+            # Add NumLock check for 'fire' and 'target' actions
+            if action_lower in ['fire', 'target'] and not numlock_on:
+                continue  # Skip processing if NumLock is OFF
 
             if key_pressed and not key_state.get(key, False):
                 key_state[key] = True
