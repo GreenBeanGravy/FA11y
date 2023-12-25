@@ -1,8 +1,6 @@
 import subprocess
 import os
 import sys
-import requests
-from accessible_output2.outputs.auto import Auto
 
 def check_python_version():
     if sys.version_info.major == 3 and sys.version_info.minor == 9:
@@ -16,6 +14,10 @@ def install_required_modules():
     modules = ['requests', 'accessible_output2']
     subprocess.run([sys.executable, '-m', 'pip', 'install'] + modules, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("Required modules installed!")
+
+install_required_modules()
+import requests
+from accessible_output2.outputs.auto import Auto
 
 speaker = Auto()
 
@@ -124,8 +126,6 @@ def main():
     if update_script("GreenBeanGravy/FA11y", script_name):
         print("Script updated. Please restart the script to use the updated version.")
         return
-
-    install_required_modules()
 
     if check_for_updates("GreenBeanGravy/FA11y", script_name):
         update_mode = input("Updates available. Press Enter to update all files automatically or type 'manual' to select updates manually: ").strip().lower()
