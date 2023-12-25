@@ -86,6 +86,10 @@ def check_for_updates(repo, script_name):
     return updates_available
 
 def process_updates(repo, repo_files, update_mode, script_name):
+    if update_mode == 'skip':
+        print("All updates skipped.")
+        return  # Exiting the function early if the update mode is 'skip'
+    
     for file_path in repo_files:
         if file_path.lower() == 'readme.md' or file_path.endswith(script_name):
             continue  # Skip README.md and the script itself
@@ -128,9 +132,13 @@ def main():
         return
 
     if check_for_updates("GreenBeanGravy/FA11y", script_name):
-        update_mode = input("Updates available. Press Enter to update all files automatically or type 'manual' to select updates manually: ").strip().lower()
-        process_updates("GreenBeanGravy/FA11y", get_repo_files("GreenBeanGravy/FA11y"), update_mode, script_name)
-        speaker.speak("Updates processed.")
+        update_mode = input("Updates available. Press Enter to update all files automatically, type 'manual' to select updates manually, or type 'skip' to skip updates: ").strip().lower()
+        
+        if update_mode == 'skip':
+            print("Update process skipped.")
+        else:
+            process_updates("GreenBeanGravy/FA11y", get_repo_files("GreenBeanGravy/FA11y"), update_mode, script_name)
+            speaker.speak("Updates processed.")
     else:
         print("You are on the latest version!")
         speaker.speak("You are on the latest version!")
