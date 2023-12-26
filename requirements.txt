@@ -7,3 +7,4 @@ scipy
 Pillow
 configparser
 inputs
+pynput
