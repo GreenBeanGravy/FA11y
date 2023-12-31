@@ -1,7 +1,7 @@
 import cv2, numpy as np, pyautogui, ctypes, threading, time, win32api, configparser, keyboard
 from accessible_output2.outputs.auto import Auto
 from lib.storm import start_storm_detection
-from lib.object_finder import find_the_train, find_combat_cache, find_storm_tower
+from lib.object_finder import find_the_train, find_combat_cache, find_storm_tower, find_reboot
 import lib.guis.gui as gui
 from pynput.keyboard import Controller, Key
 
@@ -89,6 +89,7 @@ def handle_poi_selection(selected_poi, center_mass_screen):
         'the train': lambda: (selected_poi[0], find_the_train()),
         'combat cache': lambda: (selected_poi[0], find_combat_cache()),
         'storm tower': lambda: (selected_poi[0], find_storm_tower()),
+        'reboot': lambda: (selected_poi[0], find_reboot()),
         'safe zone': lambda: (selected_poi[0], start_storm_detection()),
         'closest': lambda: find_closest_poi(center_mass_screen, load_poi_from_file()) if center_mass_screen else (None, None)
     }
