@@ -43,3 +43,13 @@ def find_storm_tower():
         return location
     else:
         return None
+
+def find_reboot():
+    screen = pyautogui.screenshot()
+    screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
+    similarity, location = find_image_on_screen('icons/Reboot.png', screen)
+
+    if similarity >= 0.7:  # Adjust the threshold as needed
+        return location
+    else:
+        return None
