@@ -10,7 +10,7 @@ speaker = Auto()
 
 # Read POIs from POI.txt
 pois_from_file = [(line.split(',')[0].strip(), int(line.split(',')[1]), int(line.split(',')[2])) for line in open('POI.txt', 'r')]
-game_objects = [("Combat Cache", 0, 0), ("Storm Tower", 0, 0), ("The Train", 0, 0)]
+game_objects = [("Combat Cache", 0, 0), ("Storm Tower", 0, 0), ("The Train", 0, 0), ("Reboot", 0, 0)]
 
 # Constants
 VK_RIGHT_BRACKET = 0xDD
