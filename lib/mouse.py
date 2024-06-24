@@ -1,6 +1,7 @@
 import ctypes
 import time
 import threading
+from typing import Tuple, Dict, Callable
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -12,7 +13,7 @@ VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6 = 0x62, 0x68, 0x60, 0
 INPUT_MOUSE, MOUSEEVENTF_MOVE, MOUSEEVENTF_WHEEL = 0, 0x0001, 0x0800
 MOUSE_SENSITIVITY = 30
 TURN_AROUND_MOVE = 1158
-SMOOTH_MOVE_DURATION = 0.01  # Reduced duration for faster movement
+SMOOTH_MOVE_DURATION = 0.01
 
 # Structures for input simulation
 class MOUSEINPUT(ctypes.Structure):
@@ -27,89 +28,87 @@ class INPUT(ctypes.Structure):
     _fields_ = [("type", ctypes.c_ulong),
                 ("ii", MOUSEINPUT)]
 
-def smooth_move_mouse(dx, dy, duration):
+# Predefine commonly used functions
+send_input = ctypes.windll.user32.SendInput
+get_async_key_state = ctypes.windll.user32.GetAsyncKeyState
+get_key_state = ctypes.windll.user32.GetKeyState
+
+def smooth_move_mouse(dx: int, dy: int, duration: float):
     def move():
         steps = 5
-        step_dx = dx // steps
-        step_dy = dy // steps
+        step_dx, step_dy = dx // steps, dy // steps
         step_duration = duration / steps
+        x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(mouseData=0, dwFlags=MOUSEEVENTF_MOVE, time=0, dwExtraInfo=None))
 
         for _ in range(steps):
-            x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=step_dx, dy=step_dy, mouseData=0, dwFlags=MOUSEEVENTF_MOVE, time=0, dwExtraInfo=None))
-            ctypes.windll.user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
+            x.ii.dx, x.ii.dy = step_dx, step_dy
+            send_input(1, ctypes.byref(x), ctypes.sizeof(x))
             time.sleep(step_duration)
 
     threading.Thread(target=move).start()
 
-def mouse_scroll(amount):
+def mouse_scroll(amount: int):
     x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=amount, dwFlags=MOUSEEVENTF_WHEEL, time=0, dwExtraInfo=None))
-    ctypes.windll.user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
+    send_input(1, ctypes.byref(x), ctypes.sizeof(x))
 
-def left_mouse_down():
-    down = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=MOUSEEVENTF_LEFTDOWN, time=0, dwExtraInfo=None))
-    ctypes.windll.user32.SendInput(1, ctypes.byref(down), ctypes.sizeof(down))
+def _mouse_click(down_flag: int, up_flag: int):
+    down = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=down_flag, time=0, dwExtraInfo=None))
+    up = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=up_flag, time=0, dwExtraInfo=None))
+    send_input(1, ctypes.byref(down), ctypes.sizeof(down))
+    send_input(1, ctypes.byref(up), ctypes.sizeof(up))
 
-def left_mouse_up():
-    up = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=MOUSEEVENTF_LEFTUP, time=0, dwExtraInfo=None))
-    ctypes.windll.user32.SendInput(1, ctypes.byref(up), ctypes.sizeof(up))
+left_mouse_down = lambda: _mouse_click(MOUSEEVENTF_LEFTDOWN, 0)
+left_mouse_up = lambda: _mouse_click(0, MOUSEEVENTF_LEFTUP)
+right_mouse_down = lambda: _mouse_click(MOUSEEVENTF_RIGHTDOWN, 0)
+right_mouse_up = lambda: _mouse_click(0, MOUSEEVENTF_RIGHTUP)
 
-def right_mouse_down():
-    down = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=MOUSEEVENTF_RIGHTDOWN, time=0, dwExtraInfo=None))
-    ctypes.windll.user32.SendInput(1, ctypes.byref(down), ctypes.sizeof(down))
-
-def right_mouse_up():
-    up = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=MOUSEEVENTF_RIGHTUP, time=0, dwExtraInfo=None))
-    ctypes.windll.user32.SendInput(1, ctypes.byref(up), ctypes.sizeof(up))
-
-def is_numlock_on():
-    return ctypes.windll.user32.GetKeyState(VK_NUMLOCK) & 1
+is_numlock_on = lambda: get_key_state(VK_NUMLOCK) & 1 != 0
 
 def mouse_movement():
-    numpad_keys_down = {key: False for key in [VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9, VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6]}
-    control_keys_down = {key: False for key in [VK_LCONTROL, VK_RCONTROL]}
+    numpad_keys = [VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9, VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6]
+    control_keys = [VK_LCONTROL, VK_RCONTROL]
+    
+    numpad_actions: Dict[int, Callable] = {
+        VK_NUMPAD1: lambda: smooth_move_mouse(-2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
+        VK_NUMPAD3: lambda: smooth_move_mouse(2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
+        VK_NUMPAD7: lambda: mouse_scroll(120),
+        VK_NUMPAD9: lambda: mouse_scroll(-120),
+        VK_NUMPAD5: lambda: (smooth_move_mouse(0, 2000, SMOOTH_MOVE_DURATION), time.sleep(0.1), smooth_move_mouse(0, -580, SMOOTH_MOVE_DURATION)),
+        VK_NUMPAD2: lambda: smooth_move_mouse(0, MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION),
+        VK_NUMPAD8: lambda: smooth_move_mouse(0, -MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION),
+        VK_NUMPAD0: lambda: smooth_move_mouse(TURN_AROUND_MOVE, 0, SMOOTH_MOVE_DURATION),
+        VK_NUMPAD4: lambda: smooth_move_mouse(-MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
+        VK_NUMPAD6: lambda: smooth_move_mouse(MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
+    }
+
+    control_actions: Dict[int, Tuple[Callable, Callable]] = {
+        VK_LCONTROL: (left_mouse_down, left_mouse_up),
+        VK_RCONTROL: (right_mouse_down, right_mouse_up),
+    }
+
+    key_states = {key: False for key in numpad_keys + control_keys}
 
     while True:
         numlock_on = is_numlock_on()
 
-        for key in numpad_keys_down:
-            key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(key))
-            if key_current_state and not numpad_keys_down[key]:
-                if key == VK_NUMPAD1:
-                    smooth_move_mouse(-2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
-                elif key == VK_NUMPAD3:
-                    smooth_move_mouse(2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
-                elif key == VK_NUMPAD7:
-                    mouse_scroll(120)  # Scroll up
-                elif key == VK_NUMPAD9:
-                    mouse_scroll(-120)  # Scroll down
-                elif key == VK_NUMPAD5:
-                    smooth_move_mouse(0, 2000, SMOOTH_MOVE_DURATION)
-                    time.sleep(0.1)
-                    smooth_move_mouse(0, -580, SMOOTH_MOVE_DURATION)  # Move 580 up
-                elif key == VK_NUMPAD2:
-                    smooth_move_mouse(0, MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION)
-                elif key == VK_NUMPAD8:
-                    smooth_move_mouse(0, -MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION)
-                elif key == VK_NUMPAD0:
-                    smooth_move_mouse(TURN_AROUND_MOVE, 0, SMOOTH_MOVE_DURATION)
-                elif key == VK_NUMPAD4:
-                    smooth_move_mouse(-MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
-                elif key == VK_NUMPAD6:
-                    smooth_move_mouse(MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION)
-            numpad_keys_down[key] = key_current_state
+        for key in numpad_keys:
+            key_current_state = bool(get_async_key_state(key) & 0x8000)
+            if key_current_state and not key_states[key]:
+                action = numpad_actions.get(key)
+                if action:
+                    action()
+            key_states[key] = key_current_state
 
         if numlock_on:
-            for key in control_keys_down:
-                key_current_state = bool(ctypes.windll.user32.GetAsyncKeyState(key))
-                if key_current_state != control_keys_down[key]:  # Key state changed
-                    if key == VK_LCONTROL:
-                        if key_current_state:
-                            left_mouse_down()
-                        else:
-                            left_mouse_up()
-                    elif key == VK_RCONTROL:
-                        if key_current_state:
-                            right_mouse_down()
-                        else:
-                            right_mouse_up()
-                control_keys_down[key] = key_current_state
+            for key in control_keys:
+                key_current_state = bool(get_async_key_state(key) & 0x8000)
+                if key_current_state != key_states[key]:
+                    down_action, up_action = control_actions.get(key, (None, None))
+                    if key_current_state and down_action:
+                        down_action()
+                    elif not key_current_state and up_action:
+                        up_action()
+                key_states[key] = key_current_state
+
+if __name__ == "__main__":
+    mouse_movement()

@@ -2,54 +2,43 @@ import cv2
 import numpy as np
 import pyautogui
 from accessible_output2.outputs.auto import Auto
+from typing import Tuple, Optional, Dict
+from functools import lru_cache
 
-def find_image_on_screen(icon_path, screen):
+speaker = Auto()
+
+@lru_cache(maxsize=None)
+def load_icon(icon_path: str) -> np.ndarray:
     icon = cv2.imread(icon_path, cv2.IMREAD_UNCHANGED)
+    return cv2.cvtColor(icon, cv2.COLOR_BGRA2BGR) if icon.shape[-1] == 4 else icon
 
-    # Convert icons with alpha channel to RGB
-    if icon.shape[-1] == 4:
-        icon = cv2.cvtColor(icon, cv2.COLOR_BGRA2BGR)
-
+def find_image_on_screen(icon: np.ndarray, screen: np.ndarray) -> Tuple[float, Tuple[int, int]]:
     result = cv2.matchTemplate(screen, icon, cv2.TM_CCOEFF_NORMED)
     _, max_val, _, max_loc = cv2.minMaxLoc(result)
     return max_val, max_loc
 
-def find_the_train():
-    screen = pyautogui.screenshot()
-    screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
-    similarity, location = find_image_on_screen('icons/The Train.png', screen)
+def find_object(icon_path: str, similarity_threshold: float) -> Optional[Tuple[int, int]]:
+    screen = cv2.cvtColor(np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR)
+    icon = load_icon(icon_path)
+    similarity, location = find_image_on_screen(icon, screen)
+    return location if similarity >= similarity_threshold else None
 
-    if similarity >= 0.7:
-        return location
-    else:
-        return None
+OBJECT_CONFIGS: Dict[str, Tuple[str, float]] = {
+    'the_train': ('icons/The Train.png', 0.7),
+    'combat_cache': ('icons/Combat Cache.png', 0.65),
+    'storm_tower': ('icons/Storm Tower.png', 0.7),
+    'reboot': ('icons/Reboot.png', 0.7)
+}
 
-def find_combat_cache():
-    screen = pyautogui.screenshot()
-    screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
-    similarity, location = find_image_on_screen('icons/Combat Cache.png', screen)
+def create_finder_function(object_name: str) -> callable:
+    icon_path, threshold = OBJECT_CONFIGS[object_name]
+    return lambda: find_object(icon_path, threshold)
 
-    if similarity >= 0.65:
-        return location
-    else:
-        return None
+find_the_train = create_finder_function('the_train')
+find_combat_cache = create_finder_function('combat_cache')
+find_storm_tower = create_finder_function('storm_tower')
+find_reboot = create_finder_function('reboot')
 
-def find_storm_tower():
-    screen = pyautogui.screenshot()
-    screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
-    similarity, location = find_image_on_screen('icons/Storm Tower.png', screen)
-
-    if similarity >= 0.7:
-        return location
-    else:
-        return None
-
-def find_reboot():
-    screen = pyautogui.screenshot()
-    screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
-    similarity, location = find_image_on_screen('icons/Reboot.png', screen)
-
-    if similarity >= 0.7:  # Adjust the threshold as needed
-        return location
-    else:
-        return None
+if __name__ == "__main__":
+    # Add any test code here if needed
+    pass
