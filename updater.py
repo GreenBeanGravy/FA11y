@@ -76,9 +76,11 @@ def check_and_update_file(repo, file_path, script_name, update_mode):
     if file_path.lower() == 'readme.md':
         readme_content = download_file(repo, file_path)
         if readme_content and file_needs_update('README.txt', readme_content):
-            with open('README.txt', 'wb') as file:
-                file.write(readme_content)
-            print("README updated.")
+            if update_mode != 'check':
+                with open('README.txt', 'wb') as file:
+                    file.write(readme_content)
+                print("README updated.")
+            return True
         return False
 
     if not file_path.endswith(('.py', '.txt', '.png')) or file_path.endswith(script_name):
@@ -90,6 +92,9 @@ def check_and_update_file(repo, file_path, script_name, update_mode):
     github_content = download_file(repo, file_path)
     if github_content is None or not file_needs_update(file_path, github_content):
         return False
+
+    if update_mode == 'check':
+        return True
 
     if update_mode != 'manual':
         directory_name = os.path.dirname(file_path)
@@ -112,7 +117,7 @@ def check_and_update_file(repo, file_path, script_name, update_mode):
 def process_updates(repo, repo_files, update_mode, script_name):
     if update_mode == 'skip':
         print("All updates skipped.")
-        return
+        return False
 
     with ThreadPoolExecutor() as executor:
         updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name, update_mode), repo_files))
@@ -127,17 +132,24 @@ def main():
         return
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
-    update_mode = input("Press Enter to update all files automatically, type 'manual' to select updates manually, or type 'skip' to skip updates: ").strip().lower()
+    
+    # Check if any updates are available
+    updates_available = any(check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name, 'check')
+                            for file_path in repo_files)
+
+    if not updates_available:
+        print("You are on the latest version!")
+        speaker.speak("You are on the latest version!")
+        return
+
+    update_mode = input("Updates are available. Press Enter to update all files automatically, type 'manual' to select updates manually, or type 'skip' to skip updates: ").strip().lower()
 
     if update_mode == 'skip':
         print("Update process skipped.")
     else:
-        updates_available = process_updates("GreenBeanGravy/FA11y", repo_files, update_mode, script_name)
-        if updates_available:
+        updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, update_mode, script_name)
+        if updates_processed:
             speaker.speak("Updates processed.")
-        else:
-            print("You are on the latest version!")
-            speaker.speak("You are on the latest version!")
 
     if os.path.exists('requirements.txt'):
         print("Installing packages from requirements.txt...")
