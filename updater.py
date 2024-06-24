@@ -1,19 +1,36 @@
 import subprocess
 import os
 import sys
+import importlib.util
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 def check_python_version():
-    if sys.version_info.major == 3 and sys.version_info.minor == 9:
+    major, minor = sys.version_info[:2]
+    if (major == 3 and minor in (9, 10)):
         return True
-    else:
-        print(f"You are not using Python 3.9, errors may occur. You are using Python {sys.version_info.major}.{sys.version_info.minor}.")
-        return False
+    print(f"You are using Python {major}.{minor}. This script is optimized for Python 3.9 or 3.10.")
+    return False
+
+def check_and_install_module(module):
+    if importlib.util.find_spec(module) is None:
+        print(f"Installing {module}...")
+        subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
+                       stdout=subprocess.DEVNULL, 
+                       stderr=subprocess.DEVNULL)
+        return True  # Module was installed
+    return False  # Module was already installed
 
 def install_required_modules():
-    print("Checking for required modules...")
     modules = ['requests', 'accessible_output2']
-    subprocess.run([sys.executable, '-m', 'pip', 'install'] + modules, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print("Required modules installed!")
+    print("Checking and installing required modules...")
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(check_and_install_module, modules))
+    
+    if any(results):
+        print("All required modules have been installed.")
+    else:
+        print("All required modules were already installed.")
 
 install_required_modules()
 import requests
@@ -21,6 +38,7 @@ from accessible_output2.outputs.auto import Auto
 
 speaker = Auto()
 
+@lru_cache(maxsize=None)
 def get_repo_files(repo, branch='main'):
     url = f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1"
     response = requests.get(url)
@@ -35,9 +53,10 @@ def download_file(repo, file_path):
     return response.content if response.status_code == 200 else None
 
 def file_needs_update(local_path, github_content):
-    if not os.path.exists(local_path) or open(local_path, 'rb').read() != github_content:
+    if not os.path.exists(local_path):
         return True
-    return False
+    with open(local_path, 'rb') as file:
+        return file.read() != github_content
 
 def update_script(repo, script_name):
     github_content = download_file(repo, script_name)
@@ -50,102 +69,79 @@ def update_script(repo, script_name):
             file.write(github_content)
         print(f"Updated {script_name}")
         return True
-    else:
-        print(f"Update for {script_name} skipped.")
+    print(f"Update for {script_name} skipped.")
+    return False
+
+def check_and_update_file(repo, file_path, script_name, update_mode):
+    if file_path.lower() == 'readme.md':
+        readme_content = download_file(repo, file_path)
+        if readme_content and file_needs_update('README.txt', readme_content):
+            with open('README.txt', 'wb') as file:
+                file.write(readme_content)
+            print("README updated.")
         return False
 
-def check_for_updates(repo, script_name):
-    repo_files = get_repo_files(repo)
-    updates_available = False
+    if not file_path.endswith(('.py', '.txt', '.png')) or file_path.endswith(script_name):
+        return False
 
-    for file_path in repo_files:
-        if file_path.lower() == 'readme.md':
-            readme_content = download_file(repo, file_path)
-            if readme_content and file_needs_update('README.txt', readme_content):
-                with open('README.txt', 'wb') as file:
-                    file.write(readme_content)
-                print("README updated.")
-            continue
+    if file_path in ('config.txt', 'CUSTOM_POI.txt') and os.path.exists(file_path):
+        return False
 
-        if file_path.endswith(('.py', '.txt', '.png')):
-            # Skip 'config.txt' and 'CUSTOM_POI.txt' if they already exist
-            if (file_path == 'config.txt' or file_path == 'CUSTOM_POI.txt') and os.path.exists(file_path):
-                continue
+    github_content = download_file(repo, file_path)
+    if github_content is None or not file_needs_update(file_path, github_content):
+        return False
 
-            if file_path.endswith(script_name):
-                continue  # Skip updating the script itself
+    if update_mode != 'manual':
+        directory_name = os.path.dirname(file_path)
+        if directory_name:
+            os.makedirs(directory_name, exist_ok=True)
+        with open(file_path, 'wb') as file:
+            file.write(github_content)
+        print(f"Updated {file_path}")
+    else:
+        choice = input(f"Update available for {file_path}. Do you want to update? (Y/N): ").strip().lower()
+        if choice == 'y':
+            with open(file_path, 'wb') as file:
+                file.write(github_content)
+            print(f"Updated {file_path}")
+        else:
+            print(f"Update for {file_path} skipped.")
 
-            github_content = download_file(repo, file_path)
-            if github_content is None:
-                print(f"Failed to download {file_path} from GitHub.")
-                continue
-
-            if file_needs_update(file_path, github_content):
-                updates_available = True
-
-    return updates_available
+    return True
 
 def process_updates(repo, repo_files, update_mode, script_name):
     if update_mode == 'skip':
         print("All updates skipped.")
-        return  # Exiting the function early if the update mode is 'skip'
-    
-    for file_path in repo_files:
-        if file_path.lower() == 'readme.md' or file_path.endswith(script_name):
-            continue  # Skip README.md and the script itself
+        return
 
-        if file_path.endswith(('.py', '.txt', '.png')):
-            if file_path == 'config.txt' and os.path.exists(file_path):
-                continue
+    with ThreadPoolExecutor() as executor:
+        updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name, update_mode), repo_files))
 
-            # Check if the file is 'CUSTOM_POI.txt' and if it already exists
-            if file_path == 'CUSTOM_POI.txt' and os.path.exists(file_path):
-                continue  # Do not update 'CUSTOM_POI.txt' if it already exists
-
-            github_content = download_file(repo, file_path)
-            if github_content is None or not file_needs_update(file_path, github_content):
-                continue
-
-            directory_name = os.path.dirname(file_path)
-            if directory_name and not os.path.exists(directory_name):
-                os.makedirs(directory_name, exist_ok=True)
-
-            if update_mode != 'manual':
-                with open(file_path, 'wb') as file:
-                    file.write(github_content)
-                print(f"Updated {file_path}")
-            else:
-                choice = input(f"Update available for {file_path}. Do you want to update? (Y/N): ").strip().lower()
-                if choice == 'y':
-                    with open(file_path, 'wb') as file:
-                        file.write(github_content)
-                    print(f"Updated {file_path}")
-                else:
-                    print(f"Update for {file_path} skipped.")
+    return any(updates)
 
 def main():
-    script_name = os.path.basename(__file__)  # Get the name of the current script
+    script_name = os.path.basename(__file__)
 
-    # First, check if the script itself needs an update
     if update_script("GreenBeanGravy/FA11y", script_name):
         print("Script updated. Please restart the script to use the updated version.")
         return
 
-    if check_for_updates("GreenBeanGravy/FA11y", script_name):
-        update_mode = input("Updates available. Press Enter to update all files automatically, type 'manual' to select updates manually, or type 'skip' to skip updates: ").strip().lower()
-        
-        if update_mode == 'skip':
-            print("Update process skipped.")
-        else:
-            process_updates("GreenBeanGravy/FA11y", get_repo_files("GreenBeanGravy/FA11y"), update_mode, script_name)
-            speaker.speak("Updates processed.")
+    repo_files = get_repo_files("GreenBeanGravy/FA11y")
+    update_mode = input("Press Enter to update all files automatically, type 'manual' to select updates manually, or type 'skip' to skip updates: ").strip().lower()
+
+    if update_mode == 'skip':
+        print("Update process skipped.")
     else:
-        print("You are on the latest version!")
-        speaker.speak("You are on the latest version!")
+        updates_available = process_updates("GreenBeanGravy/FA11y", repo_files, update_mode, script_name)
+        if updates_available:
+            speaker.speak("Updates processed.")
+        else:
+            print("You are on the latest version!")
+            speaker.speak("You are on the latest version!")
 
     if os.path.exists('requirements.txt'):
         print("Installing packages from requirements.txt...")
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print("All updates applied!")
         speaker.speak("All updates applied!")
 
