@@ -1,13 +1,15 @@
-Rebel's Roost,759,301
-Lavish Lair,916,376
-Classy Courts,1130,299
-The Underworld,676,418
-Grim Gate,775,545
-Restored Reels,905,610
-Reckless Railways,1119,535
-Grand Glacier,1295,512
+Rebel's Roost,743,234
+Lavish Lair,916,334
+Classy Courts,1157,254
+The Underworld,647,408
+Grim Gate,750,512
+Restored Reels,915,581
+Reckless Railways,1153,511
+Grand Glacier,1342,523
 Pleasant Piazza,745,675
-Fencing Fields,915,723
-Mount Olympus,1172,792
-Snooty Steppes,723,879
-Brawler's Battleground,1165,922
+Nitrodrome,910,741
+Mount Olympus,1219,800
+Sandy Steppes,700,855
+Brutal Beachhead,788,982
+Redline Rig,1035,963
+Brawler's Battleground,1187,932
