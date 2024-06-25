@@ -4,6 +4,7 @@ import pyautogui
 from accessible_output2.outputs.auto import Auto
 from typing import Tuple, Optional, Dict
 from functools import lru_cache
+import os
 
 speaker = Auto()
 
@@ -23,22 +24,26 @@ def find_object(icon_path: str, similarity_threshold: float) -> Optional[Tuple[i
     similarity, location = find_image_on_screen(icon, screen)
     return location if similarity >= similarity_threshold else None
 
-OBJECT_CONFIGS: Dict[str, Tuple[str, float]] = {
-    'the_train': ('icons/The Train.png', 0.7),
-    'combat_cache': ('icons/Combat Cache.png', 0.65),
-    'storm_tower': ('icons/Storm Tower.png', 0.7),
-    'reboot': ('icons/Reboot.png', 0.7)
-}
+def load_icon_configs() -> Dict[str, Tuple[str, float]]:
+    icon_folder = 'icons'
+    object_configs = {}
+    
+    for filename in os.listdir(icon_folder):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            object_name = os.path.splitext(filename)[0].lower().replace(' ', '_')
+            icon_path = os.path.join(icon_folder, filename)
+            # You might want to adjust the threshold based on your needs
+            threshold = 0.7
+            object_configs[object_name] = (icon_path, threshold)
+    
+    return object_configs
 
-def create_finder_function(object_name: str) -> callable:
-    icon_path, threshold = OBJECT_CONFIGS[object_name]
-    return lambda: find_object(icon_path, threshold)
-
-find_the_train = create_finder_function('the_train')
-find_combat_cache = create_finder_function('combat_cache')
-find_storm_tower = create_finder_function('storm_tower')
-find_reboot = create_finder_function('reboot')
+OBJECT_CONFIGS = load_icon_configs()
 
 if __name__ == "__main__":
-    # Add any test code here if needed
-    pass
+    print("Available objects:", list(OBJECT_CONFIGS.keys()))
+    # You can add test code here if needed
+    # For example:
+    # for object_name, (icon_path, threshold) in OBJECT_CONFIGS.items():
+    #     result = find_object(icon_path, threshold)
+    #     print(f"{object_name}: {result}")

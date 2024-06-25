@@ -3,8 +3,10 @@ import threading
 import time
 import pyautogui
 import ctypes
+import configparser
 from accessible_output2.outputs.auto import Auto
 from functools import partial
+from lib.object_finder import OBJECT_CONFIGS
 
 speaker = Auto()
 
@@ -12,7 +14,8 @@ speaker = Auto()
 with open('POI.txt', 'r') as file:
     pois_from_file = [tuple(line.strip().split(',')) for line in file]
 
-game_objects = [("Combat Cache", "0", "0"), ("Storm Tower", "0", "0"), ("The Train", "0", "0"), ("Reboot", "0", "0")]
+# Game objects are now dynamically generated from OBJECT_CONFIGS
+game_objects = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
 
 VK_RIGHT_BRACKET = 0xDD
 current_poi_set = 0
@@ -35,20 +38,26 @@ def update_config_file(selected_poi_name):
     custom_pois = load_custom_pois()
     combined_pois = pois_from_file + custom_pois
 
-    with open('CONFIG.txt', 'r+') as file:
-        lines = file.readlines()
-        file.seek(0)
-        for line in lines:
-            if line.strip().startswith('selected_poi'):
-                if selected_poi_name.lower() in [poi[0].lower() for poi in game_objects + [("Safe Zone", "0", "0"), ("Closest", "0", "0")]]:
-                    file.write(f'selected_poi = {selected_poi_name.lower()}, 0, 0\n')
-                else:
-                    poi_entry = next((poi for poi in combined_pois if poi[0].lower() == selected_poi_name.lower()), None)
-                    if poi_entry:
-                        file.write(f'selected_poi = {poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}\n')
-            else:
-                file.write(line)
-        file.truncate()
+    config = configparser.ConfigParser()
+    config.read('CONFIG.txt')
+    
+    if 'POI' not in config:
+        config['POI'] = {}
+
+    if selected_poi_name.lower() in [poi[0].lower() for poi in game_objects]:
+        config['POI']['selected_poi'] = f'{selected_poi_name.lower()}, 0, 0'
+    else:
+        poi_entry = next((poi for poi in combined_pois if poi[0].lower() == selected_poi_name.lower()), None)
+        if poi_entry:
+            config['POI']['selected_poi'] = f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
+        else:
+            config['POI']['selected_poi'] = 'none, 0, 0'
+
+    with open('CONFIG.txt', 'w') as configfile:
+        config.write(configfile)
+
+# Add this at the top of your gui.py file, outside of any function
+initial_focus_set = False
 
 def select_poi_tk():
     root = tk.Tk()
@@ -91,28 +100,40 @@ def select_poi_tk():
             speak("No POIs available. Please add POIs.")
             return
 
-        for poi, _, _ in pois_to_use:
-            tk.Button(buttons_frame, text=poi, command=partial(select_poi, poi)).pack()
+        buttons = []
+        for poi in pois_to_use:
+            poi_name = poi[0] if isinstance(poi, tuple) else poi
+            button = tk.Button(buttons_frame, text=poi_name, command=partial(select_poi, poi_name))
+            button.pack()
+            buttons.append(button)
 
-        if buttons_frame.winfo_children():
-            first_button = buttons_frame.winfo_children()[0]
-            first_button.focus_set()
-            threading.Thread(target=delayed_speak, args=(first_button.cget("text"),), daemon=True).start()
+        if buttons:
+            buttons[0].focus_set()
+            root.after(100, lambda: delayed_speak(buttons[0]['text']))
 
     def navigate(event):
         buttons = [w for w in buttons_frame.winfo_children() if isinstance(w, tk.Button)]
         if not buttons:
             return
-        current = buttons.index(root.focus_get()) if root.focus_get() in buttons else -1
-        next_index = (current + (1 if event.keysym == 'Down' else -1)) % len(buttons)
+        focused = root.focus_get()
+        if focused in buttons:
+            current = buttons.index(focused)
+            next_index = (current + (1 if event.keysym == 'Down' else -1)) % len(buttons)
+        else:
+            next_index = 0
         buttons[next_index].focus_set()
-        speak(buttons[next_index].cget("text"))
+        speak(buttons[next_index]['text'])
+
+    def on_return(event):
+        focused = root.focus_get()
+        if isinstance(focused, tk.Button):
+            select_poi(focused['text'])
 
     root.bind('<Tab>', lambda e: refresh_buttons(True))
     root.bind('<Shift-Tab>', lambda e: refresh_buttons(False))
     root.bind('<Up>', navigate)
     root.bind('<Down>', navigate)
-    root.bind('<Return>', lambda e: select_poi(root.focus_get().cget("text")))
+    root.bind('<Return>', on_return)
 
     refresh_buttons(initial=True)
 
@@ -152,17 +173,17 @@ def create_gui(coordinates):
     root.focus_force()
     root.mainloop()
 
-def check_and_toggle_key(key, key_down, action):
-    current_state = bool(ctypes.windll.user32.GetAsyncKeyState(key) & 0x8000)
-    if current_state and not key_down:
-        action()
-    return current_state
-
 def start_gui_activation():
     right_bracket_key_down = False
     while True:
         right_bracket_key_down = check_and_toggle_key(VK_RIGHT_BRACKET, right_bracket_key_down, select_poi_tk)
         time.sleep(0.01)
+
+def check_and_toggle_key(key, key_down, action):
+    current_state = bool(ctypes.windll.user32.GetAsyncKeyState(key) & 0x8000)
+    if current_state and not key_down:
+        action()
+    return current_state
 
 if __name__ == "__main__":
     start_gui_activation()

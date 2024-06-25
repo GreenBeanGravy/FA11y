@@ -4,7 +4,7 @@ import pyautogui
 import configparser
 from accessible_output2.outputs.auto import Auto
 from lib.storm import start_storm_detection
-from lib.object_finder import find_the_train, find_combat_cache, find_storm_tower, find_reboot
+from lib.object_finder import OBJECT_CONFIGS, find_object
 import lib.guis.gui as gui
 
 pyautogui.FAILSAFE = False
@@ -25,8 +25,12 @@ def find_closest_poi(icon_location, poi_list):
 
 def load_config():
     config = configparser.ConfigParser()
-    config.read('config.txt')
-    return tuple(config['POI']['selected_poi'].split(', '))
+    config.read('CONFIG.txt')
+    try:
+        return tuple(config['POI']['selected_poi'].split(', '))
+    except (KeyError, configparser.NoSectionError):
+        # If 'selected_poi' or 'POI' section is not found, return a default value
+        return ('none', '0', '0')
 
 def get_relative_direction(front_vector, poi_vector):
     compass_brackets = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
@@ -72,13 +76,13 @@ def find_player_icon_location():
 
 def handle_poi_selection(selected_poi, center_mass_screen):
     special_poi_handlers = {
-        'the train': find_the_train,
-        'combat cache': find_combat_cache,
-        'storm tower': find_storm_tower,
-        'reboot': find_reboot,
         'safe zone': start_storm_detection,
         'closest': lambda: find_closest_poi(center_mass_screen, load_poi_from_file()) if center_mass_screen else (None, None)
     }
+    
+    # Dynamically add object finders to special_poi_handlers
+    for object_name in OBJECT_CONFIGS:
+        special_poi_handlers[object_name] = lambda name=object_name: find_object(*OBJECT_CONFIGS[name])
     
     poi_name = selected_poi[0].lower()
     if poi_name in special_poi_handlers:
@@ -144,4 +148,5 @@ def process_screenshot(selected_coordinates, poi_name):
 
 if __name__ == "__main__":
     # Add any standalone testing or execution code here
-    pass
+    print("Available objects:", list(OBJECT_CONFIGS.keys()))
+    # You can test specific functionality here
