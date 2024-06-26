@@ -2,9 +2,7 @@ import subprocess
 import os
 import sys
 import importlib.util
-from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-import requests
 
 def check_and_install_module(module):
     try:
@@ -19,15 +17,11 @@ def check_and_install_module(module):
         return False
 
 def install_required_modules():
-    modules = ['requests']
+    modules = ['requests', 'concurrent.futures']
     print("Checking and installing required modules...")
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(check_and_install_module, modules))
-    
-    if any(results):
-        print("All required modules have been installed.")
-    else:
-        print("All required modules were already installed.")
+    for module in modules:
+        check_and_install_module(module)
+    print("All required modules have been checked.")
 
 def install_accessible_output2():
     module = 'accessible_output2'
@@ -49,6 +43,7 @@ def install_accessible_output2():
     return False
 
 def download_folder(repo, branch, folder):
+    import requests
     url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
     try:
         response = requests.get(url)
@@ -73,10 +68,26 @@ def install_required_modules_and_whls():
     if not os.path.exists('whls'):
         download_folder("GreenBeanGravy/FA11y", "main", "whls")
 
+def create_mock_imp():
+    class MockImp:
+        @staticmethod
+        def is_frozen(arg=None):
+            if arg == "__main__":
+                return hasattr(sys, "frozen") or '__compiled__' in globals()
+            return hasattr(sys, 'frozen') or hasattr(sys, 'importers') or getattr(sys, 'frozen', False)
+
+    sys.modules['imp'] = MockImp()
+
 install_required_modules_and_whls()
 install_accessible_output2()
 
+# Check Python version and create mock imp if necessary
+if sys.version_info >= (3, 12):
+    create_mock_imp()
+
+# Now that we've ensured all required modules are installed and mocked if necessary, we can safely import them
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from accessible_output2.outputs.auto import Auto
 
 speaker = Auto()
