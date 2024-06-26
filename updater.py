@@ -4,25 +4,22 @@ import sys
 import importlib.util
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-
-def check_python_version():
-    major, minor = sys.version_info[:2]
-    if (major == 3 and minor in (9, 10)):
-        return True
-    print(f"You are using Python {major}.{minor}. This script is optimized for Python 3.9 or 3.10.")
-    return False
+import requests
 
 def check_and_install_module(module):
-    if importlib.util.find_spec(module) is None:
-        print(f"Installing {module}...")
-        subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
-                       stdout=subprocess.DEVNULL, 
-                       stderr=subprocess.DEVNULL)
-        return True  # Module was installed
-    return False  # Module was already installed
+    try:
+        if importlib.util.find_spec(module) is None:
+            print(f"Installing {module}...")
+            subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        return False
+    except subprocess.CalledProcessError:
+        print(f"Failed to install {module}. Please install it manually.")
+        return False
 
 def install_required_modules():
-    modules = ['requests', 'accessible_output2']
+    modules = ['requests']
     print("Checking and installing required modules...")
     with ThreadPoolExecutor() as executor:
         results = list(executor.map(check_and_install_module, modules))
@@ -32,7 +29,53 @@ def install_required_modules():
     else:
         print("All required modules were already installed.")
 
-install_required_modules()
+def install_accessible_output2():
+    module = 'accessible_output2'
+    if importlib.util.find_spec(module) is None:
+        print(f"{module} not found. Attempting to install from whl file...")
+        wheel_path = os.path.join(os.getcwd(), 'whls', 'accessible_output2-0.17-py2.py3-none-any.whl')
+        try:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print(f"{module} installed successfully from whl file.")
+        except subprocess.CalledProcessError:
+            print(f"Failed to install {module} from whl file. Attempting to install using pip...")
+            try:
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                print(f"{module} installed successfully using pip.")
+            except subprocess.CalledProcessError:
+                print(f"Failed to install {module} using pip.")
+                return False
+        return True
+    return False
+
+def download_folder(repo, branch, folder):
+    url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        files = response.json()
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        for file in files:
+            if file['type'] == 'file':
+                file_url = file['download_url']
+                file_path = os.path.join(folder, file['name'])
+                file_content = requests.get(file_url).content
+                with open(file_path, 'wb') as f:
+                    f.write(file_content)
+        print(f"{folder} folder downloaded successfully.")
+    except requests.RequestException as e:
+        print(f"Failed to download {folder} folder. Error: {e}")
+        sys.exit(1)
+
+def install_required_modules_and_whls():
+    install_required_modules()
+    if not os.path.exists('whls'):
+        download_folder("GreenBeanGravy/FA11y", "main", "whls")
+
+install_required_modules_and_whls()
+install_accessible_output2()
+
 import requests
 from accessible_output2.outputs.auto import Auto
 
@@ -41,16 +84,23 @@ speaker = Auto()
 @lru_cache(maxsize=None)
 def get_repo_files(repo, branch='main'):
     url = f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1"
-    response = requests.get(url)
-    if response.status_code == 200:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
         tree = response.json().get('tree', [])
         return [item['path'] for item in tree if item['type'] == 'blob']
-    return []
+    except requests.RequestException as e:
+        print(f"Failed to fetch repository files. Error: {e}")
+        return []
 
 def download_file(repo, file_path):
     url = f"https://raw.githubusercontent.com/{repo}/main/{file_path}"
-    response = requests.get(url)
-    return response.content if response.status_code == 200 else None
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.content
+    except requests.RequestException:
+        return None
 
 def file_needs_update(local_path, github_content):
     if not os.path.exists(local_path):
@@ -96,23 +146,37 @@ def check_and_update_file(repo, file_path, script_name, update_mode):
     if update_mode == 'check':
         return True
 
-    if update_mode != 'manual':
-        directory_name = os.path.dirname(file_path)
-        if directory_name:
-            os.makedirs(directory_name, exist_ok=True)
-        with open(file_path, 'wb') as file:
-            file.write(github_content)
-        print(f"Updated {file_path}")
-    else:
-        choice = input(f"Update available for {file_path}. Do you want to update? (Y/N): ").strip().lower()
-        if choice == 'y':
-            with open(file_path, 'wb') as file:
-                file.write(github_content)
-            print(f"Updated {file_path}")
-        else:
-            print(f"Update for {file_path} skipped.")
-
+    directory_name = os.path.dirname(file_path)
+    if directory_name:
+        os.makedirs(directory_name, exist_ok=True)
+    with open(file_path, 'wb') as file:
+        file.write(github_content)
+    print(f"Updated {file_path}")
     return True
+
+def update_icons_folder(repo, branch='main'):
+    folder = "icons"
+    url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        remote_files = {file['name'] for file in response.json() if file['type'] == 'file'}
+        
+        if os.path.exists(folder):
+            local_files = set(os.listdir(folder))
+            files_to_remove = local_files - remote_files
+            
+            for file in files_to_remove:
+                os.remove(os.path.join(folder, file))
+                print(f"Removed {file} from icons folder.")
+            
+            return len(files_to_remove) > 0
+        else:
+            return False
+    except requests.RequestException as e:
+        print(f"Failed to fetch icons folder contents. Error: {e}")
+        return False
 
 def process_updates(repo, repo_files, update_mode, script_name):
     if update_mode == 'skip':
@@ -137,25 +201,32 @@ def main():
     updates_available = any(check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name, 'check')
                             for file_path in repo_files)
 
-    if not updates_available:
+    # Update icons folder
+    icons_updated = update_icons_folder("GreenBeanGravy/FA11y")
+
+    if not updates_available and not icons_updated:
         print("You are on the latest version!")
         speaker.speak("You are on the latest version!")
         return
 
-    update_mode = input("Updates are available. Press Enter to update all files automatically, type 'manual' to select updates manually, or type 'skip' to skip updates: ").strip().lower()
+    update_mode = input("Updates are available. Press Enter to update all files automatically, or type 'skip' to skip updates: ").strip().lower()
 
     if update_mode == 'skip':
         print("Update process skipped.")
     else:
         updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, update_mode, script_name)
-        if updates_processed:
+        if updates_processed or icons_updated:
             speaker.speak("Updates processed.")
 
     if os.path.exists('requirements.txt'):
         print("Installing packages from requirements.txt...")
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("All updates applied!")
-        speaker.speak("All updates applied!")
+        try:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], 
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print("All updates applied!")
+            speaker.speak("All updates applied!")
+        except subprocess.CalledProcessError:
+            print("Failed to install packages from requirements.txt. Please install them manually.")
 
 if __name__ == "__main__":
     main()
