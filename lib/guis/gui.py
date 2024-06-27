@@ -140,36 +140,6 @@ def select_poi_tk():
     root.focus_force()
     root.mainloop()
 
-def create_gui(coordinates):
-    root = tk.Tk()
-    root.title("POI Name Textbox")
-    root.attributes('-topmost', True)
-
-    entry = tk.Entry(root, width=20)
-    entry.pack()
-    entry.focus_set()
-
-    def on_enter(event):
-        poi_name = entry.get()
-        if poi_name:
-            with open('CUSTOM_POI.txt', 'a') as file:
-                file.write(f'{poi_name},{coordinates}\n')
-            speak(f"POI {poi_name} added")
-        root.destroy()
-
-    def on_up(event):
-        content = entry.get()
-        speak(content if content else "Text box is empty")
-
-    entry.bind('<Return>', on_enter)
-    entry.bind('<Up>', on_up)
-
-    root.update()
-    root.deiconify()
-    root.lift()
-    root.focus_force()
-    root.mainloop()
-
 def start_gui_activation():
     right_bracket_key_down = False
     while True:
