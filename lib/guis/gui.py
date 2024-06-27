@@ -36,7 +36,7 @@ def delayed_speak(s):
 
 def update_config_file(selected_poi_name):
     custom_pois = load_custom_pois()
-    combined_pois = pois_from_file + custom_pois
+    combined_pois = pois_from_file + custom_pois + [("Safe Zone", "0", "0"), ("Closest", "0", "0")] + game_objects
 
     config = configparser.ConfigParser()
     config.read('CONFIG.txt')
@@ -44,14 +44,11 @@ def update_config_file(selected_poi_name):
     if 'POI' not in config:
         config['POI'] = {}
 
-    if selected_poi_name.lower() in [poi[0].lower() for poi in game_objects]:
-        config['POI']['selected_poi'] = f'{selected_poi_name.lower()}, 0, 0'
+    poi_entry = next((poi for poi in combined_pois if poi[0].lower() == selected_poi_name.lower()), None)
+    if poi_entry:
+        config['POI']['selected_poi'] = f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
     else:
-        poi_entry = next((poi for poi in combined_pois if poi[0].lower() == selected_poi_name.lower()), None)
-        if poi_entry:
-            config['POI']['selected_poi'] = f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
-        else:
-            config['POI']['selected_poi'] = 'none, 0, 0'
+        config['POI']['selected_poi'] = 'none, 0, 0'
 
     with open('CONFIG.txt', 'w') as configfile:
         config.write(configfile)

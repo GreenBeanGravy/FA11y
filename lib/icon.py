@@ -48,10 +48,14 @@ def icon_detection_cycle(selected_poi, is_create_custom_poi):
     center_mass_screen = find_player_icon_location()
     if not center_mass_screen:
         speaker.speak("Player icon not located.")
-        return
-
+        # Continue with the POI actions even if player icon is not found
+    
     if is_create_custom_poi:
-        gui.create_gui(f"{center_mass_screen[0]},{center_mass_screen[1]}")
+        if center_mass_screen:
+            gui.create_gui(f"{center_mass_screen[0]},{center_mass_screen[1]}")
+        else:
+            speaker.speak("Cannot create custom POI without player icon location.")
+            return
     else:
         if selected_poi[0].lower() == 'none':
             speaker.speak("No POI selected. Please select a POI first.")
@@ -59,7 +63,7 @@ def icon_detection_cycle(selected_poi, is_create_custom_poi):
 
         poi_data = handle_poi_selection(selected_poi, center_mass_screen)
         if poi_data[1]:  # Check if coordinates are not None
-            perform_poi_actions(poi_data, selected_poi)
+            perform_poi_actions(poi_data, selected_poi, center_mass_screen)
         else:
             speaker.speak(f"{poi_data[0]} not located.")
 
@@ -82,13 +86,15 @@ def handle_poi_selection(selected_poi, center_mass_screen):
     
     # Dynamically add object finders to special_poi_handlers
     for object_name in OBJECT_CONFIGS:
-        special_poi_handlers[object_name] = lambda name=object_name: find_object(*OBJECT_CONFIGS[name])
+        special_poi_handlers[object_name] = lambda name=object_name: find_object(*OBJECT_CONFIGS[name], player_position=center_mass_screen)
     
     poi_name = selected_poi[0].lower()
     if poi_name in special_poi_handlers:
         result = special_poi_handlers[poi_name]()
         if poi_name == 'closest':
             return result  # This now returns (poi_name, coordinates) directly
+        elif poi_name == 'safe zone':
+            return 'Safe Zone', result  # Return the result directly for 'safe zone'
         else:
             return poi_name, result
     else:
@@ -98,7 +104,7 @@ def handle_poi_selection(selected_poi, center_mass_screen):
             print(f"Error: Invalid POI coordinates for {poi_name}: {selected_poi[1]}, {selected_poi[2]}")
             return poi_name, None
 
-def perform_poi_actions(poi_data, selected_poi):
+def perform_poi_actions(poi_data, selected_poi, center_mass_screen):
     if isinstance(poi_data, tuple) and len(poi_data) == 2:
         poi_name, coordinates = poi_data
     else:
@@ -110,7 +116,10 @@ def perform_poi_actions(poi_data, selected_poi):
             pyautogui.moveTo(int(x), int(y), duration=0.01)
             pyautogui.click()
             pyautogui.click(button='right')
-            process_screenshot((int(x), int(y)), poi_name)
+            if center_mass_screen:
+                process_screenshot((int(x), int(y)), poi_name, center_mass_screen)
+            else:
+                speaker.speak(f"Clicked on {poi_name} at coordinates {x}, {y}")
         except ValueError:
             print(f"Error: Invalid POI coordinates for {poi_name}: {x}, {y}")
             speaker.speak(f"Error: Invalid POI coordinates for {poi_name}")
@@ -118,7 +127,7 @@ def perform_poi_actions(poi_data, selected_poi):
         print(f"Error: Invalid POI location for {poi_name}")
         speaker.speak(f"Error: Invalid POI location for {poi_name}")
 
-def process_screenshot(selected_coordinates, poi_name):
+def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
     screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
     roi_color = screenshot[4 * ROI_START_ORIG[1]:4 * ROI_END_ORIG[1], 4 * ROI_START_ORIG[0]:4 * ROI_END_ORIG[0]]
     roi_gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
@@ -144,7 +153,7 @@ def process_screenshot(selected_coordinates, poi_name):
             message = f"At {poi_name}" if distance <= 40 else f"{poi_name} is {relative_position} {int(distance)} meters"
             speaker.speak(message)
     else:
-        speaker.speak("Player icon not located.")
+        speaker.speak(f"Clicked on {poi_name} at coordinates {selected_coordinates[0]}, {selected_coordinates[1]}")
 
 if __name__ == "__main__":
     # Add any standalone testing or execution code here
