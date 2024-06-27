@@ -93,7 +93,7 @@ def select_poi_tk():
             speak("Game Objects")
 
         if not pois_to_use:
-            tk.Label(buttons_frame, text="No POIs available. Please add POIs.").pack()
+            tk.Label(buttons_frame, text="No custom P O Is available. Go make some!").pack()
             speak("No POIs available. Please add POIs.")
             return
 
@@ -151,6 +151,88 @@ def check_and_toggle_key(key, key_down, action):
     if current_state and not key_down:
         action()
     return current_state
+
+def create_gui(coordinates):
+    root = tk.Tk()
+    root.title("Enter custom P O I name")
+    root.attributes('-topmost', True)
+
+    def speak_element(text):
+        # Add spaces between P, O, and I when speaking
+        spoken_text = text.replace("POI", "P O I")
+        speaker.speak(spoken_text)
+
+    speak_element("Enter custom P O I name")
+
+    label = tk.Label(root, text="Enter POI Name:")
+    label.pack(pady=5)
+    speak_element("Enter P O I Name")
+
+    name_entry = tk.Entry(root)
+    name_entry.pack(pady=5)
+
+    def on_key_press(event):
+        if event.char:
+            speak_element(event.char)
+
+    name_entry.bind('<KeyPress>', on_key_press)
+
+    def save_poi():
+        poi_name = name_entry.get().strip()
+        if poi_name:
+            with open('CUSTOM_POI.txt', 'a') as file:
+                file.write(f"{poi_name},{coordinates}\n")
+            speak_element(f"Custom P O I {poi_name} saved")
+            root.destroy()
+            # Perform a left click to refocus on the Fortnite window
+            pyautogui.click()
+        else:
+            speak_element("Please enter a name for the P O I")
+
+    def on_enter(event):
+        save_poi()
+
+    def on_up_arrow(event):
+        content = name_entry.get()
+        speak_element(content if content else "Text box is empty")
+
+    def on_tab(event):
+        focused = root.focus_get()
+        if focused == name_entry:
+            save_button.focus_set()
+            speak_element("Save P O I button")
+        else:
+            name_entry.focus_set()
+            speak_element("P O I Name entry field")
+        return "break"  # Prevents default tab behavior
+
+    save_button = tk.Button(root, text="Save POI", command=save_poi)
+    save_button.pack(pady=10)
+
+    root.bind('<Return>', on_enter)
+    root.bind('<Up>', on_up_arrow)
+    root.bind('<Tab>', on_tab)
+
+    def on_escape(event):
+        speak_element("Cancelling Custom P O I creation")
+        root.destroy()
+
+    root.bind('<Escape>', on_escape)
+
+    root.geometry("300x150")
+
+    # Ensure window comes into focus
+    def focus_window():
+        root.deiconify()  # Ensure the window is not minimized
+        root.focus_force()  # Force focus on the window
+        root.lift()  # Raise the window to the top
+        name_entry.focus_set()  # Set focus to the entry field
+        speak_element("P O I Name entry field")
+
+    # Use after() to call focus_window after the window has been created
+    root.after(100, focus_window)
+
+    root.mainloop()
 
 if __name__ == "__main__":
     start_gui_activation()
