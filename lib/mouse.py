@@ -34,24 +34,28 @@ get_async_key_state = ctypes.windll.user32.GetAsyncKeyState
 get_key_state = ctypes.windll.user32.GetKeyState
 
 def smooth_move_mouse(dx: int, dy: int, duration: float):
+    print(f"Smooth moving mouse by dx: {dx}, dy: {dy}, duration: {duration}")
     def move():
         steps = 5
         step_dx, step_dy = dx // steps, dy // steps
         step_duration = duration / steps
         x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(mouseData=0, dwFlags=MOUSEEVENTF_MOVE, time=0, dwExtraInfo=None))
 
-        for _ in range(steps):
+        for i in range(steps):
             x.ii.dx, x.ii.dy = step_dx, step_dy
             send_input(1, ctypes.byref(x), ctypes.sizeof(x))
             time.sleep(step_duration)
+            print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy}")
 
     threading.Thread(target=move).start()
 
 def mouse_scroll(amount: int):
+    print(f"Scrolling mouse by amount: {amount}")
     x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=amount, dwFlags=MOUSEEVENTF_WHEEL, time=0, dwExtraInfo=None))
     send_input(1, ctypes.byref(x), ctypes.sizeof(x))
 
 def _mouse_click(down_flag: int, up_flag: int):
+    print(f"Mouse click: down_flag: {down_flag}, up_flag: {up_flag}")
     down = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=down_flag, time=0, dwExtraInfo=None))
     up = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=up_flag, time=0, dwExtraInfo=None))
     send_input(1, ctypes.byref(down), ctypes.sizeof(down))
@@ -65,6 +69,7 @@ right_mouse_up = lambda: _mouse_click(0, MOUSEEVENTF_RIGHTUP)
 is_numlock_on = lambda: get_key_state(VK_NUMLOCK) & 1 != 0
 
 def mouse_movement():
+    print("Starting mouse movement function")
     numpad_keys = [VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9, VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6]
     control_keys = [VK_LCONTROL, VK_RCONTROL]
     
@@ -90,10 +95,15 @@ def mouse_movement():
 
     while True:
         numlock_on = is_numlock_on()
+        if numlock_on:
+            print("Numlock is on")
+        else:
+            print("Numlock is off")
 
         for key in numpad_keys:
             key_current_state = bool(get_async_key_state(key) & 0x8000)
             if key_current_state and not key_states[key]:
+                print(f"Numpad key pressed: {key}")
                 action = numpad_actions.get(key)
                 if action:
                     action()
@@ -103,6 +113,7 @@ def mouse_movement():
             for key in control_keys:
                 key_current_state = bool(get_async_key_state(key) & 0x8000)
                 if key_current_state != key_states[key]:
+                    print(f"Control key state changed: {key}")
                     down_action, up_action = control_actions.get(key, (None, None))
                     if key_current_state and down_action:
                         down_action()
@@ -110,5 +121,8 @@ def mouse_movement():
                         up_action()
                 key_states[key] = key_current_state
 
+        time.sleep(0.01)
+
 if __name__ == "__main__":
+    print("Starting mouse movement")
     mouse_movement()
