@@ -108,8 +108,7 @@ def read_config():
     return {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS')}
 
 def key_listener(key_bindings):
-    print("Key Listener started")
-
+    
     while True:
         numlock_on = is_numlock_on()
 
@@ -158,7 +157,6 @@ def main():
     }
 
     if mouse_keys_enabled:
-        print("Mouse Movement is running in the background!")
         action_handlers.update({
             'fire': left_mouse_down,
             'target': right_mouse_down,
@@ -175,8 +173,7 @@ def main():
         })
 
     key_bindings = read_config()
-
-    print("Set Key Binds, Starting Key Thread")
+    
     threading.Thread(target=key_listener, args=(key_bindings,), daemon=True).start()
 
     threading.Thread(target=start_gui_activation, daemon=True).start()
