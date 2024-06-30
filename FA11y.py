@@ -19,8 +19,6 @@ import time
 import ctypes
 import keyboard
 import subprocess
-import requests
-import winreg
 
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection, create_custom_poi
@@ -32,7 +30,6 @@ from lib.height_checker import start_height_checker
 # Constants
 VK_NUMLOCK = 0x90
 CONFIG_FILE = 'config.txt'
-LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
 DEFAULT_CONFIG = """[SETTINGS]
 MouseKeys = false
 UsingResetSensitivity = false
@@ -73,42 +70,6 @@ VK_KEY_CODES = {
 speaker = Auto()
 key_state = {}
 action_handlers = {}
-
-def check_and_install_legendary():
-    def is_legendary_in_path():
-        return any(os.path.exists(os.path.join(path, "legendary.exe")) for path in os.environ["PATH"].split(os.pathsep))
-
-    if is_legendary_in_path():
-        message = "legendary.exe already exists in PATH."
-        print(message)
-        speaker.speak(message)
-        return
-
-    # Download legendary.exe
-    response = requests.get(LEGENDARY_URL)
-    if response.status_code == 200:
-        with open("legendary.exe", "wb") as file:
-            file.write(response.content)
-        print("legendary.exe downloaded successfully.")
-
-        # Add the current directory to PATH
-        current_dir = os.getcwd()
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_ALL_ACCESS)
-        path_value, _ = winreg.QueryValueEx(key, "PATH")
-        new_path = f"{path_value};{current_dir}"
-        winreg.SetValueEx(key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path)
-        winreg.CloseKey(key)
-
-        # Broadcast WM_SETTINGCHANGE message
-        ctypes.windll.user32.SendMessageW(0xFFFF, 0x001A, 0, "Environment")
-
-        message = "legendary.exe downloaded and added to PATH."
-        print(message)
-        speaker.speak(message)
-    else:
-        message = "Failed to download legendary.exe."
-        print(message)
-        speaker.speak(message)
 
 def is_numlock_on():
     return ctypes.windll.user32.GetKeyState(VK_NUMLOCK) & 1 != 0
@@ -195,9 +156,6 @@ def main():
     
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
-
-    # Check and install legendary.exe
-    check_and_install_legendary()
 
     # Check if auto-updates are enabled
     if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
