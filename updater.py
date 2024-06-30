@@ -175,19 +175,24 @@ def is_legendary_in_path():
     return shutil.which('legendary') is not None
 
 def verify_legendary():
-    try:
-        subprocess.run(['legendary', '--version'], check=True, capture_output=True)
-        print("Verified legendary.exe functionality")
+    if is_legendary_in_path():
+        print("legendary.exe found in PATH.")
         if speaker:
-            speaker.speak("Legendary is installed and working.")
-        return True
-    except subprocess.CalledProcessError:
-        print("Failed to verify legendary.exe functionality")
-        if speaker:
-            speaker.speak("Legendary is installed but not working properly.")
-        return False
-    except FileNotFoundError:
-        print("legendary.exe not found in PATH")
+            speaker.speak("Legendary is already installed.")
+        
+        try:
+            subprocess.run(['legendary', '--version'], check=True, capture_output=True)
+            print("Verified legendary.exe functionality.")
+            if speaker:
+                speaker.speak("Legendary is working properly.")
+            return True
+        except subprocess.CalledProcessError:
+            print("legendary.exe found in PATH but failed to execute.")
+            if speaker:
+                speaker.speak("Legendary is installed but not working properly.")
+            return False
+    else:
+        print("legendary.exe not found in PATH.")
         if speaker:
             speaker.speak("Legendary is not installed.")
         return False
@@ -213,6 +218,7 @@ def main():
     if not updates_available and not icons_updated and legendary_verified:
         if speaker:
             speaker.speak("You are on the latest version!")
+        print("You are on the latest version!")
         return
 
     updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
@@ -220,6 +226,7 @@ def main():
     if updates_processed or icons_updated:
         if speaker:
             speaker.speak("Updates processed.")
+        print("Updates processed.")
 
     if os.path.exists('requirements.txt'):
         try:
@@ -227,6 +234,7 @@ def main():
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if speaker:
                 speaker.speak("All updates applied!")
+            print("All updates applied!")
         except subprocess.CalledProcessError:
             pass
 
