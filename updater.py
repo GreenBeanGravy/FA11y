@@ -4,6 +4,7 @@ import sys
 import importlib.util
 from functools import lru_cache
 import shutil
+import winreg
 
 def check_and_install_module(module):
     try:
