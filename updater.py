@@ -4,15 +4,21 @@ import sys
 import importlib.util
 from functools import lru_cache
 import shutil
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def check_and_install_module(module):
     try:
         if importlib.util.find_spec(module) is None:
+            logging.info(f"Installing module: {module}")
             subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return True
         return False
     except subprocess.CalledProcessError:
+        logging.error(f"Failed to install module: {module}")
         return False
 
 def install_required_modules():
@@ -25,11 +31,14 @@ def install_accessible_output2():
     if importlib.util.find_spec(module) is None:
         wheel_path = os.path.join(os.getcwd(), 'whls', 'accessible_output2-0.17-py2.py3-none-any.whl')
         try:
+            logging.info(f"Installing {module} from wheel")
             subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError:
             try:
+                logging.info(f"Installing {module} from PyPI")
                 subprocess.run([sys.executable, '-m', 'pip', 'install', module], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except subprocess.CalledProcessError:
+                logging.error(f"Failed to install {module}")
                 return False
     return True
 
@@ -49,7 +58,9 @@ def download_folder(repo, branch, folder):
                 file_content = requests.get(file_url).content
                 with open(file_path, 'wb') as f:
                     f.write(file_content)
-    except requests.RequestException:
+        logging.info(f"Downloaded folder: {folder}")
+    except requests.RequestException as e:
+        logging.error(f"Failed to download folder {folder}: {e}")
         sys.exit(1)
 
 def install_required_modules_and_whls():
@@ -67,6 +78,7 @@ def create_mock_imp():
 
     sys.modules['imp'] = MockImp()
 
+logging.info("Starting updater script")
 install_required_modules_and_whls()
 ao2_available = install_accessible_output2()
 
@@ -80,8 +92,9 @@ if ao2_available:
     try:
         from accessible_output2.outputs.auto import Auto
         speaker = Auto()
+        logging.info("Accessible output initialized")
     except ImportError:
-        print("Failed to import accessible_output2. Speech output will be unavailable.")
+        logging.error("Failed to import accessible_output2. Speech output will be unavailable.")
         speaker = None
 else:
     speaker = None
@@ -94,7 +107,8 @@ def get_repo_files(repo, branch='main'):
         response.raise_for_status()
         tree = response.json().get('tree', [])
         return [item['path'] for item in tree if item['type'] == 'blob']
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logging.error(f"Failed to get repo files: {e}")
         return []
 
 def download_file(repo, file_path):
@@ -103,7 +117,8 @@ def download_file(repo, file_path):
         response = requests.get(url)
         response.raise_for_status()
         return response.content
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logging.error(f"Failed to download file {file_path}: {e}")
         return None
 
 def file_needs_update(local_path, github_content):
@@ -119,6 +134,7 @@ def update_script(repo, script_name):
 
     with open(script_name, 'wb') as file:
         file.write(github_content)
+    logging.info(f"Updated script: {script_name}")
     return True
 
 def check_and_update_file(repo, file_path, script_name):
@@ -127,6 +143,7 @@ def check_and_update_file(repo, file_path, script_name):
         if readme_content and file_needs_update('README.txt', readme_content):
             with open('README.txt', 'wb') as file:
                 file.write(readme_content)
+            logging.info("Updated README.txt")
             return True
         return False
 
@@ -145,6 +162,7 @@ def check_and_update_file(repo, file_path, script_name):
         os.makedirs(directory_name, exist_ok=True)
     with open(file_path, 'wb') as file:
         file.write(github_content)
+    logging.info(f"Updated file: {file_path}")
     return True
 
 def update_icons_folder(repo, branch='main'):
@@ -162,11 +180,13 @@ def update_icons_folder(repo, branch='main'):
             
             for file in files_to_remove:
                 os.remove(os.path.join(folder, file))
+                logging.info(f"Removed file from icons folder: {file}")
             
             return len(files_to_remove) > 0
         else:
             return False
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logging.error(f"Failed to update icons folder: {e}")
         return False
 
 def process_updates(repo, repo_files, script_name):
@@ -183,11 +203,11 @@ def verify_legendary():
     local_path = os.path.join(os.getcwd(), "legendary.exe")
 
     if os.path.exists(local_path):
-        print("legendary.exe found in the current directory.")
+        logging.info("legendary.exe found in the current directory.")
         if speaker:
             speaker.speak("Legendary is already downloaded.")
     else:
-        print("legendary.exe not found in the current directory. Attempting to download...")
+        logging.info("legendary.exe not found. Attempting to download...")
         if speaker:
             speaker.speak("Legendary not found. Attempting to download.")
         
@@ -196,11 +216,11 @@ def verify_legendary():
             response.raise_for_status()
             with open(local_path, 'wb') as file:
                 file.write(response.content)
-            print("Downloaded legendary.exe")
+            logging.info("Downloaded legendary.exe")
             if speaker:
                 speaker.speak("Legendary has been downloaded.")
         except requests.RequestException as e:
-            print(f"Failed to download legendary.exe: {e}")
+            logging.error(f"Failed to download legendary.exe: {e}")
             if speaker:
                 speaker.speak("Failed to download Legendary.")
             return False
@@ -208,12 +228,12 @@ def verify_legendary():
     # Verify functionality
     try:
         subprocess.run([local_path, '--version'], check=True, capture_output=True)
-        print("Verified legendary.exe functionality.")
+        logging.info("Verified legendary.exe functionality.")
         if speaker:
             speaker.speak("Legendary is working properly.")
         return True
     except subprocess.CalledProcessError:
-        print("legendary.exe found but failed to execute.")
+        logging.error("legendary.exe found but failed to execute.")
         if speaker:
             speaker.speak("Legendary is present but not working properly.")
         return False
@@ -224,7 +244,7 @@ def main():
     if update_script("GreenBeanGravy/FA11y", script_name):
         if speaker:
             speaker.speak("Script updated. Please restart the script to use the updated version.")
-        print("Script updated. Please restart the script to use the updated version.")
+        logging.info("Script updated. Please restart the script to use the updated version.")
         return
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
@@ -239,7 +259,7 @@ def main():
     if not updates_available and not icons_updated and legendary_verified:
         if speaker:
             speaker.speak("You are on the latest version!")
-        print("You are on the latest version!")
+        logging.info("You are on the latest version!")
         return
 
     updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
@@ -247,7 +267,7 @@ def main():
     if updates_processed or icons_updated:
         if speaker:
             speaker.speak("Updates processed.")
-        print("Updates processed.")
+        logging.info("Updates processed.")
 
     if os.path.exists('requirements.txt'):
         try:
@@ -255,9 +275,11 @@ def main():
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if speaker:
                 speaker.speak("All updates applied!")
-            print("All updates applied!")
-        except subprocess.CalledProcessError:
-            pass
+            logging.info("All updates applied!")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to install requirements: {e}")
+
+    logging.info("Update process completed")
 
 if __name__ == "__main__":
     main()
