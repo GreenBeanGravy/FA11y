@@ -3,6 +3,7 @@ import os
 import sys
 import importlib.util
 from functools import lru_cache
+import shutil
 
 def check_and_install_module(module):
     try:
@@ -170,14 +171,18 @@ def process_updates(repo, repo_files, script_name):
 
     return any(updates)
 
+def is_legendary_in_path():
+    return shutil.which('legendary') is not None
+
 def update_legendary():
     LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
     local_path = "legendary.exe"
 
-    # Delete existing legendary.exe if it exists
-    if os.path.exists(local_path):
-        os.remove(local_path)
-        print("Deleted existing legendary.exe")
+    if is_legendary_in_path():
+        print("legendary.exe already exists in PATH.")
+        if speaker:
+            speaker.speak("Legendary is already installed.")
+        return False
 
     # Download new legendary.exe
     try:
@@ -185,22 +190,44 @@ def update_legendary():
         response.raise_for_status()
         with open(local_path, 'wb') as file:
             file.write(response.content)
-        print("Downloaded new legendary.exe")
+        print("Downloaded legendary.exe")
+        
+        # Add the current directory to PATH temporarily
+        current_dir = os.getcwd()
+        os.environ['PATH'] = f"{current_dir}{os.pathsep}{os.environ['PATH']}"
+        
+        # Run legendary to ensure it works
+        subprocess.run(['legendary', '--version'], check=True, capture_output=True)
+        
+        print("Verified legendary.exe functionality")
         if speaker:
-            speaker.speak("Legendary has been updated.")
+            speaker.speak("Legendary has been installed and verified.")
+        
         return True
     except requests.RequestException as e:
         print(f"Failed to download legendary.exe: {e}")
         if speaker:
-            speaker.speak("Failed to update Legendary.")
+            speaker.speak("Failed to install Legendary.")
         return False
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to verify legendary.exe functionality: {e}")
+        if speaker:
+            speaker.speak("Failed to verify Legendary installation.")
+        return False
+    finally:
+        # Always remove the downloaded legendary.exe
+        if os.path.exists(local_path):
+            os.remove(local_path)
+            print("Removed downloaded legendary.exe")
 
 def main():
     script_name = os.path.basename(__file__)
 
     if update_script("GreenBeanGravy/FA11y", script_name):
         if speaker:
-            speaker.speak("Script updated. Please restart the script to use the updated version.")
+            speaker.speak("Script updated. Relaunching the updater.")
+        print("Script updated. Relaunching...")
+        os.execv(sys.executable, ['python'] + sys.argv)
         return
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
