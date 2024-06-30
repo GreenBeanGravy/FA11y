@@ -1,6 +1,15 @@
 [SETTINGS]
 MouseKeys = true
 UsingResetSensitivity = false
+EnableAutoUpdates = true
+
+[THREADS]
+EnableIconDetection = true
+EnableCustomPOI = true
+EnableGUIActivation = true
+EnableHeightChecker = true
+EnableHSRDetection = true
+
 [SCRIPT KEYBINDS]
 Locate Player Icon = `
 Create Custom POI = \
@@ -16,5 +25,6 @@ Turn Around = num 0
 Recenter = num 5
 Scroll Up = num 7
 Scroll Down = num 9
+
 [POI]
 selected_poi = closest, 0, 0
