@@ -7,40 +7,30 @@ from functools import lru_cache
 def check_and_install_module(module):
     try:
         if importlib.util.find_spec(module) is None:
-            print(f"Installing {module}...")
             subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return True
         return False
     except subprocess.CalledProcessError:
-        print(f"Failed to install {module}. Please install it manually.")
         return False
 
 def install_required_modules():
     modules = ['requests', 'concurrent.futures']
-    print("Checking and installing required modules...")
     for module in modules:
         check_and_install_module(module)
-    print("All required modules have been checked.")
 
 def install_accessible_output2():
     module = 'accessible_output2'
     if importlib.util.find_spec(module) is None:
-        print(f"{module} not found. Attempting to install from whl file...")
         wheel_path = os.path.join(os.getcwd(), 'whls', 'accessible_output2-0.17-py2.py3-none-any.whl')
         try:
-            subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            print(f"{module} installed successfully from whl file.")
+            subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError:
-            print(f"Failed to install {module} from whl file. Attempting to install using pip...")
             try:
-                subprocess.run([sys.executable, '-m', 'pip', 'install', module], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                print(f"{module} installed successfully using pip.")
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except subprocess.CalledProcessError:
-                print(f"Failed to install {module} using pip.")
                 return False
-        return True
-    return False
+    return True
 
 def download_folder(repo, branch, folder):
     import requests
@@ -58,9 +48,7 @@ def download_folder(repo, branch, folder):
                 file_content = requests.get(file_url).content
                 with open(file_path, 'wb') as f:
                     f.write(file_content)
-        print(f"{folder} folder downloaded successfully.")
-    except requests.RequestException as e:
-        print(f"Failed to download {folder} folder. Error: {e}")
+    except requests.RequestException:
         sys.exit(1)
 
 def install_required_modules_and_whls():
@@ -79,18 +67,19 @@ def create_mock_imp():
     sys.modules['imp'] = MockImp()
 
 install_required_modules_and_whls()
-install_accessible_output2()
+ao2_available = install_accessible_output2()
 
-# Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
     create_mock_imp()
 
-# Now that we've ensured all required modules are installed and mocked if necessary, we can safely import them
 import requests
 from concurrent.futures import ThreadPoolExecutor
-from accessible_output2.outputs.auto import Auto
 
-speaker = Auto()
+if ao2_available:
+    from accessible_output2.outputs.auto import Auto
+    speaker = Auto()
+else:
+    speaker = None
 
 @lru_cache(maxsize=None)
 def get_repo_files(repo, branch='main'):
@@ -100,8 +89,7 @@ def get_repo_files(repo, branch='main'):
         response.raise_for_status()
         tree = response.json().get('tree', [])
         return [item['path'] for item in tree if item['type'] == 'blob']
-    except requests.RequestException as e:
-        print(f"Failed to fetch repository files. Error: {e}")
+    except requests.RequestException:
         return []
 
 def download_file(repo, file_path):
@@ -124,23 +112,16 @@ def update_script(repo, script_name):
     if github_content is None or not file_needs_update(script_name, github_content):
         return False
 
-    choice = input("An update is available for the updater! Apply update? (Y/N): ").strip().lower()
-    if choice == 'y':
-        with open(script_name, 'wb') as file:
-            file.write(github_content)
-        print(f"Updated {script_name}")
-        return True
-    print(f"Update for {script_name} skipped.")
-    return False
+    with open(script_name, 'wb') as file:
+        file.write(github_content)
+    return True
 
-def check_and_update_file(repo, file_path, script_name, update_mode):
+def check_and_update_file(repo, file_path, script_name):
     if file_path.lower() == 'readme.md':
         readme_content = download_file(repo, file_path)
         if readme_content and file_needs_update('README.txt', readme_content):
-            if update_mode != 'check':
-                with open('README.txt', 'wb') as file:
-                    file.write(readme_content)
-                print("README updated.")
+            with open('README.txt', 'wb') as file:
+                file.write(readme_content)
             return True
         return False
 
@@ -154,15 +135,11 @@ def check_and_update_file(repo, file_path, script_name, update_mode):
     if github_content is None or not file_needs_update(file_path, github_content):
         return False
 
-    if update_mode == 'check':
-        return True
-
     directory_name = os.path.dirname(file_path)
     if directory_name:
         os.makedirs(directory_name, exist_ok=True)
     with open(file_path, 'wb') as file:
         file.write(github_content)
-    print(f"Updated {file_path}")
     return True
 
 def update_icons_folder(repo, branch='main'):
@@ -180,22 +157,16 @@ def update_icons_folder(repo, branch='main'):
             
             for file in files_to_remove:
                 os.remove(os.path.join(folder, file))
-                print(f"Removed {file} from icons folder.")
             
             return len(files_to_remove) > 0
         else:
             return False
-    except requests.RequestException as e:
-        print(f"Failed to fetch icons folder contents. Error: {e}")
+    except requests.RequestException:
         return False
 
-def process_updates(repo, repo_files, update_mode, script_name):
-    if update_mode == 'skip':
-        print("All updates skipped.")
-        return False
-
+def process_updates(repo, repo_files, script_name):
     with ThreadPoolExecutor() as executor:
-        updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name, update_mode), repo_files))
+        updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name), repo_files))
 
     return any(updates)
 
@@ -203,41 +174,36 @@ def main():
     script_name = os.path.basename(__file__)
 
     if update_script("GreenBeanGravy/FA11y", script_name):
-        print("Script updated. Please restart the script to use the updated version.")
+        if speaker:
+            speaker.speak("Script updated. Please restart the script to use the updated version.")
         return
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
-    # Check if any updates are available
-    updates_available = any(check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name, 'check')
+    updates_available = any(check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name)
                             for file_path in repo_files)
 
-    # Update icons folder
     icons_updated = update_icons_folder("GreenBeanGravy/FA11y")
 
     if not updates_available and not icons_updated:
-        print("You are on the latest version!")
-        speaker.speak("You are on the latest version!")
+        if speaker:
+            speaker.speak("You are on the latest version!")
         return
 
-    update_mode = input("Updates are available. Press Enter to update all files automatically, or type 'skip' to skip updates: ").strip().lower()
+    updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
 
-    if update_mode == 'skip':
-        print("Update process skipped.")
-    else:
-        updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, update_mode, script_name)
-        if updates_processed or icons_updated:
+    if updates_processed or icons_updated:
+        if speaker:
             speaker.speak("Updates processed.")
 
     if os.path.exists('requirements.txt'):
-        print("Installing packages from requirements.txt...")
         try:
             subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], 
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("All updates applied!")
-            speaker.speak("All updates applied!")
+            if speaker:
+                speaker.speak("All updates applied!")
         except subprocess.CalledProcessError:
-            print("Failed to install packages from requirements.txt. Please install them manually.")
+            pass
 
 if __name__ == "__main__":
     main()

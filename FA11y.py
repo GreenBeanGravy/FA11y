@@ -178,21 +178,16 @@ def main():
 
     print("Set Key Binds, Starting Key Thread")
     threading.Thread(target=key_listener, args=(key_bindings,), daemon=True).start()
-    print("Key Thread Started, Starting GUI Activation..")
 
     threading.Thread(target=start_gui_activation, daemon=True).start()
-    print("GUI Activation started in a separate thread, starting HSR detection..")
 
     threading.Thread(target=start_height_checker, daemon=True).start()  # Updated thread creation
-    print("Height checker started in a separate thread.")
 
     try:
         threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
-        print("HSR detection started in a separate thread.")
     except Exception as e:
         print("An error occurred while starting HSR detection:", e)
 
-    print("All features are now running in the background. Press Enter in this window to close FA11y!")
     speaker.speak("All features are now running in the background. Press Enter in this window to close FA11y!")
     input()
 

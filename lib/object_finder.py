@@ -49,19 +49,14 @@ def find_closest_object(icon_path: str, similarity_threshold: float) -> Optional
 def load_icon_configs() -> Dict[str, Tuple[str, float]]:
     icon_folder = 'icons'
     object_configs = {}
-    
-    print(f"Loading icon configurations from folder: {icon_folder}")
+
     for filename in os.listdir(icon_folder):
         if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
             object_name = os.path.splitext(filename)[0].lower().replace(' ', '_')
             icon_path = os.path.join(icon_folder, filename)
             threshold = 0.7
             object_configs[object_name] = (icon_path, threshold)
-            print(f"Loaded configuration for object: {object_name}, path: {icon_path}, threshold: {threshold}")
-    
-    if 'gas_station' not in object_configs:
-        print("Warning: Gas Station icon not found in icons folder. Please add it.")
-    
+
     return object_configs
 
 OBJECT_CONFIGS = load_icon_configs()
