@@ -5,8 +5,6 @@ import importlib.util
 from functools import lru_cache
 import shutil
 
-RESTART_FLAG = '--restarted'
-
 def check_and_install_module(module):
     try:
         if importlib.util.find_spec(module) is None:
@@ -176,64 +174,32 @@ def process_updates(repo, repo_files, script_name):
 def is_legendary_in_path():
     return shutil.which('legendary') is not None
 
-def update_legendary():
-    LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
-    local_path = "legendary.exe"
-
-    if is_legendary_in_path():
-        print("legendary.exe already exists in PATH.")
-        if speaker:
-            speaker.speak("Legendary is already installed.")
-        return False
-
-    # Download new legendary.exe
+def verify_legendary():
     try:
-        response = requests.get(LEGENDARY_URL)
-        response.raise_for_status()
-        with open(local_path, 'wb') as file:
-            file.write(response.content)
-        print("Downloaded legendary.exe")
-        
-        # Add the current directory to PATH temporarily
-        current_dir = os.getcwd()
-        os.environ['PATH'] = f"{current_dir}{os.pathsep}{os.environ['PATH']}"
-        
-        # Run legendary to ensure it works
         subprocess.run(['legendary', '--version'], check=True, capture_output=True)
-        
         print("Verified legendary.exe functionality")
         if speaker:
-            speaker.speak("Legendary has been installed and verified.")
-        
+            speaker.speak("Legendary is installed and working.")
         return True
-    except requests.RequestException as e:
-        print(f"Failed to download legendary.exe: {e}")
+    except subprocess.CalledProcessError:
+        print("Failed to verify legendary.exe functionality")
         if speaker:
-            speaker.speak("Failed to install Legendary.")
+            speaker.speak("Legendary is installed but not working properly.")
         return False
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to verify legendary.exe functionality: {e}")
+    except FileNotFoundError:
+        print("legendary.exe not found in PATH")
         if speaker:
-            speaker.speak("Failed to verify Legendary installation.")
+            speaker.speak("Legendary is not installed.")
         return False
-    finally:
-        # Always remove the downloaded legendary.exe
-        if os.path.exists(local_path):
-            os.remove(local_path)
-            print("Removed downloaded legendary.exe")
-
-def restart_script():
-    print("Restarting the script...")
-    if speaker:
-        speaker.speak("Restarting the updater.")
-    python = sys.executable
-    os.execl(python, python, *sys.argv, RESTART_FLAG)
 
 def main():
     script_name = os.path.basename(__file__)
 
     if update_script("GreenBeanGravy/FA11y", script_name):
-        restart_script()
+        if speaker:
+            speaker.speak("Script updated. Please restart the script to use the updated version.")
+        print("Script updated. Please restart the script to use the updated version.")
+        return
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
@@ -242,16 +208,16 @@ def main():
 
     icons_updated = update_icons_folder("GreenBeanGravy/FA11y")
 
-    legendary_updated = update_legendary()
+    legendary_verified = verify_legendary()
 
-    if not updates_available and not icons_updated and not legendary_updated:
+    if not updates_available and not icons_updated and legendary_verified:
         if speaker:
             speaker.speak("You are on the latest version!")
         return
 
     updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
 
-    if updates_processed or icons_updated or legendary_updated:
+    if updates_processed or icons_updated:
         if speaker:
             speaker.speak("Updates processed.")
 
@@ -265,10 +231,4 @@ def main():
             pass
 
 if __name__ == "__main__":
-    if RESTART_FLAG not in sys.argv:
-        main()
-    else:
-        print("Script restarted successfully.")
-        if speaker:
-            speaker.speak("Updater restarted successfully.")
-        main()
+    main()
