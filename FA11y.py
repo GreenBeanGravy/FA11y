@@ -24,6 +24,7 @@ from lib.icon import start_icon_detection, create_custom_poi
 from lib.hsr import start_health_shield_rarity_detection
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
 from lib.guis.gui import start_gui_activation
+from lib.height_checker import start_height_checker
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -181,6 +182,9 @@ def main():
 
     threading.Thread(target=start_gui_activation, daemon=True).start()
     print("GUI Activation started in a separate thread, starting HSR detection..")
+
+    threading.Thread(target=start_height_checker, daemon=True).start()  # Updated thread creation
+    print("Height checker started in a separate thread.")
 
     try:
         threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
