@@ -176,7 +176,7 @@ def is_legendary_in_path():
 
 def verify_legendary():
     LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
-    local_path = "legendary.exe"
+    local_path = os.path.join(os.getcwd(), "legendary.exe")
 
     if is_legendary_in_path():
         print("legendary.exe found in PATH.")
@@ -206,9 +206,17 @@ def verify_legendary():
                 file.write(response.content)
             print("Downloaded legendary.exe")
             
-            # Add the current directory to PATH temporarily
+            # Add the current directory to PATH permanently
             current_dir = os.getcwd()
-            os.environ['PATH'] = f"{current_dir}{os.pathsep}{os.environ['PATH']}"
+            path_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_ALL_ACCESS)
+            path_value, _ = winreg.QueryValueEx(path_key, "PATH")
+            if current_dir not in path_value:
+                new_path_value = f"{path_value};{current_dir}"
+                winreg.SetValueEx(path_key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path_value)
+                winreg.CloseKey(path_key)
+                # Broadcast WM_SETTINGCHANGE message
+                ctypes.windll.user32.SendMessageW(0xFFFF, 0x001A, 0, "Environment")
+                print("Added current directory to PATH.")
             
             # Run legendary to ensure it works
             subprocess.run(['legendary', '--version'], check=True, capture_output=True)
@@ -228,11 +236,11 @@ def verify_legendary():
             if speaker:
                 speaker.speak("Failed to verify Legendary installation.")
             return False
-        finally:
-            # Always remove the downloaded legendary.exe
-            if os.path.exists(local_path):
-                os.remove(local_path)
-                print("Removed downloaded legendary.exe")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            if speaker:
+                speaker.speak("An unexpected error occurred while installing Legendary.")
+            return False
 
 def main():
     script_name = os.path.basename(__file__)
