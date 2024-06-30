@@ -170,6 +170,31 @@ def process_updates(repo, repo_files, script_name):
 
     return any(updates)
 
+def update_legendary():
+    LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
+    local_path = "legendary.exe"
+
+    # Delete existing legendary.exe if it exists
+    if os.path.exists(local_path):
+        os.remove(local_path)
+        print("Deleted existing legendary.exe")
+
+    # Download new legendary.exe
+    try:
+        response = requests.get(LEGENDARY_URL)
+        response.raise_for_status()
+        with open(local_path, 'wb') as file:
+            file.write(response.content)
+        print("Downloaded new legendary.exe")
+        if speaker:
+            speaker.speak("Legendary has been updated.")
+        return True
+    except requests.RequestException as e:
+        print(f"Failed to download legendary.exe: {e}")
+        if speaker:
+            speaker.speak("Failed to update Legendary.")
+        return False
+
 def main():
     script_name = os.path.basename(__file__)
 
@@ -185,14 +210,16 @@ def main():
 
     icons_updated = update_icons_folder("GreenBeanGravy/FA11y")
 
-    if not updates_available and not icons_updated:
+    legendary_updated = update_legendary()
+
+    if not updates_available and not icons_updated and not legendary_updated:
         if speaker:
             speaker.speak("You are on the latest version!")
         return
 
     updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
 
-    if updates_processed or icons_updated:
+    if updates_processed or icons_updated or legendary_updated:
         if speaker:
             speaker.speak("Updates processed.")
 
