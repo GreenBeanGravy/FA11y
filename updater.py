@@ -16,7 +16,7 @@ def check_and_install_module(module):
         return False
 
 def install_required_modules():
-    modules = ['requests', 'concurrent.futures']
+    modules = ['requests', 'concurrent.futures', 'pywintypes', 'pywin32']
     for module in modules:
         check_and_install_module(module)
 
@@ -77,8 +77,12 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 
 if ao2_available:
-    from accessible_output2.outputs.auto import Auto
-    speaker = Auto()
+    try:
+        from accessible_output2.outputs.auto import Auto
+        speaker = Auto()
+    except ImportError:
+        print("Failed to import accessible_output2. Speech output will be unavailable.")
+        speaker = None
 else:
     speaker = None
 
