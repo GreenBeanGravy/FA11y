@@ -5,6 +5,8 @@ import importlib.util
 from functools import lru_cache
 import shutil
 
+RESTART_FLAG = '--restarted'
+
 def check_and_install_module(module):
     try:
         if importlib.util.find_spec(module) is None:
@@ -220,15 +222,18 @@ def update_legendary():
             os.remove(local_path)
             print("Removed downloaded legendary.exe")
 
+def restart_script():
+    print("Restarting the script...")
+    if speaker:
+        speaker.speak("Restarting the updater.")
+    python = sys.executable
+    os.execl(python, python, *sys.argv, RESTART_FLAG)
+
 def main():
     script_name = os.path.basename(__file__)
 
     if update_script("GreenBeanGravy/FA11y", script_name):
-        if speaker:
-            speaker.speak("Script updated. Relaunching the updater.")
-        print("Script updated. Relaunching...")
-        os.execv(sys.executable, ['python'] + sys.argv)
-        return
+        restart_script()
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
@@ -260,4 +265,10 @@ def main():
             pass
 
 if __name__ == "__main__":
-    main()
+    if RESTART_FLAG not in sys.argv:
+        main()
+    else:
+        print("Script restarted successfully.")
+        if speaker:
+            speaker.speak("Updater restarted successfully.")
+        main()
