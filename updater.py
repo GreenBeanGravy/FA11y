@@ -4,7 +4,6 @@ import sys
 import importlib.util
 from functools import lru_cache
 import shutil
-import winreg
 
 def check_and_install_module(module):
     try:
@@ -179,24 +178,12 @@ def verify_legendary():
     LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
     local_path = os.path.join(os.getcwd(), "legendary.exe")
 
-    if is_legendary_in_path():
-        print("legendary.exe found in PATH.")
+    if os.path.exists(local_path):
+        print("legendary.exe found in the current directory.")
         if speaker:
-            speaker.speak("Legendary is already installed.")
-        
-        try:
-            subprocess.run(['legendary', '--version'], check=True, capture_output=True)
-            print("Verified legendary.exe functionality.")
-            if speaker:
-                speaker.speak("Legendary is working properly.")
-            return True
-        except subprocess.CalledProcessError:
-            print("legendary.exe found in PATH but failed to execute.")
-            if speaker:
-                speaker.speak("Legendary is installed but not working properly.")
-            return False
+            speaker.speak("Legendary is already downloaded.")
     else:
-        print("legendary.exe not found in PATH. Attempting to download...")
+        print("legendary.exe not found in the current directory. Attempting to download...")
         if speaker:
             speaker.speak("Legendary not found. Attempting to download.")
         
@@ -206,42 +193,26 @@ def verify_legendary():
             with open(local_path, 'wb') as file:
                 file.write(response.content)
             print("Downloaded legendary.exe")
-            
-            # Add the current directory to PATH permanently
-            current_dir = os.getcwd()
-            path_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_ALL_ACCESS)
-            path_value, _ = winreg.QueryValueEx(path_key, "PATH")
-            if current_dir not in path_value:
-                new_path_value = f"{path_value};{current_dir}"
-                winreg.SetValueEx(path_key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path_value)
-                winreg.CloseKey(path_key)
-                # Broadcast WM_SETTINGCHANGE message
-                ctypes.windll.user32.SendMessageW(0xFFFF, 0x001A, 0, "Environment")
-                print("Added current directory to PATH.")
-            
-            # Run legendary to ensure it works
-            subprocess.run(['legendary', '--version'], check=True, capture_output=True)
-            
-            print("Verified legendary.exe functionality")
             if speaker:
-                speaker.speak("Legendary has been downloaded and verified.")
-            
-            return True
+                speaker.speak("Legendary has been downloaded.")
         except requests.RequestException as e:
             print(f"Failed to download legendary.exe: {e}")
             if speaker:
                 speaker.speak("Failed to download Legendary.")
             return False
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to verify legendary.exe functionality: {e}")
-            if speaker:
-                speaker.speak("Failed to verify Legendary installation.")
-            return False
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-            if speaker:
-                speaker.speak("An unexpected error occurred while installing Legendary.")
-            return False
+
+    # Verify functionality
+    try:
+        subprocess.run([local_path, '--version'], check=True, capture_output=True)
+        print("Verified legendary.exe functionality.")
+        if speaker:
+            speaker.speak("Legendary is working properly.")
+        return True
+    except subprocess.CalledProcessError:
+        print("legendary.exe found but failed to execute.")
+        if speaker:
+            speaker.speak("Legendary is present but not working properly.")
+        return False
 
 def main():
     script_name = os.path.basename(__file__)
