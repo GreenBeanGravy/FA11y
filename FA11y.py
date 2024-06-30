@@ -1,4 +1,17 @@
 import sys
+
+# Check Python version and create mock imp if necessary
+if sys.version_info >= (3, 12):
+    class MockImp:
+        @staticmethod
+        def is_frozen(arg=None):
+            if arg == "__main__":
+                return hasattr(sys, "frozen") or '__compiled__' in globals()
+            return hasattr(sys, 'frozen') or hasattr(sys, 'importers') or getattr(sys, 'frozen', False)
+
+    sys.modules['imp'] = MockImp()
+    print("Created mock 'imp' module for compatibility with Python 3.12+.")
+
 import os
 import configparser
 import threading
@@ -60,18 +73,6 @@ VK_KEY_CODES = {
 speaker = Auto()
 key_state = {}
 action_handlers = {}
-
-# Check Python version and create mock imp if necessary
-if sys.version_info >= (3, 12):
-    class MockImp:
-        @staticmethod
-        def is_frozen(arg=None):
-            if arg == "__main__":
-                return hasattr(sys, "frozen") or '__compiled__' in globals()
-            return hasattr(sys, 'frozen') or hasattr(sys, 'importers') or getattr(sys, 'frozen', False)
-
-    sys.modules['imp'] = MockImp()
-    print("Created mock 'imp' module for compatibility with Python 3.12+.")
 
 def check_and_install_legendary():
     def is_legendary_in_path():
