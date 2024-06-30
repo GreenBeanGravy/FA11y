@@ -175,6 +175,9 @@ def is_legendary_in_path():
     return shutil.which('legendary') is not None
 
 def verify_legendary():
+    LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
+    local_path = "legendary.exe"
+
     if is_legendary_in_path():
         print("legendary.exe found in PATH.")
         if speaker:
@@ -192,10 +195,44 @@ def verify_legendary():
                 speaker.speak("Legendary is installed but not working properly.")
             return False
     else:
-        print("legendary.exe not found in PATH.")
+        print("legendary.exe not found in PATH. Attempting to download...")
         if speaker:
-            speaker.speak("Legendary is not installed.")
-        return False
+            speaker.speak("Legendary not found. Attempting to download.")
+        
+        try:
+            response = requests.get(LEGENDARY_URL)
+            response.raise_for_status()
+            with open(local_path, 'wb') as file:
+                file.write(response.content)
+            print("Downloaded legendary.exe")
+            
+            # Add the current directory to PATH temporarily
+            current_dir = os.getcwd()
+            os.environ['PATH'] = f"{current_dir}{os.pathsep}{os.environ['PATH']}"
+            
+            # Run legendary to ensure it works
+            subprocess.run(['legendary', '--version'], check=True, capture_output=True)
+            
+            print("Verified legendary.exe functionality")
+            if speaker:
+                speaker.speak("Legendary has been downloaded and verified.")
+            
+            return True
+        except requests.RequestException as e:
+            print(f"Failed to download legendary.exe: {e}")
+            if speaker:
+                speaker.speak("Failed to download Legendary.")
+            return False
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to verify legendary.exe functionality: {e}")
+            if speaker:
+                speaker.speak("Failed to verify Legendary installation.")
+            return False
+        finally:
+            # Always remove the downloaded legendary.exe
+            if os.path.exists(local_path):
+                os.remove(local_path)
+                print("Removed downloaded legendary.exe")
 
 def main():
     script_name = os.path.basename(__file__)
