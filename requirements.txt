@@ -9,3 +9,4 @@ configparser
 inputs
 pynput
 psutil
+legendary-gl
