@@ -4,6 +4,7 @@ import time
 import pyautogui
 import ctypes
 import configparser
+import os
 from accessible_output2.outputs.auto import Auto
 from functools import partial
 from lib.object_finder import OBJECT_CONFIGS
@@ -11,20 +12,98 @@ from lib.object_finder import OBJECT_CONFIGS
 speaker = Auto()
 
 # Load POIs once at the start
-with open('POI.txt', 'r') as file:
-    pois_from_file = [tuple(line.strip().split(',')) for line in file]
+try:
+    with open('POI.txt', 'r') as file:
+        pois_from_file = [tuple(line.strip().split(',')) for line in file]
+except FileNotFoundError:
+    print("POI.txt not found. Creating an empty file.")
+    open('POI.txt', 'w').close()
+    pois_from_file = []
 
 # Game objects are now dynamically generated from OBJECT_CONFIGS
 game_objects = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
 
 VK_RIGHT_BRACKET = 0xDD
+VK_QUOTE = 0xDE
 current_poi_set = 0
+
+GAMEMODES_FOLDER = "GAMEMODES"
+
+def load_gamemodes():
+    gamemodes = []
+    if not os.path.exists(GAMEMODES_FOLDER):
+        print(f"'{GAMEMODES_FOLDER}' folder not found. Creating it.")
+        os.makedirs(GAMEMODES_FOLDER)
+        return gamemodes
+
+    for filename in os.listdir(GAMEMODES_FOLDER):
+        if filename.endswith(".txt"):
+            try:
+                with open(os.path.join(GAMEMODES_FOLDER, filename), 'r') as file:
+                    lines = file.readlines()
+                    if len(lines) >= 2:
+                        gamemode_name = filename[:-4]  # Remove .txt extension
+                        gamemode_text = lines[0].strip()
+                        team_sizes = lines[1].strip().split(',')
+                        gamemodes.append((gamemode_name, gamemode_text, team_sizes))
+            except Exception as e:
+                print(f"Error reading {filename}: {str(e)}")
+    return gamemodes
+
+def smooth_move_and_click(x, y, duration=0.2):
+    pyautogui.moveTo(x, y, duration=duration)
+    pyautogui.click()
+
+def select_gamemode(gamemode):
+    # Click on game mode selection
+    smooth_move_and_click(172, 67)
+    time.sleep(0.5)
+
+    # Click at 900, 200
+    smooth_move_and_click(900, 200)
+    time.sleep(0.1)  # Wait 100ms before clearing the field
+
+    # Clear the field using backspace
+    for _ in range(20):  # Press backspace 20 times
+        pyautogui.press('backspace')
+        time.sleep(0.01)  # Small delay between keypresses
+
+    # Type the new gamemode
+    pyautogui.write(gamemode[1])
+    pyautogui.press('enter')
+
+    # Wait for white pixel with a 5-second timeout
+    start_time = time.time()
+    while not pyautogui.pixelMatchesColor(84, 328, (255, 255, 255)):
+        if time.time() - start_time > 5:
+            speaker.speak("Timed out waiting for game mode to load.")
+            return False
+        time.sleep(0.1)
+    time.sleep(0.1)
+
+    # Click on game mode
+    smooth_move_and_click(300, 515)
+    time.sleep(0.7)
+
+    # Click on play button
+    smooth_move_and_click(285, 910)
+    time.sleep(0.5)
+
+    # Press 'B' twice
+    pyautogui.press('b')
+    time.sleep(0.05)
+    pyautogui.press('b')
+
+    speaker.speak(f"{gamemode[0]} selected")
+    return True
 
 def load_custom_pois():
     try:
         with open('CUSTOM_POI.txt', 'r') as file:
             return [tuple(line.strip().split(',')) for line in file if line.strip()]
     except FileNotFoundError:
+        print("CUSTOM_POI.txt not found. Creating an empty file.")
+        open('CUSTOM_POI.txt', 'w').close()
         return []
 
 def speak(s):
@@ -53,7 +132,6 @@ def update_config_file(selected_poi_name):
     with open('CONFIG.txt', 'w') as configfile:
         config.write(configfile)
 
-# Add this at the top of your gui.py file, outside of any function
 initial_focus_set = False
 
 def select_poi_tk():
@@ -67,7 +145,7 @@ def select_poi_tk():
     def select_poi(poi):
         update_config_file(poi)
         speak(f"{poi} selected")
-        pyautogui.click()
+        smooth_move_and_click(pyautogui.position()[0], pyautogui.position()[1])
         root.destroy()
 
     def refresh_buttons(forward=True, initial=False):
@@ -140,10 +218,71 @@ def select_poi_tk():
     root.focus_force()
     root.mainloop()
 
+def select_gamemode_tk():
+    gamemodes = load_gamemodes()
+
+    if not gamemodes:
+        speak("No game modes available. Please add game mode files to the GAMEMODES folder.")
+        return
+
+    root = tk.Tk()
+    root.title("Gamemode Selector")
+    root.attributes('-topmost', True)
+    
+    buttons_frame = tk.Frame(root)
+    buttons_frame.pack()
+
+    def select_gamemode_action(gamemode):
+        root.destroy()
+        if select_gamemode(gamemode):
+            return
+        speak("Failed to select gamemode. Please try again.")
+
+    buttons = []
+    for gamemode in gamemodes:
+        button = tk.Button(buttons_frame, text=gamemode[0], command=partial(select_gamemode_action, gamemode))
+        button.pack()
+        buttons.append(button)
+
+    def navigate(event):
+        focused = root.focus_get()
+        if focused in buttons:
+            current = buttons.index(focused)
+            next_index = (current + (1 if event.keysym == 'Down' else -1)) % len(buttons)
+        else:
+            next_index = 0
+        buttons[next_index].focus_set()
+        speak(buttons[next_index]['text'])
+
+    def on_return(event):
+        focused = root.focus_get()
+        if isinstance(focused, tk.Button):
+            select_gamemode_action(gamemodes[buttons.index(focused)])
+
+    root.bind('<Up>', navigate)
+    root.bind('<Down>', navigate)
+    root.bind('<Return>', on_return)
+
+    if buttons:
+        buttons[0].focus_set()
+        root.after(100, lambda: delayed_speak(buttons[0]['text']))
+
+    root.update()
+    root.deiconify()
+    root.lift()
+    root.focus_force()
+    root.mainloop()
+
 def start_gui_activation():
     right_bracket_key_down = False
+    quote_key_down = False
     while True:
-        right_bracket_key_down = check_and_toggle_key(VK_RIGHT_BRACKET, right_bracket_key_down, select_poi_tk)
+        try:
+            right_bracket_key_down = check_and_toggle_key(VK_RIGHT_BRACKET, right_bracket_key_down, select_poi_tk)
+            quote_key_down = check_and_toggle_key(VK_QUOTE, quote_key_down, select_gamemode_tk)
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            speak(f"An error occurred: {str(e)}")
         time.sleep(0.01)
 
 def check_and_toggle_key(key, key_down, action):
@@ -184,8 +323,8 @@ def create_gui(coordinates):
                 file.write(f"{poi_name},{coordinates}\n")
             speak_element(f"Custom P O I {poi_name} saved")
             root.destroy()
-            # Perform a left click to refocus on the Fortnite window
-            pyautogui.click()
+            # Perform a smooth move and click to refocus on the Fortnite window
+            smooth_move_and_click(pyautogui.position()[0], pyautogui.position()[1])
         else:
             speak_element("Please enter a name for the P O I")
 
