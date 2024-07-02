@@ -8,3 +8,4 @@ Pillow
 configparser
 inputs
 pynput
+psutil
