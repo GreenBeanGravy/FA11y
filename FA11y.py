@@ -50,7 +50,7 @@ Target = rctrl
 Turn Left = num 1
 Turn Slightly Left = 4
 Turn Right = num 3
-Turn Slightly Right = num 6
+Turn Slightly Right = 6
 Look Up = num 8
 Look Down = num 2
 Turn Around = num 0
@@ -159,7 +159,7 @@ def main():
 
     # Check if auto-updates are enabled
     if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
-        subprocess.call(['python', 'updater.py'])
+        subprocess.call(['python', 'updater.py', '--instant-close'])
 
     mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=False)
     reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
