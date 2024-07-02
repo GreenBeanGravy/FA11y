@@ -49,14 +49,14 @@ def create_custom_poi():
 def icon_detection_cycle(selected_poi, is_create_custom_poi):
     print(f"Icon detection cycle started. Selected POI: {selected_poi}, Create custom POI: {is_create_custom_poi}")
     center_mass_screen = find_player_icon_location()
-    if not center_mass_screen:
-        print("Player icon not located.")
-        speaker.speak("Player icon not located.")
-        return
-
+    
     if is_create_custom_poi:
-        print(f"Creating custom POI at {center_mass_screen}")
-        gui.create_gui(f"{center_mass_screen[0]},{center_mass_screen[1]}")
+        if center_mass_screen:
+            print(f"Creating custom POI at {center_mass_screen}")
+            gui.create_gui(f"{center_mass_screen[0]},{center_mass_screen[1]}")
+        else:
+            print("Player icon not located. Cannot create custom POI.")
+            speaker.speak("Player icon not located. Cannot create custom POI.")
     else:
         if selected_poi[0].lower() == 'none':
             print("No POI selected.")
@@ -66,7 +66,7 @@ def icon_detection_cycle(selected_poi, is_create_custom_poi):
         poi_data = handle_poi_selection(selected_poi, center_mass_screen)
         print(f"POI data: {poi_data}")
         if poi_data[1]:  # Check if coordinates are not None
-            perform_poi_actions(poi_data)
+            perform_poi_actions(poi_data, center_mass_screen)
         else:
             print(f"{poi_data[0]} not located.")
             speaker.speak(f"{poi_data[0]} not located.")
@@ -86,7 +86,7 @@ def find_player_icon_location():
     print("Player icon not found")
     return None
 
-def perform_poi_actions(poi_data):
+def perform_poi_actions(poi_data, center_mass_screen):
     poi_name, coordinates = poi_data
     print(f"Performing actions for POI: {poi_name}, Coordinates: {coordinates}")
 
@@ -97,7 +97,12 @@ def perform_poi_actions(poi_data):
             pyautogui.moveTo(int(x), int(y))  # Use instant movement
             pyautogui.click()
             pyautogui.click(button='right')
-            process_screenshot((int(x), int(y)), poi_name)
+            
+            if center_mass_screen:
+                process_screenshot((int(x), int(y)), poi_name, center_mass_screen)
+            else:
+                print("Player icon not located. Cannot provide relative position information.")
+                speaker.speak(f"Clicked on {poi_name}. Player icon not located.")
         except ValueError:
             print(f"Error: Invalid POI coordinates for {poi_name}: {x}, {y}")
             speaker.speak(f"Error: Invalid POI coordinates for {poi_name}")
@@ -131,14 +136,13 @@ def handle_poi_selection(selected_poi, center_mass_screen):
             coordinates = (int(selected_poi[1]), int(selected_poi[2]))
             if coordinates == (0, 0):
                 print(f"Warning: Static coordinates (0, 0) detected for {poi_name}. This might be a placeholder.")
-                return poi_name, None
             print(f"Using static POI coordinates: {coordinates}")
             return poi_name, coordinates
         except ValueError:
             print(f"Error: Invalid POI coordinates for {poi_name}: {selected_poi[1]}, {selected_poi[2]}")
             return poi_name, None
 
-def process_screenshot(selected_coordinates, poi_name):
+def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
     print(f"Processing screenshot for POI: {poi_name}, Coordinates: {selected_coordinates}")
     screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
     roi_color = screenshot[4 * ROI_START_ORIG[1]:4 * ROI_END_ORIG[1], 4 * ROI_START_ORIG[0]:4 * ROI_END_ORIG[0]]
@@ -150,12 +154,11 @@ def process_screenshot(selected_coordinates, poi_name):
     if valid_contours:
         contour = max(valid_contours, key=cv2.contourArea)
         M = cv2.moments(contour)
-        center_mass_screen = ((int(M["m10"] / M["m00"]) // 4) + ROI_START_ORIG[0], (int(M["m01"] / M["m00"]) // 4) + ROI_START_ORIG[1])
+        center_mass = np.array([M["m10"] / M["m00"], M["m01"] / M["m00"]])
         
         hull = cv2.convexHull(contour)
         if len(hull) > 2:
             vertices = np.squeeze(hull)
-            center_mass = np.array([M["m10"] / M["m00"], M["m01"] / M["m00"]])
             farthest_vertex = vertices[np.argmax(np.linalg.norm(vertices - center_mass, axis=1))]
             direction_vector = farthest_vertex - center_mass
             
