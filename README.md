@@ -3,11 +3,15 @@
 ## About
 FA11y aims to make many important elements of Fortnite accessible to blind players. With FA11y, you can:
 
-- Get directions to Points of Interest (POIs) and place a marker on them
-- Read how much Health and Shield you have
-- Check the rarity of weapons in your inventory
+- Get directions to Points of Interest (POIs) and place an audible marker on them.
+- Check your available Health and Shields.
+- Check the rarity of selected weapons in your inventory.
 - Get directions to the Safe Zone, away from the number one killer of blind players, the storm!
-- Much, much, much more!
+- Get directions to seasonal POIs, and even set your own custom POIs!
+- Get your height while skydiving in real time!
+
+- Install and verify Fortnite accessibly!
+- Launch Fortnite accessibly in either performance mode, or Direct X 11!
 
 ## DEFAULT Keybinds
 
