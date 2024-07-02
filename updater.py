@@ -5,6 +5,7 @@ import importlib.util
 from functools import lru_cache
 import shutil
 import logging
+import time
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -147,7 +148,7 @@ def check_and_update_file(repo, file_path, script_name):
             return True
         return False
 
-    if not file_path.endswith(('.py', '.txt', '.png', '.bat')) or file_path.endswith(script_name):
+    if not file_path.endswith(('.py', '.txt', '.png')) or file_path.endswith(script_name):
         return False
 
     if file_path in ('config.txt', 'CUSTOM_POI.txt') and os.path.exists(file_path):
@@ -240,12 +241,17 @@ def verify_legendary():
 
 def main():
     script_name = os.path.basename(__file__)
+    instant_close = '--instant-close' in sys.argv
 
     if update_script("GreenBeanGravy/FA11y", script_name):
         if speaker:
             speaker.speak("Script updated. Please restart the script to use the updated version.")
         logging.info("Script updated. Please restart the script to use the updated version.")
-        return
+        if instant_close:
+            sys.exit()
+        else:
+            time.sleep(5)
+            sys.exit()
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
@@ -260,7 +266,11 @@ def main():
         if speaker:
             speaker.speak("You are on the latest version!")
         logging.info("You are on the latest version!")
-        return
+        if instant_close:
+            sys.exit()
+        else:
+            time.sleep(5)
+            sys.exit()
 
     updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
 
@@ -280,6 +290,17 @@ def main():
             logging.error(f"Failed to install requirements: {e}")
 
     logging.info("Update process completed")
+
+    if updates_available or icons_updated:
+        if speaker:
+            speaker.speak("Please restart FA11y to apply updates. Closing in 7 seconds.")
+        logging.info("Please restart FA11y to apply updates. Closing in 7 seconds.")
+        time.sleep(7)
+    elif instant_close:
+        sys.exit()
+    else:
+        logging.info("Closing in 5 seconds...")
+        time.sleep(5)
 
 if __name__ == "__main__":
     main()
