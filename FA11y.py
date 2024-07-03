@@ -114,13 +114,38 @@ def is_key_pressed(vk_code):
     return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
 
 def read_config():
-    if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'w') as file:
-            file.write(DEFAULT_CONFIG)
-
     config = configparser.ConfigParser()
-    config.read(CONFIG_FILE)
+    
+    if not os.path.exists(CONFIG_FILE):
+        config.read_string(DEFAULT_CONFIG)
+        with open(CONFIG_FILE, 'w') as configfile:
+            config.write(configfile)
+        print(f"Created new config file: {CONFIG_FILE}")
+    else:
+        config.read(CONFIG_FILE)
+        update_config(config)
+    
     return {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS')}
+
+def update_config(config):
+    default_config = configparser.ConfigParser()
+    default_config.read_string(DEFAULT_CONFIG)
+    
+    updated = False
+    
+    for section in default_config.sections():
+        if not config.has_section(section):
+            config.add_section(section)
+            updated = True
+        for key, value in default_config.items(section):
+            if not config.has_option(section, key):
+                config.set(section, key, value)
+                updated = True
+    
+    if updated:
+        with open(CONFIG_FILE, 'w') as configfile:
+            config.write(configfile)
+        print(f"Updated config file with missing entries: {CONFIG_FILE}")
 
 def key_listener(key_bindings):
     while True:
@@ -179,7 +204,6 @@ def main():
     # Check if desktop shortcut creation is enabled
     if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
         create_desktop_shortcut()
-        print("Desktop shortcut created.")
 
     mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=False)
     reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
