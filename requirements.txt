@@ -10,3 +10,4 @@ inputs
 pynput
 psutil
 legendary-gl
+winshell
