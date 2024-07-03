@@ -19,6 +19,8 @@ import time
 import ctypes
 import keyboard
 import subprocess
+import winshell
+from win32com.client import Dispatch
 
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection, create_custom_poi
@@ -34,6 +36,7 @@ DEFAULT_CONFIG = """[SETTINGS]
 MouseKeys = false
 UsingResetSensitivity = false
 EnableAutoUpdates = true
+CreateDesktopShortcut = true
 
 [THREADS]
 EnableIconDetection = true
@@ -151,6 +154,18 @@ def key_listener(key_bindings):
 
         time.sleep(0.01)
 
+def create_desktop_shortcut():
+    desktop = winshell.desktop()
+    path = os.path.join(desktop, "FA11y.lnk")
+    target = os.path.abspath(sys.argv[0])
+    wDir = os.path.dirname(target)
+    
+    shell = Dispatch('WScript.Shell')
+    shortcut = shell.CreateShortCut(path)
+    shortcut.Targetpath = target
+    shortcut.WorkingDirectory = wDir
+    shortcut.save()
+
 def main():
     print("Starting..")
     
@@ -160,6 +175,11 @@ def main():
     # Check if auto-updates are enabled
     if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
         subprocess.call(['python', 'updater.py', '--instant-close'])
+
+    # Check if desktop shortcut creation is enabled
+    if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
+        create_desktop_shortcut()
+        print("Desktop shortcut created.")
 
     mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=False)
     reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
