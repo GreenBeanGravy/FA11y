@@ -10,12 +10,28 @@ def check_pixel_color(x, y, target_color):
     screenshot = ImageGrab.grab(bbox=(x, y, x+1, y+1))
     return screenshot.getpixel((0, 0)) == target_color
 
+def interpolate_height(pixel_y):
+    # Define the known points
+    y1, h1 = 27, 350
+    y2, h2 = 150, 150
+    y3, h3 = 279, 0
+
+    # Check which range the pixel_y falls into
+    if y1 <= pixel_y <= y2:
+        # Interpolate between (y1, h1) and (y2, h2)
+        return h1 + (pixel_y - y1) * (h2 - h1) / (y2 - y1)
+    elif y2 < pixel_y <= y3:
+        # Interpolate between (y2, h2) and (y3, h3)
+        return h2 + (pixel_y - y2) * (h3 - h2) / (y3 - y2)
+    else:
+        # Outside the known range
+        return None
+
 def check_height():
     target_color = (255, 255, 255)  # White
     check_points = [(1586, 309), (1597, 309), (1608, 309), (1609, 11)]
     height_x = 1587
-    min_y, max_y = 35, 305
-    min_meter, max_meter = 0, 770
+    min_y, max_y = 27, 279  # Updated to match the new range
     
     while True:
         if all(check_pixel_color(x, y, target_color) for x, y in check_points):
@@ -25,9 +41,12 @@ def check_height():
             
             if white_pixels.size > 0:
                 pixel_y = min_y + white_pixels[0]
-                meters = max_meter - (pixel_y - min_y) * (max_meter - min_meter) / (max_y - min_y)
-                print(f"Height detected: {meters:.2f} meters")
-                speaker.speak(f"{meters:.0f} meters high")
+                meters = interpolate_height(pixel_y)
+                if meters is not None:
+                    print(f"Height detected: {meters:.2f} meters")
+                    speaker.speak(f"{meters:.0f} meters high")
+                else:
+                    print("Height indicator outside expected range")
             else:
                 print("No height indicator detected")
         
