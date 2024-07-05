@@ -28,6 +28,7 @@ from lib.hsr import start_health_shield_rarity_detection
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
 from lib.guis.gui import start_gui_activation
 from lib.height_checker import start_height_checker
+from lib.minimap_direction import on_semicolon_pressed
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -37,6 +38,7 @@ MouseKeys = false
 UsingResetSensitivity = false
 EnableAutoUpdates = true
 CreateDesktopShortcut = true
+AutoTurn = false
 
 [THREADS]
 EnableIconDetection = true
@@ -60,6 +62,7 @@ Turn Around = num 0
 Recenter = num 5
 Scroll Up = num 7
 Scroll Down = num 9
+Speak Minimap Direction = ;
 
 [POI]
 selected_poi = closest, 0, 0"""
@@ -233,6 +236,9 @@ def main():
             'scroll up': lambda: handle_scroll('scroll up'),
             'scroll down': lambda: handle_scroll('scroll down')
         })
+
+    # Add the new minimap direction handler
+    action_handlers['speak minimap direction'] = on_semicolon_pressed
 
     key_bindings = read_config()
     
