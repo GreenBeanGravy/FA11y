@@ -97,15 +97,15 @@ def handle_movement(action, reset_sensitivity):
     if action == 'turn around':
         x_move = 1158  # Full 360-degree turn
     elif action == 'recenter':
-        smooth_move_mouse(0, 2000, 0.04)
-        time.sleep(0.04)
+        smooth_move_mouse(0, 2000, 0.05)
+        time.sleep(0.05)
         down_move = -580 if reset_sensitivity else -820
-        time.sleep(0.04)
-        smooth_move_mouse(0, down_move, 0.04)
+        time.sleep(0.05)
+        smooth_move_mouse(0, down_move, 0.05)
         speaker.speak("Reset Camera")
     
     if action != 'recenter':
-        smooth_move_mouse(x_move, y_move, 0.04)
+        smooth_move_mouse(x_move, y_move, 0.05)
 
 def handle_scroll(action):
     scroll_amount = 16 if action == 'scroll up' else -16
