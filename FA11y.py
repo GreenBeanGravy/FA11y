@@ -105,7 +105,7 @@ def handle_movement(action, reset_sensitivity):
         speaker.speak("Reset Camera")
     
     if action != 'recenter':
-        smooth_move_mouse(x_move, y_move, 0.01)
+        smooth_move_mouse(x_move, y_move, 0.04)
 
 def handle_scroll(action):
     scroll_amount = 16 if action == 'scroll up' else -16
