@@ -18,11 +18,12 @@ def pixel_within_tolerance(pixel_color, target_color, tol):
     return all(abs(pc - tc) <= tol for pc, tc in zip(pixel_color, target_color))
 
 def check_value(pixels, start_x, y, decreases, color, tolerance, name, no_value_msg):
+    x = start_x
     for i in range(100, 0, -1):
-        x = start_x - sum(decreases[:(i % len(decreases))])
         if pixel_within_tolerance(pixels[x, y], color, tolerance):
             speaker.speak(f'{i} {name}')
             return
+        x -= decreases[i % len(decreases)]
     speaker.speak(no_value_msg)
 
 def check_rarity(pixels):
