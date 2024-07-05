@@ -54,7 +54,7 @@ def load_icon_configs() -> Dict[str, Tuple[str, float]]:
         if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
             object_name = os.path.splitext(filename)[0].lower().replace(' ', '_')
             icon_path = os.path.join(icon_folder, filename)
-            threshold = 0.7
+            threshold = 0.63
             object_configs[object_name] = (icon_path, threshold)
 
     return object_configs
