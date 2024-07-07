@@ -77,10 +77,7 @@ def speak_minimap_direction():
         print(message)
         speaker.speak(message)
 
-# This function will be called when ';' is pressed
-def on_semicolon_pressed():
-    speak_minimap_direction()
-
+# Remove the on_semicolon_pressed function and directly expose speak_minimap_direction
 if __name__ == "__main__":
     print("Testing minimap direction detection")
     speak_minimap_direction()

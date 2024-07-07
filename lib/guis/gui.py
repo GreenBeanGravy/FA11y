@@ -1,8 +1,6 @@
 import tkinter as tk
-import threading
 import time
 import pyautogui
-import ctypes
 import configparser
 import os
 from accessible_output2.outputs.auto import Auto
@@ -23,8 +21,6 @@ except FileNotFoundError:
 # Game objects are now dynamically generated from OBJECT_CONFIGS
 game_objects = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
 
-VK_RIGHT_BRACKET = 0xDD
-VK_QUOTE = 0xDE
 current_poi_set = 0
 
 GAMEMODES_FOLDER = "GAMEMODES"
@@ -131,8 +127,6 @@ def update_config_file(selected_poi_name):
 
     with open('CONFIG.txt', 'w') as configfile:
         config.write(configfile)
-
-initial_focus_set = False
 
 def select_poi_tk():
     root = tk.Tk()
@@ -273,24 +267,6 @@ def select_gamemode_tk():
     root.focus_force()
     root.mainloop()
 
-def start_gui_activation():
-    right_bracket_key_down = False
-    quote_key_down = False
-    while True:
-        try:
-            right_bracket_key_down = check_and_toggle_key(VK_RIGHT_BRACKET, right_bracket_key_down, select_poi_tk)
-            quote_key_down = check_and_toggle_key(VK_QUOTE, quote_key_down, select_gamemode_tk)
-        except Exception as e:
-            print(f"An error occurred: {str(e)}")
-            speak(f"An error occurred: {str(e)}")
-        time.sleep(0.01)
-
-def check_and_toggle_key(key, key_down, action):
-    current_state = bool(ctypes.windll.user32.GetAsyncKeyState(key) & 0x8000)
-    if current_state and not key_down:
-        action()
-    return current_state
-
 def create_gui(coordinates):
     root = tk.Tk()
     root.title("Enter custom P O I name")
@@ -320,7 +296,7 @@ def create_gui(coordinates):
         poi_name = name_entry.get().strip()
         if poi_name:
             with open('CUSTOM_POI.txt', 'a') as file:
-                file.write(f"{poi_name},{coordinates}\n")
+                file.write(f"{poi_name},{coordinates[0]},{coordinates[1]}\n")
             speak_element(f"Custom P O I {poi_name} saved")
             root.destroy()
             # Perform a smooth move and click to refocus on the Fortnite window
@@ -373,5 +349,5 @@ def create_gui(coordinates):
 
     root.mainloop()
 
-if __name__ == "__main__":
-    start_gui_activation()
+# Expose the necessary functions
+__all__ = ['select_poi_tk', 'select_gamemode_tk', 'create_gui']
