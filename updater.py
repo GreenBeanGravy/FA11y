@@ -8,7 +8,7 @@ import time
 import concurrent.futures
 
 # Configuration
-AUTO_UPDATE_UPDATER = False  # Set to False to disable auto-updates of the updater script
+AUTO_UPDATE_UPDATER = True  # Set to False to disable auto-updates of the updater script
 
 def print_info(message):
     print(message)
