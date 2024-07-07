@@ -3,6 +3,8 @@ import sys
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
     class MockImp:
+        name = 'imp'  # Add this line to define the name attribute
+        
         @staticmethod
         def is_frozen(arg=None):
             if arg == "__main__":
