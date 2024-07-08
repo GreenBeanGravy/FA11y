@@ -11,9 +11,9 @@ turndelay = 0.01
 turnsteps = 5
 turnaroundsensitivity = 1158
 scrollamount = 120
-recenterverticalmove = 2000
+recenterverticalmove = 1500
 recenterverticalmoveback = -820
-secondaryrecenterverticalmove = 2000
+secondaryrecenterverticalmove = 1500
 secondaryrecenterverticalmoveback = -580
 
 [THREADS]
