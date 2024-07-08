@@ -1,30 +1,49 @@
 [SETTINGS]
-MouseKeys = true
-UsingResetSensitivity = false
-EnableAutoUpdates = true
+mousekeys = true
+usingresetsensitivity = true
+enableautoupdates = true
+createdesktopshortcut = true
+autoturn = true
+turnsensitivity = 100
+secondaryturnsensitivity = 50
+turnaroundsensitivity = 1158
+scrollamount = 120
+recenterverticalmove = 2000
+recenterverticalmoveback = -820
+secondaryrecenterverticalmove = 2000
+secondaryrecenterverticalmoveback = -580
+recenterdelay = 0.05
 
 [THREADS]
-EnableIconDetection = true
-EnableCustomPOI = true
-EnableGUIActivation = true
-EnableHeightChecker = true
-EnableHSRDetection = true
+enableicondetection = true
+enablecustompoi = true
+enableguiactivation = true
+enableheightchecker = true
+enablehsrdetection = true
 
 [SCRIPT KEYBINDS]
-Locate Player Icon = `
-Create Custom POI = \
-Fire = lctrl
-Target = rctrl
-Turn Left = num 1
-Turn Slightly Left = num 4
-Turn Right = num 3
-Turn Slightly Right = num 6
-Look Up = num 8
-Look Down = num 2
-Turn Around = num 0
-Recenter = num 5
-Scroll Up = num 7
-Scroll Down = num 9
+locate player icon = `
+create custom poi = \
+fire = lctrl
+target = rctrl
+turn left = num 1
+turn slightly left = num 4
+turn right = num 3
+turn slightly right = num 6
+look up = num 8
+look down = num 2
+turn around = num 0
+recenter = num 5
+scroll up = num 7
+scroll down = num 9
+speak minimap direction = ;
+check health shields = h
+check rarity = [
+select poi = ]
+select gamemode = '
+secondaryturn left = num 4
+secondaryturn right = num 6
 
 [POI]
-selected_poi = closest, 0, 0
+selected_poi = Closest, 0, 0
+

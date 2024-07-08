@@ -3,7 +3,7 @@ import sys
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
     class MockImp:
-        name = 'imp'  # Add this line to define the name attribute
+        name = 'imp'
         
         @staticmethod
         def is_frozen(arg=None):
@@ -42,6 +42,15 @@ UsingResetSensitivity = false
 EnableAutoUpdates = true
 CreateDesktopShortcut = true
 AutoTurn = true
+TurnSensitivity = 100
+SecondaryTurnSensitivity = 50
+TurnAroundSensitivity = 1158
+ScrollAmount = 120
+RecenterDelay = 0.05
+RecenterVerticalMove = 2000
+RecenterVerticalMoveBack = -820
+SecondaryRecenterVerticalMove = 2000
+SecondaryRecenterVerticalMoveBack = -580
 
 [THREADS]
 EnableIconDetection = true
@@ -56,9 +65,9 @@ Create Custom POI = \\
 Fire = lctrl
 Target = rctrl
 Turn Left = num 1
-Turn Slightly Left = 4
-Turn Slightly Right = 6
 Turn Right = num 3
+SecondaryTurn Left = num 4
+SecondaryTurn Right = num 6
 Look Up = num 8
 Look Down = num 2
 Turn Around = num 0
@@ -83,42 +92,48 @@ VK_KEY_CODES = {
 speaker = Auto()
 key_state = {}
 action_handlers = {}
+config = None
 
 def is_numlock_on():
     return ctypes.windll.user32.GetKeyState(VK_NUMLOCK) & 1 != 0
 
 def handle_movement(action, reset_sensitivity):
-    move_distance = 100
+    global config
+    turn_sensitivity = config.getint('SETTINGS', 'TurnSensitivity', fallback=100)
+    secondary_turn_sensitivity = config.getint('SETTINGS', 'SecondaryTurnSensitivity', fallback=50)
+    recenter_delay = config.getfloat('SETTINGS', 'RecenterDelay', fallback=0.05)
     x_move, y_move = 0, 0
 
-    if 'left' in action:
-        x_move = -move_distance
-    elif 'right' in action:
-        x_move = move_distance
-    elif 'up' in action:
-        y_move = -move_distance
-    elif 'down' in action:
-        y_move = move_distance
-
-    if 'slightly' in action:
-        x_move //= 2
-        y_move //= 2
-
-    if action == 'turn around':
-        x_move = 1158  # Full 360-degree turn
+    if action in ['turn left', 'turn right', 'secondaryturn left', 'secondaryturn right']:
+        sensitivity = secondary_turn_sensitivity if 'secondary' in action else turn_sensitivity
+        x_move = -sensitivity if 'left' in action else sensitivity
+    elif action == 'look up':
+        y_move = -turn_sensitivity
+    elif action == 'look down':
+        y_move = turn_sensitivity
+    elif action == 'turn around':
+        x_move = config.getint('SETTINGS', 'TurnAroundSensitivity', fallback=1158)
     elif action == 'recenter':
-        smooth_move_mouse(0, 2000, 0.05)
-        time.sleep(0.05)
-        down_move = -580 if reset_sensitivity else -820
-        time.sleep(0.05)
-        smooth_move_mouse(0, down_move, 0.05)
+        if reset_sensitivity:
+            recenter_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMove', fallback=2000)
+            down_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMoveBack', fallback=-580)
+        else:
+            recenter_move = config.getint('SETTINGS', 'RecenterVerticalMove', fallback=2000)
+            down_move = config.getint('SETTINGS', 'RecenterVerticalMoveBack', fallback=-820)
+        
+        smooth_move_mouse(0, recenter_move, recenter_delay)
+        time.sleep(recenter_delay)
+        smooth_move_mouse(0, down_move, recenter_delay)
         speaker.speak("Reset Camera")
+        return
     
-    if action != 'recenter':
-        smooth_move_mouse(x_move, y_move, 0.05)
+    smooth_move_mouse(x_move, y_move, recenter_delay)
 
 def handle_scroll(action):
-    scroll_amount = 16 if action == 'scroll up' else -16
+    global config
+    scroll_amount = config.getint('SETTINGS', 'ScrollAmount', fallback=120)
+    if action == 'scroll down':
+        scroll_amount = -scroll_amount
     mouse_scroll(scroll_amount)
 
 def is_key_pressed(vk_code):
@@ -136,7 +151,7 @@ def read_config():
         config.read(CONFIG_FILE)
         update_config(config)
     
-    return {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS')}
+    return config
 
 def update_config(config):
     default_config = configparser.ConfigParser()
@@ -172,19 +187,23 @@ def key_listener(key_bindings):
 
             action_lower = action.lower()
 
+            # Skip actions that don't have handlers
+            if action_lower not in action_handlers:
+                continue
+
             if action_lower in ['fire', 'target'] and not numlock_on:
                 continue
 
             if key_pressed != key_state.get(key, False):
                 key_state[key] = key_pressed
                 if key_pressed:
-                    print(f"Detected key press for action: {action}")
+                    print(f"Detected key press for action: {action_lower}")
                     action_handler = action_handlers.get(action_lower)
                     if action_handler:
                         action_handler()
-                        print(f"Action '{action}' activated.")
+                        print(f"Action '{action_lower}' activated.")
                 else:
-                    print(f"{action} button released.")
+                    print(f"{action_lower} button released.")
                     if action_lower in ['fire', 'target']:
                         (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
 
@@ -203,27 +222,23 @@ def create_desktop_shortcut():
     shortcut.save()
 
 def main():
+    global config, action_handlers
     try:
         print("Starting FA11y...")
         
-        config = configparser.ConfigParser()
-        config.read(CONFIG_FILE)
+        config = read_config()
 
-        # Check if auto-updates are enabled
         if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
             subprocess.call(['python', 'updater.py', '--instant-close'])
 
-        # Check if desktop shortcut creation is enabled
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
             create_desktop_shortcut()
 
         mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=False)
         reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
 
-        global action_handlers
         action_handlers = {}
 
-        # Only add these handlers if their respective threads are enabled
         if config.getboolean('THREADS', 'EnableIconDetection', fallback=True):
             action_handlers['locate player icon'] = start_icon_detection
         if config.getboolean('THREADS', 'EnableCustomPOI', fallback=True):
@@ -233,34 +248,28 @@ def main():
             action_handlers.update({
                 'fire': left_mouse_down,
                 'target': right_mouse_down,
-                'turn left': lambda: handle_movement('turn left', False),
-                'turn slightly left': lambda: handle_movement('turn slightly left', False),
-                'turn right': lambda: handle_movement('turn right', False),
-                'turn slightly right': lambda: handle_movement('turn slightly right', False),
-                'look up': lambda: handle_movement('look up', False),
-                'look down': lambda: handle_movement('look down', False),
-                'turn around': lambda: handle_movement('turn around', False),
+                'turn left': lambda: handle_movement('turn left', reset_sensitivity),
+                'turn right': lambda: handle_movement('turn right', reset_sensitivity),
+                'secondaryturn left': lambda: handle_movement('secondaryturn left', reset_sensitivity),
+                'secondaryturn right': lambda: handle_movement('secondaryturn right', reset_sensitivity),
+                'look up': lambda: handle_movement('look up', reset_sensitivity),
+                'look down': lambda: handle_movement('look down', reset_sensitivity),
+                'turn around': lambda: handle_movement('turn around', reset_sensitivity),
                 'recenter': lambda: handle_movement('recenter', reset_sensitivity),
                 'scroll up': lambda: handle_scroll('scroll up'),
                 'scroll down': lambda: handle_scroll('scroll down')
             })
 
-        # Add the new minimap direction handler
         action_handlers['speak minimap direction'] = speak_minimap_direction
-
-        # Add handlers for HSR functions
         action_handlers['check health shields'] = check_health_shields
         action_handlers['check rarity'] = check_rarity
-
-        # Add handlers for GUI activation functions
         action_handlers['select poi'] = select_poi_tk
         action_handlers['select gamemode'] = select_gamemode_tk
 
-        key_bindings = read_config()
+        key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS')}
         
         threading.Thread(target=key_listener, args=(key_bindings,), daemon=True).start()
 
-        # Start other threads based on config
         if config.getboolean('THREADS', 'EnableHeightChecker', fallback=True):
             threading.Thread(target=start_height_checker, daemon=True).start()
 

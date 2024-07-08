@@ -2,6 +2,7 @@ import ctypes
 import time
 import threading
 from typing import Tuple, Dict, Callable
+import configparser
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -11,9 +12,7 @@ MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP = 0x0008, 0x0010
 VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9 = 0x61, 0x63, 0x65, 0x67, 0x69
 VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6 = 0x62, 0x68, 0x60, 0x64, 0x66
 INPUT_MOUSE, MOUSEEVENTF_MOVE, MOUSEEVENTF_WHEEL = 0, 0x0001, 0x0800
-MOUSE_SENSITIVITY = 30
-TURN_AROUND_MOVE = 1158
-SMOOTH_MOVE_DURATION = 0.01
+MOUSEEVENTF_MOVE_NOCOALESCE = 0x2000  # New flag for MICKEY movement
 
 # Structures for input simulation
 class MOUSEINPUT(ctypes.Structure):
@@ -33,19 +32,27 @@ send_input = ctypes.windll.user32.SendInput
 get_async_key_state = ctypes.windll.user32.GetAsyncKeyState
 get_key_state = ctypes.windll.user32.GetKeyState
 
+# Global configuration
+config = configparser.ConfigParser()
+config.read('config.txt')
+
 def smooth_move_mouse(dx: int, dy: int, duration: float):
-    print(f"Smooth moving mouse by dx: {dx}, dy: {dy}, duration: {duration}")
+    print(f"Smooth moving mouse by dx: {dx}, dy: {dy} MICKEYS, duration: {duration}")
     def move():
         steps = 5
         step_dx, step_dy = dx // steps, dy // steps
         step_duration = duration / steps
-        x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(mouseData=0, dwFlags=MOUSEEVENTF_MOVE, time=0, dwExtraInfo=None))
+        x = INPUT(type=INPUT_MOUSE, 
+                  ii=MOUSEINPUT(mouseData=0, 
+                                dwFlags=MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE, 
+                                time=0, 
+                                dwExtraInfo=None))
 
         for i in range(steps):
             x.ii.dx, x.ii.dy = step_dx, step_dy
             send_input(1, ctypes.byref(x), ctypes.sizeof(x))
             time.sleep(step_duration)
-            print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy}")
+            print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy} MICKEYS")
 
     threading.Thread(target=move).start()
 
@@ -73,17 +80,29 @@ def mouse_movement():
     numpad_keys = [VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9, VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6]
     control_keys = [VK_LCONTROL, VK_RCONTROL]
     
+    turn_sensitivity = config.getint('SETTINGS', 'TurnSensitivity', fallback=100)
+    secondary_turn_sensitivity = config.getint('SETTINGS', 'SecondaryTurnSensitivity', fallback=50)
+    turn_around_sensitivity = config.getint('SETTINGS', 'TurnAroundSensitivity', fallback=1158)
+    scroll_amount = config.getint('SETTINGS', 'ScrollAmount', fallback=120)
+    recenter_vertical_move = config.getint('SETTINGS', 'RecenterVerticalMove', fallback=2000)
+    recenter_vertical_move_back = config.getint('SETTINGS', 'RecenterVerticalMoveBack', fallback=-820)
+    secondary_recenter_vertical_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMove', fallback=2000)
+    secondary_recenter_vertical_move_back = config.getint('SETTINGS', 'SecondaryRecenterVerticalMoveBack', fallback=-580)
+    smooth_move_duration = config.getfloat('SETTINGS', 'SmoothMoveDuration', fallback=0.01)
+    
     numpad_actions: Dict[int, Callable] = {
-        VK_NUMPAD1: lambda: smooth_move_mouse(-2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
-        VK_NUMPAD3: lambda: smooth_move_mouse(2 * MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
-        VK_NUMPAD7: lambda: mouse_scroll(120),
-        VK_NUMPAD9: lambda: mouse_scroll(-120),
-        VK_NUMPAD5: lambda: (smooth_move_mouse(0, 2000, SMOOTH_MOVE_DURATION), time.sleep(0.1), smooth_move_mouse(0, -580, SMOOTH_MOVE_DURATION)),
-        VK_NUMPAD2: lambda: smooth_move_mouse(0, MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION),
-        VK_NUMPAD8: lambda: smooth_move_mouse(0, -MOUSE_SENSITIVITY, SMOOTH_MOVE_DURATION),
-        VK_NUMPAD0: lambda: smooth_move_mouse(TURN_AROUND_MOVE, 0, SMOOTH_MOVE_DURATION),
-        VK_NUMPAD4: lambda: smooth_move_mouse(-MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
-        VK_NUMPAD6: lambda: smooth_move_mouse(MOUSE_SENSITIVITY, 0, SMOOTH_MOVE_DURATION),
+        VK_NUMPAD1: lambda: smooth_move_mouse(-2 * turn_sensitivity, 0, smooth_move_duration),
+        VK_NUMPAD3: lambda: smooth_move_mouse(2 * turn_sensitivity, 0, smooth_move_duration),
+        VK_NUMPAD7: lambda: mouse_scroll(scroll_amount),
+        VK_NUMPAD9: lambda: mouse_scroll(-scroll_amount),
+        VK_NUMPAD5: lambda: (smooth_move_mouse(0, recenter_vertical_move, smooth_move_duration), 
+                             time.sleep(0.1), 
+                             smooth_move_mouse(0, recenter_vertical_move_back, smooth_move_duration)),
+        VK_NUMPAD2: lambda: smooth_move_mouse(0, turn_sensitivity, smooth_move_duration),
+        VK_NUMPAD8: lambda: smooth_move_mouse(0, -turn_sensitivity, smooth_move_duration),
+        VK_NUMPAD0: lambda: smooth_move_mouse(turn_around_sensitivity, 0, smooth_move_duration),
+        VK_NUMPAD4: lambda: smooth_move_mouse(-secondary_turn_sensitivity, 0, smooth_move_duration),
+        VK_NUMPAD6: lambda: smooth_move_mouse(secondary_turn_sensitivity, 0, smooth_move_duration),
     }
 
     control_actions: Dict[int, Tuple[Callable, Callable]] = {
