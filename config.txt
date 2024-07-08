@@ -6,13 +6,15 @@ createdesktopshortcut = true
 autoturn = true
 turnsensitivity = 100
 secondaryturnsensitivity = 50
+recenterdelay = 0.05
+turndelay = 0.01
+turnsteps = 5
 turnaroundsensitivity = 1158
 scrollamount = 120
 recenterverticalmove = 2000
 recenterverticalmoveback = -820
 secondaryrecenterverticalmove = 2000
 secondaryrecenterverticalmoveback = -580
-recenterdelay = 0.05
 
 [THREADS]
 enableicondetection = true

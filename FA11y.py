@@ -37,7 +37,7 @@ from lib.minimap_direction import speak_minimap_direction
 VK_NUMLOCK = 0x90
 CONFIG_FILE = 'config.txt'
 DEFAULT_CONFIG = """[SETTINGS]
-MouseKeys = false
+MouseKeys = true
 UsingResetSensitivity = false
 EnableAutoUpdates = true
 CreateDesktopShortcut = true
@@ -47,6 +47,8 @@ SecondaryTurnSensitivity = 50
 TurnAroundSensitivity = 1158
 ScrollAmount = 120
 RecenterDelay = 0.05
+TurnDelay = 0.01
+TurnSteps = 5
 RecenterVerticalMove = 2000
 RecenterVerticalMoveBack = -820
 SecondaryRecenterVerticalMove = 2000
@@ -101,16 +103,24 @@ def handle_movement(action, reset_sensitivity):
     global config
     turn_sensitivity = config.getint('SETTINGS', 'TurnSensitivity', fallback=100)
     secondary_turn_sensitivity = config.getint('SETTINGS', 'SecondaryTurnSensitivity', fallback=50)
+    turn_delay = config.getfloat('SETTINGS', 'TurnDelay', fallback=0.01)
+    turn_steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
     recenter_delay = config.getfloat('SETTINGS', 'RecenterDelay', fallback=0.05)
     x_move, y_move = 0, 0
 
-    if action in ['turn left', 'turn right', 'secondaryturn left', 'secondaryturn right']:
+    if action in ['turn left', 'turn right', 'secondaryturn left', 'secondaryturn right', 'look up', 'look down']:
         sensitivity = secondary_turn_sensitivity if 'secondary' in action else turn_sensitivity
-        x_move = -sensitivity if 'left' in action else sensitivity
-    elif action == 'look up':
-        y_move = -turn_sensitivity
-    elif action == 'look down':
-        y_move = turn_sensitivity
+        if 'left' in action:
+            x_move = -sensitivity
+        elif 'right' in action:
+            x_move = sensitivity
+        elif action == 'look up':
+            y_move = -sensitivity
+        elif action == 'look down':
+            y_move = sensitivity
+        
+        smooth_move_mouse(x_move, y_move, turn_delay, turn_steps)
+        return
     elif action == 'turn around':
         x_move = config.getint('SETTINGS', 'TurnAroundSensitivity', fallback=1158)
     elif action == 'recenter':
@@ -234,7 +244,7 @@ def main():
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
             create_desktop_shortcut()
 
-        mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=False)
+        mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
         reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
 
         action_handlers = {}
