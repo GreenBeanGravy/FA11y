@@ -66,7 +66,7 @@ def create_config_gui(update_script_callback):
 
             if section == 'SCRIPT KEYBINDS':
                 widget = ttk.Entry(frame, textvariable=var, state='readonly')
-                widget.bind('<FocusIn>', lambda e, k=key: on_keybind_focus(e, k))
+                widget.bind('<FocusIn>', lambda e, k=key, v=value: on_keybind_focus(e, k, v))
             elif value.lower() in ['true', 'false']:
                 widget = ttk.Checkbutton(frame, variable=var, onvalue='True', offvalue='False')
                 widget.state(['!alternate'])
@@ -149,8 +149,8 @@ def create_config_gui(update_script_callback):
         speak(f"{text}, {value}, {hint}")
         return "break"
 
-    def on_keybind_focus(event, key):
-        speak(f"Current keybind for {key} is {event.widget.get()}. Press Enter to start capturing a new keybind.")
+    def on_keybind_focus(event, key, value):
+        speak(f"{key.replace('_', ' ').title()}, {value}, press Enter to start capturing keybind")
 
     def on_key(event):
         if capturing_keybind[0]:
