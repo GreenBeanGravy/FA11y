@@ -52,6 +52,7 @@ def create_config_gui(update_script_callback):
     widgets = []
     currently_editing = [None]
     capturing_keybind = [False]
+    last_spoken = [""]  # Variable to track the last spoken message
 
     for section in config.sections():
         for key, value in config.items(section):
@@ -150,7 +151,10 @@ def create_config_gui(update_script_callback):
         return "break"
 
     def on_keybind_focus(event, key, value):
-        speak(f"{key.replace('_', ' ').title()}, {value}, press Enter to start capturing keybind")
+        message = f"{key.replace('_', ' ').title()}, {value}, press Enter to start capturing keybind"
+        if last_spoken[0] != message:  # Check if the message is the same as the last spoken message
+            speak(message)
+            last_spoken[0] = message  # Update last spoken message
 
     def on_key(event):
         if capturing_keybind[0]:
@@ -260,6 +264,11 @@ def create_config_gui(update_script_callback):
         root.lift()  # Raise the window to the top
         focus_first_widget()
         root.after(100, speak_controls)
+        root.after(100, force_focus_again)  # Call force_focus_again after 100ms
+
+    def force_focus_again():
+        root.focus_force()  # Force focus on the window again
+        speak("Configuration window is now focused")
 
     root.protocol("WM_DELETE_WINDOW", save_and_close)  # Handle window close button
 
