@@ -52,7 +52,6 @@ def create_config_gui(update_script_callback):
     widgets = []
     currently_editing = [None]
     capturing_keybind = [False]
-    last_focused_widget = [None]  # Add this line to keep track of the last focused widget
 
     for section in config.sections():
         for key, value in config.items(section):
@@ -67,7 +66,6 @@ def create_config_gui(update_script_callback):
 
             if section == 'SCRIPT KEYBINDS':
                 widget = ttk.Entry(frame, textvariable=var, state='readonly')
-                widget.bind('<FocusIn>', lambda e, k=key, v=value, w=widget: on_keybind_focus(e, k, v, w))
             elif value.lower() in ['true', 'false']:
                 widget = ttk.Checkbutton(frame, variable=var, onvalue='True', offvalue='False')
                 widget.state(['!alternate'])
@@ -150,11 +148,8 @@ def create_config_gui(update_script_callback):
         speak(f"{text}, {value}, {hint}")
         return "break"
 
-    def on_keybind_focus(event, key, value, widget):
-        if widget != last_focused_widget[0]:
-            message = f"{key.replace('_', ' ').title()}, {value}, press Enter to start capturing keybind"
-            speak(message)
-            last_focused_widget[0] = widget
+    def on_keybind_focus(event, key):
+        speak(f"Current keybind for {key} is {event.widget.get()}. Press Enter to start capturing a new keybind.")
 
     def on_key(event):
         if capturing_keybind[0]:
@@ -239,37 +234,38 @@ def create_config_gui(update_script_callback):
     root.bind('<Shift-Tab>', change_tab)
     root.bind_all('<Key>', on_key)
 
-    def focus_first_widget():
-        first_tab = notebook.tab(0, "text")
-        first_widget = widgets_by_tab[first_tab][0]
-        first_widget.focus_set()
-        text = get_widget_text(first_widget)
-        value = get_widget_value(first_widget)
-        hint = get_navigation_hint(first_widget)
-        speak(f"{text}, {value}, {hint}")
-
     def speak_controls():
         controls = [
             "Use Up and Down arrows to navigate between options",
             "Use Tab and Shift+Tab to switch between tabs",
             "Press Enter to toggle checkboxes, edit text fields, or capture keybinds",
             "When editing a text field, use Up Arrow to hear the current value",
-            "Press Escape to cancel editing or save and close the configuration"
+            "Press Escape to cancel editing a config entry, or to save and close the config panel"
         ]
         speak(". ".join(controls))
+
+    def focus_first_widget():
+        first_tab = notebook.tab(0, "text")
+        first_widget = widgets_by_tab[first_tab][0]
+        first_widget.focus_set()
+        speak(f"Switched to {first_tab} tab")
+        text = get_widget_text(first_widget)
+        value = get_widget_value(first_widget)
+        hint = get_navigation_hint(first_widget)
+        speak(f"{text}, {value}, {hint}")
 
     def force_focus():
         root.deiconify()  # Ensure the window is not minimized
         root.focus_force()  # Force focus on the window
         root.lift()  # Raise the window to the top
-        root.after(100, force_focus_again)  # Call force_focus_again after 100ms
+        root.after(100, verify_focus)  # Schedule verification after 100ms
 
-    def force_focus_again():
+    def verify_focus():
         root.deiconify()  # Ensure the window is not minimized
         root.focus_force()  # Force focus on the window
         root.lift()  # Raise the window to the top
-        root.after(100, speak_controls)
-        focus_first_widget()
+        speak_controls()  # Speak controls
+        root.after(100, focus_first_widget)  # Focus first widget after speaking controls
 
     root.protocol("WM_DELETE_WINDOW", save_and_close)  # Handle window close button
 
