@@ -32,6 +32,7 @@ from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_m
 from lib.guis.gui import select_poi_tk, select_gamemode_tk, create_gui
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
+from lib.guis.config_gui import create_config_gui
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -81,6 +82,7 @@ Check Health Shields = h
 Check Rarity = [
 Select POI = ]
 Select Gamemode = '
+Open Configuration = f10
 
 [POI]
 selected_poi = closest, 0, 0"""
@@ -95,6 +97,10 @@ speaker = Auto()
 key_state = {}
 action_handlers = {}
 config = None
+key_bindings = {}
+key_listener_thread = None
+stop_key_listener = threading.Event()
+config_gui_open = threading.Event()
 
 def is_numlock_on():
     return ctypes.windll.user32.GetKeyState(VK_NUMLOCK) & 1 != 0
@@ -146,8 +152,16 @@ def handle_scroll(action):
         scroll_amount = -scroll_amount
     mouse_scroll(scroll_amount)
 
-def is_key_pressed(vk_code):
-    return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
+def is_key_pressed(key):
+    vk_code = VK_KEY_CODES.get(key.lower())
+    if vk_code:
+        return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
+    else:
+        try:
+            return keyboard.is_pressed(key)
+        except ValueError:
+            print(f"Unrecognized key: {key}. Skipping...")
+            return False
 
 def read_config():
     config = configparser.ConfigParser()
@@ -183,39 +197,36 @@ def update_config(config):
             config.write(configfile)
         print(f"Updated config file with missing entries: {CONFIG_FILE}")
 
-def key_listener(key_bindings):
-    while True:
-        numlock_on = is_numlock_on()
+def key_listener():
+    global key_bindings
+    while not stop_key_listener.is_set():
+        if not config_gui_open.is_set():
+            numlock_on = is_numlock_on()
 
-        for action, key in key_bindings.items():
-            vk_code = VK_KEY_CODES.get(key)
-            try:
-                key_pressed = is_key_pressed(vk_code) if vk_code else keyboard.is_pressed(key)
-            except KeyError:
-                print(f"Unrecognized key: {key}. Skipping...")
-                continue
+            for action, key in key_bindings.items():
+                key_pressed = is_key_pressed(key)
 
-            action_lower = action.lower()
+                action_lower = action.lower()
 
-            # Skip actions that don't have handlers
-            if action_lower not in action_handlers:
-                continue
+                # Skip actions that don't have handlers
+                if action_lower not in action_handlers:
+                    continue
 
-            if action_lower in ['fire', 'target'] and not numlock_on:
-                continue
+                if action_lower in ['fire', 'target'] and not numlock_on:
+                    continue
 
-            if key_pressed != key_state.get(key, False):
-                key_state[key] = key_pressed
-                if key_pressed:
-                    print(f"Detected key press for action: {action_lower}")
-                    action_handler = action_handlers.get(action_lower)
-                    if action_handler:
-                        action_handler()
-                        print(f"Action '{action_lower}' activated.")
-                else:
-                    print(f"{action_lower} button released.")
-                    if action_lower in ['fire', 'target']:
-                        (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
+                if key_pressed != key_state.get(key, False):
+                    key_state[key] = key_pressed
+                    if key_pressed:
+                        print(f"Detected key press for action: {action_lower}")
+                        action_handler = action_handlers.get(action_lower)
+                        if action_handler:
+                            action_handler()
+                            print(f"Action '{action_lower}' activated.")
+                    else:
+                        print(f"{action_lower} button released.")
+                        if action_lower in ['fire', 'target']:
+                            (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
 
         time.sleep(0.01)
 
@@ -231,8 +242,70 @@ def create_desktop_shortcut():
     shortcut.WorkingDirectory = wDir
     shortcut.save()
 
+def reload_config():
+    global config, action_handlers, key_bindings
+    config = read_config()
+    
+    # Update key bindings
+    key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS')}
+    
+    # Update action handlers based on new config
+    mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
+    reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
+    
+    action_handlers.clear()  # Clear existing handlers
+    
+    if config.getboolean('THREADS', 'EnableIconDetection', fallback=True):
+        action_handlers['locate player icon'] = start_icon_detection
+    if config.getboolean('THREADS', 'EnableCustomPOI', fallback=True):
+        action_handlers['create custom poi'] = lambda: create_gui(pyautogui.position())
+
+    if mouse_keys_enabled:
+        action_handlers.update({
+            'fire': left_mouse_down,
+            'target': right_mouse_down,
+            'turn left': lambda: handle_movement('turn left', reset_sensitivity),
+            'turn right': lambda: handle_movement('turn right', reset_sensitivity),
+            'secondaryturn left': lambda: handle_movement('secondaryturn left', reset_sensitivity),
+            'secondaryturn right': lambda: handle_movement('secondaryturn right', reset_sensitivity),
+            'look up': lambda: handle_movement('look up', reset_sensitivity),
+            'look down': lambda: handle_movement('look down', reset_sensitivity),
+            'turn around': lambda: handle_movement('turn around', reset_sensitivity),
+            'recenter': lambda: handle_movement('recenter', reset_sensitivity),
+            'scroll up': lambda: handle_scroll('scroll up'),
+            'scroll down': lambda: handle_scroll('scroll down')
+        })
+    
+    action_handlers['speak minimap direction'] = speak_minimap_direction
+    action_handlers['check health shields'] = check_health_shields
+    action_handlers['check rarity'] = check_rarity
+    action_handlers['select poi'] = select_poi_tk
+    action_handlers['select gamemode'] = select_gamemode_tk
+    action_handlers['open configuration'] = open_config_gui
+    
+    print("Configuration reloaded")
+    speaker.speak("Configuration updated")
+
+def update_script_config(new_config):
+    global config, key_listener_thread, stop_key_listener
+    config = new_config
+    reload_config()
+    
+    # Signal the current key listener to stop
+    stop_key_listener.set()
+    
+    # Start a new key listener thread with new bindings
+    stop_key_listener.clear()
+    key_listener_thread = threading.Thread(target=key_listener, daemon=True)
+    key_listener_thread.start()
+
+def open_config_gui():
+    config_gui_open.set()
+    create_config_gui(update_script_config)
+    config_gui_open.clear()
+
 def main():
-    global config, action_handlers
+    global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
     try:
         print("Starting FA11y...")
         
@@ -244,41 +317,11 @@ def main():
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
             create_desktop_shortcut()
 
-        mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
-        reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
-
-        action_handlers = {}
-
-        if config.getboolean('THREADS', 'EnableIconDetection', fallback=True):
-            action_handlers['locate player icon'] = start_icon_detection
-        if config.getboolean('THREADS', 'EnableCustomPOI', fallback=True):
-            action_handlers['create custom poi'] = lambda: create_gui(pyautogui.position())
-
-        if mouse_keys_enabled:
-            action_handlers.update({
-                'fire': left_mouse_down,
-                'target': right_mouse_down,
-                'turn left': lambda: handle_movement('turn left', reset_sensitivity),
-                'turn right': lambda: handle_movement('turn right', reset_sensitivity),
-                'secondaryturn left': lambda: handle_movement('secondaryturn left', reset_sensitivity),
-                'secondaryturn right': lambda: handle_movement('secondaryturn right', reset_sensitivity),
-                'look up': lambda: handle_movement('look up', reset_sensitivity),
-                'look down': lambda: handle_movement('look down', reset_sensitivity),
-                'turn around': lambda: handle_movement('turn around', reset_sensitivity),
-                'recenter': lambda: handle_movement('recenter', reset_sensitivity),
-                'scroll up': lambda: handle_scroll('scroll up'),
-                'scroll down': lambda: handle_scroll('scroll down')
-            })
-
-        action_handlers['speak minimap direction'] = speak_minimap_direction
-        action_handlers['check health shields'] = check_health_shields
-        action_handlers['check rarity'] = check_rarity
-        action_handlers['select poi'] = select_poi_tk
-        action_handlers['select gamemode'] = select_gamemode_tk
-
-        key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS')}
+        reload_config()
         
-        threading.Thread(target=key_listener, args=(key_bindings,), daemon=True).start()
+        stop_key_listener.clear()
+        key_listener_thread = threading.Thread(target=key_listener, daemon=True)
+        key_listener_thread.start()
 
         if config.getboolean('THREADS', 'EnableHeightChecker', fallback=True):
             threading.Thread(target=start_height_checker, daemon=True).start()
@@ -296,6 +339,7 @@ def main():
         print(f"An error occurred: {str(e)}")
         speaker.speak(f"An error occurred: {str(e)}")
     finally:
+        stop_key_listener.set()  # Ensure the key listener thread stops
         print("Press Enter to close this window...")
         input()
 

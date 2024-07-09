@@ -45,6 +45,7 @@ select poi = ]
 select gamemode = '
 secondaryturn left = num 4
 secondaryturn right = num 6
+open configuration = f10
 
 [POI]
 selected_poi = Closest, 0, 0
