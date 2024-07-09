@@ -262,13 +262,14 @@ def create_config_gui(update_script_callback):
         root.deiconify()  # Ensure the window is not minimized
         root.focus_force()  # Force focus on the window
         root.lift()  # Raise the window to the top
-        focus_first_widget()
-        root.after(100, speak_controls)
         root.after(100, force_focus_again)  # Call force_focus_again after 100ms
 
     def force_focus_again():
-        root.focus_force()  # Force focus on the window again
-        speak("Configuration window is now focused")
+        root.deiconify()  # Ensure the window is not minimized
+        root.focus_force()  # Force focus on the window
+        root.lift()  # Raise the window to the top
+        root.after(100, speak_controls)
+        focus_first_widget()
 
     root.protocol("WM_DELETE_WINDOW", save_and_close)  # Handle window close button
 
