@@ -198,11 +198,16 @@ def select_poi_tk():
         if isinstance(focused, tk.Button):
             select_poi(focused['text'])
 
+    def on_escape(event):
+        speak("Closing POI selector")
+        root.destroy()
+
     root.bind('<Tab>', lambda e: refresh_buttons(True))
     root.bind('<Shift-Tab>', lambda e: refresh_buttons(False))
     root.bind('<Up>', navigate)
     root.bind('<Down>', navigate)
     root.bind('<Return>', on_return)
+    root.bind('<Escape>', on_escape)
 
     refresh_buttons(initial=True)
 
@@ -253,9 +258,14 @@ def select_gamemode_tk():
         if isinstance(focused, tk.Button):
             select_gamemode_action(gamemodes[buttons.index(focused)])
 
+    def on_escape(event):
+        speak("Closing gamemode selector")
+        root.destroy()
+
     root.bind('<Up>', navigate)
     root.bind('<Down>', navigate)
     root.bind('<Return>', on_return)
+    root.bind('<Escape>', on_escape)
 
     if buttons:
         buttons[0].focus_set()
