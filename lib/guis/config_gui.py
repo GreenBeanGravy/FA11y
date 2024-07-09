@@ -52,7 +52,7 @@ def create_config_gui(update_script_callback):
     widgets = []
     currently_editing = [None]
     capturing_keybind = [False]
-    last_spoken = [""]  # Variable to track the last spoken message
+    last_focused_widget = [None]  # Add this line to keep track of the last focused widget
 
     for section in config.sections():
         for key, value in config.items(section):
@@ -67,7 +67,7 @@ def create_config_gui(update_script_callback):
 
             if section == 'SCRIPT KEYBINDS':
                 widget = ttk.Entry(frame, textvariable=var, state='readonly')
-                widget.bind('<FocusIn>', lambda e, k=key, v=value: on_keybind_focus(e, k, v))
+                widget.bind('<FocusIn>', lambda e, k=key, v=value, w=widget: on_keybind_focus(e, k, v, w))
             elif value.lower() in ['true', 'false']:
                 widget = ttk.Checkbutton(frame, variable=var, onvalue='True', offvalue='False')
                 widget.state(['!alternate'])
@@ -150,11 +150,11 @@ def create_config_gui(update_script_callback):
         speak(f"{text}, {value}, {hint}")
         return "break"
 
-    def on_keybind_focus(event, key, value):
-        message = f"{key.replace('_', ' ').title()}, {value}, press Enter to start capturing keybind"
-        if last_spoken[0] != message:  # Check if the message is the same as the last spoken message
+    def on_keybind_focus(event, key, value, widget):
+        if widget != last_focused_widget[0]:
+            message = f"{key.replace('_', ' ').title()}, {value}, press Enter to start capturing keybind"
             speak(message)
-            last_spoken[0] = message  # Update last spoken message
+            last_focused_widget[0] = widget
 
     def on_key(event):
         if capturing_keybind[0]:
