@@ -130,7 +130,7 @@ def update_config_file(selected_poi_name):
 
 def select_poi_tk():
     root = tk.Tk()
-    root.title("POI Selector")
+    root.title("P O I Selector")
     root.attributes('-topmost', True)
     
     buttons_frame = tk.Frame(root)
@@ -156,17 +156,17 @@ def select_poi_tk():
     
         if current_poi_set == 0:
             pois_to_use = [("Safe Zone", "0", "0"), ("Closest", "0", "0")] + pois_from_file
-            speak("Game POIs")
+            speak("Game P O Is")
         elif current_poi_set == 1:
             pois_to_use = load_custom_pois()
-            speak("Custom POIs")
+            speak("Custom P O Is")
         else:
             pois_to_use = game_objects
             speak("Game Objects")
 
         if not pois_to_use:
-            tk.Label(buttons_frame, text="No custom P O Is available. Go make some!").pack()
-            speak("No POIs available. Please add POIs.")
+            tk.Label(buttons_frame, text="No custom POIs available. Go make some!").pack()
+            speak("No custom P O Is available. Go make some!")
             return
 
         buttons = []
@@ -199,7 +199,7 @@ def select_poi_tk():
             select_poi(focused['text'])
 
     def on_escape(event):
-        speak("Closing POI selector")
+        speak("Closing P O I selector")
         root.destroy()
 
     root.bind('<Tab>', lambda e: refresh_buttons(True))
