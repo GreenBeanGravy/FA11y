@@ -63,8 +63,8 @@ EnableHeightChecker = true
 EnableHSRDetection = true
 
 [SCRIPT KEYBINDS]
-Locate Player Icon = `
-Create Custom POI = \\
+Locate Player Icon = grave
+Create Custom POI = backslash
 Fire = lctrl
 Target = rctrl
 Turn Left = num 1
@@ -77,11 +77,11 @@ Turn Around = num 0
 Recenter = num 5
 Scroll Up = num 7
 Scroll Down = num 9
-Speak Minimap Direction = ;
+Speak Minimap Direction = semicolon
 Check Health Shields = h
-Check Rarity = [
-Select POI = ]
-Select Gamemode = '
+Check Rarity = bracketleft
+Select POI = bracketright
+Select Gamemode = apostrophe
 Open Configuration = f10
 
 [POI]
@@ -163,8 +163,52 @@ def is_key_pressed(key):
             print(f"Unrecognized key: {key}. Skipping...")
             return False
 
+def update_config(config):
+    default_config = configparser.ConfigParser(interpolation=None)
+    default_config.optionxform = str  # Preserve case of keys
+    default_config.read_string(DEFAULT_CONFIG)
+    
+    updated = False
+    
+    for section in default_config.sections():
+        if not config.has_section(section):
+            config.add_section(section)
+            updated = True
+        
+        # Get all keys in the current section (case-insensitive)
+        existing_keys = {k.lower(): k for k in config[section]}
+        
+        for key, value in default_config.items(section):
+            lower_key = key.lower()
+            
+            if lower_key in existing_keys:
+                # If the key exists (case-insensitive), but the case doesn't match
+                if existing_keys[lower_key] != key:
+                    current_value = config[section][existing_keys[lower_key]]
+                    config.remove_option(section, existing_keys[lower_key])
+                    config.set(section, key, current_value)
+                    updated = True
+            else:
+                # If the key doesn't exist at all, add it
+                config.set(section, key, value)
+                updated = True
+    
+    # Remove any keys that exist in the config but not in the default config
+    for section in config.sections():
+        if section in default_config.sections():
+            for key in list(config[section].keys()):
+                if key not in default_config[section]:
+                    config.remove_option(section, key)
+                    updated = True
+    
+    if updated:
+        with open(CONFIG_FILE, 'w') as configfile:
+            config.write(configfile)
+        print(f"Updated config file with correct casing and removed obsolete entries: {CONFIG_FILE}")
+
 def read_config():
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(interpolation=None)
+    config.optionxform = str  # Preserve case of keys
     
     if not os.path.exists(CONFIG_FILE):
         config.read_string(DEFAULT_CONFIG)
@@ -176,26 +220,6 @@ def read_config():
         update_config(config)
     
     return config
-
-def update_config(config):
-    default_config = configparser.ConfigParser()
-    default_config.read_string(DEFAULT_CONFIG)
-    
-    updated = False
-    
-    for section in default_config.sections():
-        if not config.has_section(section):
-            config.add_section(section)
-            updated = True
-        for key, value in default_config.items(section):
-            if not config.has_option(section, key):
-                config.set(section, key, value)
-                updated = True
-    
-    if updated:
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-        print(f"Updated config file with missing entries: {CONFIG_FILE}")
 
 def key_listener():
     global key_bindings

@@ -13,6 +13,7 @@ def speak(text):
 
 def load_config():
     config = configparser.ConfigParser()
+    config.optionxform = str  # This preserves the case of the keys
     config.read(CONFIG_FILE)
     return config
 
@@ -61,7 +62,7 @@ def create_config_gui(update_script_callback):
             frame = ttk.Frame(pages[section])
             frame.pack(fill='x', padx=5, pady=5)
 
-            label = ttk.Label(frame, text=key.replace('_', ' ').title())
+            label = ttk.Label(frame, text=key)
             label.pack(side='left')
 
             if section == 'SCRIPT KEYBINDS':
