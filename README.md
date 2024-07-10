@@ -68,12 +68,12 @@ First, you'll need any version of Python 3.9 installed. MAKE SURE you check the 
 - Edit the `config.txt` file to toggle the Mouse Keys on and off by changing the variable `MouseKeys` to True/False.
 
 ## Upcoming Features, the farther down you go the better it gets!
-- Your height off the ground while skydiving.
+- ~~Your height off the ground while skydiving.~~
 - The amount of eliminations you have.
 - The amount of players remaining in a match.
-- Other important map icons, such as combat caches, radar towers, supply drops, etc.
+- ~~Other important map icons, such as combat caches, radar towers, supply drops, etc.~~
 - A system that will notify you when to jump from the Battle Bus in order to take the shortest distance possible to your currently selected POI.
-- More expansion on how you look around, ~~the ability to toggle this feature~~, change keybinds, change sensitivity, everything!
+- ~~More expansion on how you look around, ~~the ability to toggle this feature~~, change keybinds, change sensitivity, everything!~~
 - Full Fortnite GUI access.
 - The ability to change all of your keybinds and the ability to apply and share your keybinds with others!
 - The ability to change every game setting, including applying and sharing presets!
