@@ -1,80 +1,108 @@
 # FA11y: Fortnite Accessibility Tool for Blind Players
 
 ## About
-FA11y aims to make many important elements of Fortnite accessible to blind players. With FA11y, you can:
+FA11y aims to make many important elements of Fortnite accessible to blind and visually impaired players. With FA11y, you can:
 
-- Get directions to Points of Interest (POIs) and place an audible marker on them.
-- Check your available Health and Shields.
-- Check the rarity of selected weapons in your inventory.
+- Get directions to Points of Interest (POIs) and place an audible, stereo marker on them!
+- Check your available Health and Shields!
+- Check the rarity of selected weapons in your inventory!
 - Get directions to the Safe Zone, away from the number one killer of blind players, the storm!
 - Get directions to seasonal POIs, and even set your own custom POIs!
 - Get your height while skydiving in real time!
-
 - Install and verify Fortnite accessibly!
-- Launch Fortnite accessibly in either performance mode, or Direct X 11!
+- Launch Fortnite accessibly in either performance mode or Direct X 11!
+- Select game modes easily with an accessible interface!
+- Customize most FA11y settings through an accessible configuration menu!
 
-## DEFAULT Keybinds
+## DEFAULT Keybinds (configurable to your liking!)
 
 - **`]` (Right Bracket)**: Open the POI selection menu
-- `` TAB `` + `` SHIFT + TAB ``: Cycles between GAME POIs, CUSTOM POIs, and GAME OBJECTS within the POI selection menu.
+- **`Tab` / `Shift + Tab`**: Cycle between GAME POIs, CUSTOM POIs, and GAME OBJECTS within the POI selection menu
 - **`Enter` / `Space`**: Select a POI in the menu
 - **`Up Arrow` / `Down Arrow`**: Navigate through the POI menu
-- **`[` (Left Bracket)**: Check the rarity of the currently selected item in your inventory. Use the left and right arrow keys to navigate between items.
-- **`H`**: Invoke health and shield detection
-- **`` ` `` (Grave Accent / Backtick)**: Run icon detection to give directions to the selected POI
-- **``Shift + ` `` (Shift + Grave Accent / Backtick)**: Create a new custom POI at your current location.
-- **`Left Control`**: Left clicks
-- **`Right Control`**: Right clicks
+- **`[` (Left Bracket)**: Check the rarity of the currently selected item in your inventory
+- **`H`**: Check your Health and Shields
+- **`` ` `` (Grave Accent / Backtick)**: Run player icon detection on the map to give directions to the selected POI, and with AutoTurn enabled, automatically face the POI!
+- **``Shift + ` `` (Shift + Grave Accent / Backtick)**: Create a new custom POI at your current location
+- **`Left Control`**: Left click
+- **`Right Control`**: Right click
 - **`Num5`**: Recenter the camera
-- **`Num4`**: Turns slightly left
-- **`Num1`**: Turns left
-- **`Num6`**: Turns slightly right
-- **`Num3`**: Turns right
-- **`Num8`**: Looks up
-- **`Num2`**: Looks down
-- **`Num0`**: Turns 180 degrees
-- **`Num7`**: Scrolls up
-- **`Num9`**: Scrolls down
+- **`Num4`**: Turn slightly left
+- **`Num1`**: Turn left
+- **`Num6`**: Turn slightly right
+- **`Num3`**: Turn right
+- **`Num8`**: Look up
+- **`Num2`**: Look down
+- **`Num0`**: Turn 180 degrees
+- **`Num7`**: Scroll up
+- **`Num9`**: Scroll down
+- **`;` (Semicolon)**: Speak the direction that the player is currently facing
+- **`'` (Apostrophe)**: Open the gamemode selector
+- **`F10`**: Open the FA11y configuration menu
 
 ## Installation
-First, you'll need any version of Python 3.9 installed. MAKE SURE you check the box to "add Python to Path" during installation!
-
-1. Download the latest release.
-2. Extract and place the folder anywhere. Make sure you do not place the folder inside of the Fortnite directory, or inside of any System Folders.
-3. Open the folder, and run `installer.py`. Wait until it closes to proceed.
-4. Viola! You should now be able to run `FA11y.py` with no issues.
-5. Optional: Add your own Points of Interest (POIs) in `CUSTOM_POI.txt`
+1. Ensure you have Python 3.9 or later installed. Make sure to check the box to "Add Python to PATH" during installation.
+2. Download the latest release of FA11y.
+3. Extract the folder to a location of your choice. Avoid placing it inside the Fortnite directory or any system folders.
+4. Open the folder and run `updater.py`. Wait for it to complete.
+5. You should now be able to run `FA11y.py` without issues.
+6. Optional: Configure your FA11y settings and keybinds by pressing `F10` when FA11y has started!
 
 ## Usage
 
-### POI and Safe Zone directions
-- While in-game, press `M` to open your map.
-- While the map is open, press the `` ` `` (Grave Accent / Backtick) key.
+### POI and Safe Zone Directions
+- In-game, press `M` to open your map.
+- If you haven't already, open the POI Selector by pressing the `]` (Right Bracket) key, and select where you want to go.
+- While the map is open, press the `` ` `` (Grave Accent / Backtick) key to get directions to the POI you just selected.
 
-### Create a custom POI
-- While in-game, press `M` to open your map.
-- While the map is open, press the key combo ``Shift + ` `` (Shift + Grave Accent / Backtick) key.
+### Create a Custom POI
+- In-game, press `M` to open your map.
+- While the map is open, press `Shift + `` ` `` (Shift + Grave Accent / Backtick).
+- Give a name to your new POI, and voila!
 
 ### Health and Shield
-- While in-game, simply press `H` to check your health and shield values.
+- In-game, press `H` to check your health and shield values. This also works while spectating other players to view their Health and Shields.
 
-### Rarity
-- While in-game, open your inventory using the `I` key. 
-- Press your `[` (Left Bracket) key to check the rarity of your currently selected weapon. You can change the selected weapon using the left and right arrow keys.
+### Weapon Rarity
+- In-game, open your inventory using the `I` key.
+- Press `[` (Left Bracket) to check the rarity of your currently selected weapon.
+- Use left and right arrow keys to navigate between items, starting on the first item in your inventory.
 
 ### Mouse Keys
-- While NumLock is on, use the NumPad arrow keys to move the mouse around in game, currently using a sensitivity made for the default Fortnite values.
-- By default, 4 turns slightly left, 1 turns left, 8 turns up, 6 turns slightly right, 3 turns right, 2 turns down, 0 turns you 180 degrees, 5 recenters the camera, 9 invokes a scroll-down, and 7 invokes a scroll-up.
-- Edit the `config.txt` file to toggle the Mouse Keys on and off by changing the variable `MouseKeys` to True/False.
+- With NumLock on, use the NumPad keys to control the mouse in-game.
+- Default settings are listed in the keybinds section above.
 
-## Upcoming Features, the farther down you go the better it gets!
-- ~~Your height off the ground while skydiving.~~
-- The amount of eliminations you have.
-- The amount of players remaining in a match.
-- ~~Other important map icons, such as combat caches, radar towers, supply drops, etc.~~
-- A system that will notify you when to jump from the Battle Bus in order to take the shortest distance possible to your currently selected POI.
-- ~~More expansion on how you look around, ~~the ability to toggle this feature~~, change keybinds, change sensitivity, everything!~~
-- Full Fortnite GUI access.
-- The ability to change all of your keybinds and the ability to apply and share your keybinds with others!
-- The ability to change every game setting, including applying and sharing presets!
-- Full stereo audio feedback aim assist.
+### Player Direction
+- Press `;` (Semicolon) to hear the direction you are currently facing.
+
+### Game Mode Selection
+- Press `'` (Apostrophe) to open the game mode selection menu.
+- Use arrow keys to navigate and Enter to select. Wait for confirmation that the gamemode has been selected.
+
+### Configuration
+- Press `F10` to open the configuration menu.
+- Configuration menu navigation tips and keybinds are provided when you open the menu.
+
+## Customization
+- Use the configuration menu (F10) to adjust settings and keybinds to your preferences.
+- You can add custom game modes by creating text files in the `GAMEMODES` folder (advanced users).
+
+## Features
+- Automatic updates
+- Desktop shortcut creation
+- Accessible Fortnite installation and verification
+- Performance mode and DirectX 11 launching options
+- Real-time player height announcements while skydiving
+- Detection of various game objects (e.g., quest icons, storm towers, reboot cards and vans..)
+- Customizable turn sensitivity
+- Much more!
+
+## Upcoming Features
+- Elimination count tracking
+- Players remaining in match
+- Battle Bus jump timing assistant
+- Full Fortnite GUI access
+- Game settings management and sharing
+- Stereo audio feedback aim assist
+
+Enjoy playing Fortnite with enhanced accessibility!
