@@ -228,6 +228,9 @@ def key_listener():
             numlock_on = is_numlock_on()
 
             for action, key in key_bindings.items():
+                if not key:  # Skip if the keybind is empty
+                    continue
+                
                 key_pressed = is_key_pressed(key)
 
                 action_lower = action.lower()
@@ -252,7 +255,7 @@ def key_listener():
                         if action_lower in ['fire', 'target']:
                             (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
 
-        time.sleep(0.01)
+        time.sleep(0.001)
 
 def create_desktop_shortcut():
     desktop = winshell.desktop()
@@ -271,7 +274,7 @@ def reload_config():
     config = read_config()
     
     # Update key bindings
-    key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS')}
+    key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS') if value}  # Only include non-empty keybinds
     
     # Update action handlers based on new config
     mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)

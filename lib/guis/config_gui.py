@@ -3,6 +3,7 @@ from tkinter import ttk
 import configparser
 from accessible_output2.outputs.auto import Auto
 import os
+import re
 
 speaker = Auto()
 
@@ -32,6 +33,9 @@ def key_to_fa11y_format(key):
     }
     return key_mapping.get(key, key)
 
+def is_numeric(value):
+    return re.match(r'^-?\d*\.?\d*$', value) is not None
+
 def create_config_gui(update_script_callback):
     config = load_config()
     root = tk.Tk()
@@ -53,6 +57,7 @@ def create_config_gui(update_script_callback):
     widgets = []
     currently_editing = [None]
     capturing_keybind = [False]
+    keybind_map = {}  # To keep track of which action is bound to which key
 
     for section in config.sections():
         for key, value in config.items(section):
@@ -67,6 +72,8 @@ def create_config_gui(update_script_callback):
 
             if section == 'SCRIPT KEYBINDS':
                 widget = ttk.Entry(frame, textvariable=var, state='readonly')
+                if value:  # Only add to keybind_map if there's a value
+                    keybind_map[value.lower()] = key
             elif value.lower() in ['true', 'false']:
                 widget = ttk.Checkbutton(frame, variable=var, onvalue='True', offvalue='False')
                 widget.state(['!alternate'])
@@ -106,7 +113,7 @@ def create_config_gui(update_script_callback):
         if isinstance(widget, ttk.Checkbutton):
             return "checked" if 'selected' in widget.state() else "unchecked"
         elif isinstance(widget, ttk.Entry):
-            return widget.get()
+            return widget.get() or "No keybind set"
         elif isinstance(widget, ttk.Frame):
             return widget.winfo_children()[-1].get()
         else:
@@ -150,19 +157,57 @@ def create_config_gui(update_script_callback):
         return "break"
 
     def on_keybind_focus(event, key):
-        speak(f"Current keybind for {key} is {event.widget.get()}. Press Enter to start capturing a new keybind.")
+        speak(f"Current keybind for {key} is {event.widget.get() or 'Not set'}. Press Enter to start capturing a new keybind.")
+
+    def speak_help():
+        controls = [
+            "Use Up and Down arrows to navigate between options",
+            "Use Tab and Shift+Tab to switch between tabs",
+            "Press Enter to toggle checkboxes, edit text fields, or capture keybinds",
+            "When editing a text field, use Up Arrow to hear the current value",
+            "Press Escape to cancel editing a config entry, or to save and close the config panel",
+            "When capturing a keybind, press Backspace to disable the keybind",
+            "Press H at any time to hear these instructions again"
+        ]
+        speak(". ".join(controls))
 
     def on_key(event):
+        if event.keysym.lower() == 'h':
+            speak_help()
+            return "break"
+        
         if capturing_keybind[0]:
-            if event.keysym not in ['Return', 'Tab', 'Escape']:
-                current_widget = root.focus_get()
+            if event.keysym in ['Return', 'Tab', 'Escape']:
+                return "break"
+            current_widget = root.focus_get()
+            action_name = get_widget_text(current_widget)
+            if event.keysym == 'BackSpace':
+                current_widget.delete(0, tk.END)
+                speak(f"Keybind for {action_name} disabled")
+                if action_name in keybind_map.values():
+                    old_key = next(key for key, value in keybind_map.items() if value == action_name)
+                    del keybind_map[old_key]
+            else:
                 key_name = key_to_fa11y_format(event.keysym.lower())
+                if key_name.lower() in keybind_map:
+                    old_action = keybind_map[key_name.lower()]
+                    if old_action != action_name:
+                        speak(f"Warning: {key_name} was previously bound to {old_action}. That keybind has been removed.")
+                        for widget in widgets:
+                            if isinstance(widget, ttk.Entry) and widget.get().lower() == key_name.lower():
+                                widget.delete(0, tk.END)
+                                variables[(notebook.tab(notebook.select(), "text"), get_widget_text(widget))].set('')
+                                break
+                if action_name in keybind_map.values():
+                    old_key = next(key for key, value in keybind_map.items() if value == action_name)
+                    del keybind_map[old_key]
+                keybind_map[key_name.lower()] = action_name
                 current_widget.delete(0, tk.END)
                 current_widget.insert(0, key_name)
-                action_name = get_widget_text(current_widget)
+                variables[(notebook.tab(notebook.select(), "text"), action_name)].set(key_name)
                 speak(f"Keybind for {action_name} set to {key_name}")
-                capturing_keybind[0] = False
-                current_widget.config(state='readonly')
+            capturing_keybind[0] = False
+            current_widget.config(state='readonly')
             return "break"
 
     def on_enter(event):
@@ -176,7 +221,7 @@ def create_config_gui(update_script_callback):
                     capturing_keybind[0] = True
                     current.config(state='normal')
                     action_name = get_widget_text(current)
-                    speak(f"Press any key to set the keybind for {action_name}. Press Escape to cancel.")
+                    speak(f"Press any key to set the keybind for {action_name}. Press Backspace to disable this keybind. Press Escape to cancel.")
                 else:
                     capturing_keybind[0] = False
                     current.config(state='readonly')
@@ -184,7 +229,12 @@ def create_config_gui(update_script_callback):
             elif currently_editing[0] == current:
                 currently_editing[0] = None
                 current.config(state='readonly')
-                speak(f"{get_widget_text(current)} set to {current.get()}")
+                if is_numeric(current.get()) or current.get() == "":
+                    speak(f"{get_widget_text(current)} set to {current.get() or 'empty'}")
+                else:
+                    speak(f"Invalid input. {get_widget_text(current)} must be a number. Value not changed.")
+                    current.delete(0, tk.END)
+                    current.insert(0, variables[(notebook.tab(notebook.select(), "text"), get_widget_text(current))].get())
             elif not currently_editing[0]:
                 currently_editing[0] = current
                 current.config(state='normal')
@@ -235,16 +285,6 @@ def create_config_gui(update_script_callback):
     root.bind('<Shift-Tab>', change_tab)
     root.bind_all('<Key>', on_key)
 
-    def speak_controls():
-        controls = [
-            "Use Up and Down arrows to navigate between options",
-            "Use Tab and Shift+Tab to switch between tabs",
-            "Press Enter to toggle checkboxes, edit text fields, or capture keybinds",
-            "When editing a text field, use Up Arrow to hear the current value",
-            "Press Escape to cancel editing a config entry, or to save and close the config panel"
-        ]
-        speak(". ".join(controls))
-
     def focus_first_widget():
         first_tab = notebook.tab(0, "text")
         first_widget = widgets_by_tab[first_tab][0]
@@ -265,8 +305,8 @@ def create_config_gui(update_script_callback):
         root.deiconify()  # Ensure the window is not minimized
         root.focus_force()  # Force focus on the window
         root.lift()  # Raise the window to the top
-        speak_controls()  # Speak controls
-        root.after(100, focus_first_widget)  # Focus first widget after speaking controls
+        speak("Press H for help!")  # New initial message
+        root.after(100, focus_first_widget)  # Focus first widget after speaking initial message
 
     root.protocol("WM_DELETE_WINDOW", save_and_close)  # Handle window close button
 
