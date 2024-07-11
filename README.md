@@ -57,7 +57,7 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 
 ### Create a Custom POI
 - In-game, press `M` to open your map.
-- While the map is open, press `Shift + `` ` `` (Shift + Grave Accent / Backtick).
+- While the map is open, press ``Shift + ` `` (Shift + Grave Accent / Backtick).
 - Give a name to your new POI, and voila!
 
 ### Health and Shield
