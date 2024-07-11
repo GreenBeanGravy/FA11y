@@ -60,9 +60,8 @@ def select_gamemode(gamemode):
     time.sleep(0.1)  # Wait 100ms before clearing the field
 
     # Clear the field using backspace
-    for _ in range(20):  # Press backspace 20 times
+    for _ in range(50):  # Press backspace 20 times
         pyautogui.press('backspace')
-        time.sleep(0.01)  # Small delay between keypresses
 
     # Type the new gamemode
     pyautogui.write(gamemode[1])
