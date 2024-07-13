@@ -6,7 +6,7 @@ from functools import lru_cache
 import shutil
 import time
 import concurrent.futures
-import hashlib
+import psutil
 
 # Configuration
 AUTO_UPDATE_UPDATER = True  # Set to False to disable auto-updates of the updater script
@@ -92,7 +92,6 @@ if sys.version_info >= (3, 12):
 
 import requests
 from concurrent.futures import ThreadPoolExecutor
-import psutil  # Now safe to import psutil
 
 if ao2_available:
     try:
@@ -112,10 +111,10 @@ def get_repo_files(repo, branch='main'):
         response = requests.get(url)
         response.raise_for_status()
         tree = response.json().get('tree', [])
-        return {item['path']: item['sha'] for item in tree if item['type'] == 'blob'}
+        return [item['path'] for item in tree if item['type'] == 'blob']
     except requests.RequestException as e:
         print_info(f"Failed to get repo files: {e}")
-        return {}
+        return []
 
 def download_file(repo, file_path):
     url = f"https://raw.githubusercontent.com/{repo}/main/{file_path}"
@@ -127,42 +126,51 @@ def download_file(repo, file_path):
         print_info(f"Failed to download file {file_path}: {e}")
         return None
 
-def get_local_file_sha(file_path):
-    sha1 = hashlib.sha1()
-    with open(file_path, 'rb') as f:
-        while True:
-            data = f.read(65536)
-            if not data:
-                break
-            sha1.update(data)
-    return sha1.hexdigest()
-
-def file_needs_update(local_path, github_sha):
+def file_needs_update(local_path, github_content):
     if not os.path.exists(local_path):
         return True
-    local_sha = get_local_file_sha(local_path)
-    return local_sha != github_sha
+    with open(local_path, 'rb') as file:
+        return file.read() != github_content
 
-def update_file(repo, file_path, github_sha):
-    if not file_path.endswith(('.py', '.txt', '.png', '.bat')) or file_path == os.path.basename(__file__):
+def update_script(repo, script_name):
+    if not AUTO_UPDATE_UPDATER:
+        return False
+    github_content = download_file(repo, script_name)
+    if github_content is None or not file_needs_update(script_name, github_content):
+        return False
+
+    with open(script_name, 'wb') as file:
+        file.write(github_content)
+    print_info(f"Updated script: {script_name}")
+    return True
+
+def check_and_update_file(repo, file_path, script_name):
+    if file_path.lower() == 'readme.md':
+        readme_content = download_file(repo, file_path)
+        if readme_content and file_needs_update('README.txt', readme_content):
+            with open('README.txt', 'wb') as file:
+                file.write(readme_content)
+            print_info("Updated README.txt")
+            return True
+        return False
+
+    if not file_path.endswith(('.py', '.txt', '.png', '.bat')) or file_path.endswith(script_name):
         return False
 
     if file_path in ('config.txt', 'CUSTOM_POI.txt') and os.path.exists(file_path):
         return False
 
-    if file_needs_update(file_path, github_sha):
-        github_content = download_file(repo, file_path)
-        if github_content is None:
-            return False
+    github_content = download_file(repo, file_path)
+    if github_content is None or not file_needs_update(file_path, github_content):
+        return False
 
-        directory_name = os.path.dirname(file_path)
-        if directory_name:
-            os.makedirs(directory_name, exist_ok=True)
-        with open(file_path, 'wb') as file:
-            file.write(github_content)
-        print_info(f"Updated file: {file_path}")
-        return True
-    return False
+    directory_name = os.path.dirname(file_path)
+    if directory_name:
+        os.makedirs(directory_name, exist_ok=True)
+    with open(file_path, 'wb') as file:
+        file.write(github_content)
+    print_info(f"Updated file: {file_path}")
+    return True
 
 def update_icons_folder(repo, branch='main'):
     folder = "icons"
@@ -188,20 +196,11 @@ def update_icons_folder(repo, branch='main'):
         print_info(f"Failed to update icons folder: {e}")
         return False
 
-def process_updates(repo, repo_files):
+def process_updates(repo, repo_files, script_name):
     with ThreadPoolExecutor() as executor:
-        updates = list(executor.map(lambda x: update_file(repo, x[0], x[1]), repo_files.items()))
-    return any(updates)
+        updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name), repo_files))
 
-def update_readme(repo, repo_files):
-    if 'README.md' in repo_files:
-        readme_content = download_file(repo, 'README.md')
-        if readme_content and file_needs_update('README.txt', repo_files['README.md']):
-            with open('README.txt', 'wb') as file:
-                file.write(readme_content)
-            print_info("Updated README.txt")
-            return True
-    return False
+    return any(updates)
 
 def is_legendary_in_path():
     return shutil.which('legendary') is not None
@@ -258,32 +257,33 @@ def main():
     instant_close = '--instant-close' in sys.argv
     run_by_fa11y = '--run-by-fa11y' in sys.argv
 
+    if update_script("GreenBeanGravy/FA11y", script_name):
+        if speaker:
+            speaker.speak("Script updated. Please restart the script to use the updated version.")
+        print_info("Script updated. Please restart the script to use the updated version.")
+        time.sleep(5)
+        sys.exit()
+
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
-    if script_name in repo_files and file_needs_update(script_name, repo_files[script_name]):
-        github_content = download_file("GreenBeanGravy/FA11y", script_name)
-        if github_content:
-            with open(script_name, 'wb') as file:
-                file.write(github_content)
-            if speaker:
-                speaker.speak("Script updated. Please restart the script to use the updated version.")
-            print_info("Script updated. Please restart the script to use the updated version.")
-            time.sleep(5)
-            sys.exit()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        update_results = list(executor.map(lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name), repo_files))
+        updates_available = any(update_results)
 
-    updates_available = process_updates("GreenBeanGravy/FA11y", repo_files)
-    readme_updated = update_readme("GreenBeanGravy/FA11y", repo_files)
     icons_updated = update_icons_folder("GreenBeanGravy/FA11y")
+
     legendary_verified = verify_legendary()
 
-    if not updates_available and not icons_updated and not readme_updated and legendary_verified:
+    if not updates_available and not icons_updated and legendary_verified:
         if speaker:
             speaker.speak("You are on the latest version!")
         print_info("You are on the latest version!")
         time.sleep(5)
         sys.exit()
 
-    if updates_available or icons_updated or readme_updated:
+    updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
+
+    if updates_processed or icons_updated:
         if speaker:
             speaker.speak("Updates processed.")
         print_info("Updates processed.")
@@ -300,7 +300,7 @@ def main():
 
     print_info("Update process completed")
 
-    if updates_available or icons_updated or readme_updated:
+    if updates_available or icons_updated:
         if speaker:
             speaker.speak("Updates are available. FA11y needs to be restarted.")
         print_info("Updates are available. FA11y needs to be restarted.")
