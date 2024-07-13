@@ -7,6 +7,7 @@ import shutil
 import time
 import concurrent.futures
 import psutil
+import hashlib
 
 # Configuration
 AUTO_UPDATE_UPDATER = True  # Set to False to disable auto-updates of the updater script
@@ -104,6 +105,15 @@ if ao2_available:
 else:
     speaker = None
 
+def get_file_sha(repo, file_path, branch='main'):
+    url = f"https://api.github.com/repos/{repo}/contents/{file_path}?ref={branch}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json().get('sha')
+    except requests.RequestException:
+        return None
+
 @lru_cache(maxsize=None)
 def get_repo_files(repo, branch='main'):
     url = f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1"
@@ -111,7 +121,7 @@ def get_repo_files(repo, branch='main'):
         response = requests.get(url)
         response.raise_for_status()
         tree = response.json().get('tree', [])
-        return [item['path'] for item in tree if item['type'] == 'blob']
+        return [(item['path'], item['sha']) for item in tree if item['type'] == 'blob']
     except requests.RequestException as e:
         print_info(f"Failed to get repo files: {e}")
         return []
@@ -126,17 +136,31 @@ def download_file(repo, file_path):
         print_info(f"Failed to download file {file_path}: {e}")
         return None
 
-def file_needs_update(local_path, github_content):
+def get_local_file_sha(file_path):
+    sha1 = hashlib.sha1()
+    with open(file_path, 'rb') as f:
+        while True:
+            data = f.read(65536)
+            if not data:
+                break
+            sha1.update(data)
+    return sha1.hexdigest()
+
+def file_needs_update(local_path, github_sha):
     if not os.path.exists(local_path):
         return True
-    with open(local_path, 'rb') as file:
-        return file.read() != github_content
+    local_sha = get_local_file_sha(local_path)
+    return local_sha != github_sha
 
 def update_script(repo, script_name):
     if not AUTO_UPDATE_UPDATER:
         return False
+    github_sha = get_file_sha(repo, script_name)
+    if github_sha is None or not file_needs_update(script_name, github_sha):
+        return False
+
     github_content = download_file(repo, script_name)
-    if github_content is None or not file_needs_update(script_name, github_content):
+    if github_content is None:
         return False
 
     with open(script_name, 'wb') as file:
@@ -144,10 +168,10 @@ def update_script(repo, script_name):
     print_info(f"Updated script: {script_name}")
     return True
 
-def check_and_update_file(repo, file_path, script_name):
+def check_and_update_file(repo, file_path, file_sha, script_name):
     if file_path.lower() == 'readme.md':
         readme_content = download_file(repo, file_path)
-        if readme_content and file_needs_update('README.txt', readme_content):
+        if readme_content and file_needs_update('README.txt', file_sha):
             with open('README.txt', 'wb') as file:
                 file.write(readme_content)
             print_info("Updated README.txt")
@@ -160,17 +184,19 @@ def check_and_update_file(repo, file_path, script_name):
     if file_path in ('config.txt', 'CUSTOM_POI.txt') and os.path.exists(file_path):
         return False
 
-    github_content = download_file(repo, file_path)
-    if github_content is None or not file_needs_update(file_path, github_content):
-        return False
+    if file_needs_update(file_path, file_sha):
+        github_content = download_file(repo, file_path)
+        if github_content is None:
+            return False
 
-    directory_name = os.path.dirname(file_path)
-    if directory_name:
-        os.makedirs(directory_name, exist_ok=True)
-    with open(file_path, 'wb') as file:
-        file.write(github_content)
-    print_info(f"Updated file: {file_path}")
-    return True
+        directory_name = os.path.dirname(file_path)
+        if directory_name:
+            os.makedirs(directory_name, exist_ok=True)
+        with open(file_path, 'wb') as file:
+            file.write(github_content)
+        print_info(f"Updated file: {file_path}")
+        return True
+    return False
 
 def update_icons_folder(repo, branch='main'):
     folder = "icons"
@@ -198,8 +224,7 @@ def update_icons_folder(repo, branch='main'):
 
 def process_updates(repo, repo_files, script_name):
     with ThreadPoolExecutor() as executor:
-        updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name), repo_files))
-
+        updates = list(executor.map(lambda x: check_and_update_file(repo, x[0], x[1], script_name), repo_files))
     return any(updates)
 
 def is_legendary_in_path():
@@ -267,7 +292,7 @@ def main():
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        update_results = list(executor.map(lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name), repo_files))
+        update_results = list(executor.map(lambda x: check_and_update_file("GreenBeanGravy/FA11y", x[0], x[1], script_name), repo_files))
         updates_available = any(update_results)
 
     icons_updated = update_icons_folder("GreenBeanGravy/FA11y")
