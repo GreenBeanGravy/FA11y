@@ -6,6 +6,7 @@ from functools import lru_cache
 import shutil
 import time
 import concurrent.futures
+import psutil
 
 # Configuration
 AUTO_UPDATE_UPDATER = True  # Set to False to disable auto-updates of the updater script
@@ -26,7 +27,7 @@ def check_and_install_module(module):
         return False
 
 def install_required_modules():
-    modules = ['requests', 'concurrent.futures', 'pywintypes', 'pywin32']
+    modules = ['requests', 'concurrent.futures', 'pywintypes', 'pywin32', 'psutil']
     for module in modules:
         check_and_install_module(module)
 
@@ -238,9 +239,23 @@ def verify_legendary():
             speaker.speak("Failed to download Legendary.")
         return False
 
+def close_fa11y():
+    for proc in psutil.process_iter(['name']):
+        if proc.info['name'] == 'FA11y.exe' or proc.info['name'] == 'python.exe':
+            try:
+                cmdline = proc.cmdline()
+                if 'FA11y.py' in cmdline or 'FA11y.exe' in cmdline:
+                    proc.terminate()
+                    proc.wait(timeout=5)
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
+                pass
+    return False
+
 def main():
     script_name = os.path.basename(__file__)
     instant_close = '--instant-close' in sys.argv
+    run_by_fa11y = '--run-by-fa11y' in sys.argv
 
     if update_script("GreenBeanGravy/FA11y", script_name):
         if speaker:
@@ -287,9 +302,25 @@ def main():
 
     if updates_available or icons_updated:
         if speaker:
-            speaker.speak("Please restart FA11y to apply updates. Closing in 7 seconds.")
-        print_info("Please restart FA11y to apply updates. Closing in 7 seconds.")
-        time.sleep(7)
+            speaker.speak("Updates are available. FA11y needs to be restarted.")
+        print_info("Updates are available. FA11y needs to be restarted.")
+        
+        if run_by_fa11y:
+            print_info("Attempting to close FA11y...")
+            time.sleep(2)  # Give some time for FA11y to finish its operations
+            if close_fa11y():
+                print_info("Successfully closed FA11y.")
+                if speaker:
+                    speaker.speak("FA11y has been closed. Please restart it to apply updates.")
+            else:
+                print_info("Failed to close FA11y automatically.")
+                if speaker:
+                    speaker.speak("Failed to close FA11y automatically. Please restart it manually to apply updates.")
+        else:
+            if speaker:
+                speaker.speak("Please restart FA11y to apply updates. Closing in 7 seconds.")
+            print_info("Please restart FA11y to apply updates. Closing in 7 seconds.")
+            time.sleep(7)
     else:
         print_info("Closing in 5 seconds...")
         time.sleep(5)
