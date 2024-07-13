@@ -20,14 +20,16 @@ import ctypes
 import keyboard
 import subprocess
 import winshell
+import pyautogui
 from win32com.client import Dispatch
 
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection, create_custom_poi
-from lib.hsr import start_health_shield_rarity_detection
+from lib.hsr import start_health_shield_rarity_detection, check_health_shields, check_rarity
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
-from lib.guis.gui import start_gui_activation
+from lib.guis.gui import select_poi_tk, select_gamemode_tk, create_gui
 from lib.height_checker import start_height_checker
+from lib.minimap_direction import speak_minimap_direction
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -37,6 +39,7 @@ MouseKeys = false
 UsingResetSensitivity = false
 EnableAutoUpdates = true
 CreateDesktopShortcut = true
+AutoTurn = true
 
 [THREADS]
 EnableIconDetection = true
@@ -52,14 +55,19 @@ Fire = lctrl
 Target = rctrl
 Turn Left = num 1
 Turn Slightly Left = 4
-Turn Right = num 3
 Turn Slightly Right = 6
+Turn Right = num 3
 Look Up = num 8
 Look Down = num 2
 Turn Around = num 0
 Recenter = num 5
 Scroll Up = num 7
 Scroll Down = num 9
+Speak Minimap Direction = ;
+Check Health Shields = h
+Check Rarity = [
+Select POI = ]
+Select Gamemode = '
 
 [POI]
 selected_poi = closest, 0, 0"""
@@ -97,15 +105,15 @@ def handle_movement(action, reset_sensitivity):
     if action == 'turn around':
         x_move = 1158  # Full 360-degree turn
     elif action == 'recenter':
-        smooth_move_mouse(0, 2000, 0.04)
-        time.sleep(0.04)
+        smooth_move_mouse(0, 2000, 0.05)
+        time.sleep(0.05)
         down_move = -580 if reset_sensitivity else -820
-        time.sleep(0.04)
-        smooth_move_mouse(0, down_move, 0.04)
+        time.sleep(0.05)
+        smooth_move_mouse(0, down_move, 0.05)
         speaker.speak("Reset Camera")
     
     if action != 'recenter':
-        smooth_move_mouse(x_move, y_move, 0.01)
+        smooth_move_mouse(x_move, y_move, 0.05)
 
 def handle_scroll(action):
     scroll_amount = 16 if action == 'scroll up' else -16
@@ -193,66 +201,82 @@ def create_desktop_shortcut():
     shortcut.save()
 
 def main():
-    print("Starting..")
-    
-    config = configparser.ConfigParser()
-    config.read(CONFIG_FILE)
+    try:
+        print("Starting FA11y...")
+        
+        config = configparser.ConfigParser()
+        config.read(CONFIG_FILE)
 
-    # Check if auto-updates are enabled
-    if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
-        subprocess.call(['python', 'updater.py', '--instant-close', '--run-by-fa11y'])
+        # Check if auto-updates are enabled
+        if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
+            subprocess.call(['python', 'updater.py', '--instant-close'])
 
-    # Check if desktop shortcut creation is enabled
-    if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
-        create_desktop_shortcut()
+        # Check if desktop shortcut creation is enabled
+        if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
+            create_desktop_shortcut()
 
-    mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=False)
-    reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
+        mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=False)
+        reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
 
-    global action_handlers
-    action_handlers = {}
+        global action_handlers
+        action_handlers = {}
 
-    # Only add these handlers if their respective threads are enabled
-    if config.getboolean('THREADS', 'EnableIconDetection', fallback=True):
-        action_handlers['locate player icon'] = start_icon_detection
-    if config.getboolean('THREADS', 'EnableCustomPOI', fallback=True):
-        action_handlers['create custom poi'] = create_custom_poi
+        # Only add these handlers if their respective threads are enabled
+        if config.getboolean('THREADS', 'EnableIconDetection', fallback=True):
+            action_handlers['locate player icon'] = start_icon_detection
+        if config.getboolean('THREADS', 'EnableCustomPOI', fallback=True):
+            action_handlers['create custom poi'] = lambda: create_gui(pyautogui.position())
 
-    if mouse_keys_enabled:
-        action_handlers.update({
-            'fire': left_mouse_down,
-            'target': right_mouse_down,
-            'turn left': lambda: handle_movement('turn left', False),
-            'turn slightly left': lambda: handle_movement('turn slightly left', False),
-            'turn right': lambda: handle_movement('turn right', False),
-            'turn slightly right': lambda: handle_movement('turn slightly right', False),
-            'look up': lambda: handle_movement('look up', False),
-            'look down': lambda: handle_movement('look down', False),
-            'turn around': lambda: handle_movement('turn around', False),
-            'recenter': lambda: handle_movement('recenter', reset_sensitivity),
-            'scroll up': lambda: handle_scroll('scroll up'),
-            'scroll down': lambda: handle_scroll('scroll down')
-        })
+        if mouse_keys_enabled:
+            action_handlers.update({
+                'fire': left_mouse_down,
+                'target': right_mouse_down,
+                'turn left': lambda: handle_movement('turn left', False),
+                'turn slightly left': lambda: handle_movement('turn slightly left', False),
+                'turn right': lambda: handle_movement('turn right', False),
+                'turn slightly right': lambda: handle_movement('turn slightly right', False),
+                'look up': lambda: handle_movement('look up', False),
+                'look down': lambda: handle_movement('look down', False),
+                'turn around': lambda: handle_movement('turn around', False),
+                'recenter': lambda: handle_movement('recenter', reset_sensitivity),
+                'scroll up': lambda: handle_scroll('scroll up'),
+                'scroll down': lambda: handle_scroll('scroll down')
+            })
 
-    key_bindings = read_config()
-    
-    threading.Thread(target=key_listener, args=(key_bindings,), daemon=True).start()
+        # Add the new minimap direction handler
+        action_handlers['speak minimap direction'] = speak_minimap_direction
 
-    # Start other threads based on config
-    if config.getboolean('THREADS', 'EnableGUIActivation', fallback=True):
-        threading.Thread(target=start_gui_activation, daemon=True).start()
+        # Add handlers for HSR functions
+        action_handlers['check health shields'] = check_health_shields
+        action_handlers['check rarity'] = check_rarity
 
-    if config.getboolean('THREADS', 'EnableHeightChecker', fallback=True):
-        threading.Thread(target=start_height_checker, daemon=True).start()
+        # Add handlers for GUI activation functions
+        action_handlers['select poi'] = select_poi_tk
+        action_handlers['select gamemode'] = select_gamemode_tk
 
-    if config.getboolean('THREADS', 'EnableHSRDetection', fallback=True):
-        try:
-            threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
-        except Exception as e:
-            print("An error occurred while starting HSR detection:", e)
+        key_bindings = read_config()
+        
+        threading.Thread(target=key_listener, args=(key_bindings,), daemon=True).start()
 
-    speaker.speak("All enabled features are now running in the background. Press Enter in this window to close FA11y!")
-    input()
+        # Start other threads based on config
+        if config.getboolean('THREADS', 'EnableHeightChecker', fallback=True):
+            threading.Thread(target=start_height_checker, daemon=True).start()
+
+        if config.getboolean('THREADS', 'EnableHSRDetection', fallback=True):
+            try:
+                threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
+            except Exception as e:
+                print("An error occurred while starting HSR detection:", e)
+
+        speaker.speak("All enabled features are now running in the background. Press Enter in this window to close FA11y!")
+        print("FA11y is now running. Press Enter to close the program.")
+        input()
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        speaker.speak(f"An error occurred: {str(e)}")
+    finally:
+        print("Press Enter to close this window...")
+        input()
 
 if __name__ == "__main__":
     main()
