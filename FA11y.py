@@ -209,7 +209,7 @@ def main():
 
         # Check if auto-updates are enabled
         if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
-            subprocess.call(['python', 'updater.py', '--instant-close'])
+            subprocess.call(['python', 'updater.py', '--instant-close', '--run-by-fa11y'])
 
         # Check if desktop shortcut creation is enabled
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
@@ -268,11 +268,15 @@ def main():
             except Exception as e:
                 print("An error occurred while starting HSR detection:", e)
 
-        speaker.speak("FA11y is running in the background. Press Enter in this window to stop FA11y!")
+        speaker.speak("All enabled features are now running in the background. Press Enter in this window to close FA11y!")
+        print("FA11y is now running. Press Enter to close the program.")
         input()
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         speaker.speak(f"An error occurred: {str(e)}")
+    finally:
+        print("Press Enter to close this window...")
+        input()
 
 if __name__ == "__main__":
     main()
