@@ -70,7 +70,7 @@ Check Health Shields = h
 Check Rarity = [
 Select POI = ]
 Select Gamemode = '
-Exit Match = /
+Exit Match = f12
 
 [POI]
 selected_poi = closest, 0, 0"""
