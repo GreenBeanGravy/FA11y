@@ -38,7 +38,8 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 - **`Num9`**: Scroll down
 - **`;` (Semicolon)**: Speak the direction that the player is currently facing
 - **`'` (Apostrophe)**: Open the gamemode selector
-- **`F10`**: Open the FA11y configuration menu
+- **`F9`**: Open the FA11y configuration menu
+- **`F12`**: Leave current match
 
 ## Installation
 1. Ensure you have Python 3.9 or later installed. Make sure to check the box to "Add Python to PATH" during installation.
@@ -80,7 +81,7 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 - Use arrow keys to navigate and Enter to select. Wait for confirmation that the gamemode has been selected.
 
 ### Configuration
-- Press `F10` to open the configuration menu.
+- Press `F9` to open the configuration menu.
 - Configuration menu navigation tips and keybinds are provided when you open the menu.
 
 ## Customization
