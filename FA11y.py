@@ -274,15 +274,12 @@ def main():
             except Exception as e:
                 print("An error occurred while starting HSR detection:", e)
 
-        speaker.speak("All enabled features are now running in the background. Press Enter in this window to close FA11y!")
+        speaker.speak("FA11y is now running in the background! Press Enter in this window to stop FA11y.")
         print("FA11y is now running. Press Enter to close the program.")
         input()
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         speaker.speak(f"An error occurred: {str(e)}")
-    finally:
-        print("Press Enter to close this window...")
-        input()
 
 if __name__ == "__main__":
     main()
