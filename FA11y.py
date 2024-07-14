@@ -31,6 +31,7 @@ from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_m
 from lib.guis.gui import select_poi_tk, select_gamemode_tk, create_gui
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
+from lib.exit_match import exit_match  # Import the new exit_match function
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -69,6 +70,7 @@ Check Health Shields = h
 Check Rarity = [
 Select POI = ]
 Select Gamemode = '
+Exit Match = /
 
 [POI]
 selected_poi = closest, 0, 0"""
@@ -254,6 +256,9 @@ def main():
         # Add handlers for GUI activation functions
         action_handlers['select poi'] = select_poi_tk
         action_handlers['select gamemode'] = select_gamemode_tk
+
+        # Add the new exit match handler
+        action_handlers['exit match'] = exit_match
 
         key_bindings = read_config()
         
