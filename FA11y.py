@@ -3,7 +3,7 @@ import sys
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
     class MockImp:
-        name = 'imp'
+        __name__ = 'imp'
         
         @staticmethod
         def is_frozen(arg=None):
@@ -12,7 +12,6 @@ if sys.version_info >= (3, 12):
             return hasattr(sys, 'frozen') or hasattr(sys, 'importers') or getattr(sys, 'frozen', False)
 
     sys.modules['imp'] = MockImp()
-    print("Created mock 'imp' module for compatibility with Python 3.12+.")
 
 import os
 import configparser
@@ -33,6 +32,7 @@ from lib.guis.gui import select_poi_tk, select_gamemode_tk, create_gui
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
+from lib.exit_match import exit_match  # Import the new exit_match function
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -82,7 +82,8 @@ Check Health Shields = h
 Check Rarity = bracketleft
 Select POI = bracketright
 Select Gamemode = apostrophe
-Open Configuration = f10
+Open Configuration = f9
+Exit Match = f12
 
 [POI]
 selected_poi = closest, 0, 0"""
@@ -309,6 +310,7 @@ def reload_config():
     action_handlers['select poi'] = select_poi_tk
     action_handlers['select gamemode'] = select_gamemode_tk
     action_handlers['open configuration'] = open_config_gui
+    action_handlers['exit match'] = exit_match  # Add the new exit_match handler
     
     print("Configuration reloaded")
     speaker.speak("Configuration updated")
