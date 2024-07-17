@@ -12,8 +12,8 @@ def check_pixel_color(x, y, target_color):
 
 def interpolate_height(pixel_y):
     # Define the known points
-    y1, h1 = 27, 350
-    y2, h2 = 150, 150
+    y1, h1 = 27, 750
+    y2, h2 = 150, 325
     y3, h3 = 279, 0
 
     # Check which range the pixel_y falls into
