@@ -350,9 +350,10 @@ def main():
 
         if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
             if run_updater():
-                print("Updates applied. Restarting FA11y...")
-                speaker.speak("Updates applied. Restarting FA11y.")
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+                print("Updates applied. FA11y will now close.")
+                speaker.speak("Updates applied. FA11y will now close.")
+                time.sleep(2)  # Give some time for the message to be spoken
+                sys.exit(0)  # Exit the script
 
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
             create_desktop_shortcut()
@@ -380,6 +381,8 @@ def main():
         speaker.speak(f"An error occurred: {str(e)}")
     finally:
         stop_key_listener.set()  # Ensure the key listener thread stops
+        print("FA11y is closing...")
+        sys.exit(0)  # Ensure the script exits
 
 if __name__ == "__main__":
     main()
