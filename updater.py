@@ -299,15 +299,11 @@ def main():
     print_info("Update process completed")
 
     if fa11y_updates:
+        closing_message = "FA11y updated! Closing in 5 seconds..."
         if speaker:
-            speaker.speak("Updates are available. FA11y needs to be restarted.")
-        print_info("Updates are available. FA11y needs to be restarted.")
-        if run_by_fa11y:
-            print_info("FA11y will restart in 7 seconds...")
-            time.sleep(7)
-            # Signal FA11y to restart
-            with open('restart_flag.txt', 'w') as f:
-                f.write('restart')
+            speaker.speak(closing_message)
+        print_info(closing_message)
+        time.sleep(5)
     else:
         print_info("Closing in 5 seconds...")
         time.sleep(5)
