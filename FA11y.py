@@ -334,12 +334,8 @@ def open_config_gui():
     config_gui_open.clear()
 
 def run_updater():
-    subprocess.call([sys.executable, 'updater.py', '--run-by-fa11y'])
-    # Check if updater signaled for a restart
-    if os.path.exists('restart_flag.txt'):
-        os.remove('restart_flag.txt')
-        return True
-    return False
+    result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
+    return result.returncode == 1  # Return True if updates were applied
 
 def main():
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
