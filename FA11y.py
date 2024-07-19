@@ -346,9 +346,6 @@ def main():
 
         if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
             if run_updater():
-                print("Updates applied. FA11y will now close.")
-                speaker.speak("Updates applied. FA11y will now close.")
-                time.sleep(2)  # Give some time for the message to be spoken
                 sys.exit(0)  # Exit the script
 
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
