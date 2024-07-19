@@ -208,15 +208,11 @@ def is_legendary_in_path():
 def verify_legendary():
     if is_legendary_in_path():
         print_info("Legendary found in system PATH.")
-        if speaker:
-            speaker.speak("Legendary is already installed.")
         return True
 
     local_path = os.path.join(os.getcwd(), "legendary.exe")
     if os.path.exists(local_path):
         print_info("legendary.exe found in the current directory.")
-        if speaker:
-            speaker.speak("Legendary is already downloaded.")
         return True
 
     LEGENDARY_URL = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
