@@ -250,7 +250,6 @@ def close_fa11y():
 
 def main():
     script_name = os.path.basename(__file__)
-    instant_close = '--instant-close' in sys.argv
     run_by_fa11y = '--run-by-fa11y' in sys.argv
 
     if update_script("GreenBeanGravy/FA11y", script_name):
@@ -258,7 +257,7 @@ def main():
             speaker.speak("Updater has been updated. Closing in 5 seconds.")
         print_info("Updater has been updated. Closing in 5 seconds.")
         time.sleep(5)
-        sys.exit()
+        sys.exit(0)
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
@@ -267,9 +266,7 @@ def main():
         updates_available = any(update_results)
 
     icons_updated = update_icons_folder("GreenBeanGravy/FA11y")
-
     legendary_verified = verify_legendary()
-
     fa11y_updates = updates_available or icons_updated
 
     if not fa11y_updates and legendary_verified:
@@ -277,7 +274,7 @@ def main():
             speaker.speak("You are on the latest version of FA11y!")
         print_info("You are on the latest version of FA11y!")
         time.sleep(5)
-        sys.exit()
+        sys.exit(0)
 
     updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
 
@@ -304,11 +301,11 @@ def main():
             speaker.speak(closing_message)
         print_info(closing_message)
         time.sleep(5)
+        sys.exit(1)  # Exit with code 1 to indicate updates were applied
     else:
         print_info("Closing in 5 seconds...")
         time.sleep(5)
-
-    sys.exit()
+        sys.exit(0)  # Exit with code 0 to indicate no updates were applied
 
 if __name__ == "__main__":
     main()
