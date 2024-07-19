@@ -255,8 +255,8 @@ def main():
 
     if update_script("GreenBeanGravy/FA11y", script_name):
         if speaker:
-            speaker.speak("Script updated. Please restart the script to use the updated version.")
-        print_info("Script updated. Please restart the script to use the updated version.")
+            speaker.speak("Updater has been updated. Closing in 5 seconds.")
+        print_info("Updater has been updated. Closing in 5 seconds.")
         time.sleep(5)
         sys.exit()
 
@@ -274,8 +274,8 @@ def main():
 
     if not fa11y_updates and legendary_verified:
         if speaker:
-            speaker.speak("You are on the latest version!")
-        print_info("You are on the latest version!")
+            speaker.speak("You are on the latest version of FA11y!")
+        print_info("You are on the latest version of FA11y!")
         time.sleep(5)
         sys.exit()
 
