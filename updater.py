@@ -274,7 +274,9 @@ def main():
 
     legendary_verified = verify_legendary()
 
-    if not updates_available and not icons_updated and legendary_verified:
+    fa11y_updates = updates_available or icons_updated
+
+    if not fa11y_updates and legendary_verified:
         if speaker:
             speaker.speak("You are on the latest version!")
         print_info("You are on the latest version!")
@@ -300,10 +302,16 @@ def main():
 
     print_info("Update process completed")
 
-    if updates_available or icons_updated:
+    if fa11y_updates:
         if speaker:
             speaker.speak("Updates are available. FA11y needs to be restarted.")
         print_info("Updates are available. FA11y needs to be restarted.")
+        if run_by_fa11y:
+            print_info("FA11y will restart in 7 seconds...")
+            time.sleep(7)
+            # Signal FA11y to restart
+            with open('restart_flag.txt', 'w') as f:
+                f.write('restart')
     else:
         print_info("Closing in 5 seconds...")
         time.sleep(5)

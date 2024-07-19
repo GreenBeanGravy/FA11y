@@ -32,7 +32,7 @@ from lib.guis.gui import select_poi_tk, select_gamemode_tk, create_gui
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
-from lib.exit_match import exit_match  # Import the new exit_match function
+from lib.exit_match import exit_match
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -310,7 +310,7 @@ def reload_config():
     action_handlers['select poi'] = select_poi_tk
     action_handlers['select gamemode'] = select_gamemode_tk
     action_handlers['open configuration'] = open_config_gui
-    action_handlers['exit match'] = exit_match  # Add the new exit_match handler
+    action_handlers['exit match'] = exit_match
     
     print("Configuration reloaded")
     speaker.speak("Configuration updated")
@@ -333,6 +333,14 @@ def open_config_gui():
     create_config_gui(update_script_config)
     config_gui_open.clear()
 
+def run_updater():
+    subprocess.call([sys.executable, 'updater.py', '--run-by-fa11y'])
+    # Check if updater signaled for a restart
+    if os.path.exists('restart_flag.txt'):
+        os.remove('restart_flag.txt')
+        return True
+    return False
+
 def main():
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
     try:
@@ -341,7 +349,10 @@ def main():
         config = read_config()
 
         if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
-            subprocess.call(['python', 'updater.py', '--instant-close'])
+            if run_updater():
+                print("Updates applied. Restarting FA11y...")
+                speaker.speak("Updates applied. Restarting FA11y.")
+                os.execv(sys.executable, [sys.executable] + sys.argv)
 
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
             create_desktop_shortcut()
