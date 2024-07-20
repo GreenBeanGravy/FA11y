@@ -17,7 +17,8 @@ import os
 import configparser
 import threading
 import time
-import ctypes
+import win32api
+import win32con
 import keyboard
 import subprocess
 import winshell
@@ -36,7 +37,6 @@ from lib.exit_match import exit_match
 from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item
 
 # Constants
-VK_NUMLOCK = 0x90
 CONFIG_FILE = 'config.txt'
 DEFAULT_CONFIG = """[SETTINGS]
 MouseKeys = true
@@ -96,22 +96,39 @@ Detect Hotbar 5 = 5
 selected_poi = closest, 0, 0"""
 
 # Define Virtual-Key Codes for numpad keys
-VK_NUMPAD0 = 0x60
-VK_NUMPAD1 = 0x61
-VK_NUMPAD2 = 0x62
-VK_NUMPAD3 = 0x63
-VK_NUMPAD4 = 0x64
-VK_NUMPAD5 = 0x65
-VK_NUMPAD6 = 0x66
-VK_NUMPAD7 = 0x67
-VK_NUMPAD8 = 0x68
-VK_NUMPAD9 = 0x69
+VK_NUMPAD = {
+    'num 0': win32con.VK_NUMPAD0,
+    'num 1': win32con.VK_NUMPAD1,
+    'num 2': win32con.VK_NUMPAD2,
+    'num 3': win32con.VK_NUMPAD3,
+    'num 4': win32con.VK_NUMPAD4,
+    'num 5': win32con.VK_NUMPAD5,
+    'num 6': win32con.VK_NUMPAD6,
+    'num 7': win32con.VK_NUMPAD7,
+    'num 8': win32con.VK_NUMPAD8,
+    'num 9': win32con.VK_NUMPAD9
+}
 
-VK_KEY_CODES = {
-    'lctrl': 0xA2, 'rctrl': 0xA3, 'lshift': 0xA0, 'rshift': 0xA1, 'lalt': 0xA4, 'ralt': 0xA5,
-    'num 0': VK_NUMPAD0, 'num 1': VK_NUMPAD1, 'num 2': VK_NUMPAD2, 'num 3': VK_NUMPAD3, 
-    'num 4': VK_NUMPAD4, 'num 5': VK_NUMPAD5, 'num 6': VK_NUMPAD6, 'num 7': VK_NUMPAD7, 
-    'num 8': VK_NUMPAD8, 'num 9': VK_NUMPAD9
+# Define other special keys
+SPECIAL_KEYS = {
+    'lctrl': win32con.VK_LCONTROL,
+    'rctrl': win32con.VK_RCONTROL,
+    'lshift': win32con.VK_LSHIFT,
+    'rshift': win32con.VK_RSHIFT,
+    'lalt': win32con.VK_LMENU,
+    'ralt': win32con.VK_RMENU,
+    'f1': win32con.VK_F1,
+    'f2': win32con.VK_F2,
+    'f3': win32con.VK_F3,
+    'f4': win32con.VK_F4,
+    'f5': win32con.VK_F5,
+    'f6': win32con.VK_F6,
+    'f7': win32con.VK_F7,
+    'f8': win32con.VK_F8,
+    'f9': win32con.VK_F9,
+    'f10': win32con.VK_F10,
+    'f11': win32con.VK_F11,
+    'f12': win32con.VK_F12
 }
 
 speaker = Auto()
@@ -124,7 +141,21 @@ stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 
 def is_numlock_on():
-    return ctypes.windll.user32.GetKeyState(VK_NUMLOCK) & 1 != 0
+    return win32api.GetKeyState(win32con.VK_NUMLOCK) & 1 != 0
+
+def is_key_pressed(key):
+    key_lower = key.lower()
+    if key_lower in VK_NUMPAD:
+        return win32api.GetAsyncKeyState(VK_NUMPAD[key_lower]) & 0x8000 != 0
+    elif key_lower in SPECIAL_KEYS:
+        return win32api.GetAsyncKeyState(SPECIAL_KEYS[key_lower]) & 0x8000 != 0
+    else:
+        try:
+            vk_code = ord(key.upper())
+            return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
+        except:
+            print(f"Unrecognized key: {key}. Skipping...")
+            return False
 
 def handle_movement(action, reset_sensitivity):
     global config
@@ -172,27 +203,6 @@ def handle_scroll(action):
     if action == 'scroll down':
         scroll_amount = -scroll_amount
     mouse_scroll(scroll_amount)
-
-def is_numpad_key_pressed(key):
-    vk_code = VK_KEY_CODES.get(key.lower())
-    if vk_code:
-        return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
-    return False
-
-def is_key_pressed(key):
-    key_lower = key.lower()
-    if key_lower.startswith('num '):
-        return is_numpad_key_pressed(key_lower)
-    elif key_lower in ['lctrl', 'rctrl', 'lshift', 'rshift', 'lalt', 'ralt']:
-        vk_code = VK_KEY_CODES.get(key_lower)
-        if vk_code:
-            return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
-    else:
-        try:
-            return keyboard.is_pressed(key)
-        except ValueError:
-            print(f"Unrecognized key: {key}. Skipping...")
-            return False
 
 def update_config(config):
     default_config = configparser.ConfigParser(interpolation=None)
@@ -253,7 +263,7 @@ def read_config():
     return config
 
 def key_listener():
-    global key_bindings
+    global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open
     while not stop_key_listener.is_set():
         if not config_gui_open.is_set():
             numlock_on = is_numlock_on()
@@ -263,7 +273,6 @@ def key_listener():
                     continue
                 
                 key_pressed = is_key_pressed(key)
-
                 action_lower = action.lower()
 
                 # Skip actions that don't have handlers
