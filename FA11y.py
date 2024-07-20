@@ -180,8 +180,13 @@ def is_numpad_key_pressed(key):
     return False
 
 def is_key_pressed(key):
-    if key.lower().startswith('num '):
-        return is_numpad_key_pressed(key)
+    key_lower = key.lower()
+    if key_lower.startswith('num '):
+        return is_numpad_key_pressed(key_lower)
+    elif key_lower in ['lctrl', 'rctrl', 'lshift', 'rshift', 'lalt', 'ralt']:
+        vk_code = VK_KEY_CODES.get(key_lower)
+        if vk_code:
+            return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
     else:
         try:
             return keyboard.is_pressed(key)
