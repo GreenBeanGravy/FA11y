@@ -149,12 +149,14 @@ def is_key_pressed(key):
         return win32api.GetAsyncKeyState(VK_NUMPAD[key_lower]) & 0x8000 != 0
     elif key_lower in SPECIAL_KEYS:
         return win32api.GetAsyncKeyState(SPECIAL_KEYS[key_lower]) & 0x8000 != 0
+    elif key_lower in SPECIAL_KEY_CODES:
+        return win32api.GetAsyncKeyState(SPECIAL_KEY_CODES[key_lower]) & 0x8000 != 0
     else:
         try:
             vk_code = ord(key.upper())
             return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
         except:
-            print(f"Unrecognized key: {key}. Skipping...")
+            print(f"Truly unrecognized key: {key}. Skipping...")
             return False
 
 def handle_movement(action, reset_sensitivity):
@@ -196,6 +198,26 @@ def handle_movement(action, reset_sensitivity):
         return
     
     smooth_move_mouse(x_move, y_move, recenter_delay)
+
+def normalize_key(key):
+    key_mapping = {
+        '`': 'grave',
+        '\\': 'backslash',
+        ';': 'semicolon',
+        '[': 'bracketleft',
+        ']': 'bracketright',
+        "'": 'apostrophe'
+    }
+    return key_mapping.get(key, key)
+
+SPECIAL_KEY_CODES = {
+    'grave': 0xC0,
+    'backslash': 0xDC,
+    'semicolon': 0xBA,
+    'bracketleft': 0xDB,
+    'bracketright': 0xDD,
+    'apostrophe': 0xDE,
+}
 
 def handle_scroll(action):
     global config
@@ -262,6 +284,7 @@ def read_config():
     
     return config
 
+# Modify the key_listener function
 def key_listener():
     global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open
     while not stop_key_listener.is_set():
@@ -272,7 +295,8 @@ def key_listener():
                 if not key:  # Skip if the keybind is empty
                     continue
                 
-                key_pressed = is_key_pressed(key)
+                normalized_key = normalize_key(key)
+                key_pressed = is_key_pressed(normalized_key)
                 action_lower = action.lower()
 
                 # Skip actions that don't have handlers
@@ -282,8 +306,8 @@ def key_listener():
                 if action_lower in ['fire', 'target'] and not numlock_on:
                     continue
 
-                if key_pressed != key_state.get(key, False):
-                    key_state[key] = key_pressed
+                if key_pressed != key_state.get(normalized_key, False):
+                    key_state[normalized_key] = key_pressed
                     if key_pressed:
                         print(f"Detected key press for action: {action_lower}")
                         action_handler = action_handlers.get(action_lower)
@@ -309,6 +333,7 @@ def create_desktop_shortcut():
     shortcut.WorkingDirectory = wDir
     shortcut.save()
 
+# Modify the reload_config function
 def reload_config():
     global config, action_handlers, key_bindings
     config = read_config()
