@@ -33,6 +33,7 @@ from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
 from lib.exit_match import exit_match
+from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -61,6 +62,7 @@ EnableCustomPOI = true
 EnableGUIActivation = true
 EnableHeightChecker = true
 EnableHSRDetection = true
+EnableHotbarDetection = true
 
 [SCRIPT KEYBINDS]
 Locate Player Icon = grave
@@ -84,6 +86,11 @@ Select POI = bracketright
 Select Gamemode = apostrophe
 Open Configuration = f9
 Exit Match = f12
+Detect Hotbar 1 = 1
+Detect Hotbar 2 = 2
+Detect Hotbar 3 = 3
+Detect Hotbar 4 = 4
+Detect Hotbar 5 = 5
 
 [POI]
 selected_poi = closest, 0, 0"""
@@ -312,6 +319,11 @@ def reload_config():
     action_handlers['open configuration'] = open_config_gui
     action_handlers['exit match'] = exit_match
     
+    # Add hotbar detection handlers
+    if config.getboolean('THREADS', 'EnableHotbarDetection', fallback=True):
+        for i in range(1, 6):
+            action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
+    
     print("Configuration reloaded")
     speaker.speak("Configuration updated")
 
@@ -365,6 +377,12 @@ def main():
                 threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
             except Exception as e:
                 print("An error occurred while starting HSR detection:", e)
+
+        if config.getboolean('THREADS', 'EnableHotbarDetection', fallback=True):
+            try:
+                initialize_hotbar_detection()
+            except Exception as e:
+                print("An error occurred while initializing hotbar detection:", e)
 
         speaker.speak("FA11y has started! Press Enter in this window to stop FA11y.")
         print("FA11y is now running. Press Enter in this window to stop FA11y.")
