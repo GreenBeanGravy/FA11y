@@ -95,10 +95,23 @@ Detect Hotbar 5 = 5
 [POI]
 selected_poi = closest, 0, 0"""
 
+# Define Virtual-Key Codes for numpad keys
+VK_NUMPAD0 = 0x60
+VK_NUMPAD1 = 0x61
+VK_NUMPAD2 = 0x62
+VK_NUMPAD3 = 0x63
+VK_NUMPAD4 = 0x64
+VK_NUMPAD5 = 0x65
+VK_NUMPAD6 = 0x66
+VK_NUMPAD7 = 0x67
+VK_NUMPAD8 = 0x68
+VK_NUMPAD9 = 0x69
+
 VK_KEY_CODES = {
     'lctrl': 0xA2, 'rctrl': 0xA3, 'lshift': 0xA0, 'rshift': 0xA1, 'lalt': 0xA4, 'ralt': 0xA5,
-    'num 0': 0x60, 'num 1': 0x61, 'num 2': 0x62, 'num 3': 0x63, 'num 4': 0x64, 'num 5': 0x65,
-    'num 6': 0x66, 'num 7': 0x67, 'num 8': 0x68, 'num 9': 0x69
+    'num 0': VK_NUMPAD0, 'num 1': VK_NUMPAD1, 'num 2': VK_NUMPAD2, 'num 3': VK_NUMPAD3, 
+    'num 4': VK_NUMPAD4, 'num 5': VK_NUMPAD5, 'num 6': VK_NUMPAD6, 'num 7': VK_NUMPAD7, 
+    'num 8': VK_NUMPAD8, 'num 9': VK_NUMPAD9
 }
 
 speaker = Auto()
@@ -160,10 +173,15 @@ def handle_scroll(action):
         scroll_amount = -scroll_amount
     mouse_scroll(scroll_amount)
 
-def is_key_pressed(key):
+def is_numpad_key_pressed(key):
     vk_code = VK_KEY_CODES.get(key.lower())
     if vk_code:
         return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
+    return False
+
+def is_key_pressed(key):
+    if key.lower().startswith('num '):
+        return is_numpad_key_pressed(key)
     else:
         try:
             return keyboard.is_pressed(key)
