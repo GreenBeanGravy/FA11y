@@ -51,9 +51,9 @@ ScrollAmount = 120
 RecenterDelay = 0.05
 TurnDelay = 0.01
 TurnSteps = 5
-RecenterVerticalMove = 2000
+RecenterVerticalMove = 1500
 RecenterVerticalMoveBack = -820
-SecondaryRecenterVerticalMove = 2000
+SecondaryRecenterVerticalMove = 1500
 SecondaryRecenterVerticalMoveBack = -580
 
 [THREADS]
