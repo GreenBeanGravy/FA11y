@@ -6,6 +6,9 @@ from functools import lru_cache
 import shutil
 import time
 
+# Set the command window title
+os.system("title FA11y Updater")
+
 # Configuration
 AUTO_UPDATE_UPDATER = True  # Set to False to disable auto-updates of the updater script
 MAX_RESTARTS = 3  # Maximum number of times the script will restart itself
