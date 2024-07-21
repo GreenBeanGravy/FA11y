@@ -1,4 +1,12 @@
 import sys
+import os
+import ctypes
+
+if sys.platform.startswith('win'):
+    ctypes.windll.kernel32.SetConsoleTitleW("FA11y")
+elif sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
+    sys.stdout.write("\x1b]2;FA11y\x07")
+    sys.stdout.flush()
 
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
@@ -13,7 +21,6 @@ if sys.version_info >= (3, 12):
 
     sys.modules['imp'] = MockImp()
 
-import os
 import configparser
 import threading
 import time
