@@ -5,11 +5,10 @@ import importlib.util
 from functools import lru_cache
 import shutil
 import time
-import concurrent.futures
-import psutil
 
 # Configuration
 AUTO_UPDATE_UPDATER = True  # Set to False to disable auto-updates of the updater script
+MAX_RESTARTS = 3  # Maximum number of times the script will restart itself
 
 def print_info(message):
     print(message)
@@ -27,9 +26,25 @@ def check_and_install_module(module):
         return False
 
 def install_required_modules():
-    modules = ['requests', 'concurrent.futures', 'pywintypes', 'pywin32', 'psutil']
+    modules = ['requests', 'psutil']
+    installed = False
     for module in modules:
-        check_and_install_module(module)
+        if check_and_install_module(module):
+            installed = True
+    
+    # Special handling for pywin32
+    try:
+        import win32api
+    except ImportError:
+        print_info("Installing pywin32")
+        try:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', 'pywin32'], 
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            installed = True
+        except subprocess.CalledProcessError:
+            print_info("Failed to install pywin32. Skipping.")
+    
+    return installed
 
 def install_accessible_output2():
     module = 'accessible_output2'
@@ -69,7 +84,16 @@ def download_folder(repo, branch, folder):
         sys.exit(1)
 
 def install_required_modules_and_whls():
-    install_required_modules()
+    restart_count = int(os.environ.get('UPDATER_RESTART_COUNT', 0))
+    if restart_count >= MAX_RESTARTS:
+        print_info(f"Maximum restarts ({MAX_RESTARTS}) reached. Continuing without further restarts.")
+        return
+
+    if install_required_modules():
+        print_info("New modules installed. Restarting script.")
+        os.environ['UPDATER_RESTART_COUNT'] = str(restart_count + 1)
+        os.execv(sys.executable, ['python'] + sys.argv)
+    
     if not os.path.exists('whls'):
         download_folder("GreenBeanGravy/FA11y", "main", "whls")
 
@@ -91,7 +115,7 @@ if sys.version_info >= (3, 12):
     create_mock_imp()
 
 import requests
-from concurrent.futures import ThreadPoolExecutor
+import psutil
 
 if ao2_available:
     try:
@@ -197,7 +221,8 @@ def update_icons_folder(repo, branch='main'):
         return False
 
 def process_updates(repo, repo_files, script_name):
-    with ThreadPoolExecutor() as executor:
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor() as executor:
         updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name), repo_files))
 
     return any(updates)
@@ -261,6 +286,7 @@ def main():
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
+    import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor() as executor:
         update_results = list(executor.map(lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name), repo_files))
         updates_available = any(update_results)
