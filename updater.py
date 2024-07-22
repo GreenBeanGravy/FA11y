@@ -7,7 +7,7 @@ import shutil
 import time
 
 # Set the command window title
-os.system("title FA11y Updater")
+os.system("title FA11y")
 
 # Configuration
 AUTO_UPDATE_UPDATER = True  # Set to False to disable auto-updates of the updater script
@@ -276,14 +276,33 @@ def close_fa11y():
                 pass
     return False
 
+def install_requirements():
+    if os.path.exists('requirements.txt'):
+        print_info("Installing requirements from requirements.txt")
+        try:
+            result = subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], 
+                           check=True, capture_output=True, text=True)
+            print_info("Requirements installed successfully")
+            print_info(f"Stdout: {result.stdout}")
+            print_info(f"Stderr: {result.stderr}")
+            return True
+        except subprocess.CalledProcessError as e:
+            print_info(f"Failed to install requirements: {e}")
+            print_info(f"Stdout: {e.stdout}")
+            print_info(f"Stderr: {e.stderr}")
+            return False
+    else:
+        print_info("requirements.txt not found")
+        return False
+
 def main():
     script_name = os.path.basename(__file__)
     run_by_fa11y = '--run-by-fa11y' in sys.argv
 
     if update_script("GreenBeanGravy/FA11y", script_name):
         if speaker:
-            speaker.speak("Updater has been updated. Closing in 5 seconds.")
-        print_info("Updater has been updated. Closing in 5 seconds.")
+            speaker.speak("Please restart the updater for updates. Closing in 5 seconds.")
+        print_info("Please restart the updater for updates. Closing in 5 seconds.")
         time.sleep(5)
         sys.exit(0)
 
@@ -312,15 +331,16 @@ def main():
             speaker.speak("Updates processed.")
         print_info("Updates processed.")
 
-    if os.path.exists('requirements.txt'):
-        try:
-            subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], 
-                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if speaker:
-                speaker.speak("All updates applied!")
-            print_info("All updates applied!")
-        except subprocess.CalledProcessError as e:
-            print_info(f"Failed to install requirements: {e}")
+    requirements_installed = install_requirements()
+
+    if requirements_installed:
+        if speaker:
+            speaker.speak("All updates applied!")
+        print_info("All updates applied!")
+    else:
+        if speaker:
+            speaker.speak("Some updates may have failed. Please check the console output.")
+        print_info("Some updates may have failed. Please check the console output.")
 
     print_info("Update process completed")
 
