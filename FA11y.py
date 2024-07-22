@@ -102,7 +102,6 @@ Detect Hotbar 5 = 5
 [POI]
 selected_poi = closest, 0, 0"""
 
-# Define Virtual-Key Codes for numpad keys
 VK_NUMPAD = {
     'num 0': win32con.VK_NUMPAD0,
     'num 1': win32con.VK_NUMPAD1,
@@ -113,7 +112,22 @@ VK_NUMPAD = {
     'num 6': win32con.VK_NUMPAD6,
     'num 7': win32con.VK_NUMPAD7,
     'num 8': win32con.VK_NUMPAD8,
-    'num 9': win32con.VK_NUMPAD9
+    'num 9': win32con.VK_NUMPAD9,
+    'numpad 0': win32con.VK_NUMPAD0,
+    'numpad 1': win32con.VK_NUMPAD1,
+    'numpad 2': win32con.VK_NUMPAD2,
+    'numpad 3': win32con.VK_NUMPAD3,
+    'numpad 4': win32con.VK_NUMPAD4,
+    'numpad 5': win32con.VK_NUMPAD5,
+    'numpad 6': win32con.VK_NUMPAD6,
+    'numpad 7': win32con.VK_NUMPAD7,
+    'numpad 8': win32con.VK_NUMPAD8,
+    'numpad 9': win32con.VK_NUMPAD9,
+    'numpad *': win32con.VK_MULTIPLY,
+    'numpad +': win32con.VK_ADD,
+    'numpad -': win32con.VK_SUBTRACT,
+    'numpad .': win32con.VK_DECIMAL,
+    'numpad /': win32con.VK_DIVIDE,
 }
 
 # Define other special keys
@@ -135,7 +149,33 @@ SPECIAL_KEYS = {
     'f9': win32con.VK_F9,
     'f10': win32con.VK_F10,
     'f11': win32con.VK_F11,
-    'f12': win32con.VK_F12
+    'f12': win32con.VK_F12,
+    'tab': win32con.VK_TAB,
+    'capslock': win32con.VK_CAPITAL,
+    'space': win32con.VK_SPACE,
+    'backspace': win32con.VK_BACK,
+    'enter': win32con.VK_RETURN,
+    'esc': win32con.VK_ESCAPE,
+    'insert': win32con.VK_INSERT,
+    'delete': win32con.VK_DELETE,
+    'home': win32con.VK_HOME,
+    'end': win32con.VK_END,
+    'pageup': win32con.VK_PRIOR,
+    'pagedown': win32con.VK_NEXT,
+    'up': win32con.VK_UP,
+    'down': win32con.VK_DOWN,
+    'left': win32con.VK_LEFT,
+    'right': win32con.VK_RIGHT,
+    'printscreen': win32con.VK_PRINT,
+    'scrolllock': win32con.VK_SCROLL,
+    'pause': win32con.VK_PAUSE,
+    'numlock': win32con.VK_NUMLOCK,
+    'bracketleft': 0xDB,    # '['
+    'bracketright': 0xDD,   # ']'
+    'apostrophe': 0xDE,     # '''
+    'grave': 0xC0,          # '`'
+    'backslash': 0xDC,      # '\'
+    'semicolon': 0xBA,      # ';'
 }
 
 speaker = Auto()
@@ -156,14 +196,12 @@ def is_key_pressed(key):
         return win32api.GetAsyncKeyState(VK_NUMPAD[key_lower]) & 0x8000 != 0
     elif key_lower in SPECIAL_KEYS:
         return win32api.GetAsyncKeyState(SPECIAL_KEYS[key_lower]) & 0x8000 != 0
-    elif key_lower in SPECIAL_KEY_CODES:
-        return win32api.GetAsyncKeyState(SPECIAL_KEY_CODES[key_lower]) & 0x8000 != 0
     else:
         try:
             vk_code = ord(key.upper())
             return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
         except:
-            print(f"Truly unrecognized key: {key}. Skipping...")
+            print(f"Unrecognized key: {key}. Skipping...")
             return False
 
 def handle_movement(action, reset_sensitivity):
@@ -216,15 +254,6 @@ def normalize_key(key):
         "'": 'apostrophe'
     }
     return key_mapping.get(key, key)
-
-SPECIAL_KEY_CODES = {
-    'grave': 0xC0,
-    'backslash': 0xDC,
-    'semicolon': 0xBA,
-    'bracketleft': 0xDB,
-    'bracketright': 0xDD,
-    'apostrophe': 0xDE,
-}
 
 def handle_scroll(action):
     global config
@@ -291,7 +320,6 @@ def read_config():
     
     return config
 
-# Modify the key_listener function
 def key_listener():
     global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open
     while not stop_key_listener.is_set():
