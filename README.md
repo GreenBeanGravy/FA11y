@@ -1,4 +1,4 @@
-# FA11y: Fortnite Accessibility Tool for Blind Players
+# FA11y: Fortnite Accessibility Tool for the BVI
 
 ## About
 FA11y aims to make many important elements of Fortnite accessible to blind and visually impaired players. With FA11y, you can:
