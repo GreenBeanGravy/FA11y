@@ -47,7 +47,7 @@ def load_gamemodes():
                 print(f"Error reading {filename}: {str(e)}")
     return gamemodes
 
-def smooth_move_and_click(x, y, duration=0.2):
+def smooth_move_and_click(x, y, duration=0.04):
     pyautogui.moveTo(x, y, duration=duration)
     pyautogui.click()
 
