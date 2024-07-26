@@ -1,6 +1,19 @@
 import sys
 import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import ctypes
+import configparser
+import threading
+import time
+import win32api
+import win32con
+import keyboard
+import subprocess
+import winshell
+import pyautogui
+from win32com.client import Dispatch
+import pygame
+import requests
 
 if sys.platform.startswith('win'):
     ctypes.windll.kernel32.SetConsoleTitleW("FA11y")
@@ -21,17 +34,6 @@ if sys.version_info >= (3, 12):
 
     sys.modules['imp'] = MockImp()
 
-import configparser
-import threading
-import time
-import win32api
-import win32con
-import keyboard
-import subprocess
-import winshell
-import pyautogui
-from win32com.client import Dispatch
-
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection, create_custom_poi
 from lib.hsr import start_health_shield_rarity_detection, check_health_shields, check_rarity
@@ -42,6 +44,17 @@ from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
 from lib.exit_match import exit_match
 from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item
+
+# Initialize pygame mixer
+pygame.mixer.init()
+
+# Load the update sound
+update_sound = pygame.mixer.Sound("lib/sounds/update.ogg")
+
+# GitHub repository details
+REPO_OWNER = "GreenBeanGravy"
+REPO_NAME = "FA11y"
+API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/main"
 
 # Constants
 CONFIG_FILE = 'config.txt'
@@ -368,7 +381,6 @@ def create_desktop_shortcut():
     shortcut.WorkingDirectory = wDir
     shortcut.save()
 
-# Modify the reload_config function
 def reload_config():
     global config, action_handlers, key_bindings
     config = read_config()
@@ -441,6 +453,31 @@ def run_updater():
     result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
     return result.returncode == 1  # Return True if updates were applied
 
+def check_for_updates():
+    last_commit_sha = None
+    
+    while True:
+        try:
+            response = requests.get(API_URL)
+            if response.status_code == 200:
+                current_commit = response.json()['sha']
+                
+                if last_commit_sha is not None and current_commit != last_commit_sha:
+                    # New commit detected
+                    update_sound.play()
+                    speaker.speak("An update is available for FA11y! Restart FA11y to update!")
+                
+                last_commit_sha = current_commit
+            
+            else:
+                print(f"Failed to fetch commits. Status code: {response.status_code}")
+        
+        except Exception as e:
+            print(f"Error checking for updates: {str(e)}")
+        
+        # Wait for 10 seconds before checking again
+        time.sleep(10)
+
 def main():
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
     try:
@@ -460,6 +497,10 @@ def main():
         stop_key_listener.clear()
         key_listener_thread = threading.Thread(target=key_listener, daemon=True)
         key_listener_thread.start()
+
+        # Start the update checker thread
+        update_thread = threading.Thread(target=check_for_updates, daemon=True)
+        update_thread.start()
 
         if config.getboolean('THREADS', 'EnableHeightChecker', fallback=True):
             threading.Thread(target=start_height_checker, daemon=True).start()
