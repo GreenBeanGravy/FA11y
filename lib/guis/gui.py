@@ -1,6 +1,7 @@
 import tkinter as tk
 import time
 import pyautogui
+from pyautogui import typewrite
 import configparser
 import os
 from accessible_output2.outputs.auto import Auto
@@ -59,9 +60,8 @@ def select_gamemode(gamemode):
     smooth_move_and_click(900, 200)
     time.sleep(0.1)  # Wait 100ms before clearing the field
 
-    # Clear the field using backspace
-    for _ in range(50):  # Press backspace 20 times
-        pyautogui.press('backspace')
+    # Clear the field using backspace - improved method
+    pyautogui.typewrite('\b' * 50, interval=0.01)
 
     # Type the new gamemode
     pyautogui.write(gamemode[1])
