@@ -49,7 +49,7 @@ from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item
 pygame.mixer.init()
 
 # Load the update sound
-update_sound = pygame.mixer.Sound("lib/sounds/update.ogg")
+update_sound = pygame.mixer.Sound("sounds/update.ogg")
 
 # GitHub repository details
 REPO_OWNER = "GreenBeanGravy"
