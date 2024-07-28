@@ -9,9 +9,12 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 - Get directions to the Safe Zone, away from the number one killer of blind players, the storm!
 - Get directions to seasonal POIs, and even set your own custom POIs!
 - Get your height while skydiving in real time!
+- Get the direction you are currently facing!
+- Automatically turn towards a selected POI!
 - Install and verify Fortnite accessibly!
 - Launch Fortnite accessibly in either performance mode or Direct X 11!
 - Select game modes easily with an accessible interface!
+- Instantly leave the current match at the press of a button!
 - Customize most FA11y settings through an accessible configuration menu!
 
 ## DEFAULT Keybinds (configurable to your liking!)
