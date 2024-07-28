@@ -68,9 +68,12 @@ TurnSensitivity = 100
 SecondaryTurnSensitivity = 50
 TurnAroundSensitivity = 1158
 ScrollAmount = 120
-RecenterDelay = 0.05
+RecenterDelay = 0.01
 TurnDelay = 0.01
 TurnSteps = 5
+RecenterSteps = 20
+RecenterStepDelay = 1
+RecenterStepSpeed = 0
 RecenterVerticalMove = 1500
 RecenterVerticalMoveBack = -820
 SecondaryRecenterVerticalMove = 1500
@@ -224,6 +227,9 @@ def handle_movement(action, reset_sensitivity):
     turn_delay = config.getfloat('SETTINGS', 'TurnDelay', fallback=0.01)
     turn_steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
     recenter_delay = config.getfloat('SETTINGS', 'RecenterDelay', fallback=0.05)
+    recenter_steps = config.getint('SETTINGS', 'RecenterSteps', fallback=10)
+    recenter_step_delay = config.getfloat('SETTINGS', 'RecenterStepDelay', fallback=0) / 1000  # Convert ms to seconds
+    recenter_step_speed = config.getint('SETTINGS', 'RecenterStepSpeed', fallback=150)
     x_move, y_move = 0, 0
 
     if action in ['turn left', 'turn right', 'secondaryturn left', 'secondaryturn right', 'look up', 'look down']:
@@ -241,21 +247,23 @@ def handle_movement(action, reset_sensitivity):
         return
     elif action == 'turn around':
         x_move = config.getint('SETTINGS', 'TurnAroundSensitivity', fallback=1158)
+        smooth_move_mouse(x_move, 0, turn_delay, turn_steps)
+        return
     elif action == 'recenter':
         if reset_sensitivity:
-            recenter_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMove', fallback=2000)
+            recenter_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMove', fallback=1500)
             down_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMoveBack', fallback=-580)
         else:
-            recenter_move = config.getint('SETTINGS', 'RecenterVerticalMove', fallback=2000)
+            recenter_move = config.getint('SETTINGS', 'RecenterVerticalMove', fallback=1500)
             down_move = config.getint('SETTINGS', 'RecenterVerticalMoveBack', fallback=-820)
         
-        smooth_move_mouse(0, recenter_move, recenter_delay)
-        time.sleep(recenter_delay)
-        smooth_move_mouse(0, down_move, recenter_delay)
+        # Perform recentering movements
+        smooth_move_mouse(0, recenter_move, recenter_step_delay, recenter_steps, recenter_step_speed, down_move, recenter_delay)
         speaker.speak("Reset Camera")
         return
-    
+
     smooth_move_mouse(x_move, y_move, recenter_delay)
+
 
 def normalize_key(key):
     key_mapping = {
