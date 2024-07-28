@@ -36,27 +36,58 @@ get_key_state = ctypes.windll.user32.GetKeyState
 config = configparser.ConfigParser()
 config.read('config.txt')
 
-def smooth_move_mouse(dx: int, dy: int, duration: float, steps: int = None):
-    print(f"Smooth moving mouse by dx: {dx}, dy: {dy} MICKEYS, duration: {duration}, steps: {steps}")
+def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, step_speed: int = None, second_dy: int = None, recenter_delay: float = None):
+    print(f"Smooth moving mouse by dx: {dx}, dy: {dy} MICKEYS, step_delay: {step_delay}, steps: {steps}, step_speed: {step_speed}, second_dy: {second_dy}")
     if steps is None:
         steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
+    if step_speed is None:
+        step_speed = config.getint('SETTINGS', 'RecenterStepSpeed', fallback=150)
     
-    def move():
-        step_dx, step_dy = dx // steps, dy // steps
-        step_duration = duration / steps
+    step_speed_seconds = step_speed / 1000.0  # Convert milliseconds to seconds
+    
+    step_dx, step_dy = dx // steps, dy // steps
+    
+    for i in range(steps):
+        start_time = time.time()
+        
         x = INPUT(type=INPUT_MOUSE, 
-                  ii=MOUSEINPUT(mouseData=0, 
+                  ii=MOUSEINPUT(dx=step_dx, dy=step_dy, 
+                                mouseData=0, 
                                 dwFlags=MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE, 
                                 time=0, 
                                 dwExtraInfo=None))
-
+        send_input(1, ctypes.byref(x), ctypes.sizeof(x))
+        
+        elapsed_time = time.time() - start_time
+        remaining_time = max(0, step_speed_seconds - elapsed_time)
+        time.sleep(remaining_time)
+        time.sleep(step_delay)
+        
+        print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
+    
+    if second_dy is not None and recenter_delay is not None:
+        # Add delay between movements
+        time.sleep(recenter_delay)
+        
+        # Second movement
+        step_dy = second_dy // steps
         for i in range(steps):
-            x.ii.dx, x.ii.dy = step_dx, step_dy
+            start_time = time.time()
+            
+            x = INPUT(type=INPUT_MOUSE, 
+                      ii=MOUSEINPUT(dx=0, dy=step_dy, 
+                                    mouseData=0, 
+                                    dwFlags=MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE, 
+                                    time=0, 
+                                    dwExtraInfo=None))
             send_input(1, ctypes.byref(x), ctypes.sizeof(x))
-            time.sleep(step_duration)
-            print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy} MICKEYS")
-
-    threading.Thread(target=move).start()
+            
+            elapsed_time = time.time() - start_time
+            remaining_time = max(0, step_speed_seconds - elapsed_time)
+            time.sleep(remaining_time)
+            time.sleep(step_delay)
+            
+            print(f"Step {i+1} (second movement): Moved by dx: 0, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
 
 def mouse_scroll(amount: int):
     print(f"Scrolling mouse by amount: {amount}")
@@ -93,18 +124,21 @@ def mouse_movement():
     turn_delay = config.getfloat('SETTINGS', 'TurnDelay', fallback=0.01)
     turn_steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
     recenter_delay = config.getfloat('SETTINGS', 'RecenterDelay', fallback=0.05)
+    recenter_steps = config.getint('SETTINGS', 'RecenterSteps', fallback=10)
+    recenter_step_delay = config.getfloat('SETTINGS', 'RecenterStepDelay', fallback=0) / 1000  # Convert ms to seconds
+    recenter_step_speed = config.getint('SETTINGS', 'RecenterStepSpeed', fallback=150)
     
     numpad_actions: Dict[int, Callable] = {
         VK_NUMPAD1: lambda: smooth_move_mouse(-2 * turn_sensitivity, 0, turn_delay, turn_steps),
         VK_NUMPAD3: lambda: smooth_move_mouse(2 * turn_sensitivity, 0, turn_delay, turn_steps),
         VK_NUMPAD7: lambda: mouse_scroll(scroll_amount),
         VK_NUMPAD9: lambda: mouse_scroll(-scroll_amount),
-        VK_NUMPAD5: lambda: (smooth_move_mouse(0, recenter_vertical_move, recenter_delay), 
-                             time.sleep(0.1), 
-                             smooth_move_mouse(0, recenter_vertical_move_back, recenter_delay)),
+        VK_NUMPAD5: lambda: (smooth_move_mouse(0, recenter_vertical_move, recenter_step_delay, recenter_steps, recenter_step_speed), 
+                             time.sleep(recenter_delay), 
+                             smooth_move_mouse(0, recenter_vertical_move_back, recenter_step_delay, recenter_steps, recenter_step_speed)),
         VK_NUMPAD2: lambda: smooth_move_mouse(0, turn_sensitivity, turn_delay, turn_steps),
         VK_NUMPAD8: lambda: smooth_move_mouse(0, -turn_sensitivity, turn_delay, turn_steps),
-        VK_NUMPAD0: lambda: smooth_move_mouse(turn_around_sensitivity, 0, recenter_delay),
+        VK_NUMPAD0: lambda: smooth_move_mouse(turn_around_sensitivity, 0, recenter_step_delay, recenter_steps, recenter_step_speed),
         VK_NUMPAD4: lambda: smooth_move_mouse(-secondary_turn_sensitivity, 0, turn_delay, turn_steps),
         VK_NUMPAD6: lambda: smooth_move_mouse(secondary_turn_sensitivity, 0, turn_delay, turn_steps),
     }
