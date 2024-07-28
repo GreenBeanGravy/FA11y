@@ -104,16 +104,18 @@ def icon_detection_cycle(selected_poi, is_create_custom_poi):
 def auto_turn_towards_poi(player_location, poi_location, poi_name):
     max_attempts = 50
     attempts = 0
-    sensitivity = 1.0
-    max_sensitivity = 0.7  # Lower threshold for increased sensitivity
-    
+    sensitivity = 0.7  # Start at 0.7 sensitivity
+    min_sensitivity = 0.6  # Minimum sensitivity threshold
+
     while attempts < max_attempts:
         current_direction, current_angle = find_minimap_icon_direction(sensitivity)
         if current_direction is None:
-            print(f"Unable to determine current direction. Retrying with sensitivity {sensitivity:.2f}")
-            sensitivity -= 0.1  # Increase sensitivity by lowering the threshold
-            if sensitivity < max_sensitivity:
-                sensitivity = max_sensitivity
+            print(f"Unable to determine current direction. Sensitivity: {sensitivity:.2f}")
+            sensitivity = max(sensitivity - 0.01, min_sensitivity)  # Decrease sensitivity, but not below 0.6
+            if sensitivity <= min_sensitivity:
+                print(f"Reached minimum sensitivity ({min_sensitivity}). Stopping direction detection attempts.")
+                speaker.speak(f"Unable to determine direction for {poi_name}.")
+                return None
             time.sleep(0.05)  # Short delay before retrying
             continue
         
