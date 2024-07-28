@@ -483,8 +483,8 @@ def check_for_updates():
         except Exception as e:
             print(f"Error checking for updates: {str(e)}")
         
-        # Wait for 10 seconds before checking again
-        time.sleep(10)
+        # Wait for 120 seconds before checking again
+        time.sleep(120)
 
 def main():
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
