@@ -50,7 +50,7 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 3. Extract the folder to a location of your choice. Avoid placing it inside the Fortnite directory or any system folders.
 4. Open the folder and run `updater.py`. Wait for it to complete.
 5. You should now be able to run `FA11y.py` without issues.
-6. Optional: Configure your FA11y settings and keybinds by pressing `F10` when FA11y has started!
+6. Optional: Configure your FA11y settings and keybinds by pressing `F9` when FA11y has started!
 
 ## Usage
 
