@@ -22,7 +22,7 @@ def save_config(config):
     with open(CONFIG_FILE, 'w') as configfile:
         config.write(configfile)
 
-def key_to_fa11y_format(key):
+def key_to_fa11y_format(key, event):
     key_mapping = {
         'control_l': 'lctrl',
         'control_r': 'rctrl',
@@ -31,7 +31,12 @@ def key_to_fa11y_format(key):
         'shift_l': 'lshift',
         'shift_r': 'rshift',
     }
-    return key_mapping.get(key, key)
+    
+    # Check if it's a numpad key
+    if event.keysym.startswith('KP_'):
+        return f"num {key.lower()}"
+    
+    return key_mapping.get(key.lower(), key.lower())
 
 def is_numeric(value):
     return re.match(r'^-?\d*\.?\d*$', value) is not None
@@ -188,7 +193,8 @@ def create_config_gui(update_script_callback):
                     old_key = next(key for key, value in keybind_map.items() if value == action_name)
                     del keybind_map[old_key]
             else:
-                key_name = key_to_fa11y_format(event.keysym.lower())
+                key_name = key_to_fa11y_format(event.keysym, event)
+                
                 if key_name.lower() in keybind_map:
                     old_action = keybind_map[key_name.lower()]
                     if old_action != action_name:
