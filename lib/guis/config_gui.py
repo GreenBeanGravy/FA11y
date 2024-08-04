@@ -4,6 +4,8 @@ import configparser
 from accessible_output2.outputs.auto import Auto
 import os
 import re
+import win32api
+import win32con
 
 speaker = Auto()
 
@@ -22,21 +24,92 @@ def save_config(config):
     with open(CONFIG_FILE, 'w') as configfile:
         config.write(configfile)
 
-def key_to_fa11y_format(key, event):
-    key_mapping = {
-        'control_l': 'lctrl',
-        'control_r': 'rctrl',
-        'alt_l': 'lalt',
-        'alt_r': 'ralt',
-        'shift_l': 'lshift',
-        'shift_r': 'rshift',
-    }
-    
-    # Check if it's a numpad key
-    if event.keysym.startswith('KP_'):
-        return f"num {key.lower()}"
-    
-    return key_mapping.get(key.lower(), key.lower())
+VK_NUMPAD = {
+    'num 0': win32con.VK_NUMPAD0,
+    'num 1': win32con.VK_NUMPAD1,
+    'num 2': win32con.VK_NUMPAD2,
+    'num 3': win32con.VK_NUMPAD3,
+    'num 4': win32con.VK_NUMPAD4,
+    'num 5': win32con.VK_NUMPAD5,
+    'num 6': win32con.VK_NUMPAD6,
+    'num 7': win32con.VK_NUMPAD7,
+    'num 8': win32con.VK_NUMPAD8,
+    'num 9': win32con.VK_NUMPAD9,
+    'num period': win32con.VK_DECIMAL,
+    'num .': win32con.VK_DECIMAL,
+    'num +': win32con.VK_ADD,
+    'num -': win32con.VK_SUBTRACT,
+    'num *': win32con.VK_MULTIPLY,
+    'num /': win32con.VK_DIVIDE,
+}
+
+SPECIAL_KEYS = {
+    'lctrl': win32con.VK_LCONTROL,
+    'rctrl': win32con.VK_RCONTROL,
+    'lshift': win32con.VK_LSHIFT,
+    'rshift': win32con.VK_RSHIFT,
+    'lalt': win32con.VK_LMENU,
+    'ralt': win32con.VK_RMENU,
+    'f1': win32con.VK_F1,
+    'f2': win32con.VK_F2,
+    'f3': win32con.VK_F3,
+    'f4': win32con.VK_F4,
+    'f5': win32con.VK_F5,
+    'f6': win32con.VK_F6,
+    'f7': win32con.VK_F7,
+    'f8': win32con.VK_F8,
+    'f9': win32con.VK_F9,
+    'f10': win32con.VK_F10,
+    'f11': win32con.VK_F11,
+    'f12': win32con.VK_F12,
+    'tab': win32con.VK_TAB,
+    'capslock': win32con.VK_CAPITAL,
+    'space': win32con.VK_SPACE,
+    'backspace': win32con.VK_BACK,
+    'enter': win32con.VK_RETURN,
+    'esc': win32con.VK_ESCAPE,
+    'insert': win32con.VK_INSERT,
+    'delete': win32con.VK_DELETE,
+    'home': win32con.VK_HOME,
+    'end': win32con.VK_END,
+    'pageup': win32con.VK_PRIOR,
+    'pagedown': win32con.VK_NEXT,
+    'up': win32con.VK_UP,
+    'down': win32con.VK_DOWN,
+    'left': win32con.VK_LEFT,
+    'right': win32con.VK_RIGHT,
+    'printscreen': win32con.VK_PRINT,
+    'scrolllock': win32con.VK_SCROLL,
+    'pause': win32con.VK_PAUSE,
+    'numlock': win32con.VK_NUMLOCK,
+    'bracketleft': 0xDB,    # '['
+    'bracketright': 0xDD,   # ']'
+    'apostrophe': 0xDE,     # '''
+    'grave': 0xC0,          # '`'
+    'backslash': 0xDC,      # '\'
+    'semicolon': 0xBA,      # ';'
+    'period': 0xBE,         # '.'
+}
+
+def is_key_pressed(key):
+    key_lower = key.lower()
+    if key_lower in VK_NUMPAD:
+        return win32api.GetAsyncKeyState(VK_NUMPAD[key_lower]) & 0x8000 != 0
+    elif key_lower in SPECIAL_KEYS:
+        return win32api.GetAsyncKeyState(SPECIAL_KEYS[key_lower]) & 0x8000 != 0
+    else:
+        try:
+            vk_code = ord(key.upper())
+            return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
+        except:
+            print(f"Unrecognized key: {key}. Skipping...")
+            return False
+
+def get_pressed_key():
+    for key in list(VK_NUMPAD.keys()) + list(SPECIAL_KEYS.keys()) + [chr(i) for i in range(65, 91)]:  # A-Z
+        if is_key_pressed(key):
+            return key
+    return None
 
 def is_numeric(value):
     return re.match(r'^-?\d*\.?\d*$', value) is not None
@@ -176,44 +249,49 @@ def create_config_gui(update_script_callback):
         ]
         speak(". ".join(controls))
 
+    def capture_keybind():
+        current_widget = root.focus_get()
+        action_name = get_widget_text(current_widget)
+        
+        while True:
+            key = get_pressed_key()
+            if key:
+                if key == 'backspace':
+                    current_widget.delete(0, tk.END)
+                    speak(f"Keybind for {action_name} disabled")
+                    if action_name in keybind_map.values():
+                        old_key = next(k for k, v in keybind_map.items() if v == action_name)
+                        del keybind_map[old_key]
+                else:
+                    if key.lower() in keybind_map:
+                        old_action = keybind_map[key.lower()]
+                        if old_action != action_name:
+                            speak(f"Warning: {key} was previously bound to {old_action}. That keybind has been removed.")
+                            for widget in widgets:
+                                if isinstance(widget, ttk.Entry) and widget.get().lower() == key.lower():
+                                    widget.delete(0, tk.END)
+                                    variables[(notebook.tab(notebook.select(), "text"), get_widget_text(widget))].set('')
+                                    break
+                    if action_name in keybind_map.values():
+                        old_key = next(k for k, v in keybind_map.items() if v == action_name)
+                        del keybind_map[old_key]
+                    keybind_map[key.lower()] = action_name
+                    current_widget.delete(0, tk.END)
+                    current_widget.insert(0, key)
+                    variables[(notebook.tab(notebook.select(), "text"), action_name)].set(key)
+                    speak(f"Keybind for {action_name} set to {key}")
+                return
+            root.update()
+
     def on_key(event):
         if event.keysym.lower() == 'h':
             speak_help()
             return "break"
         
         if capturing_keybind[0]:
-            if event.keysym in ['Return', 'Tab', 'Escape']:
-                return "break"
-            current_widget = root.focus_get()
-            action_name = get_widget_text(current_widget)
-            if event.keysym == 'BackSpace':
-                current_widget.delete(0, tk.END)
-                speak(f"Keybind for {action_name} disabled")
-                if action_name in keybind_map.values():
-                    old_key = next(key for key, value in keybind_map.items() if value == action_name)
-                    del keybind_map[old_key]
-            else:
-                key_name = key_to_fa11y_format(event.keysym, event)
-                
-                if key_name.lower() in keybind_map:
-                    old_action = keybind_map[key_name.lower()]
-                    if old_action != action_name:
-                        speak(f"Warning: {key_name} was previously bound to {old_action}. That keybind has been removed.")
-                        for widget in widgets:
-                            if isinstance(widget, ttk.Entry) and widget.get().lower() == key_name.lower():
-                                widget.delete(0, tk.END)
-                                variables[(notebook.tab(notebook.select(), "text"), get_widget_text(widget))].set('')
-                                break
-                if action_name in keybind_map.values():
-                    old_key = next(key for key, value in keybind_map.items() if value == action_name)
-                    del keybind_map[old_key]
-                keybind_map[key_name.lower()] = action_name
-                current_widget.delete(0, tk.END)
-                current_widget.insert(0, key_name)
-                variables[(notebook.tab(notebook.select(), "text"), action_name)].set(key_name)
-                speak(f"Keybind for {action_name} set to {key_name}")
+            capture_keybind()
             capturing_keybind[0] = False
-            current_widget.config(state='readonly')
+            root.focus_get().config(state='readonly')
             return "break"
 
     def on_enter(event):
