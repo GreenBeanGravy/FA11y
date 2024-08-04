@@ -129,21 +129,12 @@ VK_NUMPAD = {
     'num 7': win32con.VK_NUMPAD7,
     'num 8': win32con.VK_NUMPAD8,
     'num 9': win32con.VK_NUMPAD9,
-    'numpad 0': win32con.VK_NUMPAD0,
-    'numpad 1': win32con.VK_NUMPAD1,
-    'numpad 2': win32con.VK_NUMPAD2,
-    'numpad 3': win32con.VK_NUMPAD3,
-    'numpad 4': win32con.VK_NUMPAD4,
-    'numpad 5': win32con.VK_NUMPAD5,
-    'numpad 6': win32con.VK_NUMPAD6,
-    'numpad 7': win32con.VK_NUMPAD7,
-    'numpad 8': win32con.VK_NUMPAD8,
-    'numpad 9': win32con.VK_NUMPAD9,
-    'numpad *': win32con.VK_MULTIPLY,
-    'numpad +': win32con.VK_ADD,
-    'numpad -': win32con.VK_SUBTRACT,
-    'numpad .': win32con.VK_DECIMAL,
-    'numpad /': win32con.VK_DIVIDE,
+    'num period': win32con.VK_DECIMAL,
+    'num .': win32con.VK_DECIMAL,
+    'num +': win32con.VK_ADD,
+    'num -': win32con.VK_SUBTRACT,
+    'num *': win32con.VK_MULTIPLY,
+    'num /': win32con.VK_DIVIDE,
 }
 
 # Define other special keys
@@ -192,6 +183,7 @@ SPECIAL_KEYS = {
     'grave': 0xC0,          # '`'
     'backslash': 0xDC,      # '\'
     'semicolon': 0xBA,      # ';'
+    'period': 0xBE,         # '.'
 }
 
 speaker = Auto()
@@ -264,7 +256,6 @@ def handle_movement(action, reset_sensitivity):
 
     smooth_move_mouse(x_move, y_move, recenter_delay)
 
-
 def normalize_key(key):
     key_mapping = {
         '`': 'grave',
@@ -272,7 +263,8 @@ def normalize_key(key):
         ';': 'semicolon',
         '[': 'bracketleft',
         ']': 'bracketright',
-        "'": 'apostrophe'
+        "'": 'apostrophe',
+        '.': 'period',
     }
     return key_mapping.get(key, key)
 
