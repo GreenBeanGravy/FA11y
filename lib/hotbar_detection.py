@@ -51,4 +51,3 @@ def detect_hotbar_item(slot_index):
 
 def initialize_hotbar_detection():
     load_reference_images(IMAGES_FOLDER)
-    print("Hotbar detection initialized")
