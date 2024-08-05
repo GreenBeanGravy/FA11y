@@ -338,6 +338,7 @@ def key_listener():
     while not stop_key_listener.is_set():
         if not config_gui_open.is_set():
             numlock_on = is_numlock_on()
+            mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
 
             for action, key in key_bindings.items():
                 if not key:  # Skip if the keybind is empty
@@ -349,6 +350,10 @@ def key_listener():
 
                 # Skip actions that don't have handlers
                 if action_lower not in action_handlers:
+                    continue
+
+                # Skip MouseKeys-related actions if MouseKeys is disabled
+                if not mouse_keys_enabled and action_lower in ['fire', 'target', 'turn left', 'turn right', 'secondaryturn left', 'secondaryturn right', 'look up', 'look down', 'turn around', 'recenter', 'scroll up', 'scroll down']:
                     continue
 
                 if action_lower in ['fire', 'target'] and not numlock_on:
