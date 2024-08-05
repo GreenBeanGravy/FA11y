@@ -1,5 +1,6 @@
 import sys
 import os
+os.system("title FA11y")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import ctypes
 import configparser
@@ -14,12 +15,6 @@ import pyautogui
 from win32com.client import Dispatch
 import pygame
 import requests
-
-if sys.platform.startswith('win'):
-    ctypes.windll.kernel32.SetConsoleTitleW("FA11y")
-elif sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
-    sys.stdout.write("\x1b]2;FA11y\x07")
-    sys.stdout.flush()
 
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
