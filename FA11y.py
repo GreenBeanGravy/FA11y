@@ -1,6 +1,5 @@
 import sys
 import os
-os.system("title FA11y")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import ctypes
 import configparser
@@ -16,6 +15,12 @@ from win32com.client import Dispatch
 import pygame
 import requests
 
+if sys.platform.startswith('win'):
+    ctypes.windll.kernel32.SetConsoleTitleW("FA11y")
+elif sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
+    sys.stdout.write("\x1b]2;FA11y\x07")
+    sys.stdout.flush()
+
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
     class MockImp:
@@ -30,10 +35,10 @@ if sys.version_info >= (3, 12):
     sys.modules['imp'] = MockImp()
 
 from accessible_output2.outputs.auto import Auto
-from lib.icon import start_icon_detection, create_custom_poi
+from lib.icon import start_icon_detection
 from lib.hsr import start_health_shield_rarity_detection, check_health_shields, check_rarity
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
-from lib.guis.gui import select_poi_tk, select_gamemode_tk, create_gui
+from lib.guis.gui import select_poi_tk, select_gamemode_tk
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
@@ -76,7 +81,6 @@ SecondaryRecenterVerticalMoveBack = -580
 
 [THREADS]
 EnableIconDetection = true
-EnableCustomPOI = true
 EnableGUIActivation = true
 EnableHeightChecker = true
 EnableHSRDetection = true
@@ -84,7 +88,6 @@ EnableHotbarDetection = true
 
 [SCRIPT KEYBINDS]
 Locate Player Icon = grave
-Create Custom POI = backslash
 Fire = lctrl
 Target = rctrl
 Turn Left = num 1
@@ -396,8 +399,6 @@ def reload_config():
     
     if config.getboolean('THREADS', 'EnableIconDetection', fallback=True):
         action_handlers['locate player icon'] = start_icon_detection
-    if config.getboolean('THREADS', 'EnableCustomPOI', fallback=True):
-        action_handlers['create custom poi'] = lambda: create_gui(pyautogui.position())
 
     if mouse_keys_enabled:
         action_handlers.update({
