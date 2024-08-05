@@ -427,9 +427,6 @@ def reload_config():
     if config.getboolean('THREADS', 'EnableHotbarDetection', fallback=True):
         for i in range(1, 6):
             action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
-    
-    print("Configuration reloaded")
-    speaker.speak("Configuration updated")
 
 def update_script_config(new_config):
     global config, key_listener_thread, stop_key_listener
