@@ -56,50 +56,38 @@ def get_relative_direction(front_vector, poi_vector):
 
 def start_icon_detection():
     print("Starting icon detection")
-    icon_detection_cycle(load_config(), False)
+    icon_detection_cycle(load_config())
 
-def create_custom_poi():
-    print("Creating custom POI")
-    icon_detection_cycle(load_config(), True)
-
-def icon_detection_cycle(selected_poi, is_create_custom_poi):
-    print(f"Icon detection cycle started. Selected POI: {selected_poi}, Create custom POI: {is_create_custom_poi}")
+def icon_detection_cycle(selected_poi):
+    print(f"Icon detection cycle started. Selected POI: {selected_poi}")
     center_mass_screen = find_player_icon_location()
     
-    if is_create_custom_poi:
-        if center_mass_screen:
-            print(f"Creating custom POI at {center_mass_screen}")
-            gui.create_gui(f"{center_mass_screen[0]},{center_mass_screen[1]}")
-        else:
-            print("Player icon not located. Cannot create custom POI.")
-            speaker.speak("Player icon not located. Cannot create custom POI.")
-    else:
-        if selected_poi[0].lower() == 'none':
-            print("No POI selected.")
-            speaker.speak("No POI selected. Please select a POI first.")
-            return
+    if selected_poi[0].lower() == 'none':
+        print("No POI selected.")
+        speaker.speak("No POI selected. Please select a POI first.")
+        return
 
-        poi_data = handle_poi_selection(selected_poi, center_mass_screen)
-        print(f"POI data: {poi_data}")
-        if poi_data[1]:  # Check if coordinates are not None
-            # Check if AutoTurn is enabled
-            config = configparser.ConfigParser()
-            config.read('CONFIG.txt')
-            auto_turn_enabled = config.getboolean('SETTINGS', 'AutoTurn', fallback=False)
-            
-            if auto_turn_enabled and center_mass_screen:
-                perform_poi_actions(poi_data, center_mass_screen, speak_info=False)
-                time.sleep(0.1)  # Wait 100ms
-                keyboard.press_and_release('esc')  # Press escape
-                time.sleep(0.25)  # Wait 250ms after pressing Escape
-                final_direction = auto_turn_towards_poi(center_mass_screen, poi_data[1], poi_data[0])
-                if final_direction:
-                    speak_auto_turn_result(poi_data[0], final_direction, center_mass_screen, poi_data[1])
-            else:
-                perform_poi_actions(poi_data, center_mass_screen, speak_info=True)
+    poi_data = handle_poi_selection(selected_poi, center_mass_screen)
+    print(f"POI data: {poi_data}")
+    if poi_data[1]:  # Check if coordinates are not None
+        # Check if AutoTurn is enabled
+        config = configparser.ConfigParser()
+        config.read('CONFIG.txt')
+        auto_turn_enabled = config.getboolean('SETTINGS', 'AutoTurn', fallback=False)
+        
+        if auto_turn_enabled and center_mass_screen:
+            perform_poi_actions(poi_data, center_mass_screen, speak_info=False)
+            time.sleep(0.1)  # Wait 100ms
+            keyboard.press_and_release('esc')  # Press escape
+            time.sleep(0.25)  # Wait 250ms after pressing Escape
+            final_direction = auto_turn_towards_poi(center_mass_screen, poi_data[1], poi_data[0])
+            if final_direction:
+                speak_auto_turn_result(poi_data[0], final_direction, center_mass_screen, poi_data[1])
         else:
-            print(f"{poi_data[0]} not located.")
-            speaker.speak(f"{poi_data[0]} not located.")
+            perform_poi_actions(poi_data, center_mass_screen, speak_info=True)
+    else:
+        print(f"{poi_data[0]} not located.")
+        speaker.speak(f"{poi_data[0]} not located.")
 
 def auto_turn_towards_poi(player_location, poi_location, poi_name):
     max_attempts = 50
@@ -195,27 +183,30 @@ def handle_poi_selection(selected_poi, center_mass_screen):
     elif poi_name == 'closest':
         print("Finding closest POI")
         return find_closest_poi(center_mass_screen, load_poi_from_file()) if center_mass_screen else (None, None)
-    elif poi_name in OBJECT_CONFIGS or poi_name.replace(' ', '_') in OBJECT_CONFIGS:
-        print(f"Detecting game object: {poi_name}")
-        object_name = poi_name if poi_name in OBJECT_CONFIGS else poi_name.replace(' ', '_')
-        icon_path, threshold = OBJECT_CONFIGS[object_name]
-        result = find_closest_object(icon_path, threshold)
-        if result:
-            print(f"Game object {poi_name} found at: {result}")
-            return poi_name, result
-        else:
-            print(f"Game object {poi_name} not found on screen")
-            return poi_name, None
     else:
-        try:
-            coordinates = (int(selected_poi[1]), int(selected_poi[2]))
-            if coordinates == (0, 0):
-                print(f"Warning: Static coordinates (0, 0) detected for {poi_name}. This might be a placeholder.")
-            print(f"Using static POI coordinates: {coordinates}")
-            return poi_name, coordinates
-        except ValueError:
-            print(f"Error: Invalid POI coordinates for {poi_name}: {selected_poi[1]}, {selected_poi[2]}")
-            return poi_name, None
+        # Check if it's a game object
+        if poi_name in OBJECT_CONFIGS or poi_name.replace(' ', '_') in OBJECT_CONFIGS:
+            print(f"Detecting game object: {poi_name}")
+            object_name = poi_name if poi_name in OBJECT_CONFIGS else poi_name.replace(' ', '_')
+            icon_path, threshold = OBJECT_CONFIGS[object_name]
+            result = find_closest_object(icon_path, threshold)
+            if result:
+                print(f"Game object {poi_name} found at: {result}")
+                return poi_name, result
+            else:
+                print(f"Game object {poi_name} not found on screen")
+                return poi_name, None
+        else:
+            # Handle as static POI
+            try:
+                coordinates = (int(selected_poi[1]), int(selected_poi[2]))
+                if coordinates == (0, 0):
+                    print(f"Warning: Static coordinates (0, 0) detected for {poi_name}. This might be a placeholder.")
+                print(f"Using static POI coordinates: {coordinates}")
+                return poi_name, coordinates
+            except ValueError:
+                print(f"Error: Invalid POI coordinates for {poi_name}: {selected_poi[1]}, {selected_poi[2]}")
+                return poi_name, None
 
 def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
     print(f"Processing screenshot for POI: {poi_name}, Coordinates: {selected_coordinates}")
