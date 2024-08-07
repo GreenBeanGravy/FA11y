@@ -7,6 +7,7 @@ import os
 from accessible_output2.outputs.auto import Auto
 from functools import partial
 from lib.object_finder import OBJECT_CONFIGS
+from lib.player_location import find_player_icon_location, ROI_START_ORIG, ROI_END_ORIG
 
 speaker = Auto()
 
@@ -108,16 +109,76 @@ def update_config_file(selected_poi_name):
     if 'POI' not in config:
         config['POI'] = {}
 
-    poi_entry = next((poi for poi in combined_pois if poi[0].lower() == selected_poi_name.lower()), None)
-    if poi_entry:
-        config['POI']['selected_poi'] = f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
+    if selected_poi_name.startswith("Position,"):
+        config['POI']['selected_poi'] = selected_poi_name
     else:
-        config['POI']['selected_poi'] = 'none, 0, 0'
+        poi_entry = next((poi for poi in combined_pois if poi[0].lower() == selected_poi_name.lower()), None)
+        if poi_entry:
+            config['POI']['selected_poi'] = f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
+        else:
+            config['POI']['selected_poi'] = 'none, 0, 0'
 
     with open('CONFIG.txt', 'w') as configfile:
         config.write(configfile)
 
+def get_current_coordinates():
+    coords = find_player_icon_location()
+    if coords:
+        return coords
+    return None
+
+def input_custom_coordinates():
+    def create_coordinate_window(coordinate, min_value, max_value, callback):
+        coord_window = tk.Toplevel(root)
+        coord_window.title(f"{coordinate.upper()} Coordinate")
+        coord_window.attributes('-topmost', True)
+
+        entry = tk.Entry(coord_window)
+        entry.pack(pady=10)
+        entry.focus_set()
+
+        speak(f"{coordinate.upper()} coordinate. Input field, blank. Enter a value between {min_value} and {max_value}")
+
+        def on_enter(event):
+            try:
+                value = int(entry.get())
+                if min_value <= value <= max_value:
+                    coord_window.destroy()
+                    callback(value)
+                else:
+                    speak(f"Invalid input. Please enter a value between {min_value} and {max_value}")
+            except ValueError:
+                speak("Invalid input. Please enter a number")
+
+        def on_up_arrow(event):
+            speak(entry.get() or "Blank")
+
+        def on_escape(event):
+            speak(f"Cancelling {coordinate} coordinate input")
+            coord_window.destroy()
+            root.destroy()
+
+        entry.bind('<Return>', on_enter)
+        entry.bind('<Up>', on_up_arrow)
+        entry.bind('<Escape>', on_escape)
+
+    def get_y_coordinate(x_value):
+        def set_coordinates(y_value):
+            # Transform coordinates to match the player icon search area
+            transformed_x = x_value + ROI_START_ORIG[0]
+            transformed_y = y_value + ROI_START_ORIG[1]
+            
+            update_config_file(f"Position,{transformed_x},{transformed_y}")
+            speak(f"Custom position set to {x_value}, {y_value} in the visible area")
+            smooth_move_and_click(pyautogui.position()[0], pyautogui.position()[1])
+            root.destroy()
+
+        create_coordinate_window('Input Y', 0, 820, set_coordinates)
+
+    create_coordinate_window('Input X', 0, 900, get_y_coordinate)
+
 def select_poi_tk():
+    global root
     root = tk.Tk()
     root.title("P O I Selector")
     root.attributes('-topmost', True)
@@ -126,19 +187,22 @@ def select_poi_tk():
     buttons_frame.pack()
 
     def select_poi(poi):
-        update_config_file(poi)
-        speak(f"{poi} selected")
-        smooth_move_and_click(pyautogui.position()[0], pyautogui.position()[1])
-        root.destroy()
+        if poi == "Position":
+            input_custom_coordinates()
+        else:
+            update_config_file(poi)
+            speak(f"{poi} selected")
+            smooth_move_and_click(pyautogui.position()[0], pyautogui.position()[1])
+            root.destroy()
 
     def refresh_buttons(forward=True, initial=False):
         global current_poi_set
         if initial:
             current_poi_set = 0
         elif forward:
-            current_poi_set = (current_poi_set + 1) % 2
+            current_poi_set = (current_poi_set + 1) % 3
         else:
-            current_poi_set = (current_poi_set - 1) % 2
+            current_poi_set = (current_poi_set - 1) % 3
     
         for widget in buttons_frame.winfo_children():
             widget.destroy()
@@ -146,9 +210,12 @@ def select_poi_tk():
         if current_poi_set == 0:
             pois_to_use = [("Safe Zone", "0", "0"), ("Closest", "0", "0")] + pois_from_file
             speak("Game P O Is")
-        else:
+        elif current_poi_set == 1:
             pois_to_use = game_objects
             speak("Game Objects")
+        else:
+            pois_to_use = [("Position", "0", "0")]
+            speak("Custom Position")
 
         buttons = []
         for poi in pois_to_use:
@@ -258,5 +325,22 @@ def select_gamemode_tk():
     root.focus_force()
     root.mainloop()
 
+def speak_current_coordinates(event=None):
+    coords = get_current_coordinates()
+    if coords:
+        # Convert the on-screen coordinates to ROI coordinates
+        roi_x = coords[0] - ROI_START_ORIG[0]
+        roi_y = coords[1] - ROI_START_ORIG[1]
+        
+        # Ensure the coordinates are within the ROI bounds
+        roi_x = max(0, min(roi_x, ROI_END_ORIG[0] - ROI_START_ORIG[0]))
+        roi_y = max(0, min(roi_y, ROI_END_ORIG[1] - ROI_START_ORIG[1]))
+        
+        speak(f"You are at {roi_x}, {roi_y}")
+        print(f"On-screen coordinates: {coords[0]}, {coords[1]}")
+        print(f"Visible area coordinates: {roi_x}, {roi_y}")
+    else:
+        speak("Unable to determine current coordinates")
+
 # Expose the necessary functions
-__all__ = ['select_poi_tk', 'select_gamemode_tk']
+__all__ = ['select_poi_tk', 'select_gamemode_tk', 'speak_current_coordinates']
