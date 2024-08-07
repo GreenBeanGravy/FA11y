@@ -38,7 +38,7 @@ from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection
 from lib.hsr import start_health_shield_rarity_detection, check_health_shields, check_rarity
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
-from lib.guis.gui import select_poi_tk, select_gamemode_tk
+from lib.guis.gui import select_poi_tk, select_gamemode_tk, speak_current_coordinates
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
@@ -88,6 +88,7 @@ EnableHotbarDetection = true
 
 [SCRIPT KEYBINDS]
 Locate Player Icon = grave
+Get Current Coordinates = f4
 Fire = lctrl
 Target = rctrl
 Turn Left = num 1
@@ -423,6 +424,7 @@ def reload_config():
     action_handlers['select gamemode'] = select_gamemode_tk
     action_handlers['open configuration'] = open_config_gui
     action_handlers['exit match'] = exit_match
+    action_handlers['get current coordinates'] = speak_current_coordinates
     
     # Add hotbar detection handlers
     if config.getboolean('THREADS', 'EnableHotbarDetection', fallback=True):
