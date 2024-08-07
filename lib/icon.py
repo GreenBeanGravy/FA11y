@@ -10,6 +10,7 @@ from lib.object_finder import OBJECT_CONFIGS, find_closest_object
 import lib.guis.gui as gui
 from lib.minimap_direction import find_minimap_icon_direction
 from lib.mouse import smooth_move_mouse
+from lib.player_location import find_player_icon_location
 
 pyautogui.FAILSAFE = False
 speaker = Auto()
@@ -79,7 +80,7 @@ def icon_detection_cycle(selected_poi):
             perform_poi_actions(poi_data, center_mass_screen, speak_info=False)
             time.sleep(0.1)  # Wait 100ms
             keyboard.press_and_release('esc')  # Press escape
-            time.sleep(0.25)  # Wait 250ms after pressing Escape
+            time.sleep(0.1)  # Wait 100ms
             final_direction = auto_turn_towards_poi(center_mass_screen, poi_data[1], poi_data[0])
             if final_direction:
                 speak_auto_turn_result(poi_data[0], final_direction, center_mass_screen, poi_data[1])
@@ -90,21 +91,21 @@ def icon_detection_cycle(selected_poi):
         speaker.speak(f"{poi_data[0]} not located.")
 
 def auto_turn_towards_poi(player_location, poi_location, poi_name):
-    max_attempts = 50
+    max_attempts = 30
     attempts = 0
-    sensitivity = 0.7  # Start at 0.7 sensitivity
-    min_sensitivity = 0.6  # Minimum sensitivity threshold
+    base_turn_speed = 200  # Base turning speed
+    max_turn_speed = 500   # Maximum turning speed
+    angle_threshold = 5    # Angle difference threshold for success
+    sensitivity = 1.0      # Initial sensitivity
+    min_sensitivity = 0.6  # Minimum sensitivity
 
     while attempts < max_attempts:
         current_direction, current_angle = find_minimap_icon_direction(sensitivity)
         if current_direction is None:
-            print(f"Unable to determine current direction. Sensitivity: {sensitivity:.2f}")
-            sensitivity = max(sensitivity - 0.01, min_sensitivity)  # Decrease sensitivity, but not below 0.6
-            if sensitivity <= min_sensitivity:
-                print(f"Reached minimum sensitivity ({min_sensitivity}). Stopping direction detection attempts.")
-                speaker.speak(f"Unable to determine direction for {poi_name}.")
-                return None
-            time.sleep(0.05)  # Short delay before retrying
+            print(f"Unable to determine current direction. Sensitivity: {sensitivity:.2f}, Attempt {attempts + 1}/{max_attempts}")
+            sensitivity = max(sensitivity - 0.05, min_sensitivity)
+            time.sleep(0.1)
+            attempts += 1
             continue
         
         poi_vector = np.array(poi_location) - np.array(player_location)
@@ -113,18 +114,27 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
         
         angle_difference = (poi_angle - current_angle + 180) % 360 - 180
         
-        if abs(angle_difference) <= 5:
+        if attempts % 5 == 0 or abs(angle_difference) <= angle_threshold:
+            print(f"Current angle: {current_angle:.2f}, POI angle: {poi_angle:.2f}, Difference: {angle_difference:.2f}")
+        
+        if abs(angle_difference) <= angle_threshold:
             print(f"Successfully turned towards {poi_name}. Current direction: {current_direction}")
             return current_direction
         
-        turn_amount = min(abs(angle_difference), 90) // 1  # Half of normal turn, max 45 degrees
+        # Dynamic speed adjustment
+        turn_speed = min(base_turn_speed + (abs(angle_difference) * 2), max_turn_speed)
+        turn_amount = min(abs(angle_difference), 90)  # Limit maximum turn to 90 degrees
         turn_direction = 1 if angle_difference > 0 else -1
         
-        smooth_move_mouse(int(turn_amount * turn_direction), 0, 0.01)  # Convert to integer
-        time.sleep(0.01)  # Wait for the turn to complete
+        smooth_move_mouse(int(turn_amount * turn_direction * (turn_speed / 100)), 0, 0.01)
+        time.sleep(0.05)
         
         attempts += 1
-    
+        
+        # Reset sensitivity if we're making progress
+        if abs(angle_difference) < 45:
+            sensitivity = min(sensitivity + 0.05, 1.0)
+
     print(f"Failed to turn towards {poi_name} after maximum attempts.")
     speaker.speak(f"Unable to face {poi_name} accurately.")
     return None
@@ -134,21 +144,6 @@ def speak_auto_turn_result(poi_name, final_direction, player_location, poi_locat
     message = f"Facing {poi_name} at {int(distance)} meters away, facing {final_direction}"
     print(message)
     speaker.speak(message)
-
-def find_player_icon_location():
-    print("Finding player icon location")
-    screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
-    roi_gray = cv2.cvtColor(screenshot[4 * ROI_START_ORIG[1]:4 * ROI_END_ORIG[1], 4 * ROI_START_ORIG[0]:4 * ROI_END_ORIG[0]], cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(roi_gray, 229, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    valid_contours = [cnt for cnt in contours if MIN_SHAPE_SIZE < cv2.contourArea(cnt) < MAX_SHAPE_SIZE]
-    if valid_contours:
-        M = cv2.moments(max(valid_contours, key=cv2.contourArea))
-        location = ((int(M["m10"] / M["m00"]) // 4) + ROI_START_ORIG[0], (int(M["m01"] / M["m00"]) // 4) + ROI_START_ORIG[1])
-        print(f"Player icon located at: {location}")
-        return location
-    print("Player icon not found")
-    return None
 
 def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
     poi_name, coordinates = poi_data
@@ -175,7 +170,21 @@ def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
 
 def handle_poi_selection(selected_poi, center_mass_screen):
     print(f"Handling POI selection: {selected_poi}")
-    poi_name = selected_poi[0].lower()
+    
+    if isinstance(selected_poi, tuple) and len(selected_poi) == 1:
+        selected_poi = selected_poi[0]  # Unpack the tuple if it's a single-element tuple
+    
+    if isinstance(selected_poi, str):
+        parts = selected_poi.split(',')
+        if len(parts) == 3 and parts[0].lower() == 'position':
+            try:
+                x, y = int(parts[1]), int(parts[2])
+                return 'Custom Position', (x, y)
+            except ValueError:
+                print(f"Error: Invalid custom position coordinates: {parts[1]}, {parts[2]}")
+                return 'Custom Position', None
+    
+    poi_name = selected_poi[0].lower() if isinstance(selected_poi, tuple) else selected_poi.lower()
     
     if poi_name == 'safe zone':
         print("Detecting safe zone")
@@ -199,13 +208,17 @@ def handle_poi_selection(selected_poi, center_mass_screen):
         else:
             # Handle as static POI
             try:
-                coordinates = (int(selected_poi[1]), int(selected_poi[2]))
+                if isinstance(selected_poi, tuple) and len(selected_poi) >= 3:
+                    coordinates = (int(selected_poi[1]), int(selected_poi[2]))
+                else:
+                    raise ValueError("Invalid POI format")
+                
                 if coordinates == (0, 0):
                     print(f"Warning: Static coordinates (0, 0) detected for {poi_name}. This might be a placeholder.")
                 print(f"Using static POI coordinates: {coordinates}")
                 return poi_name, coordinates
-            except ValueError:
-                print(f"Error: Invalid POI coordinates for {poi_name}: {selected_poi[1]}, {selected_poi[2]}")
+            except (ValueError, IndexError):
+                print(f"Error: Invalid POI coordinates for {poi_name}: {selected_poi}")
                 return poi_name, None
 
 def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
