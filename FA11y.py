@@ -83,7 +83,7 @@ SecondaryRecenterVerticalMoveBack = -580
 
 [SCRIPT KEYBINDS]
 Locate Player Icon = grave
-Get Current Coordinates = f4
+Get Current Coordinates = c
 Fire = lctrl
 Target = rctrl
 Turn Left = num 1
