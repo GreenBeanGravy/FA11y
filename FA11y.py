@@ -38,7 +38,9 @@ from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection
 from lib.hsr import start_health_shield_rarity_detection, check_health_shields, check_rarity
 from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
-from lib.guis.gui import select_poi_tk, select_gamemode_tk, speak_current_coordinates
+from lib.guis.gui import select_poi_tk
+from lib.guis.gamemode_selector import select_gamemode_tk
+from lib.guis.coordinate_utils import speak_current_coordinates, get_current_coordinates
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
@@ -78,13 +80,6 @@ RecenterVerticalMove = 1500
 RecenterVerticalMoveBack = -820
 SecondaryRecenterVerticalMove = 1500
 SecondaryRecenterVerticalMoveBack = -580
-
-[THREADS]
-EnableIconDetection = true
-EnableGUIActivation = true
-EnableHeightChecker = true
-EnableHSRDetection = true
-EnableHotbarDetection = true
 
 [SCRIPT KEYBINDS]
 Locate Player Icon = grave
@@ -398,8 +393,7 @@ def reload_config():
     
     action_handlers.clear()  # Clear existing handlers
     
-    if config.getboolean('THREADS', 'EnableIconDetection', fallback=True):
-        action_handlers['locate player icon'] = start_icon_detection
+    action_handlers['locate player icon'] = start_icon_detection
 
     if mouse_keys_enabled:
         action_handlers.update({
@@ -426,10 +420,8 @@ def reload_config():
     action_handlers['exit match'] = exit_match
     action_handlers['get current coordinates'] = speak_current_coordinates
     
-    # Add hotbar detection handlers
-    if config.getboolean('THREADS', 'EnableHotbarDetection', fallback=True):
-        for i in range(1, 6):
-            action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
+    for i in range(1, 6):
+        action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
 
 def update_script_config(new_config):
     global config, key_listener_thread, stop_key_listener
@@ -502,20 +494,11 @@ def main():
         update_thread = threading.Thread(target=check_for_updates, daemon=True)
         update_thread.start()
 
-        if config.getboolean('THREADS', 'EnableHeightChecker', fallback=True):
-            threading.Thread(target=start_height_checker, daemon=True).start()
+        threading.Thread(target=start_height_checker, daemon=True).start()
 
-        if config.getboolean('THREADS', 'EnableHSRDetection', fallback=True):
-            try:
-                threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
-            except Exception as e:
-                print("An error occurred while starting HSR detection:", e)
+        threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
 
-        if config.getboolean('THREADS', 'EnableHotbarDetection', fallback=True):
-            try:
-                initialize_hotbar_detection()
-            except Exception as e:
-                print("An error occurred while initializing hotbar detection:", e)
+        initialize_hotbar_detection()
 
         speaker.speak("FA11y has started! Press Enter in this window to stop FA11y.")
         print("FA11y is now running. Press Enter in this window to stop FA11y.")
