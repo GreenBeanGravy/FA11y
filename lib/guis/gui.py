@@ -6,6 +6,7 @@ from accessible_output2.outputs.auto import Auto
 from functools import partial
 from lib.object_finder import OBJECT_CONFIGS
 from lib.player_location import ROI_START_ORIG, ROI_END_ORIG
+from lib.utilities import force_focus_window  # Add this line
 
 speaker = Auto()
 
@@ -201,19 +202,34 @@ def select_poi_tk():
         speak("Closing P O I selector")
         root.destroy()
 
+    def on_close():
+        root.destroy()
+        # Explicitly delete any Tkinter variables if they exist
+        for var in root.children.values():
+            if isinstance(var, tk.Variable):
+                var.set(None)
+                del var
+
     root.bind('<Tab>', lambda e: refresh_buttons(True))
     root.bind('<Shift-Tab>', lambda e: refresh_buttons(False))
     root.bind('<Up>', navigate)
     root.bind('<Down>', navigate)
     root.bind('<Return>', on_return)
     root.bind('<Escape>', on_escape)
+    root.protocol("WM_DELETE_WINDOW", on_close)
 
     refresh_buttons(initial=True)
 
-    root.update()
-    root.deiconify()
-    root.lift()
-    root.focus_force()
+    def focus_first_button():
+        buttons = [w for w in buttons_frame.winfo_children() if isinstance(w, tk.Button)]
+        if buttons:
+            buttons[0].focus_set()
+            speak(buttons[0]['text'])
+        else:
+            speak("No POIs available")
+
+    root.after(100, lambda: force_focus_window(root, None, focus_first_button))
+
     root.mainloop()
 
 if __name__ == "__main__":

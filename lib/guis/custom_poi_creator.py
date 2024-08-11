@@ -2,6 +2,7 @@ import tkinter as tk
 import pyautogui
 from accessible_output2.outputs.auto import Auto
 from lib.player_location import find_player_icon_location
+from lib.utilities import force_focus_window
 
 speaker = Auto()
 
@@ -82,14 +83,8 @@ def create_custom_poi_gui():
     
     root.geometry("300x150")
     
-    def focus_window():
-        root.deiconify()
-        root.focus_force()
-        root.lift()
-        name_entry.focus_set()
-        speak_element("P O I Name entry field")
-    
-    root.after(100, focus_window)
+    root.after(100, lambda: force_focus_window(root, "P O I Name entry field", name_entry))
+
     root.mainloop()
 
 if __name__ == "__main__":

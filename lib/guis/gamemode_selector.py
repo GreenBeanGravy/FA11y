@@ -4,6 +4,7 @@ import pyautogui
 import os
 from accessible_output2.outputs.auto import Auto
 from functools import partial
+from lib.utilities import force_focus_window
 
 speaker = Auto()
 
@@ -133,13 +134,10 @@ def select_gamemode_tk():
     root.bind('<Escape>', on_escape)
 
     if buttons:
-        buttons[0].focus_set()
-        root.after(100, lambda: delayed_speak(buttons[0]['text']))
+        root.after(100, lambda: force_focus_window(root, buttons[0]['text'], buttons[0]))
+    else:
+        root.after(100, lambda: force_focus_window(root, "No game modes available"))
 
-    root.update()
-    root.deiconify()
-    root.lift()
-    root.focus_force()
     root.mainloop()
 
 if __name__ == "__main__":

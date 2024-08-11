@@ -6,6 +6,7 @@ import os
 import re
 import win32api
 import win32con
+from lib.utilities import force_focus_window
 
 speaker = Auto()
 
@@ -373,28 +374,14 @@ def create_config_gui(update_script_callback):
         first_tab = notebook.tab(0, "text")
         first_widget = widgets_by_tab[first_tab][0]
         first_widget.focus_set()
-        speak(f"Switched to {first_tab} tab")
         text = get_widget_text(first_widget)
         value = get_widget_value(first_widget)
         hint = get_navigation_hint(first_widget)
-        speak(f"{text}, {value}, {hint}")
+        speak(f"{first_tab} tab. {text}, {value}, {hint}")
 
-    def force_focus():
-        root.deiconify()  # Ensure the window is not minimized
-        root.focus_force()  # Force focus on the window
-        root.lift()  # Raise the window to the top
-        root.after(100, verify_focus)  # Schedule verification after 100ms
-
-    def verify_focus():
-        root.deiconify()  # Ensure the window is not minimized
-        root.focus_force()  # Force focus on the window
-        root.lift()  # Raise the window to the top
-        speak("Press H for help!")  # New initial message
-        root.after(100, focus_first_widget)  # Focus first widget after speaking initial message
+    root.after(100, lambda: force_focus_window(root, "Press H for help!", focus_first_widget))
 
     root.protocol("WM_DELETE_WINDOW", save_and_close)  # Handle window close button
-
-    root.after(100, force_focus)
 
     root.mainloop()
 
