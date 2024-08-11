@@ -10,7 +10,7 @@ from lib.object_finder import OBJECT_CONFIGS, find_closest_object
 import lib.guis.gui as gui
 from lib.minimap_direction import find_minimap_icon_direction
 from lib.mouse import smooth_move_mouse
-from lib.player_location import find_player_icon_location
+from lib.player_location import find_player_icon_location, find_player_icon_location_with_direction
 
 pyautogui.FAILSAFE = False
 speaker = Auto()
@@ -36,24 +36,33 @@ def load_config():
     except (KeyError, configparser.NoSectionError):
         return ('none', '0', '0')
 
-def get_cardinal_direction(angle):
-    directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest']
-    index = int((angle + 22.5) % 360 // 45)
-    return directions[index]
-
 def get_angle_and_direction(vector):
     angle = np.degrees(np.arctan2(-vector[1], vector[0]))
     angle = (450 - angle) % 360  # Adjust to start from North (0 degrees) and increase clockwise
     return angle, get_cardinal_direction(angle)
 
-def get_relative_direction(front_vector, poi_vector):
-    front_angle, _ = get_angle_and_direction(front_vector)
-    poi_angle, _ = get_angle_and_direction(poi_vector)
-    relative_angle = (poi_angle - front_angle + 360) % 360
-    
+def get_cardinal_direction(angle):
+    directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest']
+    return directions[int((angle + 22.5) % 360 // 45)]
+
+def get_relative_direction(player_direction, poi_vector):
+    if isinstance(player_direction, str):
+        # Convert cardinal direction to vector
+        direction_to_vector = {
+            'North': [0, -1], 'Northeast': [1, -1], 'East': [1, 0], 'Southeast': [1, 1],
+            'South': [0, 1], 'Southwest': [-1, 1], 'West': [-1, 0], 'Northwest': [-1, -1]
+        }
+        player_vector = np.array(direction_to_vector.get(player_direction, [0, -1]))
+    else:
+        player_vector = player_direction
+
+    angle = np.degrees(np.arctan2(np.cross(player_vector, poi_vector), np.dot(player_vector, poi_vector)))
+    angle = (angle + 360) % 360  # Ensure angle is between 0 and 360
+
     compass_brackets = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
-    compass_labels = ['in front', 'slightly right', 'right', 'behind and slightly right', 'behind', 'behind and slightly left', 'left', 'slightly left']
-    return next((compass_labels[i] for i, val in enumerate(compass_brackets) if relative_angle < val), 'in front'), relative_angle
+    compass_labels = ['in front', 'to the right', 'to the right', 'behind and to the right', 
+                      'behind', 'behind and to the left', 'to the left', 'to the left']
+    return next((compass_labels[i] for i, val in enumerate(compass_brackets) if angle < val), 'in front')
 
 def start_icon_detection():
     print("Starting icon detection")
@@ -61,8 +70,15 @@ def start_icon_detection():
 
 def icon_detection_cycle(selected_poi):
     print(f"Icon detection cycle started. Selected POI: {selected_poi}")
-    center_mass_screen = find_player_icon_location()
+    player_info = find_player_icon_location_with_direction()
     
+    if player_info is None:
+        print("Unable to determine player location and direction.")
+        speaker.speak("Unable to determine player location and direction.")
+        return
+
+    center_mass_screen, initial_player_direction = player_info
+
     if selected_poi[0].lower() == 'none':
         print("No POI selected.")
         speaker.speak("No POI selected. Please select a POI first.")
@@ -71,46 +87,77 @@ def icon_detection_cycle(selected_poi):
     poi_data = handle_poi_selection(selected_poi, center_mass_screen)
     print(f"POI data: {poi_data}")
     if poi_data[1]:  # Check if coordinates are not None
-        # Check if AutoTurn is enabled
         config = configparser.ConfigParser()
         config.read('CONFIG.txt')
         auto_turn_enabled = config.getboolean('SETTINGS', 'AutoTurn', fallback=False)
         
+        perform_poi_actions(poi_data, center_mass_screen, speak_info=False)
+        
         if auto_turn_enabled and center_mass_screen:
-            perform_poi_actions(poi_data, center_mass_screen, speak_info=False)
-            time.sleep(0.1)  # Wait 100ms
-            keyboard.press_and_release('esc')  # Press escape
-            time.sleep(0.1)  # Wait 100ms
-            final_direction = auto_turn_towards_poi(center_mass_screen, poi_data[1], poi_data[0])
-            if final_direction:
-                speak_auto_turn_result(poi_data[0], final_direction, center_mass_screen, poi_data[1])
+            time.sleep(0.1)
+            keyboard.press_and_release('esc')
+            time.sleep(0.1)
+            _, success = auto_turn_towards_poi(center_mass_screen, poi_data[1], poi_data[0])
         else:
-            perform_poi_actions(poi_data, center_mass_screen, speak_info=True)
+            success = False
+
+        # Get the latest player direction right before announcing
+        latest_direction, latest_angle = find_minimap_icon_direction()
+        if latest_direction is None:
+            print("Unable to determine final player direction. Using initial direction.")
+            # Calculate the angle from the initial direction vector
+            latest_angle = np.degrees(np.arctan2(-initial_player_direction[1], initial_player_direction[0]))
+            latest_angle = (450 - latest_angle) % 360
+
+        speak_auto_turn_result(poi_data[0], center_mass_screen, latest_angle, poi_data[1], auto_turn_enabled, success)
     else:
         print(f"{poi_data[0]} not located.")
         speaker.speak(f"{poi_data[0]} not located.")
 
+def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location, auto_turn_enabled, success):
+    poi_vector = np.array(poi_location) - np.array(player_location)
+    distance = np.linalg.norm(poi_vector) * 2.65
+    angle, cardinal_direction = get_angle_and_direction(poi_vector)
+
+    if player_angle is not None:
+        player_cardinal = get_cardinal_direction(player_angle)
+        player_direction = np.array([np.cos(np.radians(player_angle)), -np.sin(np.radians(player_angle))])
+    else:
+        player_cardinal = "Unknown"
+        player_direction = np.array([0, -1])  # Default to North if angle is unknown
+    
+    relative_direction = get_relative_direction(player_direction, poi_vector)
+
+    if not auto_turn_enabled or not success:
+        message = f"{poi_name} is {relative_direction} {int(distance)} meters, and is {cardinal_direction} at {angle:.0f} degrees"
+    else:
+        message = f"Facing {poi_name} at {int(distance)} meters away, {poi_name} is {cardinal_direction} at {angle:.0f} degrees"
+
+    if player_angle is not None:
+        message += f", facing {player_cardinal} at {player_angle:.0f} degrees"
+    else:
+        message += f", facing direction unknown"
+
+    print(message)
+    speaker.speak(message)
+
 def auto_turn_towards_poi(player_location, poi_location, poi_name):
     max_attempts = 30
-    attempts = 0
-    base_turn_speed = 200  # Base turning speed
-    max_turn_speed = 500   # Maximum turning speed
-    angle_threshold = 5    # Angle difference threshold for success
-    sensitivity = 1.0      # Initial sensitivity
-    min_sensitivity = 0.6  # Minimum sensitivity
+    base_turn_speed, max_turn_speed = 200, 500
+    angle_threshold = 5
+    sensitivity = 1.0
+    min_sensitivity = 0.6
 
-    while attempts < max_attempts:
+    for attempts in range(max_attempts):
         current_direction, current_angle = find_minimap_icon_direction(sensitivity)
         if current_direction is None:
             print(f"Unable to determine current direction. Sensitivity: {sensitivity:.2f}, Attempt {attempts + 1}/{max_attempts}")
             sensitivity = max(sensitivity - 0.05, min_sensitivity)
             time.sleep(0.1)
-            attempts += 1
             continue
         
         poi_vector = np.array(poi_location) - np.array(player_location)
-        poi_angle = np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))
-        poi_angle = (450 - poi_angle) % 360  # Adjust to match the minimap direction format
+        poi_angle = (450 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
         
         angle_difference = (poi_angle - current_angle + 180) % 360 - 180
         
@@ -119,31 +166,19 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
         
         if abs(angle_difference) <= angle_threshold:
             print(f"Successfully turned towards {poi_name}. Current direction: {current_direction}")
-            return current_direction
+            return np.array([np.cos(np.radians(current_angle)), -np.sin(np.radians(current_angle))]), True
         
-        # Dynamic speed adjustment
         turn_speed = min(base_turn_speed + (abs(angle_difference) * 2), max_turn_speed)
-        turn_amount = min(abs(angle_difference), 90)  # Limit maximum turn to 90 degrees
+        turn_amount = min(abs(angle_difference), 90)
         turn_direction = 1 if angle_difference > 0 else -1
         
         smooth_move_mouse(int(turn_amount * turn_direction * (turn_speed / 100)), 0, 0.01)
         time.sleep(0.05)
         
-        attempts += 1
-        
-        # Reset sensitivity if we're making progress
-        if abs(angle_difference) < 45:
-            sensitivity = min(sensitivity + 0.05, 1.0)
+        sensitivity = min(sensitivity + 0.05, 1.0) if abs(angle_difference) < 45 else sensitivity
 
     print(f"Failed to turn towards {poi_name} after maximum attempts.")
-    speaker.speak(f"Unable to face {poi_name} accurately.")
-    return None
-
-def speak_auto_turn_result(poi_name, final_direction, player_location, poi_location):
-    distance = np.linalg.norm(np.array(player_location) - np.array(poi_location)) * 2.65
-    message = f"Facing {poi_name} at {int(distance)} meters away, facing {final_direction}"
-    print(message)
-    speaker.speak(message)
+    return np.array([np.cos(np.radians(current_angle)), -np.sin(np.radians(current_angle))]), False
 
 def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
     poi_name, coordinates = poi_data

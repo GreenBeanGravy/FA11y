@@ -41,6 +41,7 @@ from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_m
 from lib.guis.gui import select_poi_tk
 from lib.guis.gamemode_selector import select_gamemode_tk
 from lib.guis.coordinate_utils import speak_current_coordinates, get_current_coordinates
+from lib.guis.custom_poi_creator import create_custom_poi_gui
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
@@ -100,6 +101,7 @@ Speak Minimap Direction = semicolon
 Check Health Shields = h
 Check Rarity = bracketleft
 Select POI = bracketright
+Create Custom POI = backslash
 Select Gamemode = apostrophe
 Open Configuration = f9
 Exit Match = f12
@@ -419,6 +421,7 @@ def reload_config():
     action_handlers['open configuration'] = open_config_gui
     action_handlers['exit match'] = exit_match
     action_handlers['get current coordinates'] = speak_current_coordinates
+    action_handlers['create custom poi'] = create_custom_poi_gui
     
     for i in range(1, 6):
         action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
