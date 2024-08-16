@@ -6,7 +6,8 @@ from accessible_output2.outputs.auto import Auto
 from functools import partial
 from lib.object_finder import OBJECT_CONFIGS
 from lib.player_location import ROI_START_ORIG, ROI_END_ORIG
-from lib.utilities import force_focus_window  # Add this line
+from lib.utilities import force_focus_window
+from lib.player_location import get_quadrant, get_position_in_quadrant
 
 speaker = Auto()
 
@@ -121,6 +122,32 @@ def input_custom_coordinates(root):
 
     create_coordinate_window('Input X', 0, 900, get_y_coordinate)
 
+def poi_sort_key(poi):
+    name, x, y = poi
+    x, y = int(x) - ROI_START_ORIG[0], int(y) - ROI_START_ORIG[1]
+    width, height = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
+    quadrant = get_quadrant(x, y, width, height)
+    position_in_quadrant = get_position_in_quadrant(x, y, width // 2, height // 2)
+    
+    # Create a numeric value for position_in_quadrant
+    position_value = {
+        "top-left": 0, "top": 1, "top-right": 2,
+        "left": 3, "center": 4, "right": 5,
+        "bottom-left": 6, "bottom": 7, "bottom-right": 8
+    }.get(position_in_quadrant, 9)  # Default to 9 if not found
+    
+    return (quadrant, position_value, y, x)
+
+def get_poi_position_description(poi):
+    name, x, y = poi
+    x, y = int(x) - ROI_START_ORIG[0], int(y) - ROI_START_ORIG[1]
+    width, height = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
+    quadrant = get_quadrant(x, y, width, height)
+    position_in_quadrant = get_position_in_quadrant(x, y, width // 2, height // 2)
+    
+    quadrant_names = ["top-left", "top-right", "bottom-left", "bottom-right"]
+    return f"{name}, in the {position_in_quadrant} of the {quadrant_names[quadrant]} quadrant"
+
 def select_poi_tk():
     root = tk.Tk()
     root.title("POI Selector")
@@ -151,12 +178,14 @@ def select_poi_tk():
             widget.destroy()
     
         if current_poi_set == 0:
-            pois_to_use = [("Safe Zone", "0", "0"), ("Closest", "0", "0")] + pois_from_file
+            fixed_pois = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
+            sorted_pois = sorted(pois_from_file, key=poi_sort_key)
+            pois_to_use = fixed_pois + sorted_pois
             speak("Game P O Is")
         elif current_poi_set == 1:
             custom_pois = load_custom_pois()
             if custom_pois:
-                pois_to_use = custom_pois
+                pois_to_use = sorted(custom_pois, key=poi_sort_key)
                 speak("Custom P O Is")
             else:
                 tk.Label(buttons_frame, text="No custom POIs available. Go make some!").pack()
@@ -178,7 +207,7 @@ def select_poi_tk():
 
         if buttons:
             buttons[0].focus_set()
-            root.after(100, lambda: delayed_speak(buttons[0]['text']))
+            root.after(100, lambda: delayed_speak(get_poi_position_description(pois_to_use[0]) if isinstance(pois_to_use[0], tuple) else pois_to_use[0]))
 
     def navigate(event):
         buttons = [w for w in buttons_frame.winfo_children() if isinstance(w, tk.Button)]
@@ -191,7 +220,15 @@ def select_poi_tk():
         else:
             next_index = 0
         buttons[next_index].focus_set()
-        speak(buttons[next_index]['text'])
+        
+        if current_poi_set in [0, 1]:  # For Game POIs and Custom POIs
+            poi = next((poi for poi in pois_from_file + load_custom_pois() if poi[0] == buttons[next_index]['text']), None)
+            if poi:
+                speak(get_poi_position_description(poi))
+            else:
+                speak(buttons[next_index]['text'])
+        else:
+            speak(buttons[next_index]['text'])
 
     def on_return(event):
         focused = root.focus_get()
@@ -224,7 +261,11 @@ def select_poi_tk():
         buttons = [w for w in buttons_frame.winfo_children() if isinstance(w, tk.Button)]
         if buttons:
             buttons[0].focus_set()
-            speak(buttons[0]['text'])
+            poi = next((poi for poi in pois_from_file + load_custom_pois() if poi[0] == buttons[0]['text']), None)
+            if poi:
+                speak(get_poi_position_description(poi))
+            else:
+                speak(buttons[0]['text'])
         else:
             speak("No POIs available")
 

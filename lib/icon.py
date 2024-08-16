@@ -38,7 +38,7 @@ def load_config():
 
 def get_angle_and_direction(vector):
     angle = np.degrees(np.arctan2(-vector[1], vector[0]))
-    angle = (450 - angle) % 360  # Adjust to start from North (0 degrees) and increase clockwise
+    angle = (90 - angle) % 360  # Adjust to start from North (0 degrees) and increase clockwise
     return angle, get_cardinal_direction(angle)
 
 def get_cardinal_direction(angle):
@@ -56,13 +56,13 @@ def get_relative_direction(player_direction, poi_vector):
     else:
         player_vector = player_direction
 
-    angle = np.degrees(np.arctan2(np.cross(player_vector, poi_vector), np.dot(player_vector, poi_vector)))
-    angle = (angle + 360) % 360  # Ensure angle is between 0 and 360
+    angle = np.degrees(np.arctan2(np.cross(poi_vector, player_vector), np.dot(poi_vector, player_vector)))
+    angle = (-angle + 360) % 360  # Reverse the angle and ensure it's between 0 and 360
 
     compass_brackets = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
-    compass_labels = ['in front', 'to the right', 'to the right', 'behind and to the right', 
-                      'behind', 'behind and to the left', 'to the left', 'to the left']
-    return next((compass_labels[i] for i, val in enumerate(compass_brackets) if angle < val), 'in front')
+    compass_labels = ['behind', 'behind and to the right', 'to the right', 'in front and to the right', 
+                      'in front', 'in front and to the left', 'to the left', 'behind and to the left']
+    return next((compass_labels[i] for i, val in enumerate(compass_brackets) if angle < val), 'behind')
 
 def start_icon_detection():
     print("Starting icon detection")
@@ -72,24 +72,26 @@ def icon_detection_cycle(selected_poi):
     print(f"Icon detection cycle started. Selected POI: {selected_poi}")
     player_info = find_player_icon_location_with_direction()
     
-    if player_info is None:
-        print("Unable to determine player location and direction.")
-        speaker.speak("Unable to determine player location and direction.")
-        return
-
-    center_mass_screen, initial_player_direction = player_info
-
     if selected_poi[0].lower() == 'none':
         print("No POI selected.")
         speaker.speak("No POI selected. Please select a POI first.")
         return
 
-    poi_data = handle_poi_selection(selected_poi, center_mass_screen)
+    poi_data = handle_poi_selection(selected_poi, player_info[0] if player_info else None)
     print(f"POI data: {poi_data}")
+    
     if poi_data[1]:  # Check if coordinates are not None
         config = configparser.ConfigParser()
         config.read('CONFIG.txt')
         auto_turn_enabled = config.getboolean('SETTINGS', 'AutoTurn', fallback=False)
+        
+        if player_info is None:
+            print(f"Could not find player icon. Pinging {poi_data[0]}")
+            speaker.speak(f"Could not find player icon. Pinging {poi_data[0]}")
+            perform_poi_actions(poi_data, None, speak_info=False)
+            return
+        
+        center_mass_screen, initial_player_direction = player_info
         
         perform_poi_actions(poi_data, center_mass_screen, speak_info=False)
         
