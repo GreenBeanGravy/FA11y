@@ -448,30 +448,45 @@ def run_updater():
     result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
     return result.returncode == 1  # Return True if updates were applied
 
+def get_version(repo):
+    url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text.strip()
+    except requests.RequestException as e:
+        print(f"Failed to fetch VERSION file: {e}")
+        return None
+
 def check_for_updates():
-    last_commit_sha = None
+    repo = "GreenBeanGravy/FA11y"
     
     while True:
-        try:
-            response = requests.get(API_URL)
-            if response.status_code == 200:
-                current_commit = response.json()['sha']
-                
-                if last_commit_sha is not None and current_commit != last_commit_sha:
-                    # New commit detected
+        local_version = None
+        if os.path.exists('VERSION'):
+            with open('VERSION', 'r') as f:
+                local_version = f.read().strip()
+        
+        repo_version = get_version(repo)
+        
+        if not local_version:
+            print("No local version found. Update may be required.")
+        elif not repo_version:
+            print("Failed to fetch repository version. Skipping version check.")
+        else:
+            try:
+                local_v = int(local_version)
+                repo_v = int(repo_version)
+                if local_v < repo_v or local_v > repo_v:
+                    # Update detected
                     update_sound.play()
                     speaker.speak("An update is available for FA11y! Restart FA11y to update!")
-                
-                last_commit_sha = current_commit
-            
-            else:
-                print(f"Failed to fetch commits. Status code: {response.status_code}")
+                    print("An update is available for FA11y! Restart FA11y to update!")
+            except ValueError:
+                print("Invalid version format. Treating as update required.")
         
-        except Exception as e:
-            print(f"Error checking for updates: {str(e)}")
-        
-        # Wait for 120 seconds before checking again
-        time.sleep(120)
+        # Wait for 30 seconds before checking again
+        time.sleep(30)
 
 def main():
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
