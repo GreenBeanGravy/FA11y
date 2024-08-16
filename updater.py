@@ -105,6 +105,8 @@ def install_required_modules_and_whls():
 
 def create_mock_imp():
     class MockImp:
+        __name__ = 'imp'
+        
         @staticmethod
         def is_frozen(arg=None):
             if arg == "__main__":
