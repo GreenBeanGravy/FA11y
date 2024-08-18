@@ -424,6 +424,7 @@ def get_version(repo):
 
 def check_for_updates():
     repo = "GreenBeanGravy/FA11y"
+    update_notified = False
     
     while True:
         local_version = None
@@ -442,9 +443,13 @@ def check_for_updates():
                 local_v = int(local_version)
                 repo_v = int(repo_version)
                 if local_v < repo_v or local_v > repo_v:
-                    update_sound.play()
-                    speaker.speak("An update is available for FA11y! Restart FA11y to update!")
-                    print("An update is available for FA11y! Restart FA11y to update!")
+                    if not update_notified:
+                        update_sound.play()
+                        speaker.speak("An update is available for FA11y! Restart FA11y to update!")
+                        print("An update is available for FA11y! Restart FA11y to update!")
+                        update_notified = True
+                else:
+                    update_notified = False  # Reset the flag if versions match
             except ValueError:
                 print("Invalid version format. Treating as update required.")
         
