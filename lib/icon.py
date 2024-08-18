@@ -152,7 +152,7 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
 
     for attempts in range(max_attempts):
         current_direction, current_angle = find_minimap_icon_direction(sensitivity)
-        if current_direction is None:
+        if current_direction is None or current_angle is None:
             print(f"Unable to determine current direction. Sensitivity: {sensitivity:.2f}, Attempt {attempts + 1}/{max_attempts}")
             sensitivity = max(sensitivity - 0.05, min_sensitivity)
             time.sleep(0.1)
@@ -180,7 +180,7 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
         sensitivity = min(sensitivity + 0.05, 1.0) if abs(angle_difference) < 45 else sensitivity
 
     print(f"Failed to turn towards {poi_name} after maximum attempts.")
-    return np.array([np.cos(np.radians(current_angle)), -np.sin(np.radians(current_angle))]), False
+    return None, False
 
 def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
     poi_name, coordinates = poi_data
