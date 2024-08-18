@@ -1,6 +1,10 @@
-import sys
 import os
+import sys
+
+# Set the command window title
+os.system("title FA11y")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+
 import ctypes
 import configparser
 import threading
@@ -14,12 +18,6 @@ import pyautogui
 from win32com.client import Dispatch
 import pygame
 import requests
-
-if sys.platform.startswith('win'):
-    ctypes.windll.kernel32.SetConsoleTitleW("FA11y")
-elif sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
-    sys.stdout.write("\x1b]2;FA11y\x07")
-    sys.stdout.flush()
 
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
@@ -114,45 +112,22 @@ Detect Hotbar 5 = 5
 [POI]
 selected_poi = closest, 0, 0"""
 
-VK_NUMPAD = {
-    'num 0': win32con.VK_NUMPAD0,
-    'num 1': win32con.VK_NUMPAD1,
-    'num 2': win32con.VK_NUMPAD2,
-    'num 3': win32con.VK_NUMPAD3,
-    'num 4': win32con.VK_NUMPAD4,
-    'num 5': win32con.VK_NUMPAD5,
-    'num 6': win32con.VK_NUMPAD6,
-    'num 7': win32con.VK_NUMPAD7,
-    'num 8': win32con.VK_NUMPAD8,
-    'num 9': win32con.VK_NUMPAD9,
+# Combine VK_NUMPAD and SPECIAL_KEYS into a single dictionary
+VK_KEYS = {
+    **{f'num {i}': getattr(win32con, f'VK_NUMPAD{i}') for i in range(10)},
     'num period': win32con.VK_DECIMAL,
     'num .': win32con.VK_DECIMAL,
     'num +': win32con.VK_ADD,
     'num -': win32con.VK_SUBTRACT,
     'num *': win32con.VK_MULTIPLY,
     'num /': win32con.VK_DIVIDE,
-}
-
-# Define other special keys
-SPECIAL_KEYS = {
     'lctrl': win32con.VK_LCONTROL,
     'rctrl': win32con.VK_RCONTROL,
     'lshift': win32con.VK_LSHIFT,
     'rshift': win32con.VK_RSHIFT,
     'lalt': win32con.VK_LMENU,
     'ralt': win32con.VK_RMENU,
-    'f1': win32con.VK_F1,
-    'f2': win32con.VK_F2,
-    'f3': win32con.VK_F3,
-    'f4': win32con.VK_F4,
-    'f5': win32con.VK_F5,
-    'f6': win32con.VK_F6,
-    'f7': win32con.VK_F7,
-    'f8': win32con.VK_F8,
-    'f9': win32con.VK_F9,
-    'f10': win32con.VK_F10,
-    'f11': win32con.VK_F11,
-    'f12': win32con.VK_F12,
+    **{f'f{i}': getattr(win32con, f'VK_F{i}') for i in range(1, 13)},
     'tab': win32con.VK_TAB,
     'capslock': win32con.VK_CAPITAL,
     'space': win32con.VK_SPACE,
@@ -173,13 +148,13 @@ SPECIAL_KEYS = {
     'scrolllock': win32con.VK_SCROLL,
     'pause': win32con.VK_PAUSE,
     'numlock': win32con.VK_NUMLOCK,
-    'bracketleft': 0xDB,    # '['
-    'bracketright': 0xDD,   # ']'
-    'apostrophe': 0xDE,     # '''
-    'grave': 0xC0,          # '`'
-    'backslash': 0xDC,      # '\'
-    'semicolon': 0xBA,      # ';'
-    'period': 0xBE,         # '.'
+    'bracketleft': 0xDB,
+    'bracketright': 0xDD,
+    'apostrophe': 0xDE,
+    'grave': 0xC0,
+    'backslash': 0xDC,
+    'semicolon': 0xBA,
+    'period': 0xBE,
 }
 
 speaker = Auto()
@@ -196,10 +171,8 @@ def is_numlock_on():
 
 def is_key_pressed(key):
     key_lower = key.lower()
-    if key_lower in VK_NUMPAD:
-        return win32api.GetAsyncKeyState(VK_NUMPAD[key_lower]) & 0x8000 != 0
-    elif key_lower in SPECIAL_KEYS:
-        return win32api.GetAsyncKeyState(SPECIAL_KEYS[key_lower]) & 0x8000 != 0
+    if key_lower in VK_KEYS:
+        return win32api.GetAsyncKeyState(VK_KEYS[key_lower]) & 0x8000 != 0
     else:
         try:
             vk_code = ord(key.upper())
@@ -216,7 +189,7 @@ def handle_movement(action, reset_sensitivity):
     turn_steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
     recenter_delay = config.getfloat('SETTINGS', 'RecenterDelay', fallback=0.05)
     recenter_steps = config.getint('SETTINGS', 'RecenterSteps', fallback=10)
-    recenter_step_delay = config.getfloat('SETTINGS', 'RecenterStepDelay', fallback=0) / 1000  # Convert ms to seconds
+    recenter_step_delay = config.getfloat('SETTINGS', 'RecenterStepDelay', fallback=0) / 1000
     recenter_step_speed = config.getint('SETTINGS', 'RecenterStepSpeed', fallback=150)
     x_move, y_move = 0, 0
 
@@ -245,7 +218,6 @@ def handle_movement(action, reset_sensitivity):
             recenter_move = config.getint('SETTINGS', 'RecenterVerticalMove', fallback=1500)
             down_move = config.getint('SETTINGS', 'RecenterVerticalMoveBack', fallback=-820)
         
-        # Perform recentering movements
         smooth_move_mouse(0, recenter_move, recenter_step_delay, recenter_steps, recenter_step_speed, down_move, recenter_delay)
         speaker.speak("Reset Camera")
         return
@@ -273,7 +245,7 @@ def handle_scroll(action):
 
 def update_config(config):
     default_config = configparser.ConfigParser(interpolation=None)
-    default_config.optionxform = str  # Preserve case of keys
+    default_config.optionxform = str
     default_config.read_string(DEFAULT_CONFIG)
     
     updated = False
@@ -283,25 +255,21 @@ def update_config(config):
             config.add_section(section)
             updated = True
         
-        # Get all keys in the current section (case-insensitive)
         existing_keys = {k.lower(): k for k in config[section]}
         
         for key, value in default_config.items(section):
             lower_key = key.lower()
             
             if lower_key in existing_keys:
-                # If the key exists (case-insensitive), but the case doesn't match
                 if existing_keys[lower_key] != key:
                     current_value = config[section][existing_keys[lower_key]]
                     config.remove_option(section, existing_keys[lower_key])
                     config.set(section, key, current_value)
                     updated = True
             else:
-                # If the key doesn't exist at all, add it
                 config.set(section, key, value)
                 updated = True
     
-    # Remove any keys that exist in the config but not in the default config
     for section in config.sections():
         if section in default_config.sections():
             for key in list(config[section].keys()):
@@ -316,7 +284,7 @@ def update_config(config):
 
 def read_config():
     config = configparser.ConfigParser(interpolation=None)
-    config.optionxform = str  # Preserve case of keys
+    config.optionxform = str
     
     if not os.path.exists(CONFIG_FILE):
         config.read_string(DEFAULT_CONFIG)
@@ -337,18 +305,16 @@ def key_listener():
             mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
 
             for action, key in key_bindings.items():
-                if not key:  # Skip if the keybind is empty
+                if not key:
                     continue
                 
                 normalized_key = normalize_key(key)
                 key_pressed = is_key_pressed(normalized_key)
                 action_lower = action.lower()
 
-                # Skip actions that don't have handlers
                 if action_lower not in action_handlers:
                     continue
 
-                # Skip MouseKeys-related actions if MouseKeys is disabled
                 if not mouse_keys_enabled and action_lower in ['fire', 'target', 'turn left', 'turn right', 'secondaryturn left', 'secondaryturn right', 'look up', 'look down', 'turn around', 'recenter', 'scroll up', 'scroll down']:
                     continue
 
@@ -386,14 +352,12 @@ def reload_config():
     global config, action_handlers, key_bindings
     config = read_config()
     
-    # Update key bindings
-    key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS') if value}  # Only include non-empty keybinds
+    key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS') if value}
     
-    # Update action handlers based on new config
     mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
     reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
     
-    action_handlers.clear()  # Clear existing handlers
+    action_handlers.clear()
     
     action_handlers['locate player icon'] = start_icon_detection
 
@@ -413,15 +377,17 @@ def reload_config():
             'scroll down': lambda: handle_scroll('scroll down')
         })
     
-    action_handlers['speak minimap direction'] = speak_minimap_direction
-    action_handlers['check health shields'] = check_health_shields
-    action_handlers['check rarity'] = check_rarity
-    action_handlers['select poi'] = select_poi_tk
-    action_handlers['select gamemode'] = select_gamemode_tk
-    action_handlers['open configuration'] = open_config_gui
-    action_handlers['exit match'] = exit_match
-    action_handlers['get current coordinates'] = speak_current_coordinates
-    action_handlers['create custom poi'] = create_custom_poi_gui
+    action_handlers.update({
+        'speak minimap direction': speak_minimap_direction,
+        'check health shields': check_health_shields,
+        'check rarity': check_rarity,
+        'select poi': select_poi_tk,
+        'select gamemode': select_gamemode_tk,
+        'open configuration': open_config_gui,
+        'exit match': exit_match,
+        'get current coordinates': speak_current_coordinates,
+        'create custom poi': create_custom_poi_gui
+    })
     
     for i in range(1, 6):
         action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
@@ -431,10 +397,8 @@ def update_script_config(new_config):
     config = new_config
     reload_config()
     
-    # Signal the current key listener to stop
     stop_key_listener.set()
     
-    # Start a new key listener thread with new bindings
     stop_key_listener.clear()
     key_listener_thread = threading.Thread(target=key_listener, daemon=True)
     key_listener_thread.start()
@@ -446,7 +410,7 @@ def open_config_gui():
 
 def run_updater():
     result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
-    return result.returncode == 1  # Return True if updates were applied
+    return result.returncode == 1
 
 def get_version(repo):
     url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
@@ -478,14 +442,12 @@ def check_for_updates():
                 local_v = int(local_version)
                 repo_v = int(repo_version)
                 if local_v < repo_v or local_v > repo_v:
-                    # Update detected
                     update_sound.play()
                     speaker.speak("An update is available for FA11y! Restart FA11y to update!")
                     print("An update is available for FA11y! Restart FA11y to update!")
             except ValueError:
                 print("Invalid version format. Treating as update required.")
         
-        # Wait for 30 seconds before checking again
         time.sleep(30)
 
 def main():
@@ -497,7 +459,7 @@ def main():
 
         if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
             if run_updater():
-                sys.exit(0)  # Exit the script
+                sys.exit(0)
 
         if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
             create_desktop_shortcut()
@@ -508,7 +470,6 @@ def main():
         key_listener_thread = threading.Thread(target=key_listener, daemon=True)
         key_listener_thread.start()
 
-        # Start the update checker thread
         update_thread = threading.Thread(target=check_for_updates, daemon=True)
         update_thread.start()
 
@@ -525,9 +486,9 @@ def main():
         print(f"An error occurred: {str(e)}")
         speaker.speak(f"An error occurred: {str(e)}")
     finally:
-        stop_key_listener.set()  # Ensure the key listener thread stops
+        stop_key_listener.set()
         print("FA11y is closing...")
-        sys.exit(0)  # Ensure the script exits
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
