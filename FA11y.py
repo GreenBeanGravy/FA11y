@@ -455,10 +455,38 @@ def check_for_updates():
         
         time.sleep(30)
 
+def get_legendary_username():
+    try:
+        # Change the working directory to the script's directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        os.chdir(script_dir)
+        
+        result = subprocess.run(["legendary", "status"], capture_output=True, text=True)
+        if result.returncode == 0:
+            output = result.stdout
+            for line in output.splitlines():
+                if "Epic account:" in line:
+                    username = line.split("Epic account:")[1].strip()
+                    if username and username != "<not logged in>":
+                        return username
+        return None
+    except Exception as e:
+        print(f"Failed to run 'legendary status': {str(e)}")
+        return None
+
 def main():
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
     try:
         print("Starting FA11y...")
+
+        # Get the players username from legendary
+        LOCAL_USERNAME = get_legendary_username()
+        if LOCAL_USERNAME:
+            print(f"Welcome back {LOCAL_USERNAME}!")
+            speaker.speak(f"Welcome back {LOCAL_USERNAME}!")
+        else:
+            print("You are not logged into Legendary.")
+            speaker.speak("You are not logged into Legendary.")
         
         config = read_config()
 
