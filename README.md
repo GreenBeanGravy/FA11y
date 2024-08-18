@@ -51,35 +51,16 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 5. You should now be able to run `FA11y.py` without issues.
 6. Optional: Configure your FA11y settings and keybinds by pressing `F9` when FA11y has started!
 
-## Usage
+## Using Legendary:
+Legendary is a command line interface for the Epic Games Launcher. You won't need the Epic Games launcher installed to use Legendary. In order to install Fortnite, follow these steps:
+* Open a command line window in the directory of your `"Legendary.exe"` file, which should be your root `FA11y` folder. If Legendary did not get added to your system PATH automatically, you may need to begin all commands with "`.\`". If you do NOT have `"Legendary.exe"` in your root FA11y folder, run the `"updater.py"` script.
+* Once you have opened the command line window, type the command `"Legendary auth"`. This will bring up a page to log into your Epic Games account, where you will need to log in to your Epic Games account, log in with another service, or create a new account. Additionally, you may be hit with an inaccessible hCaptcha at some point during the login process. This is being worked on, but in the mean time, you may need to get sighted assistance if you DO receieve this captcha.
+* If after you successfully log in, you get a screen showing raw HTML code, copy the listed authorization token, without the quotations, to your clipboard, and paste it into the command line window. Otherwise, you can ignore this.
+* Assuming everything went smoothly for you, you should now be logged into Legendary! You can easily check this by running the `"Legendary auth"` command again.
 
-### POI and Safe Zone Directions
-- In-game, press `M` to open your map.
-- If you haven't already, open the POI Selector by pressing the `]` (Right Bracket) key, and select where you want to go.
-- While the map is open, press the `` ` `` (Grave Accent / Backtick) key to get directions to the POI you just selected.
-
-### Health and Shield
-- In-game, press `H` to check your health and shield values. This also works while spectating other players to view their Health and Shields.
-
-### Mouse Keys
-- With NumLock on, use the NumPad keys to control the mouse in-game.
-- Default settings are listed in the keybinds section above.
-
-### Player Direction
-- Press `;` (Semicolon) to hear the direction you are currently facing.
-
-### Game Mode Selection
-- Press `'` (Apostrophe) to open the game mode selection menu.
-- Use arrow keys to navigate and Enter to select. Wait for confirmation that the gamemode has been selected.
-
-### Configuration
-- Press `F9` to open the configuration menu.
-- Configuration menu navigation tips and keybinds are provided when you open the menu.
-
-## Upcoming Features
-- Elimination count tracking
-- Players remaining in match
-- Battle Bus jump timing assistant
-- Full Fortnite GUI access
-- Game settings management and sharing
-- Stereo audio feedback aim assist
+## Getting Fortnite:
+* Go to [the following link](https://store.epicgames.com/en-US/p/fortnite) to open the Fortnite page on the Epic Games store website, which you should now already be logged into.
+* Find and click on the `"GET"` button.
+* Follow the prompts that appear near the bottom of the page.
+* After you successfully have added Fortnite to your Epic Games account, you can now run the `"Fortnite_Installer.py"` script found in your `FA11y` directory! While the installer is running, you can use the keybinds: `"P"` to get the last progress update, `"-"` or  `"+"` to adjust the speed of progress update announcements, and `"ESCAPE"` to cancel the entire install process.
+* After the installer has completed, you can now run either of the batch files that launch Fortnite, preferably, use the `"performance_fortnite_launcher.bat"` one for best performance.
