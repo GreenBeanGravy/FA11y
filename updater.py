@@ -315,12 +315,7 @@ def main():
     fa11y_updates = updates_available or icons_updated or images_updated
 
     if fa11y_updates:
-        print_info("Updates available. Processing...")
-        updates_processed = process_updates("GreenBeanGravy/FA11y", repo_files, script_name)
-        if updates_processed:
-            print_info("Updates processed successfully.")
-        else:
-            print_info("No updates were processed.")
+        print_info("Updates processed.")
 
     print_info("Checking and installing requirements...")
     requirements_installed = install_requirements()
