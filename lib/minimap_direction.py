@@ -8,7 +8,7 @@ speaker = Auto()
 # Constants
 MINIMAP_START = (1685, 83)
 MINIMAP_END = (1838, 236)
-MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1170, 1800  # Adjusted to 90% of original values
+MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1170, 1800
 
 def get_cardinal_direction(angle):
     directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest']
