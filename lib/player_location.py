@@ -6,7 +6,7 @@ import pyautogui
 MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1300, 2000
 ROI_START_ORIG, ROI_END_ORIG = (590, 190), (1490, 1010)
 COLOR_THRESHOLD = 50  # All colors under this RGB color value are outlawed
-MAX_BLACK_PIXELS = 100  # Maximum number of outlawed pixels allowed within a contour
+MAX_OUTLAWED_PIXELS = 100  # Maximum number of outlawed pixels allowed within a contour
 
 def get_quadrant(x, y, width, height):
     mid_x, mid_y = width // 2, height // 2
@@ -61,7 +61,7 @@ def find_player_icon_location():
         area = cv2.contourArea(cnt)
         if MIN_SHAPE_SIZE < area < MAX_SHAPE_SIZE:
             white_pixels, black_pixels = count_pixels(binary, cnt)
-            if black_pixels <= MAX_BLACK_PIXELS:
+            if black_pixels <= MAX_OUTLAWED_PIXELS:
                 valid_contours.append((cnt, white_pixels, black_pixels))
     
     valid_contours.sort(key=lambda x: x[1], reverse=True)  # Sort by white pixel count
@@ -92,7 +92,7 @@ def find_player_icon_location_with_direction():
         area = cv2.contourArea(cnt)
         if MIN_SHAPE_SIZE < area < MAX_SHAPE_SIZE:
             white_pixels, black_pixels = count_pixels(binary, cnt)
-            if black_pixels <= MAX_BLACK_PIXELS:
+            if black_pixels <= MAX_OUTLAWED_PIXELS:
                 valid_contours.append((cnt, white_pixels, black_pixels))
     
     valid_contours.sort(key=lambda x: x[1], reverse=True)  # Sort by white pixel count
