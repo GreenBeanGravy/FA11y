@@ -9,11 +9,23 @@ speaker = Auto()
 MINIMAP_START = (1685, 83)
 MINIMAP_END = (1838, 236)
 MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1170, 1800
+COLOR_THRESHOLD = 50 # All colors under this RGB color value are outlawed
+MAX_OUTLAWED_PIXELS = 100  # Maximum number of outlawed pixels allowed within a contour
 
 def get_cardinal_direction(angle):
     directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest']
     index = int((angle + 22.5) % 360 // 45)
     return directions[index]
+
+def count_pixels(mask, contour):
+    # Create a blank mask
+    temp_mask = np.zeros(mask.shape, dtype=np.uint8)
+    # Draw the contour on the mask
+    cv2.drawContours(temp_mask, [contour], 0, 255, -1)
+    # Count white and colored pixels within the contour
+    white_pixels = cv2.countNonZero(cv2.bitwise_and(mask, temp_mask))
+    colored_pixels = cv2.countNonZero(cv2.bitwise_and(cv2.bitwise_not(mask), temp_mask))
+    return white_pixels, colored_pixels
 
 def find_minimap_icon_direction(sensitivity=1.0):
     # Capture the minimap area
@@ -33,12 +45,24 @@ def find_minimap_icon_direction(sensitivity=1.0):
     # Find contours
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Filter contours by size
-    valid_contours = [cnt for cnt in contours if MIN_SHAPE_SIZE < cv2.contourArea(cnt) < MAX_SHAPE_SIZE]
+    # Filter contours by size and color
+    valid_contours = []
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if MIN_SHAPE_SIZE < area < MAX_SHAPE_SIZE:
+            white_pixels, colored_pixels = count_pixels(binary, cnt)
+            if colored_pixels <= MAX_OUTLAWED_PIXELS:
+                valid_contours.append((cnt, white_pixels, colored_pixels))
+    
+    valid_contours.sort(key=lambda x: x[1], reverse=True)  # Sort by white pixel count
+    
+    print("Top 5 detected contours:")
+    for i, (cnt, white_pixels, colored_pixels) in enumerate(valid_contours[:5], 1):
+        print(f"Contour {i}: White pixels: {white_pixels}, Colored pixels: {colored_pixels}")
     
     if valid_contours:
-        # Get the largest contour (should be the player icon)
-        contour = max(valid_contours, key=cv2.contourArea)
+        # Get the largest valid contour (should be the player icon)
+        contour = valid_contours[0][0]
         
         # Get the moments and center of mass
         M = cv2.moments(contour)
