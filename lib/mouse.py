@@ -183,7 +183,3 @@ def mouse_movement():
                 key_states[key] = key_current_state
 
         time.sleep(0.01)
-
-if __name__ == "__main__":
-    print("Starting mouse movement")
-    mouse_movement()

@@ -21,6 +21,3 @@ def exit_match():
         pyautogui.click()  # Click again at the same position
     else:
         speaker.speak("You are not in your quick menu!")
-
-if __name__ == "__main__":
-    exit_match()

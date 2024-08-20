@@ -55,11 +55,3 @@ def check_height():
 def start_height_checker():
     thread = threading.Thread(target=check_height, daemon=True)
     thread.start()
-
-if __name__ == "__main__":
-    start_height_checker()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Height checker stopped.")

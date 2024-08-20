@@ -86,6 +86,3 @@ def create_custom_poi_gui():
     root.after(100, lambda: force_focus_window(root, "P O I Name entry field", name_entry))
 
     root.mainloop()
-
-if __name__ == "__main__":
-    create_custom_poi_gui()

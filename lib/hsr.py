@@ -43,6 +43,3 @@ def check_health_shields():
 def start_health_shield_rarity_detection():
     # This function is now empty as key handling is done in the main script
     pass
-
-if __name__ == "__main__":
-    print("This script is now a module and should be imported by FA11y.py")

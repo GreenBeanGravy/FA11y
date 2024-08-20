@@ -76,8 +76,3 @@ def speak_minimap_direction():
         message = "Unable to determine direction from minimap"
         print(message)
         speaker.speak(message)
-
-# Remove the on_semicolon_pressed function and directly expose speak_minimap_direction
-if __name__ == "__main__":
-    print("Testing minimap direction detection")
-    speak_minimap_direction()

@@ -57,7 +57,3 @@ def start_storm_detection():
         if storm_coords:
             return storm_coords  # Return the coordinates as soon as they are detected
         time.sleep(0.01)
-
-if __name__ == "__main__":
-    coords = start_storm_detection()
-    print(f"Storm detected at coordinates: {coords}")

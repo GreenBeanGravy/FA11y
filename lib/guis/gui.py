@@ -272,6 +272,3 @@ def select_poi_tk():
     root.after(100, lambda: force_focus_window(root, None, focus_first_button))
 
     root.mainloop()
-
-if __name__ == "__main__":
-    select_poi_tk()

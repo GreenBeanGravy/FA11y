@@ -60,11 +60,3 @@ def load_icon_configs() -> Dict[str, Tuple[str, float]]:
     return object_configs
 
 OBJECT_CONFIGS = load_icon_configs()
-
-if __name__ == "__main__":
-    print("Available objects:", list(OBJECT_CONFIGS.keys()))
-    # You can add test code here if needed
-    # For example:
-    # for object_name, (icon_path, threshold) in OBJECT_CONFIGS.items():
-    #     result = find_closest_object(icon_path, threshold)
-    #     print(f"{object_name}: {result}")

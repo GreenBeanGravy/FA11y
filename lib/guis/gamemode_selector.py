@@ -139,6 +139,3 @@ def select_gamemode_tk():
         root.after(100, lambda: force_focus_window(root, "No game modes available"))
 
     root.mainloop()
-
-if __name__ == "__main__":
-    select_gamemode_tk()

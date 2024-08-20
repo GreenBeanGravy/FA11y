@@ -384,16 +384,3 @@ def create_config_gui(update_script_callback):
     root.protocol("WM_DELETE_WINDOW", save_and_close)  # Handle window close button
 
     root.mainloop()
-
-if __name__ == "__main__":
-    # This is just for testing. In the actual implementation, 
-    # you would pass the real update_script function from FA11y.py
-    def dummy_update_script(config):
-        print("Updating script with new configuration:")
-        for section in config.sections():
-            print(f"[{section}]")
-            for key, value in config.items(section):
-                print(f"{key} = {value}")
-        print("Script updated!")
-
-    create_config_gui(dummy_update_script)

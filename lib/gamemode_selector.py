@@ -53,9 +53,3 @@ def select_gamemode(gamemode):
     pyautogui.press('b')
 
     speaker.speak(f"{gamemode[0]} selected")
-
-if __name__ == "__main__":
-    gamemodes = load_gamemodes()
-    print("Available game modes:")
-    for gamemode in gamemodes:
-        print(f"- {gamemode[0]}")

@@ -62,6 +62,3 @@ def speak_current_coordinates():
         print(f"Position in quadrant: {position_in_quadrant}")
     else:
         speak("Unable to determine current coordinates")
-
-if __name__ == "__main__":
-    speak_current_coordinates()

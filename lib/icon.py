@@ -291,6 +291,3 @@ def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
     else:
         print("Player icon not located in screenshot processing.")
         speaker.speak("Player icon not located.")
-
-if __name__ == "__main__":
-    print("Available objects:", list(OBJECT_CONFIGS.keys()))
