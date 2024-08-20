@@ -227,17 +227,32 @@ def process_updates(repo, repo_files, script_name):
     return any(updates)
 
 def check_legendary():
-    if shutil.which('legendary') or os.path.exists(os.path.join(os.getcwd(), "legendary.exe")):
+    legendary_path = os.path.join(os.getcwd(), "legendary.exe")
+    if os.path.exists(legendary_path):
         print_info("Legendary found.")
         return True
 
-    print_info("Legendary not found. Please make sure it's installed and in the system PATH or in the current directory.")
-    return False
+    print_info("Legendary not found. Downloading...")
+    legendary_url = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
+    
+    try:
+        download_file_to_path(legendary_url, legendary_path)
+        print_info("Legendary downloaded successfully.")
+        return True
+    except Exception as e:
+        print_info(f"Failed to download Legendary: {e}")
+        return False
 
 def install_requirements():
     if not os.path.exists('requirements.txt'):
-        print_info("requirements.txt not found")
-        return False
+        print_info("requirements.txt not found. Downloading from GitHub...")
+        url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/requirements.txt"
+        try:
+            download_file_to_path(url, 'requirements.txt')
+            print_info("requirements.txt downloaded successfully.")
+        except Exception as e:
+            print_info(f"Failed to download requirements.txt: {e}")
+            return False
 
     print_info("Installing requirements...")
     try:
@@ -331,7 +346,7 @@ def main():
 
     legendary_exists = check_legendary()
     if not legendary_exists:
-        print_info("Legendary is required for FA11y to function properly. Please install it and add it to your system PATH.")
+        print_info("Failed to download or find Legendary. Please download it manually and add it to your system PATH.")
 
     print_info("Update process completed")
 
