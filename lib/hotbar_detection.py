@@ -13,10 +13,9 @@ SLOT_COORDS = [
     (1840, 931, 1903, 975)   # Slot 5
 ]
 SECONDARY_SLOT_COORDS = [(x, y-11, x2, y2-11) for x, y, x2, y2 in SLOT_COORDS]
-TERTIARY_SLOT_COORDS = [(x, y+39, x2, y2+39) for x, y, x2, y2 in SLOT_COORDS]
-
 IMAGES_FOLDER = "images"
 CONFIDENCE_THRESHOLD = 0.75
+
 speaker = Auto()
 reference_images = {}
 
@@ -41,18 +40,12 @@ def detect_hotbar_item(slot_index):
         return max(((name, pixel_based_matching(screenshot, ref_img)) 
                     for name, ref_img in reference_images.items()), 
                    key=lambda x: x[1])
-    
-    # Check primary coordinates
+
     best_match_name, best_score = check_slot(SLOT_COORDS[slot_index])
     
     if best_score <= CONFIDENCE_THRESHOLD:
         time.sleep(0.05)
-        # Check secondary coordinates
         best_match_name, best_score = check_slot(SECONDARY_SLOT_COORDS[slot_index])
-    
-    if best_score <= CONFIDENCE_THRESHOLD:
-        # Check tertiary coordinates
-        best_match_name, best_score = check_slot(TERTIARY_SLOT_COORDS[slot_index])
     
     if best_score > CONFIDENCE_THRESHOLD:
         speaker.speak(best_match_name)
