@@ -180,7 +180,7 @@ def check_and_update_file(repo, file_path, script_name):
             return True
         return False
 
-    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg')) and file_path != 'VERSION':
+    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg')) and file_path != 'VERSION':
         return False
 
     if file_path in ('config.txt', 'CUSTOM_POI.txt') and os.path.exists(file_path):
