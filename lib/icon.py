@@ -10,7 +10,8 @@ from lib.object_finder import OBJECT_CONFIGS, find_closest_object
 import lib.guis.gui as gui
 from lib.minimap_direction import find_minimap_icon_direction
 from lib.mouse import smooth_move_mouse
-from lib.player_location import find_player_icon_location, find_player_icon_location_with_direction
+from lib.player_location import find_player_icon_location, find_player_icon_location_with_direction, get_player_position_description, calculate_poi_info, generate_poi_message
+from lib.ppi import find_player_position, get_player_position_description
 
 pyautogui.FAILSAFE = False
 speaker = Auto()
@@ -20,7 +21,7 @@ MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1300, 2000
 ROI_START_ORIG, ROI_END_ORIG = (590, 190), (1490, 1010)
 
 def load_poi_from_file():
-    with open('poi.txt', 'r') as file:
+    with open('POI.txt', 'r') as file:
         return [tuple(line.strip().split(',')) for line in file]
 
 def find_closest_poi(icon_location, poi_list):
@@ -64,81 +65,83 @@ def get_relative_direction(player_direction, poi_vector):
                       'in front', 'in front and to the left', 'to the left', 'behind and to the left']
     return next((compass_labels[i] for i, val in enumerate(compass_brackets) if angle < val), 'behind')
 
-def start_icon_detection():
+def start_icon_detection(use_ppi=False):
     print("Starting icon detection")
-    icon_detection_cycle(load_config())
+    config = load_config()
+    selected_poi = config[0] if isinstance(config, tuple) else config
+    icon_detection_cycle(selected_poi, use_ppi)
 
-def icon_detection_cycle(selected_poi):
+def icon_detection_cycle(selected_poi, use_ppi):
     print(f"Icon detection cycle started. Selected POI: {selected_poi}")
-    player_info = find_player_icon_location_with_direction()
     
     if selected_poi[0].lower() == 'none':
         print("No POI selected.")
         speaker.speak("No POI selected. Please select a POI first.")
         return
 
-    poi_data = handle_poi_selection(selected_poi, player_info[0] if player_info else None)
+    config = configparser.ConfigParser()
+    config.read('CONFIG.txt')
+    auto_turn_enabled = config.getboolean('SETTINGS', 'AutoTurn', fallback=False)
+
+    poi_data = handle_poi_selection(selected_poi, None)  # We pass None as we don't have player_location yet
     print(f"POI data: {poi_data}")
     
-    if poi_data[1]:  # Check if coordinates are not None
-        config = configparser.ConfigParser()
-        config.read('CONFIG.txt')
-        auto_turn_enabled = config.getboolean('SETTINGS', 'AutoTurn', fallback=False)
-        
-        if player_info is None:
-            print(f"Could not find player icon. Pinging {poi_data[0]}")
-            speaker.speak(f"Could not find player icon. Pinging {poi_data[0]}")
-            perform_poi_actions(poi_data, None, speak_info=False)
-            return
-        
-        center_mass_screen, initial_player_direction = player_info
-        
-        perform_poi_actions(poi_data, center_mass_screen, speak_info=False)
-        
-        if auto_turn_enabled and center_mass_screen:
-            time.sleep(0.1)
-            keyboard.press_and_release('esc')
-            time.sleep(0.1)
-            _, success = auto_turn_towards_poi(center_mass_screen, poi_data[1], poi_data[0])
-        else:
-            success = False
-
-        # Get the latest player direction right before announcing
-        latest_direction, latest_angle = find_minimap_icon_direction()
-        if latest_direction is None:
-            print("Unable to determine final player direction. Using initial direction.")
-            # Calculate the angle from the initial direction vector
-            latest_angle = np.degrees(np.arctan2(-initial_player_direction[1], initial_player_direction[0]))
-            latest_angle = (450 - latest_angle) % 360
-
-        speak_auto_turn_result(poi_data[0], center_mass_screen, latest_angle, poi_data[1], auto_turn_enabled, success)
-    else:
+    if poi_data[1] is None:  # Check if coordinates are None
         print(f"{poi_data[0]} not located.")
         speaker.speak(f"{poi_data[0]} not located.")
+        return
+
+    # Perform click sequence immediately if not using PPI
+    if not use_ppi:
+        pyautogui.moveTo(poi_data[1][0], poi_data[1][1])
+        pyautogui.rightClick()
+        pyautogui.click()
+
+    if use_ppi:
+        player_location = find_player_position()
+        if player_location is None:
+            print("Could not find player position using PPI")
+            speaker.speak("Could not find player position using PPI")
+            return
+        player_angle = None
+    else:
+        player_info = find_player_icon_location_with_direction()
+        if player_info is None:
+            print("Could not find player icon or determine direction")
+            player_location, player_angle = None, None
+        else:
+            player_location, player_angle = player_info
+
+    if player_angle is None:
+        _, player_angle = find_minimap_icon_direction()
+        if player_angle is None:
+            print("Could not determine player direction from minimap")
+
+    perform_poi_actions(poi_data, player_location, speak_info=False)
+    
+    if auto_turn_enabled:
+        # Only press ESCAPE and wait if we're about to perform AutoTurn
+        if not use_ppi:
+            pyautogui.press('escape')
+            time.sleep(0.1)
+        success = auto_turn_towards_poi(player_location, poi_data[1], poi_data[0])
+    else:
+        success = False
+
+    # Get the latest player direction right before announcing
+    _, latest_angle = find_minimap_icon_direction()
+    if latest_angle is None:
+        print("Unable to determine final player direction. Using initial direction.")
+        latest_angle = player_angle
+
+    speak_auto_turn_result(poi_data[0], player_location, latest_angle, poi_data[1], auto_turn_enabled, success)
 
 def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location, auto_turn_enabled, success):
-    poi_vector = np.array(poi_location) - np.array(player_location)
-    distance = np.linalg.norm(poi_vector) * 2.65
-    angle, cardinal_direction = get_angle_and_direction(poi_vector)
+    poi_info = calculate_poi_info(player_location, player_angle, poi_location)
+    message = generate_poi_message(poi_name, player_angle, poi_info)
 
-    if player_angle is not None:
-        player_cardinal = get_cardinal_direction(player_angle)
-        player_direction = np.array([np.cos(np.radians(player_angle)), -np.sin(np.radians(player_angle))])
-    else:
-        player_cardinal = "Unknown"
-        player_direction = np.array([0, -1])  # Default to North if angle is unknown
-    
-    relative_direction = get_relative_direction(player_direction, poi_vector)
-
-    if not auto_turn_enabled or not success:
-        message = f"{poi_name} is {relative_direction} {int(distance)} meters, and is {cardinal_direction} at {angle:.0f} degrees"
-    else:
-        message = f"Facing {poi_name} at {int(distance)} meters away, {poi_name} is {cardinal_direction} at {angle:.0f} degrees"
-
-    if player_angle is not None:
-        message += f", facing {player_cardinal} at {player_angle:.0f} degrees"
-    else:
-        message += f", facing direction unknown"
+    if auto_turn_enabled and success:
+        message = f"{message}"
 
     print(message)
     speaker.speak(message)
@@ -149,17 +152,32 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
     angle_threshold = 5
     sensitivity = 1.0
     min_sensitivity = 0.6
+    consecutive_failures = 0
 
     for attempts in range(max_attempts):
         current_direction, current_angle = find_minimap_icon_direction(sensitivity)
         if current_direction is None or current_angle is None:
             print(f"Unable to determine current direction. Sensitivity: {sensitivity:.2f}, Attempt {attempts + 1}/{max_attempts}")
             sensitivity = max(sensitivity - 0.05, min_sensitivity)
+            consecutive_failures += 1
+            
+            # Check for three consecutive failures in the first three attempts
+            if attempts < 3 and consecutive_failures == 3:
+                print("Failed to determine direction for the first three consecutive attempts. Stopping AutoTurn.")
+                return False
+            
             time.sleep(0.1)
             continue
         
-        poi_vector = np.array(poi_location) - np.array(player_location)
-        poi_angle = (450 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
+        # Reset consecutive failures if we successfully determine the direction
+        consecutive_failures = 0
+        
+        if player_location:
+            poi_vector = np.array(poi_location) - np.array(player_location)
+            poi_angle = (450 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
+        else:
+            # If player_location is None, use a default angle (e.g., North)
+            poi_angle = 0
         
         angle_difference = (poi_angle - current_angle + 180) % 360 - 180
         
@@ -168,7 +186,7 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
         
         if abs(angle_difference) <= angle_threshold:
             print(f"Successfully turned towards {poi_name}. Current direction: {current_direction}")
-            return np.array([np.cos(np.radians(current_angle)), -np.sin(np.radians(current_angle))]), True
+            return True
         
         turn_speed = min(base_turn_speed + (abs(angle_difference) * 2), max_turn_speed)
         turn_amount = min(abs(angle_difference), 90)
@@ -180,7 +198,7 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
         sensitivity = min(sensitivity + 0.05, 1.0) if abs(angle_difference) < 45 else sensitivity
 
     print(f"Failed to turn towards {poi_name} after maximum attempts.")
-    return None, False
+    return False
 
 def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
     poi_name, coordinates = poi_data
@@ -189,11 +207,6 @@ def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
     if coordinates and len(coordinates) == 2:
         x, y = coordinates
         try:
-            print(f"Moving mouse to: ({x}, {y})")
-            pyautogui.moveTo(int(x), int(y))  # Use instant movement
-            pyautogui.click()
-            pyautogui.click(button='right')
-            
             if center_mass_screen and speak_info:
                 process_screenshot((int(x), int(y)), poi_name, center_mass_screen)
             elif not speak_info:
@@ -244,19 +257,19 @@ def handle_poi_selection(selected_poi, center_mass_screen):
                 return poi_name, None
         else:
             # Handle as static POI
-            try:
-                if isinstance(selected_poi, tuple) and len(selected_poi) >= 3:
-                    coordinates = (int(selected_poi[1]), int(selected_poi[2]))
-                else:
-                    raise ValueError("Invalid POI format")
-                
-                if coordinates == (0, 0):
-                    print(f"Warning: Static coordinates (0, 0) detected for {poi_name}. This might be a placeholder.")
-                print(f"Using static POI coordinates: {coordinates}")
-                return poi_name, coordinates
-            except (ValueError, IndexError):
-                print(f"Error: Invalid POI coordinates for {poi_name}: {selected_poi}")
-                return poi_name, None
+            poi_list = load_poi_from_file()
+            for poi in poi_list:
+                if poi[0].lower() == poi_name:
+                    try:
+                        coordinates = (int(poi[1]), int(poi[2]))
+                        print(f"Using static POI coordinates: {coordinates}")
+                        return poi[0], coordinates
+                    except (ValueError, IndexError):
+                        print(f"Error: Invalid POI coordinates for {poi[0]}: {poi[1]}, {poi[2]}")
+                        return poi[0], None
+            
+            print(f"Error: POI '{selected_poi}' not found in poi.txt")
+            return selected_poi, None
 
 def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
     print(f"Processing screenshot for POI: {poi_name}, Coordinates: {selected_coordinates}")

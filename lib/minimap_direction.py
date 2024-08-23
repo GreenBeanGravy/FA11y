@@ -6,11 +6,10 @@ from accessible_output2.outputs.auto import Auto
 speaker = Auto()
 
 # Constants
-MINIMAP_START = (1685, 83)
-MINIMAP_END = (1838, 236)
-MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1170, 1800
-COLOR_THRESHOLD = 50 # All colors under this RGB color value are outlawed
-MAX_OUTLAWED_PIXELS = 100  # Maximum number of outlawed pixels allowed within a contour
+MINIMAP_START = (1746, 121)  # Pre-calculated reduced values
+MINIMAP_END = (1777, 198)    # Pre-calculated reduced values
+MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1170, 1400
+MAX_OUTLAWED_PIXELS = 20  # Maximum number of outlawed pixels allowed within a contour
 
 def get_cardinal_direction(angle):
     directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest']
@@ -18,26 +17,24 @@ def get_cardinal_direction(angle):
     return directions[index]
 
 def count_pixels(mask, contour):
-    # Create a blank mask
     temp_mask = np.zeros(mask.shape, dtype=np.uint8)
-    # Draw the contour on the mask
     cv2.drawContours(temp_mask, [contour], 0, 255, -1)
-    # Count white and colored pixels within the contour
     white_pixels = cv2.countNonZero(cv2.bitwise_and(mask, temp_mask))
     colored_pixels = cv2.countNonZero(cv2.bitwise_and(cv2.bitwise_not(mask), temp_mask))
     return white_pixels, colored_pixels
 
 def find_minimap_icon_direction(sensitivity=1.0):
-    # Capture the minimap area
-    screenshot = np.array(pyautogui.screenshot(region=(MINIMAP_START[0], MINIMAP_START[1], 
-                                                       MINIMAP_END[0] - MINIMAP_START[0], 
-                                                       MINIMAP_END[1] - MINIMAP_START[1])))
+    # Capture the minimap area using pre-calculated reduced values
+    screenshot = pyautogui.screenshot(region=(MINIMAP_START[0], MINIMAP_START[1], 
+                                              MINIMAP_END[0] - MINIMAP_START[0], 
+                                              MINIMAP_END[1] - MINIMAP_START[1]))
+    
+    # Convert to numpy array and grayscale
+    screenshot_np = np.array(screenshot)
+    gray = cv2.cvtColor(screenshot_np, cv2.COLOR_RGB2GRAY)
     
     # Resize the screenshot to match the scale of the original detection
-    screenshot = cv2.resize(screenshot, None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
-    
-    # Convert to grayscale
-    gray = cv2.cvtColor(screenshot, cv2.COLOR_RGB2GRAY)
+    gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
     
     # Threshold to get the white icon
     _, binary = cv2.threshold(gray, int(229 * sensitivity), 255, cv2.THRESH_BINARY)
@@ -61,29 +58,19 @@ def find_minimap_icon_direction(sensitivity=1.0):
         print(f"Contour {i}: White pixels: {white_pixels}, Colored pixels: {colored_pixels}")
     
     if valid_contours:
-        # Get the largest valid contour (should be the player icon)
         contour = valid_contours[0][0]
-        
-        # Get the moments and center of mass
         M = cv2.moments(contour)
         center_mass = np.array([M["m10"] / M["m00"], M["m01"] / M["m00"]])
         
-        # Get the convex hull and find the farthest point
         hull = cv2.convexHull(contour)
         if len(hull) > 2:
             vertices = np.squeeze(hull)
             farthest_vertex = vertices[np.argmax(np.linalg.norm(vertices - center_mass, axis=1))]
             
-            # Calculate the direction vector
             direction_vector = farthest_vertex - center_mass
-            
-            # Calculate the angle in degrees
             angle = np.degrees(np.arctan2(-direction_vector[1], direction_vector[0]))
-            
-            # Adjust angle to start from North (0 degrees) and increase clockwise
             angle = (450 - angle) % 360
             
-            # Get the cardinal direction
             cardinal_direction = get_cardinal_direction(angle)
             
             return cardinal_direction, angle

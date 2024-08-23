@@ -45,6 +45,7 @@ from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
 from lib.exit_match import exit_match
 from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item
+from lib.ppi import find_player_position, get_player_position_description
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -180,6 +181,9 @@ def is_key_pressed(key):
         except:
             print(f"Unrecognized key: {key}. Skipping...")
             return False
+
+def check_white_pixel():
+    return pyautogui.pixelMatchesColor(1908, 14, (255, 255, 255))
 
 def handle_movement(action, reset_sensitivity):
     global config
@@ -359,7 +363,7 @@ def reload_config():
     
     action_handlers.clear()
     
-    action_handlers['locate player icon'] = start_icon_detection
+    action_handlers['locate player icon'] = lambda: start_icon_detection(use_ppi=check_white_pixel())
 
     if mouse_keys_enabled:
         action_handlers.update({

@@ -2,6 +2,7 @@ import win32gui
 import win32con
 from accessible_output2.outputs.auto import Auto
 import time
+import pywintypes
 
 speaker = Auto()
 
