@@ -5,6 +5,7 @@ import time
 from mss import mss
 from accessible_output2.outputs.auto import Auto
 
+# Coordinate and slot configurations
 SLOT_COORDS = [
     (1514, 931, 1577, 975),  # Slot 1
     (1595, 931, 1658, 975),  # Slot 2
@@ -12,9 +13,24 @@ SLOT_COORDS = [
     (1759, 931, 1822, 975),  # Slot 4
     (1840, 931, 1903, 975)   # Slot 5
 ]
+
 SECONDARY_SLOT_COORDS = [(x, y-11, x2, y2-11) for x, y, x2, y2 in SLOT_COORDS]
 IMAGES_FOLDER = "images"
 CONFIDENCE_THRESHOLD = 0.85
+
+# Coordinates for checking color white (255, 255, 255)
+WHITE_CHECK_COORDS = {
+    0: [1516, 1537, 1556, 1575],  # SLOT 1 Y915
+    1: [1600, 1619, 1638, 1657],  # SLOT 2 Y915
+    2: [1681, 1700, 1719, 1738],  # SLOT 3 Y915
+    3: [1762, 1781, 1800, 1819],  # SLOT 4 Y915
+    4: [1843, 1862, 1881, 1900]   # SLOT 5 Y915
+}
+
+# Messages for each coordinate
+COORDINATE_MESSAGES = [
+    "Scope", "Magazine", "Underbarrel", "Barrel"
+]
 
 speaker = Auto()
 reference_images = {}
@@ -48,7 +64,32 @@ def detect_hotbar_item(slot_index):
         best_match_name, best_score = check_slot(SECONDARY_SLOT_COORDS[slot_index])
     
     if best_score > CONFIDENCE_THRESHOLD:
+        # Announce the detected item
         speaker.speak(best_match_name)
+
+        # Wait for 100 ms
+        time.sleep(0.1)
+
+        # Check for additional attachments
+        attachments = []
+        y_coord = 915  # Common Y coordinate for all checks
+
+        for i, x_coord in enumerate(WHITE_CHECK_COORDS[slot_index]):
+            # Check if the pixel at the coordinate is white
+            screenshot = np.array(mss().grab({'left': x_coord, 'top': y_coord, 'width': 1, 'height': 1}))
+            color = screenshot[0, 0, :3]  # Get the RGB values
+
+            if tuple(color) == (255, 255, 255):
+                attachments.append(COORDINATE_MESSAGES[i])
+
+        if attachments:
+            # Build the attachment message
+            if len(attachments) == 1:
+                attachment_message = f"with a {attachments[0]}"
+            else:
+                attachment_message = "with a " + ", ".join(attachments[:-1]) + f", and {attachments[-1]}"
+
+            speaker.speak(attachment_message)
 
 def initialize_hotbar_detection():
     load_reference_images()
