@@ -426,6 +426,9 @@ def get_version(repo):
         print(f"Failed to fetch VERSION file: {e}")
         return None
 
+def parse_version(version):
+    return tuple(map(int, version.split('.')))
+
 def check_for_updates():
     repo = "GreenBeanGravy/FA11y"
     update_notified = False
@@ -444,9 +447,9 @@ def check_for_updates():
             print("Failed to fetch repository version. Skipping version check.")
         else:
             try:
-                local_v = int(local_version)
-                repo_v = int(repo_version)
-                if local_v < repo_v or local_v > repo_v:
+                local_v = parse_version(local_version)
+                repo_v = parse_version(repo_version)
+                if local_v != repo_v:  # Update if local version is not equal to repo version
                     if not update_notified:
                         update_sound.play()
                         speaker.speak("An update is available for FA11y! Restart FA11y to update!")

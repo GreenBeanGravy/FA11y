@@ -274,6 +274,9 @@ def get_version(repo):
         print_info(f"Failed to fetch VERSION file: {e}")
         return None
 
+def parse_version(version):
+    return tuple(map(int, version.split('.')))
+
 def check_version():
     repo = "GreenBeanGravy/FA11y"
     local_version = None
@@ -291,9 +294,9 @@ def check_version():
         return False
     
     try:
-        local_v = int(local_version)
-        repo_v = int(repo_version)
-        return local_v < repo_v or local_v > repo_v  # Update if local version is lower or higher
+        local_v = parse_version(local_version)
+        repo_v = parse_version(repo_version)
+        return local_v != repo_v  # Update if local version is not equal to repo version
     except ValueError:
         print_info("Invalid version format. Treating as update required.")
         return True
