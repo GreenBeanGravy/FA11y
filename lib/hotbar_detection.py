@@ -14,7 +14,7 @@ SLOT_COORDS = [
 ]
 SECONDARY_SLOT_COORDS = [(x, y-11, x2, y2-11) for x, y, x2, y2 in SLOT_COORDS]
 IMAGES_FOLDER = "images"
-CONFIDENCE_THRESHOLD = 0.75
+CONFIDENCE_THRESHOLD = 0.85
 
 speaker = Auto()
 reference_images = {}
