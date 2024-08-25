@@ -63,6 +63,7 @@ CONFIG_FILE = 'config.txt'
 DEFAULT_CONFIG = """[SETTINGS]
 MouseKeys = true
 UsingResetSensitivity = false
+AnnounceWeaponAttachments = true
 EnableAutoUpdates = true
 CreateDesktopShortcut = true
 AutoTurn = true
@@ -259,32 +260,30 @@ def update_config(config):
             config.add_section(section)
             updated = True
         
-        existing_keys = {k.lower(): k for k in config[section]}
+        new_section = {}
+        existing_keys = {k.lower(): (k, config[section][k]) for k in config[section]}
         
-        for key, value in default_config.items(section):
+        for key, default_value in default_config.items(section):
             lower_key = key.lower()
-            
             if lower_key in existing_keys:
-                if existing_keys[lower_key] != key:
-                    current_value = config[section][existing_keys[lower_key]]
-                    config.remove_option(section, existing_keys[lower_key])
-                    config.set(section, key, current_value)
+                original_key, value = existing_keys[lower_key]
+                if original_key != key:
                     updated = True
+                new_section[key] = value
             else:
-                config.set(section, key, value)
+                new_section[key] = default_value
                 updated = True
+        
+        config[section] = new_section
     
-    for section in config.sections():
-        if section in default_config.sections():
-            for key in list(config[section].keys()):
-                if key not in default_config[section]:
-                    config.remove_option(section, key)
-                    updated = True
+    # Always rewrite the config file to ensure order is maintained
+    with open(CONFIG_FILE, 'w') as configfile:
+        config.write(configfile)
     
     if updated:
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-        print(f"Updated config file with correct casing and removed obsolete entries: {CONFIG_FILE}")
+        print(f"Updated config file: {CONFIG_FILE}")
+    
+    return config
 
 def read_config():
     config = configparser.ConfigParser(interpolation=None)
@@ -297,7 +296,7 @@ def read_config():
         print(f"Created new config file: {CONFIG_FILE}")
     else:
         config.read(CONFIG_FILE)
-        update_config(config)
+        config = update_config(config)
     
     return config
 
