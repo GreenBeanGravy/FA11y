@@ -114,7 +114,7 @@ def detect_hotbar_item_thread(slot_index):
             results = reader.readtext(binary)
             if results and not stop_event.is_set():
                 ammo_text = results[0][1]
-                speaker.speak(f"with {ammo_text} ammo in reserves")
+                speaker.speak(f"with {ammo_text} ammo")
         
         # Wait for 0.3 seconds before announcing attachments
         time.sleep(0.3)
