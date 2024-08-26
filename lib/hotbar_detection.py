@@ -40,13 +40,9 @@ ATTACHMENTS = [
     "Scope", "Magazine", "Underbarrel", "Barrel"
 ]
 
-AMMO_RESERVE_COORDS = [
-    ((1527, 966), (1559, 983)),  # Slot 1
-    ((1605, 966), (1642, 983)),  # Slot 2
-    ((1686, 966), (1723, 983)),  # Slot 3
-    ((1770, 966), (1804, 983)),  # Slot 4
-    ((1850, 966), (1887, 983))   # Slot 5
-]
+# Updated coordinates for ammo OCR
+CURRENT_AMMO_COORDS = (1243, 929, 1294, 962)
+RESERVE_AMMO_COORDS = (1305, 936, 1358, 962)
 
 speaker = Auto()
 reference_images = {}
@@ -133,27 +129,50 @@ def detect_hotbar_item_thread(slot_index):
                     attachment_message = "with a " + ", ".join(detected_attachments[:-1]) + f", and {detected_attachments[-1]}"
                 speaker.speak(attachment_message)  # Directly speak the attachment message
         
-        time.sleep(0.05)
-        
         if easyocr_available and not stop_event.is_set():
             try:
-                ammo_coords = AMMO_RESERVE_COORDS[slot_index]
                 with sct_lock:
-                    ammo_screenshot = np.array(sct.grab({'left': ammo_coords[0][0], 'top': ammo_coords[0][1], 
-                                                        'width': ammo_coords[1][0] - ammo_coords[0][0], 
-                                                        'height': ammo_coords[1][1] - ammo_coords[0][1]}))
+                    current_ammo_screenshot = np.array(sct.grab({'left': CURRENT_AMMO_COORDS[0], 'top': CURRENT_AMMO_COORDS[1], 
+                                                                 'width': CURRENT_AMMO_COORDS[2] - CURRENT_AMMO_COORDS[0], 
+                                                                 'height': CURRENT_AMMO_COORDS[3] - CURRENT_AMMO_COORDS[1]}))
+                    reserve_ammo_screenshot = np.array(sct.grab({'left': RESERVE_AMMO_COORDS[0], 'top': RESERVE_AMMO_COORDS[1], 
+                                                                 'width': RESERVE_AMMO_COORDS[2] - RESERVE_AMMO_COORDS[0], 
+                                                                 'height': RESERVE_AMMO_COORDS[3] - RESERVE_AMMO_COORDS[1]}))
                 
-                gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
-                _, binary = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+                current_ammo = process_ammo_ocr(current_ammo_screenshot)
+                reserve_ammo = process_ammo_ocr(reserve_ammo_screenshot)
                 
-                results = reader.readtext(binary)
-                if results and not stop_event.is_set():
-                    ammo_text = results[0][1]
-                    speaker.speak(f"with {ammo_text} ammo")
+                if current_ammo is not None or reserve_ammo is not None:
+                    current_ammo = current_ammo or 0
+                    reserve_ammo = reserve_ammo or 0
+                    speaker.speak(f"with {current_ammo} ammo in the mag and {reserve_ammo} in reserves")
+                else:
+                    print("OCR failed to detect any ammo values.")
             except Exception as e:
                 print(f"Error during OCR: {e}")
         elif not easyocr_available:
             print("Skipping ammo detection")
+
+def process_ammo_ocr(screenshot):
+    gray = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+    _, binary = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    
+    results = reader.readtext(binary)
+    if results:
+        try:
+            # Additional check to ensure we're getting a reasonable number
+            ammo_value = int(results[0][1])
+            if 0 <= ammo_value <= 999:  # Max ammo is 999
+                return ammo_value
+            else:
+                print(f"OCR detected an out-of-range value: {ammo_value}")
+                return None
+        except ValueError:
+            print(f"OCR detected a non-integer value: {results[0][1]}")
+            return None
+    else:
+        print("OCR didn't detect any text in the ammo area.")
+        return None
 
 def initialize_hotbar_detection():
     load_reference_images()
