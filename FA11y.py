@@ -232,7 +232,8 @@ def reload_config():
         'open configuration menu': open_config_gui,
         'exit match': exit_match,
         'get current coordinates': speak_current_coordinates,
-        'create custom p o i': create_custom_poi_gui
+        'create custom p o i': create_custom_poi_gui,
+        'announce ammo': announce_ammo
     })
     
     for i in range(1, 6):
