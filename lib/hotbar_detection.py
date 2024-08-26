@@ -147,7 +147,7 @@ def detect_hotbar_item_thread(slot_index):
             results = reader.readtext(binary)
             if results and not stop_event.is_set():
                 ammo_text = results[0][1]
-                speech_queue.put(f"with {ammo_text} ammo in reserves")
+                speech_queue.put(f"with {ammo_text} ammo")
 
 def initialize_hotbar_detection():
     load_reference_images()
