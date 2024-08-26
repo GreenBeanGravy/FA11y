@@ -158,4 +158,4 @@ def detect_hotbar_item_thread(slot_index):
 def initialize_hotbar_detection():
     load_reference_images()
     if not easyocr_available:
-        print("EasyOCR is not available. Please ensure you have EasyOCR installed by running "pip install EasyOCR" in any Terminal window.")
+        print("EasyOCR is not available. Please ensure you have EasyOCR installed by running 'pip install easyocr' in any Terminal window.")
