@@ -4,7 +4,7 @@ import os
 import time
 from mss import mss
 from accessible_output2.outputs.auto import Auto
-from threading import Thread, Event, Lock
+from threading import Thread, Event
 import configparser
 from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean
 
@@ -25,28 +25,19 @@ SLOT_COORDS = [
 ]
 SECONDARY_SLOT_COORDS = [(x, y-11, x2, y2-11) for x, y, x2, y2 in SLOT_COORDS]
 IMAGES_FOLDER = "images"
+ATTACHMENTS_FOLDER = "attachments"
 CONFIDENCE_THRESHOLD = 0.80
-sct_lock = Lock()
-
-ATTACHMENT_COORDS = {
-    0: [1516, 1537, 1556, 1575],  # SLOT 1 Y915
-    1: [1600, 1619, 1638, 1657],  # SLOT 2 Y915
-    2: [1681, 1700, 1719, 1738],  # SLOT 3 Y915
-    3: [1762, 1781, 1800, 1819],  # SLOT 4 Y915
-    4: [1843, 1862, 1881, 1900]   # SLOT 5 Y915
-}
-
-ATTACHMENTS = [
-    "Scope", "Magazine", "Underbarrel", "Barrel"
-]
 
 # Updated coordinates for ammo OCR
 CURRENT_AMMO_COORDS = (1243, 929, 1294, 962)
 RESERVE_AMMO_COORDS = (1305, 936, 1358, 962)
 
+# New coordinates for attachment detection
+ATTACHMENT_DETECTION_AREA = (1240, 1000, 1410, 1070)
+
 speaker = Auto()
 reference_images = {}
-sct = mss()
+attachment_images = {}
 
 if easyocr_available:
     try:
@@ -65,6 +56,18 @@ def load_reference_images():
             img = cv2.imread(os.path.join(IMAGES_FOLDER, filename))
             if img is not None:
                 reference_images[os.path.splitext(filename)[0]] = cv2.resize(img, (slot_width, slot_height))
+
+def load_attachment_images():
+    for attachment_type in ["Scope", "Magazine", "Underbarrel", "Barrel"]:
+        attachment_images[attachment_type] = {}
+        folder_path = os.path.join(ATTACHMENTS_FOLDER, attachment_type)
+        for filename in os.listdir(folder_path):
+            if filename.lower().endswith((".png", ".jpg", ".jpeg")):
+                img = cv2.imread(os.path.join(folder_path, filename))
+                if img is not None:
+                    # Convert to binary image (only pure white pixels)
+                    _, binary_img = cv2.threshold(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 254, 255, cv2.THRESH_BINARY)
+                    attachment_images[attachment_type][os.path.splitext(filename)[0]] = binary_img
 
 def pixel_based_matching(screenshot, template, threshold=30):
     if screenshot.shape != template.shape:
@@ -86,8 +89,7 @@ def detect_hotbar_item(slot_index):
     current_detection_thread.start()
 
 def detect_hotbar_item_thread(slot_index):
-    with sct_lock:
-        sct = mss()
+    sct = mss()  # Create a new mss instance for this thread
 
     # Load configuration
     config = configparser.ConfigParser()
@@ -95,8 +97,7 @@ def detect_hotbar_item_thread(slot_index):
     announce_attachments = get_config_boolean(config, 'SETTINGS', 'AnnounceWeaponAttachments', True)
 
     def check_slot(coord):
-        with sct_lock:
-            screenshot = cv2.cvtColor(np.array(sct.grab(coord)), cv2.COLOR_RGBA2RGB)
+        screenshot = cv2.cvtColor(np.array(sct.grab(coord)), cv2.COLOR_RGBA2RGB)
         return max(((name, pixel_based_matching(screenshot, ref_img)) 
                     for name, ref_img in reference_images.items()), 
                    key=lambda x: x[1])
@@ -110,34 +111,15 @@ def detect_hotbar_item_thread(slot_index):
     if best_score > CONFIDENCE_THRESHOLD and not stop_event.is_set():
         speaker.speak(best_match_name)
         
-        if announce_attachments:
-            time.sleep(0.05)
-            
-            detected_attachments = []
-            y_coord = 915
-            for i, x_coord in enumerate(ATTACHMENT_COORDS[slot_index]):
-                with sct_lock:
-                    screenshot = np.array(sct.grab({'left': x_coord, 'top': y_coord, 'width': 1, 'height': 1}))
-                color = screenshot[0, 0, :3]
-                if tuple(color) == (255, 255, 255):
-                    detected_attachments.append(ATTACHMENTS[i])
-            
-            if detected_attachments and not stop_event.is_set():
-                if len(detected_attachments) == 1:
-                    attachment_message = f"with a {detected_attachments[0]}"
-                else:
-                    attachment_message = "with a " + ", ".join(detected_attachments[:-1]) + f", and {detected_attachments[-1]}"
-                speaker.speak(attachment_message)  # Directly speak the attachment message
-        
+        # Detect ammo first
         if easyocr_available and not stop_event.is_set():
             try:
-                with sct_lock:
-                    current_ammo_screenshot = np.array(sct.grab({'left': CURRENT_AMMO_COORDS[0], 'top': CURRENT_AMMO_COORDS[1], 
-                                                                 'width': CURRENT_AMMO_COORDS[2] - CURRENT_AMMO_COORDS[0], 
-                                                                 'height': CURRENT_AMMO_COORDS[3] - CURRENT_AMMO_COORDS[1]}))
-                    reserve_ammo_screenshot = np.array(sct.grab({'left': RESERVE_AMMO_COORDS[0], 'top': RESERVE_AMMO_COORDS[1], 
-                                                                 'width': RESERVE_AMMO_COORDS[2] - RESERVE_AMMO_COORDS[0], 
-                                                                 'height': RESERVE_AMMO_COORDS[3] - RESERVE_AMMO_COORDS[1]}))
+                current_ammo_screenshot = np.array(sct.grab({'left': CURRENT_AMMO_COORDS[0], 'top': CURRENT_AMMO_COORDS[1], 
+                                                             'width': CURRENT_AMMO_COORDS[2] - CURRENT_AMMO_COORDS[0], 
+                                                             'height': CURRENT_AMMO_COORDS[3] - CURRENT_AMMO_COORDS[1]}))
+                reserve_ammo_screenshot = np.array(sct.grab({'left': RESERVE_AMMO_COORDS[0], 'top': RESERVE_AMMO_COORDS[1], 
+                                                             'width': RESERVE_AMMO_COORDS[2] - RESERVE_AMMO_COORDS[0], 
+                                                             'height': RESERVE_AMMO_COORDS[3] - RESERVE_AMMO_COORDS[1]}))
                 
                 current_ammo = process_ammo_ocr(current_ammo_screenshot)
                 reserve_ammo = process_ammo_ocr(reserve_ammo_screenshot)
@@ -152,6 +134,55 @@ def detect_hotbar_item_thread(slot_index):
                 print(f"Error during OCR: {e}")
         elif not easyocr_available:
             print("Skipping ammo detection")
+        
+        # Then detect and announce attachments
+        if announce_attachments:
+            time.sleep(0.3)  # 0.3 second delay to allow the icons to appear
+            
+            detected_attachments = detect_attachments(sct)
+            
+            if detected_attachments and not stop_event.is_set():
+                attachment_message = "with "
+                attachment_list = []
+                for attachment_type in ["Scope", "Magazine", "Underbarrel", "Barrel"]:
+                    if attachment_type in detected_attachments:
+                        attachment_list.append(f"a {detected_attachments[attachment_type]}")
+                
+                if len(attachment_list) > 0:
+                    attachment_message += ", ".join(attachment_list[:-1])
+                    if len(attachment_list) > 1:
+                        attachment_message += f", and {attachment_list[-1]}"
+                    else:
+                        attachment_message += attachment_list[-1]
+                    speaker.speak(attachment_message)
+
+def detect_attachments(sct):
+    screenshot = np.array(sct.grab({'left': ATTACHMENT_DETECTION_AREA[0], 'top': ATTACHMENT_DETECTION_AREA[1], 
+                                    'width': ATTACHMENT_DETECTION_AREA[2] - ATTACHMENT_DETECTION_AREA[0], 
+                                    'height': ATTACHMENT_DETECTION_AREA[3] - ATTACHMENT_DETECTION_AREA[1]}))
+    
+    # Convert screenshot to binary image (only pure white pixels)
+    _, binary_screenshot = cv2.threshold(cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY), 254, 255, cv2.THRESH_BINARY)
+    
+    detected_attachments = {}
+    attachment_order = ["Scope", "Magazine", "Underbarrel", "Barrel"]
+    
+    for attachment_type in attachment_order:
+        best_match = None
+        best_score = 0
+        
+        for name, template in attachment_images[attachment_type].items():
+            result = cv2.matchTemplate(binary_screenshot, template, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(result)
+            
+            if max_val > best_score:
+                best_score = max_val
+                best_match = name
+        
+        if best_match and best_score > CONFIDENCE_THRESHOLD:
+            detected_attachments[attachment_type] = best_match
+    
+    return detected_attachments
 
 def process_ammo_ocr(screenshot):
     gray = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
@@ -174,7 +205,36 @@ def process_ammo_ocr(screenshot):
         print("OCR didn't detect any text in the ammo area.")
         return None
 
+def announce_ammo():
+    if not easyocr_available:
+        print("EasyOCR is not available. Cannot detect ammo.")
+        return
+
+    try:
+        with mss() as sct:
+            current_ammo_screenshot = np.array(sct.grab({'left': CURRENT_AMMO_COORDS[0], 'top': CURRENT_AMMO_COORDS[1], 
+                                                         'width': CURRENT_AMMO_COORDS[2] - CURRENT_AMMO_COORDS[0], 
+                                                         'height': CURRENT_AMMO_COORDS[3] - CURRENT_AMMO_COORDS[1]}))
+            reserve_ammo_screenshot = np.array(sct.grab({'left': RESERVE_AMMO_COORDS[0], 'top': RESERVE_AMMO_COORDS[1], 
+                                                         'width': RESERVE_AMMO_COORDS[2] - RESERVE_AMMO_COORDS[0], 
+                                                         'height': RESERVE_AMMO_COORDS[3] - RESERVE_AMMO_COORDS[1]}))
+        
+        current_ammo = process_ammo_ocr(current_ammo_screenshot)
+        reserve_ammo = process_ammo_ocr(reserve_ammo_screenshot)
+        
+        if current_ammo is not None or reserve_ammo is not None:
+            current_ammo = current_ammo or 0
+            reserve_ammo = reserve_ammo or 0
+            speaker.speak(f"You have {current_ammo} ammo in the mag and {reserve_ammo} ammo in reserves")
+        else:
+            print("OCR failed to detect any ammo values.")
+            speaker.speak("Unable to detect ammo count")
+    except Exception as e:
+        print(f"Error during ammo detection: {e}")
+        speaker.speak("Error detecting ammo count")
+
 def initialize_hotbar_detection():
     load_reference_images()
+    load_attachment_images()
     if not easyocr_available:
         print("EasyOCR is not available. Please ensure you have EasyOCR installed by running 'pip install easyocr' in any Terminal window.")
