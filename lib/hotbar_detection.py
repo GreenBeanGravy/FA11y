@@ -6,7 +6,6 @@ from mss import mss
 from accessible_output2.outputs.auto import Auto
 import easyocr
 from threading import Thread, Event, Lock
-from queue import Queue, Empty
 import configparser
 from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean
 
@@ -50,7 +49,6 @@ sct = mss()
 
 current_detection_thread = None
 stop_event = Event()
-speech_queue = Queue()
 
 def load_reference_images():
     slot_width, slot_height = SLOT_COORDS[0][2] - SLOT_COORDS[0][0], SLOT_COORDS[0][3] - SLOT_COORDS[0][1]
@@ -66,15 +64,6 @@ def pixel_based_matching(screenshot, template, threshold=30):
     diff = np.abs(screenshot.astype(np.int32) - template.astype(np.int32))
     matching_pixels = np.sum(np.all(diff <= threshold, axis=2))
     return matching_pixels / (screenshot.shape[0] * screenshot.shape[1])
-
-def speak_thread():
-    while True:
-        try:
-            message = speech_queue.get(timeout=0.1)
-            speaker.speak(message)
-            speech_queue.task_done()
-        except Empty:
-            continue
 
 def detect_hotbar_item(slot_index):
     global current_detection_thread, stop_event
@@ -111,7 +100,7 @@ def detect_hotbar_item_thread(slot_index):
         best_match_name, best_score = check_slot(SECONDARY_SLOT_COORDS[slot_index])
     
     if best_score > CONFIDENCE_THRESHOLD and not stop_event.is_set():
-        speech_queue.put(best_match_name)
+        speaker.speak(best_match_name)  # Directly speak the best match name
         
         if announce_attachments:
             time.sleep(0.05)
@@ -130,7 +119,7 @@ def detect_hotbar_item_thread(slot_index):
                     attachment_message = f"with a {detected_attachments[0]}"
                 else:
                     attachment_message = "with a " + ", ".join(detected_attachments[:-1]) + f", and {detected_attachments[-1]}"
-                speech_queue.put(attachment_message)
+                speaker.speak(attachment_message)  # Directly speak the attachment message
         
         time.sleep(0.05)
         
@@ -147,9 +136,7 @@ def detect_hotbar_item_thread(slot_index):
             results = reader.readtext(binary)
             if results and not stop_event.is_set():
                 ammo_text = results[0][1]
-                speech_queue.put(f"with {ammo_text} ammo")
+                speaker.speak(f"with {ammo_text} ammo in reserves")  # Directly speak the ammo text
 
 def initialize_hotbar_detection():
     load_reference_images()
-    speech_thread = Thread(target=speak_thread, daemon=True)
-    speech_thread.start()
