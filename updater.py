@@ -1,12 +1,18 @@
 import os
 import sys
 import subprocess
-import importlib.util
-from functools import lru_cache
 import shutil
 import time
 import concurrent.futures
-import requests
+
+# Ensure the "requests" library is installed before importing it
+try:
+    import requests
+except ImportError:
+    subprocess.run([sys.executable, '-m', 'pip', 'install', 'requests'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    import requests
+
+from functools import lru_cache
 
 # Set the command window title
 os.system("title FA11y")
@@ -15,23 +21,11 @@ os.system("title FA11y")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Configuration
-AUTO_UPDATE_UPDATER = True
+AUTO_UPDATE_UPDATER = False
 MAX_RESTARTS = 3
 
 def print_info(message):
     print(message)
-
-def check_and_install_module(module):
-    try:
-        if importlib.util.find_spec(module) is None:
-            print_info(f"Installing module: {module}")
-            subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
-                           check=True, capture_output=True)
-            return True
-        return False
-    except subprocess.CalledProcessError:
-        print_info(f"Failed to install module: {module}")
-        return False
 
 def install_required_modules():
     modules = ['requests', 'psutil']
@@ -43,24 +37,24 @@ def install_required_modules():
         modules.append('pywin32')
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        results = list(executor.map(check_and_install_module, modules))
-    
-    return any(results)
+        executor.map(lambda module: subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', module],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ), modules)
 
 def install_accessible_output2():
     module = 'accessible_output2'
-    if importlib.util.find_spec(module) is None:
-        wheel_path = os.path.join(os.getcwd(), 'whls', 'accessible_output2-0.17-py2.py3-none-any.whl')
+    wheel_path = os.path.join(os.getcwd(), 'whls', 'accessible_output2-0.17-py2.py3-none-any.whl')
+    try:
+        print_info(f"Installing {module} from wheel")
+        subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
         try:
-            print_info(f"Installing {module} from wheel")
-            subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], check=True, capture_output=True)
+            print_info(f"Installing {module} from PyPI")
+            subprocess.run([sys.executable, '-m', 'pip', 'install', module], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError:
-            try:
-                print_info(f"Installing {module} from PyPI")
-                subprocess.run([sys.executable, '-m', 'pip', 'install', module], check=True, capture_output=True)
-            except subprocess.CalledProcessError:
-                print_info(f"Failed to install {module}")
-                return False
+            print_info(f"Failed to install {module}")
+            return False
     return True
 
 def download_file_to_path(url, path):
@@ -95,11 +89,9 @@ def install_required_modules_and_whls():
         print_info(f"Maximum restarts ({MAX_RESTARTS}) reached. Continuing without further restarts.")
         return
 
-    if install_required_modules():
-        print_info("New modules installed. Restarting updater.")
-        os.environ['UPDATER_RESTART_COUNT'] = str(restart_count + 1)
-        os.execv(sys.executable, ['python'] + sys.argv)
-    
+    install_required_modules()
+    print_info("Modules installed.")
+
     if not os.path.exists('whls'):
         download_folder("GreenBeanGravy/FA11y", "main", "whls")
 
@@ -263,6 +255,7 @@ def install_requirements():
     except subprocess.CalledProcessError as e:
         print_info(f"Failed to install requirements: {e}")
         return False
+
 
 def get_version(repo):
     url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
