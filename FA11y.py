@@ -46,6 +46,7 @@ from lib.guis.config_gui import create_config_gui
 from lib.exit_match import exit_match
 from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item
 from lib.ppi import find_player_position, get_player_position_description
+from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean, read_config, update_config
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -57,62 +58,6 @@ update_sound = pygame.mixer.Sound("sounds/update.ogg")
 REPO_OWNER = "GreenBeanGravy"
 REPO_NAME = "FA11y"
 API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/main"
-
-# Constants
-CONFIG_FILE = 'config.txt'
-DEFAULT_CONFIG = """[SETTINGS]
-MouseKeys = true
-UsingResetSensitivity = false
-AnnounceWeaponAttachments = true
-EnableAutoUpdates = true
-CreateDesktopShortcut = true
-AutoTurn = true
-TurnSensitivity = 100
-SecondaryTurnSensitivity = 50
-TurnAroundSensitivity = 1158
-ScrollAmount = 120
-RecenterDelay = 0.01
-TurnDelay = 0.01
-TurnSteps = 5
-RecenterSteps = 20
-RecenterStepDelay = 2
-RecenterStepSpeed = 0
-RecenterVerticalMove = 1500
-RecenterVerticalMoveBack = -820
-SecondaryRecenterVerticalMove = 1500
-SecondaryRecenterVerticalMoveBack = -580
-
-[SCRIPT KEYBINDS]
-Locate Player Icon = grave
-Get Current Coordinates = c
-Fire = lctrl
-Target = rctrl
-Turn Left = num 1
-Turn Right = num 3
-SecondaryTurn Left = num 4
-SecondaryTurn Right = num 6
-Look Up = num 8
-Look Down = num 2
-Turn Around = num 0
-Recenter = num 5
-Scroll Up = num 7
-Scroll Down = num 9
-Speak Minimap Direction = semicolon
-Check Health Shields = h
-Check Rarity = bracketleft
-Select POI = bracketright
-Create Custom POI = backslash
-Select Gamemode = apostrophe
-Open Configuration = f9
-Exit Match = f12
-Detect Hotbar 1 = 1
-Detect Hotbar 2 = 2
-Detect Hotbar 3 = 3
-Detect Hotbar 4 = 4
-Detect Hotbar 5 = 5
-
-[POI]
-selected_poi = closest, 0, 0"""
 
 # Combine VK_NUMPAD and SPECIAL_KEYS into a single dictionary
 VK_KEYS = {
@@ -188,17 +133,17 @@ def check_white_pixel():
 
 def handle_movement(action, reset_sensitivity):
     global config
-    turn_sensitivity = config.getint('SETTINGS', 'TurnSensitivity', fallback=100)
-    secondary_turn_sensitivity = config.getint('SETTINGS', 'SecondaryTurnSensitivity', fallback=50)
-    turn_delay = config.getfloat('SETTINGS', 'TurnDelay', fallback=0.01)
-    turn_steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
-    recenter_delay = config.getfloat('SETTINGS', 'RecenterDelay', fallback=0.05)
-    recenter_steps = config.getint('SETTINGS', 'RecenterSteps', fallback=10)
-    recenter_step_delay = config.getfloat('SETTINGS', 'RecenterStepDelay', fallback=0) / 1000
-    recenter_step_speed = config.getint('SETTINGS', 'RecenterStepSpeed', fallback=150)
+    turn_sensitivity = get_config_int(config, 'SETTINGS', 'TurnSensitivity', 100)
+    secondary_turn_sensitivity = get_config_int(config, 'SETTINGS', 'SecondaryTurnSensitivity', 50)
+    turn_delay = get_config_float(config, 'SETTINGS', 'TurnDelay', 0.01)
+    turn_steps = get_config_int(config, 'SETTINGS', 'TurnSteps', 5)
+    recenter_delay = get_config_float(config, 'SETTINGS', 'RecenterDelay', 0.05)
+    recenter_steps = get_config_int(config, 'SETTINGS', 'RecenterSteps', 10)
+    recenter_step_delay = get_config_float(config, 'SETTINGS', 'RecenterStepDelay', 0) / 1000
+    recenter_step_speed = get_config_int(config, 'SETTINGS', 'RecenterStepSpeed', 0)
     x_move, y_move = 0, 0
 
-    if action in ['turn left', 'turn right', 'secondaryturn left', 'secondaryturn right', 'look up', 'look down']:
+    if action in ['turn left', 'turn right', 'secondary turn left', 'secondary turn right', 'look up', 'look down']:
         sensitivity = secondary_turn_sensitivity if 'secondary' in action else turn_sensitivity
         if 'left' in action:
             x_move = -sensitivity
@@ -212,16 +157,16 @@ def handle_movement(action, reset_sensitivity):
         smooth_move_mouse(x_move, y_move, turn_delay, turn_steps)
         return
     elif action == 'turn around':
-        x_move = config.getint('SETTINGS', 'TurnAroundSensitivity', fallback=1158)
+        x_move = get_config_int(config, 'SETTINGS', 'TurnAroundSensitivity', 1158)
         smooth_move_mouse(x_move, 0, turn_delay, turn_steps)
         return
     elif action == 'recenter':
         if reset_sensitivity:
-            recenter_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMove', fallback=1500)
-            down_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMoveBack', fallback=-580)
+            recenter_move = get_config_int(config, 'SETTINGS', 'ResetRecenterLookDown', 1500)
+            down_move = get_config_int(config, 'SETTINGS', 'ResetRecenterLookUp', -580)
         else:
-            recenter_move = config.getint('SETTINGS', 'RecenterVerticalMove', fallback=1500)
-            down_move = config.getint('SETTINGS', 'RecenterVerticalMoveBack', fallback=-820)
+            recenter_move = get_config_int(config, 'SETTINGS', 'RecenterLookDown', 1500)
+            down_move = get_config_int(config, 'SETTINGS', 'RecenterLookUp', -820)
         
         smooth_move_mouse(0, recenter_move, recenter_step_delay, recenter_steps, recenter_step_speed, down_move, recenter_delay)
         speaker.speak("Reset Camera")
@@ -243,69 +188,62 @@ def normalize_key(key):
 
 def handle_scroll(action):
     global config
-    scroll_amount = config.getint('SETTINGS', 'ScrollAmount', fallback=120)
+    scroll_sensitivity = get_config_int(config, 'SETTINGS', 'ScrollSensitivity', 120)
     if action == 'scroll down':
-        scroll_amount = -scroll_amount
-    mouse_scroll(scroll_amount)
+        scroll_sensitivity = -scroll_sensitivity
+    mouse_scroll(scroll_sensitivity)
 
-def update_config(config):
-    default_config = configparser.ConfigParser(interpolation=None)
-    default_config.optionxform = str
-    default_config.read_string(DEFAULT_CONFIG)
+def reload_config():
+    global config, action_handlers, key_bindings
+    config = read_config()
     
-    updated = False
+    key_bindings = {key.lower(): get_config_value(config, 'SCRIPT KEYBINDS', key)[0].lower() 
+                    for key in config['SCRIPT KEYBINDS'] if get_config_value(config, 'SCRIPT KEYBINDS', key)[0]}
     
-    for section in default_config.sections():
-        if not config.has_section(section):
-            config.add_section(section)
-            updated = True
-        
-        new_section = {}
-        existing_keys = {k.lower(): (k, config[section][k]) for k in config[section]}
-        
-        for key, default_value in default_config.items(section):
-            lower_key = key.lower()
-            if lower_key in existing_keys:
-                original_key, value = existing_keys[lower_key]
-                if original_key != key:
-                    updated = True
-                new_section[key] = value
-            else:
-                new_section[key] = default_value
-                updated = True
-        
-        config[section] = new_section
+    mouse_keys_enabled = get_config_boolean(config, 'SETTINGS', 'MouseKeys', True)
+    reset_sensitivity = get_config_boolean(config, 'SETTINGS', 'ResetSensitivity', False)
     
-    # Always rewrite the config file to ensure order is maintained
-    with open(CONFIG_FILE, 'w') as configfile:
-        config.write(configfile)
+    action_handlers.clear()
     
-    if updated:
-        print(f"Updated config file: {CONFIG_FILE}")
-    
-    return config
+    action_handlers['start navigation'] = lambda: start_icon_detection(use_ppi=check_white_pixel())
 
-def read_config():
-    config = configparser.ConfigParser(interpolation=None)
-    config.optionxform = str
+    if mouse_keys_enabled:
+        action_handlers.update({
+            'fire': left_mouse_down,
+            'target': right_mouse_down,
+            'turn left': lambda: handle_movement('turn left', reset_sensitivity),
+            'turn right': lambda: handle_movement('turn right', reset_sensitivity),
+            'secondary turn left': lambda: handle_movement('secondary turn left', reset_sensitivity),
+            'secondary turn right': lambda: handle_movement('secondary turn right', reset_sensitivity),
+            'look up': lambda: handle_movement('look up', reset_sensitivity),
+            'look down': lambda: handle_movement('look down', reset_sensitivity),
+            'turn around': lambda: handle_movement('turn around', reset_sensitivity),
+            'recenter': lambda: handle_movement('recenter', reset_sensitivity),
+            'scroll up': lambda: handle_scroll('scroll up'),
+            'scroll down': lambda: handle_scroll('scroll down')
+        })
     
-    if not os.path.exists(CONFIG_FILE):
-        config.read_string(DEFAULT_CONFIG)
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-        print(f"Created new config file: {CONFIG_FILE}")
-    else:
-        config.read(CONFIG_FILE)
-        config = update_config(config)
+    action_handlers.update({
+        'announce direction faced': speak_minimap_direction,
+        'check health shields': check_health_shields,
+        'check rarity': check_rarity,
+        'open p o i selector': select_poi_tk,
+        'open gamemode selector': select_gamemode_tk,
+        'open configuration menu': open_config_gui,
+        'exit match': exit_match,
+        'get current coordinates': speak_current_coordinates,
+        'create custom p o i': create_custom_poi_gui
+    })
     
-    return config
+    for i in range(1, 6):
+        action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
 
 def key_listener():
     global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open
     while not stop_key_listener.is_set():
         if not config_gui_open.is_set():
             numlock_on = is_numlock_on()
-            mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
+            mouse_keys_enabled = get_config_boolean(config, 'SETTINGS', 'MouseKeys', True)
 
             for action, key in key_bindings.items():
                 if not key:
@@ -318,7 +256,7 @@ def key_listener():
                 if action_lower not in action_handlers:
                     continue
 
-                if not mouse_keys_enabled and action_lower in ['fire', 'target', 'turn left', 'turn right', 'secondaryturn left', 'secondaryturn right', 'look up', 'look down', 'turn around', 'recenter', 'scroll up', 'scroll down']:
+                if not mouse_keys_enabled and action_lower in ['fire', 'target', 'turn left', 'turn right', 'secondary turn left', 'secondary turn right', 'look up', 'look down', 'turn around', 'recenter', 'scroll up', 'scroll down']:
                     continue
 
                 if action_lower in ['fire', 'target'] and not numlock_on:
@@ -351,49 +289,6 @@ def create_desktop_shortcut():
     shortcut.WorkingDirectory = wDir
     shortcut.save()
 
-def reload_config():
-    global config, action_handlers, key_bindings
-    config = read_config()
-    
-    key_bindings = {key.lower(): value.lower() for key, value in config.items('SCRIPT KEYBINDS') if value}
-    
-    mouse_keys_enabled = config.getboolean('SETTINGS', 'MouseKeys', fallback=True)
-    reset_sensitivity = config.getboolean('SETTINGS', 'UsingResetSensitivity', fallback=False)
-    
-    action_handlers.clear()
-    
-    action_handlers['locate player icon'] = lambda: start_icon_detection(use_ppi=check_white_pixel())
-
-    if mouse_keys_enabled:
-        action_handlers.update({
-            'fire': left_mouse_down,
-            'target': right_mouse_down,
-            'turn left': lambda: handle_movement('turn left', reset_sensitivity),
-            'turn right': lambda: handle_movement('turn right', reset_sensitivity),
-            'secondaryturn left': lambda: handle_movement('secondaryturn left', reset_sensitivity),
-            'secondaryturn right': lambda: handle_movement('secondaryturn right', reset_sensitivity),
-            'look up': lambda: handle_movement('look up', reset_sensitivity),
-            'look down': lambda: handle_movement('look down', reset_sensitivity),
-            'turn around': lambda: handle_movement('turn around', reset_sensitivity),
-            'recenter': lambda: handle_movement('recenter', reset_sensitivity),
-            'scroll up': lambda: handle_scroll('scroll up'),
-            'scroll down': lambda: handle_scroll('scroll down')
-        })
-    
-    action_handlers.update({
-        'speak minimap direction': speak_minimap_direction,
-        'check health shields': check_health_shields,
-        'check rarity': check_rarity,
-        'select poi': select_poi_tk,
-        'select gamemode': select_gamemode_tk,
-        'open configuration': open_config_gui,
-        'exit match': exit_match,
-        'get current coordinates': speak_current_coordinates,
-        'create custom poi': create_custom_poi_gui
-    })
-    
-    for i in range(1, 6):
-        action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
 
 def update_script_config(new_config):
     global config, key_listener_thread, stop_key_listener
@@ -496,11 +391,11 @@ def main():
         
         config = read_config()
 
-        if config.getboolean('SETTINGS', 'EnableAutoUpdates', fallback=True):
+        if get_config_boolean(config, 'SETTINGS', 'AutoUpdates', True):
             if run_updater():
                 sys.exit(0)
 
-        if config.getboolean('SETTINGS', 'CreateDesktopShortcut', fallback=True):
+        if get_config_boolean(config, 'SETTINGS', 'CreateDesktopShortcut', True):
             create_desktop_shortcut()
 
         reload_config()

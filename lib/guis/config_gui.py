@@ -6,7 +6,8 @@ import os
 import re
 import win32api
 import win32con
-from lib.utilities import force_focus_window
+from lib.utilities import force_focus_window, get_config_int, get_config_float, get_config_value, get_config_boolean
+
 
 speaker = Auto()
 
@@ -139,10 +140,9 @@ def create_config_gui(update_script_callback):
     keybind_map = {}  # To keep track of which action is bound to which key
 
     for section in config.sections():
-        for key, value in config.items(section):
-            var = tk.StringVar(value=value)
-            variables[(section, key)] = var
-
+        for key in config[section]:
+            value, description = get_config_value(config, section, key)
+            
             frame = ttk.Frame(pages[section])
             frame.pack(fill='x', padx=5, pady=5)
 
@@ -150,21 +150,29 @@ def create_config_gui(update_script_callback):
             label.pack(side='left')
 
             if section == 'SCRIPT KEYBINDS':
+                var = tk.StringVar(value=value)
                 widget = ttk.Entry(frame, textvariable=var, state='readonly')
                 if value:  # Only add to keybind_map if there's a value
                     keybind_map[value.lower()] = key
             elif value.lower() in ['true', 'false']:
-                widget = ttk.Checkbutton(frame, variable=var, onvalue='True', offvalue='False')
+                var = tk.BooleanVar(value=value.lower() == 'true')
+                widget = ttk.Checkbutton(frame, variable=var, onvalue=True, offvalue=False)
                 widget.state(['!alternate'])
                 if value.lower() == 'true':
                     widget.state(['selected'])
                 else:
                     widget.state(['!selected'])
             else:
+                var = tk.StringVar(value=value)
                 widget = ttk.Entry(frame, textvariable=var, state='readonly')
+            
             widget.pack(side='right', expand=True, fill='x')
             widgets.append(widget)
             widgets_by_tab[section].append(widget)
+            variables[(section, key)] = var
+
+            # Store the description as an attribute of the widget
+            widget.description = description
 
     def on_tab_change(event):
         tab = event.widget.tab('current')['text']
@@ -232,7 +240,8 @@ def create_config_gui(update_script_callback):
         text = get_widget_text(next_widget)
         value = get_widget_value(next_widget)
         hint = get_navigation_hint(next_widget)
-        speak(f"{text}, {value}, {hint}")
+        description = getattr(next_widget, 'description', '')
+        speak(f"{text}, {value}, {hint}. {description}")
         return "break"
 
     def on_keybind_focus(event, key):
@@ -328,7 +337,12 @@ def create_config_gui(update_script_callback):
 
     def save_and_close():
         for (section, key), var in variables.items():
-            config[section][key] = var.get()
+            description = getattr(widgets[list(variables.keys()).index((section, key))], 'description', '')
+            if isinstance(var, tk.BooleanVar):
+                value = 'true' if var.get() else 'false'
+            else:
+                value = var.get()
+            config[section][key] = f"{value} \"{description}\""
         save_config(config)
         update_script_callback(config)
         speak("Configuration saved and applied")
@@ -377,7 +391,8 @@ def create_config_gui(update_script_callback):
         text = get_widget_text(first_widget)
         value = get_widget_value(first_widget)
         hint = get_navigation_hint(first_widget)
-        speak(f"{first_tab} tab. {text}, {value}, {hint}")
+        description = getattr(first_widget, 'description', '')
+        speak(f"{first_tab} tab. {text}, {value}, {hint}. {description}")
 
     root.after(100, lambda: force_focus_window(root, "Press H for help!", focus_first_widget))
 

@@ -8,6 +8,7 @@ import easyocr
 from threading import Thread, Event, Lock
 from queue import Queue, Empty
 import configparser
+from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean
 
 # Coordinate and slot configurations
 SLOT_COORDS = [
@@ -94,7 +95,7 @@ def detect_hotbar_item_thread(slot_index):
     # Load configuration
     config = configparser.ConfigParser()
     config.read('config.txt')
-    announce_attachments = config.getboolean('SETTINGS', 'AnnounceWeaponAttachments', fallback=True)
+    announce_attachments = get_config_boolean(config, 'SETTINGS', 'AnnounceWeaponAttachments', True)
 
     def check_slot(coord):
         with sct_lock:

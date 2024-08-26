@@ -12,6 +12,7 @@ from lib.minimap_direction import find_minimap_icon_direction
 from lib.mouse import smooth_move_mouse
 from lib.player_location import find_player_icon_location, find_player_icon_location_with_direction, get_player_position_description, calculate_poi_info, generate_poi_message
 from lib.ppi import find_player_position, get_player_position_description
+from lib.utilities import get_config_boolean
 
 pyautogui.FAILSAFE = False
 speaker = Auto()
@@ -25,9 +26,12 @@ def load_poi_from_file():
         return [tuple(line.strip().split(',')) for line in file]
 
 def find_closest_poi(icon_location, poi_list):
+    if not icon_location or not poi_list:
+        return None, None
     distances = [(poi, (int(x), int(y)), np.linalg.norm(np.array(icon_location) - np.array([int(x), int(y)])) * 3.25) 
                  for poi, x, y in poi_list]
-    return min(distances, key=lambda x: x[2], default=(None, None, float('inf')))[:2]
+    closest = min(distances, key=lambda x: x[2], default=(None, None, float('inf')))
+    return closest[0], closest[1]
 
 def load_config():
     config = configparser.ConfigParser()
@@ -81,21 +85,7 @@ def icon_detection_cycle(selected_poi, use_ppi):
 
     config = configparser.ConfigParser()
     config.read('CONFIG.txt')
-    auto_turn_enabled = config.getboolean('SETTINGS', 'AutoTurn', fallback=False)
-
-    poi_data = handle_poi_selection(selected_poi, None)  # We pass None as we don't have player_location yet
-    print(f"POI data: {poi_data}")
-    
-    if poi_data[1] is None:  # Check if coordinates are None
-        print(f"{poi_data[0]} not located.")
-        speaker.speak(f"{poi_data[0]} not located.")
-        return
-
-    # Perform click sequence immediately if not using PPI
-    if not use_ppi:
-        pyautogui.moveTo(poi_data[1][0], poi_data[1][1])
-        pyautogui.rightClick()
-        pyautogui.click()
+    auto_turn_enabled = get_config_boolean(config, 'SETTINGS', 'AutoTurn', False)
 
     if use_ppi:
         player_location = find_player_position()
@@ -111,6 +101,20 @@ def icon_detection_cycle(selected_poi, use_ppi):
             player_location, player_angle = None, None
         else:
             player_location, player_angle = player_info
+
+    poi_data = handle_poi_selection(selected_poi, player_location)
+    print(f"POI data: {poi_data}")
+    
+    if poi_data[1] is None:  # Check if coordinates are None
+        print(f"{poi_data[0]} not located.")
+        speaker.speak(f"{poi_data[0]} not located.")
+        return
+
+    # Perform click sequence immediately if not using PPI
+    if not use_ppi:
+        pyautogui.moveTo(poi_data[1][0], poi_data[1][1])
+        pyautogui.rightClick()
+        pyautogui.click()
 
     if player_angle is None:
         _, player_angle = find_minimap_icon_direction()
@@ -241,7 +245,13 @@ def handle_poi_selection(selected_poi, center_mass_screen):
         return 'Safe Zone', start_storm_detection()
     elif poi_name == 'closest':
         print("Finding closest POI")
-        return find_closest_poi(center_mass_screen, load_poi_from_file()) if center_mass_screen else (None, None)
+        if center_mass_screen is None:
+            center_mass_screen = find_player_icon_location()
+        if center_mass_screen:
+            return find_closest_poi(center_mass_screen, load_poi_from_file())
+        else:
+            print("Could not determine player location for finding closest POI")
+            return "Closest", None
     else:
         # Check if it's a game object
         if poi_name in OBJECT_CONFIGS or poi_name.replace(' ', '_') in OBJECT_CONFIGS:

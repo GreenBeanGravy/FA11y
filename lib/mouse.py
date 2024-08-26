@@ -3,6 +3,7 @@ import time
 import threading
 from typing import Tuple, Dict, Callable
 import configparser
+from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean, read_config
 
 # Constants
 VK_NUMLOCK = 0x90
@@ -33,15 +34,15 @@ get_async_key_state = ctypes.windll.user32.GetAsyncKeyState
 get_key_state = ctypes.windll.user32.GetKeyState
 
 # Global configuration
-config = configparser.ConfigParser()
-config.read('config.txt')
+
+config = read_config()
 
 def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, step_speed: int = None, second_dy: int = None, recenter_delay: float = None):
     print(f"Smooth moving mouse by dx: {dx}, dy: {dy} MICKEYS, step_delay: {step_delay}, steps: {steps}, step_speed: {step_speed}, second_dy: {second_dy}")
     if steps is None:
-        steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
+        steps = get_config_int(config, 'SETTINGS', 'TurnSteps', 5)
     if step_speed is None:
-        step_speed = config.getint('SETTINGS', 'RecenterStepSpeed', fallback=0)
+        step_speed = get_config_int(config, 'SETTINGS', 'RecenterStepSpeed', 0)
     
     step_speed_seconds = step_speed / 1000.0 if step_speed > 0 else step_delay
     
@@ -117,20 +118,20 @@ def mouse_movement():
     numpad_keys = [VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD5, VK_NUMPAD7, VK_NUMPAD9, VK_NUMPAD2, VK_NUMPAD8, VK_NUMPAD0, VK_NUMPAD4, VK_NUMPAD6]
     control_keys = [VK_LCONTROL, VK_RCONTROL]
     
-    turn_sensitivity = config.getint('SETTINGS', 'TurnSensitivity', fallback=100)
-    secondary_turn_sensitivity = config.getint('SETTINGS', 'SecondaryTurnSensitivity', fallback=50)
-    turn_around_sensitivity = config.getint('SETTINGS', 'TurnAroundSensitivity', fallback=1158)
-    scroll_amount = config.getint('SETTINGS', 'ScrollAmount', fallback=120)
-    recenter_vertical_move = config.getint('SETTINGS', 'RecenterVerticalMove', fallback=2000)
-    recenter_vertical_move_back = config.getint('SETTINGS', 'RecenterVerticalMoveBack', fallback=-820)
-    secondary_recenter_vertical_move = config.getint('SETTINGS', 'SecondaryRecenterVerticalMove', fallback=2000)
-    secondary_recenter_vertical_move_back = config.getint('SETTINGS', 'SecondaryRecenterVerticalMoveBack', fallback=-580)
-    turn_delay = config.getfloat('SETTINGS', 'TurnDelay', fallback=0.01)
-    turn_steps = config.getint('SETTINGS', 'TurnSteps', fallback=5)
-    recenter_delay = config.getfloat('SETTINGS', 'RecenterDelay', fallback=0.05)
-    recenter_steps = config.getint('SETTINGS', 'RecenterSteps', fallback=10)
-    recenter_step_delay = config.getfloat('SETTINGS', 'RecenterStepDelay', fallback=0) / 1000  # Convert ms to seconds
-    recenter_step_speed = config.getint('SETTINGS', 'RecenterStepSpeed', fallback=150)
+    turn_sensitivity = get_config_int(config, 'SETTINGS', 'TurnSensitivity', 100)
+    secondary_turn_sensitivity = get_config_int(config, 'SETTINGS', 'SecondaryTurnSensitivity', 50)
+    turn_around_sensitivity = get_config_int(config, 'SETTINGS', 'TurnAroundSensitivity', 1158)
+    scroll_amount = get_config_int(config, 'SETTINGS', 'ScrollSensitivity', 120)
+    recenter_vertical_move = get_config_int(config, 'SETTINGS', 'RecenterLookDown', 1500)
+    recenter_vertical_move_back = get_config_int(config, 'SETTINGS', 'RecenterLookUp', -820)
+    secondary_recenter_vertical_move = get_config_int(config, 'SETTINGS', 'ResetRecenterLookDown', 1500)
+    secondary_recenter_vertical_move_back = get_config_int(config, 'SETTINGS', 'ResetRecenterLookUp', -580)
+    turn_delay = get_config_float(config, 'SETTINGS', 'TurnDelay', 0.01)
+    turn_steps = get_config_int(config, 'SETTINGS', 'TurnSteps', 5)
+    recenter_delay = get_config_float(config, 'SETTINGS', 'RecenterDelay', 0.05)
+    recenter_steps = get_config_int(config, 'SETTINGS', 'RecenterSteps', 10)
+    recenter_step_delay = get_config_float(config, 'SETTINGS', 'RecenterStepDelay', 0) / 1000
+    recenter_step_speed = get_config_int(config, 'SETTINGS', 'RecenterStepSpeed', 0)
     
     numpad_actions: Dict[int, Callable] = {
         VK_NUMPAD1: lambda: smooth_move_mouse(-2 * turn_sensitivity, 0, turn_delay, turn_steps),
