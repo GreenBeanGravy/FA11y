@@ -100,7 +100,6 @@ Scroll Down = num 9 "Scrolls down on the current mouse position using the Scroll
 Start Navigation = grave "Starts the player navigation process based on the players selected P O I, Game Object, or location."
 Check Health Shields = h "Announces the players Health and Shield values."
 Get Current Coordinates = c "Gets the players current map coordinates when the full-screen map is open. Useful for relaying to teammates."
-Announce Ammo = j "Announces the current ammo count for the equipped weapon."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."
 Check Rarity = bracketleft "Announces the rarity of a selected item when the player is in the in-game inventory."
 Open P O I Selector = bracketright "Opens the P O I selector menu, used for choosing where you want to go."
