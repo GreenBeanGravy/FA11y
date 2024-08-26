@@ -4,10 +4,16 @@ import os
 import time
 from mss import mss
 from accessible_output2.outputs.auto import Auto
-import easyocr
 from threading import Thread, Event, Lock
 import configparser
 from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean
+
+# Attempt to import EasyOCR, but don't fail if it's not available
+try:
+    import easyocr
+    easyocr_available = True
+except ImportError:
+    easyocr_available = False
 
 # Coordinate and slot configurations
 SLOT_COORDS = [
@@ -44,8 +50,14 @@ AMMO_RESERVE_COORDS = [
 
 speaker = Auto()
 reference_images = {}
-reader = easyocr.Reader(['en'])
 sct = mss()
+
+if easyocr_available:
+    try:
+        reader = easyocr.Reader(['en'])
+    except Exception as e:
+        print(f"Error initializing EasyOCR: {e}")
+        easyocr_available = False
 
 current_detection_thread = None
 stop_event = Event()
@@ -79,7 +91,7 @@ def detect_hotbar_item(slot_index):
 
 def detect_hotbar_item_thread(slot_index):
     with sct_lock:
-        sct = mss()  # Create a new mss instance for this thread
+        sct = mss()
 
     # Load configuration
     config = configparser.ConfigParser()
@@ -100,7 +112,7 @@ def detect_hotbar_item_thread(slot_index):
         best_match_name, best_score = check_slot(SECONDARY_SLOT_COORDS[slot_index])
     
     if best_score > CONFIDENCE_THRESHOLD and not stop_event.is_set():
-        speaker.speak(best_match_name)  # Directly speak the best match name
+        speaker.speak(best_match_name)
         
         if announce_attachments:
             time.sleep(0.05)
@@ -123,20 +135,27 @@ def detect_hotbar_item_thread(slot_index):
         
         time.sleep(0.05)
         
-        if not stop_event.is_set():
-            ammo_coords = AMMO_RESERVE_COORDS[slot_index]
-            with sct_lock:
-                ammo_screenshot = np.array(sct.grab({'left': ammo_coords[0][0], 'top': ammo_coords[0][1], 
-                                                    'width': ammo_coords[1][0] - ammo_coords[0][0], 
-                                                    'height': ammo_coords[1][1] - ammo_coords[0][1]}))
-            
-            gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
-            _, binary = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-            
-            results = reader.readtext(binary)
-            if results and not stop_event.is_set():
-                ammo_text = results[0][1]
-                speaker.speak(f"with {ammo_text} ammo in reserves")  # Directly speak the ammo text
+        if easyocr_available and not stop_event.is_set():
+            try:
+                ammo_coords = AMMO_RESERVE_COORDS[slot_index]
+                with sct_lock:
+                    ammo_screenshot = np.array(sct.grab({'left': ammo_coords[0][0], 'top': ammo_coords[0][1], 
+                                                        'width': ammo_coords[1][0] - ammo_coords[0][0], 
+                                                        'height': ammo_coords[1][1] - ammo_coords[0][1]}))
+                
+                gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
+                _, binary = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+                
+                results = reader.readtext(binary)
+                if results and not stop_event.is_set():
+                    ammo_text = results[0][1]
+                    speaker.speak(f"with {ammo_text} ammo")
+            except Exception as e:
+                print(f"Error during OCR: {e}")
+        elif not easyocr_available:
+            print("Skipping ammo detection")
 
 def initialize_hotbar_detection():
     load_reference_images()
+    if not easyocr_available:
+        print("EasyOCR is not available. Please ensure you have EasyOCR installed by running "pip install EasyOCR" in any Terminal window.")
