@@ -212,13 +212,26 @@ def update_config(config):
         
         for key, value in default_config.items(section):
             lower_key = key.lower()
+            default_value, default_description = get_config_value(default_config, section, key)
+            
             if lower_key in existing_keys:
                 original_key, existing_value = existing_keys[lower_key]
+                existing_value, existing_description = get_config_value(config, section, original_key)
+                
                 if original_key != key:
                     updated = True
-                new_section[key] = existing_value
+                
+                # Preserve existing value, use default description if no existing description
+                new_value = f"{existing_value}"
+                if existing_description:
+                    new_value += f' "{existing_description}"'
+                elif default_description:
+                    new_value += f' "{default_description}"'
+                    updated = True
+                
+                new_section[key] = new_value
             else:
-                new_section[key] = value
+                new_section[key] = value  # This includes the default description
                 updated = True
         
         config[section] = new_section
