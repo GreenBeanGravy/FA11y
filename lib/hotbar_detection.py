@@ -32,10 +32,16 @@ AMMO_RESERVE_COORDS = [
 
 ATTACHMENT_DETECTION_AREA = (1240, 1000, 1410, 1070)
 
+DIVIDER_CHECK_COORDS = (1294, 936, 1335, 959)
+AMMO_Y_COORDS = {
+    'current': (929, 962),
+    'reserve': (936, 962)
+}
+
 speaker = Auto()
 reference_images = {}
 attachment_images = {}
-reader = easyocr.Reader(['en'])
+reader = easyocr.Reader(['en'], recognizer='number')
 
 current_detection_thread = None
 stop_event = Event()
@@ -95,26 +101,22 @@ def detect_hotbar_item_thread(slot_index):
     best_match_name, best_score = check_slot(SLOT_COORDS[slot_index])
     
     if best_score <= CONFIDENCE_THRESHOLD:
-        time.sleep(0.05)  # Reinstated delay
+        time.sleep(0.05)
         best_match_name, best_score = check_slot(SECONDARY_SLOT_COORDS[slot_index])
     
     if best_score > CONFIDENCE_THRESHOLD and not stop_event.is_set():
         speaker.speak(best_match_name)
+        time.sleep(0.05)
         
-        # Announce ammo first
+        # Announce ammo
         if not stop_event.is_set():
-            ammo_coords = AMMO_RESERVE_COORDS[slot_index]
-            ammo_screenshot = np.array(sct.grab({'left': ammo_coords[0][0], 'top': ammo_coords[0][1], 
-                                                'width': ammo_coords[1][0] - ammo_coords[0][0], 
-                                                'height': ammo_coords[1][1] - ammo_coords[0][1]}))
-            
-            gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
-            _, binary = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-            
-            results = reader.readtext(binary)
-            if results and not stop_event.is_set():
-                ammo_text = results[0][1]
-                speaker.speak(f"with {ammo_text} ammo")
+            current_ammo, reserve_ammo = detect_ammo(sct)
+            if current_ammo is not None or reserve_ammo is not None:
+                current_ammo = current_ammo or 0
+                reserve_ammo = reserve_ammo or 0
+                speaker.speak(f"with {current_ammo} ammo in the mag and {reserve_ammo} in reserves")
+            else:
+                print("OCR failed to detect any ammo values.")
         
         # Wait for 0.3 seconds before announcing attachments
         time.sleep(0.3)
@@ -137,6 +139,73 @@ def detect_hotbar_item_thread(slot_index):
                     else:
                         attachment_message += attachment_list[-1]
                     speaker.speak(attachment_message)
+
+def detect_ammo(sct):
+    divider_screenshot = np.array(sct.grab({'left': DIVIDER_CHECK_COORDS[0], 'top': DIVIDER_CHECK_COORDS[1], 
+                                            'width': DIVIDER_CHECK_COORDS[2] - DIVIDER_CHECK_COORDS[0], 
+                                            'height': DIVIDER_CHECK_COORDS[3] - DIVIDER_CHECK_COORDS[1]}))
+    
+    divider_template_path = os.path.join(ATTACHMENTS_FOLDER, "divider.png")
+    if not os.path.exists(divider_template_path):
+        print(f"Error: Divider template not found at {divider_template_path}")
+        return None, None
+    divider_template = cv2.imread(divider_template_path, 0)
+    if divider_template is None:
+        print(f"Error: Failed to read divider template from {divider_template_path}")
+        return None, None
+    gray_screenshot = cv2.cvtColor(divider_screenshot, cv2.COLOR_BGR2GRAY)
+    
+    # Apply threshold to make divider more distinct
+    _, binary_screenshot = cv2.threshold(gray_screenshot, 255, 255, cv2.THRESH_BINARY)
+    
+    result = cv2.matchTemplate(binary_screenshot, divider_template, cv2.TM_CCOEFF_NORMED)
+    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+    
+    if max_val > CONFIDENCE_THRESHOLD:
+        divider_x = DIVIDER_CHECK_COORDS[0] + max_loc[0]
+        
+        current_ammo_area = {'left': divider_x - 75, 'top': AMMO_Y_COORDS['current'][0], 
+                             'width': 75, 'height': AMMO_Y_COORDS['current'][1] - AMMO_Y_COORDS['current'][0]}
+        reserve_ammo_area = {'left': divider_x + 7, 'top': AMMO_Y_COORDS['reserve'][0], 
+                             'width': 50, 'height': AMMO_Y_COORDS['reserve'][1] - AMMO_Y_COORDS['reserve'][0]}
+        
+        current_ammo_screenshot = np.array(sct.grab(current_ammo_area))
+        reserve_ammo_screenshot = np.array(sct.grab(reserve_ammo_area))
+        
+        current_ammo = detect_ammo_count(current_ammo_screenshot)
+        reserve_ammo = detect_ammo_count(reserve_ammo_screenshot)
+        
+        return current_ammo, reserve_ammo
+    else:
+        print(f"Failed to detect ammo divider. Confidence: {max_val}")
+        return None, None
+
+def detect_ammo_count(ammo_screenshot):
+    # Convert to grayscale
+    gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
+    
+    # Apply threshold to isolate white pixels (220-255)
+    _, binary = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY)
+    
+    # Invert the image if it's mostly white (assuming dark text on light background)
+    if np.mean(binary) > 127:
+        binary = cv2.bitwise_not(binary)
+    
+    # Resize for better OCR performance
+    binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    
+    results = reader.readtext(binary, 
+                              allowlist='0123456789',
+                              paragraph=False,
+                              min_size=10,
+                              text_threshold=0.5)
+    
+    if results:
+        ammo_text = results[0][1]
+        if ammo_text.isdigit():
+            return int(ammo_text)
+    
+    return None
 
 def detect_attachments(sct):
     screenshot = np.array(sct.grab({'left': ATTACHMENT_DETECTION_AREA[0], 'top': ATTACHMENT_DETECTION_AREA[1], 
