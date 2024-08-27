@@ -8,64 +8,12 @@ import os
 
 speaker = Auto()
 CONFIG_FILE = 'config.txt'
-OLD_CONFIG = """[SETTINGS]
-MouseKeys = true
-UsingResetSensitivity = false
-AnnounceWeaponAttachments = true
-EnableAutoUpdates = true
-CreateDesktopShortcut = true
-AutoTurn = true
-TurnSensitivity = 100
-SecondaryTurnSensitivity = 50
-TurnAroundSensitivity = 1158
-ScrollAmount = 120
-RecenterDelay = 0.01
-TurnDelay = 0.01
-TurnSteps = 5
-RecenterSteps = 20
-RecenterStepDelay = 2
-RecenterStepSpeed = 0
-RecenterVerticalMove = 1500
-RecenterVerticalMoveBack = -820
-SecondaryRecenterVerticalMove = 1500
-SecondaryRecenterVerticalMoveBack = -580
-
-[SCRIPT KEYBINDS]
-Locate Player Icon = grave
-Get Current Coordinates = c
-Fire = lctrl
-Target = rctrl
-Turn Left = num 1
-Turn Right = num 3
-SecondaryTurn Left = num 4
-SecondaryTurn Right = num 6
-Look Up = num 8
-Look Down = num 2
-Turn Around = num 0
-Recenter = num 5
-Scroll Up = num 7
-Scroll Down = num 9
-Speak Minimap Direction = semicolon
-Check Health Shields = h
-Check Rarity = bracketleft
-Select POI = bracketright
-Create Custom POI = backslash
-Select Gamemode = apostrophe
-Open Configuration = f9
-Exit Match = f12
-Detect Hotbar 1 = 1
-Detect Hotbar 2 = 2
-Detect Hotbar 3 = 3
-Detect Hotbar 4 = 4
-Detect Hotbar 5 = 5
-
-[POI]
-selected_poi = closest, 0, 0"""
 
 DEFAULT_CONFIG = """[SETTINGS]
 MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
 ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
 AnnounceWeaponAttachments = true "Toggles the announcements of weapon attachments when equipping weapons."
+AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weapons."
 AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
@@ -101,6 +49,7 @@ Start Navigation = grave "Starts the player navigation process based on the play
 Check Health Shields = h "Announces the players Health and Shield values."
 Get Current Coordinates = c "Gets the players current map coordinates when the full-screen map is open. Useful for relaying to teammates."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."
+Announce Ammo = j "Announces the current ammo in the mag and reserves."
 Check Rarity = bracketleft "Announces the rarity of a selected item when the player is in the in-game inventory."
 Open P O I Selector = bracketright "Opens the P O I selector menu, used for choosing where you want to go."
 Create Custom P O I = backslash "Creates a custom P O I at the players current position while the full-screen map is open, and prompts the user for a name."

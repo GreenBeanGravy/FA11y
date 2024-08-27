@@ -44,7 +44,7 @@ from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction
 from lib.guis.config_gui import create_config_gui
 from lib.exit_match import exit_match
-from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item
+from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item, announce_ammo_manually
 from lib.ppi import find_player_position, get_player_position_description
 from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean, read_config, update_config
 
@@ -233,6 +233,7 @@ def reload_config():
         'exit match': exit_match,
         'get current coordinates': speak_current_coordinates,
         'create custom p o i': create_custom_poi_gui,
+        'announce ammo': announce_ammo_manually,
     })
     
     for i in range(1, 6):
