@@ -6,8 +6,7 @@ import threading
 import pygame
 import pyautogui
 import ctypes
-import librosa
-from pydub import AudioSegment
+import soundfile as sf
 from lib.ppi import find_player_position
 from lib.utilities import get_config_int, get_config_float, get_config_boolean, read_config
 from accessible_output2.outputs.auto import Auto
@@ -175,13 +174,16 @@ class Pathfinder:
         self.current_sound = None
 
     def load_audio(self):
-        audio = AudioSegment.from_ogg(NEXT_POINT_PING_SOUND)
-        self.sample_rate = audio.frame_rate
-        self.ping_sound = np.array(audio.get_array_of_samples()).astype(np.float32)
-        if audio.channels == 2:
-            self.ping_sound = self.ping_sound.reshape((-1, 2))
-            self.ping_sound = self.ping_sound.mean(axis=1)  # Convert stereo to mono
-        self.ping_sound = self.ping_sound / np.max(np.abs(self.ping_sound))  # Normalize
+        try:
+            audio_data, self.sample_rate = sf.read(NEXT_POINT_PING_SOUND)
+            self.ping_sound = audio_data.astype(np.float32)
+            if self.ping_sound.ndim == 2:
+                self.ping_sound = self.ping_sound.mean(axis=1)  # Convert stereo to mono
+            self.ping_sound = self.ping_sound / np.max(np.abs(self.ping_sound))  # Normalize
+        except Exception as e:
+            print(f"Error loading audio: {e}")
+            self.ping_sound = None
+            self.sample_rate = None
 
     def update_config(self):
         self.config = read_config()  # Re-read the config
