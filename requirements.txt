@@ -28,6 +28,7 @@ termcolor
 GPUtil
 pynvml
 easyocr
+librosa
 
 # Optional dependencies
 simpleaudio; platform_system == "Windows"
