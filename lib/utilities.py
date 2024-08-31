@@ -1,8 +1,10 @@
 import win32gui
 import win32con
-from accessible_output2.outputs.auto import Auto
+import win32com.client
+import ctypes
 import time
 import pywintypes
+from accessible_output2.outputs.auto import Auto
 import configparser
 import os
 
@@ -79,17 +81,34 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
     
     hwnd = win32gui.GetParent(window.winfo_id())
     
-    # Add retry mechanism
-    for _ in range(5):  # Try up to 5 times
+    # Ensure window is not minimized
+    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+    
+    shell = win32com.client.Dispatch("WScript.Shell")
+    
+    for _ in range(10):  # Increased retry attempts
         try:
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
                                   win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
             win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0, 
                                   win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
             win32gui.SetForegroundWindow(hwnd)
-            break
+            
+            # Check if focus was successful
+            if win32gui.GetForegroundWindow() == hwnd:
+                break
+            
+            # Alternative focus method
+            shell.SendKeys('%')
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+            
+            # Check again
+            if win32gui.GetForegroundWindow() == hwnd:
+                break
         except pywintypes.error:
-            time.sleep(0.1)  # Wait a bit before retrying
+            pass
+        
+        time.sleep(0.2)  # Increased delay
     else:
         print("Failed to set window focus after multiple attempts")
 
@@ -101,6 +120,16 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
             window.after(100, focus_widget)
         else:
             window.after(100, focus_widget.focus_set)
+
+    # Final check and fallback
+    if win32gui.GetForegroundWindow() != hwnd:
+        try:
+            ctypes.windll.user32.BlockInput(True)  # Block input to force focus
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+            time.sleep(0.1)
+            ctypes.windll.user32.BlockInput(False)
+        except:
+            print("Failed to force focus using ctypes")
 
 def get_config_value(config, section, key, fallback=None):
     try:
@@ -199,4 +228,3 @@ def update_config(config):
         print(f"Updated config file: {CONFIG_FILE}")
     
     return config
-
