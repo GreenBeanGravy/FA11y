@@ -1,3 +1,4 @@
+# Core dependencies
 opencv-python
 numpy
 keyboard
@@ -27,3 +28,6 @@ termcolor
 GPUtil
 pynvml
 easyocr
+
+# Optional dependencies
+simpleaudio; platform_system == "Windows"
