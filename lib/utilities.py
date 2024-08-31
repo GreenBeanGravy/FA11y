@@ -31,9 +31,11 @@ RecenterLookDown = 1500 "The sensitivity used when moving the camera down when r
 RecenterLookUp = -820 "The sensitivity used when moving the camera up when recentering the camera."
 ResetRecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
 ResetRecenterLookUp = -580 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
-PathfindingCheckInterval = 0.3 "The interval in seconds between pathfinding position checks."
-PathfindingPointRadius = 10 "The radius in meters within which a pathfinding point is considered reached."
+PathfindingCheckInterval = 3 "The interval in seconds between pathfinding position checks."
+PathfindingPointRadius = 5 "The radius in meters within which a pathfinding point is considered reached."
 MinimumMovementDistance = 1 "The minimum distance the player must move in meters within a second while pathfinding to avoid pressing the spacebar."
+PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
+PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 
 [SCRIPT KEYBINDS]
 Fire = lctrl "Invokes a left click for firing or using your currently held item."

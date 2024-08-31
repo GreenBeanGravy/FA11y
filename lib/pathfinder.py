@@ -191,6 +191,8 @@ class Pathfinder:
         self.pathfinding_check_interval = get_config_float(self.config, 'SETTINGS', 'PathfindingCheckInterval', 0.2)
         self.pathfinding_point_radius = get_config_int(self.config, 'SETTINGS', 'PathfindingPointRadius', 10)
         self.minimum_movement_distance = get_config_float(self.config, 'SETTINGS', 'MinimumMovementDistance', 2)
+        self.ping_volume_max_distance = get_config_float(self.config, 'SETTINGS', 'PingVolumeMaxDistance', 100)
+        self.ping_frequency = get_config_float(self.config, 'SETTINGS', 'PingFrequency', 0.5)
 
     def convert_to_overlay_coordinates(self, x, y):
         overlay_x = int((x - ROI_START_ORIG[0]) * (self.overlay.shape[1] / (ROI_END_ORIG[0] - ROI_START_ORIG[0])))
@@ -288,7 +290,7 @@ class Pathfinder:
                     
                     self.play_spatial_sound(distance, angle)
                     
-                    time.sleep(0.5)  # Play the ping every second
+                    time.sleep(self.ping_frequency)
             time.sleep(0.01)
 
     def calculate_distance(self, start, end):
@@ -318,7 +320,7 @@ class Pathfinder:
             next_point_ping_sound.play()
             return
 
-        max_distance = 100  # Maximum distance at which the ping is audible
+        max_distance = self.ping_volume_max_distance  # Maximum distance at which the ping is audible
         volume_factor = 1 - min(distance / max_distance, 1)
         
         # Adjust volume based on distance
