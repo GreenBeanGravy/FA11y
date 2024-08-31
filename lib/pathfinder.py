@@ -266,8 +266,12 @@ class Pathfinder:
 
     def pathfinding_loop(self):
         while not self.stop_event.is_set():
-            self.check_progress()
-            time.sleep(self.pathfinding_check_interval)
+            try:
+                self.check_progress()
+                time.sleep(self.pathfinding_check_interval)
+            except Exception as e:
+                print(f"Error in pathfinding loop: {e}")
+                self.stop_event.set()
 
     def audio_ping_loop(self):
         while not self.stop_event.is_set():
@@ -304,6 +308,10 @@ class Pathfinder:
         return relative_angle
 
     def play_spatial_sound(self, distance, angle):
+        if self.current_sound:
+            self.current_sound.stop()
+            self.current_sound = None
+
         if not SIMPLEAUDIO_AVAILABLE:
             # Fallback to pygame for audio playback
             next_point_ping_sound.set_volume(1 - min(distance / 100, 1))
