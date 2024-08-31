@@ -5,9 +5,8 @@ from accessible_output2.outputs.auto import Auto
 
 speaker = Auto()
 
-# Constants
-MINIMAP_START = (1746, 121)  # Pre-calculated reduced values
-MINIMAP_END = (1777, 198)    # Pre-calculated reduced values
+MINIMAP_START = (1746, 144)
+MINIMAP_END = (1777, 175)
 MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1170, 1400
 MAX_OUTLAWED_PIXELS = 20  # Maximum number of outlawed pixels allowed within a contour
 
@@ -24,7 +23,7 @@ def count_pixels(mask, contour):
     return white_pixels, colored_pixels
 
 def find_minimap_icon_direction(sensitivity=1.0):
-    # Capture the minimap area using pre-calculated reduced values
+    # Capture the minimap area using the updated coordinates for the center
     screenshot = pyautogui.screenshot(region=(MINIMAP_START[0], MINIMAP_START[1], 
                                               MINIMAP_END[0] - MINIMAP_START[0], 
                                               MINIMAP_END[1] - MINIMAP_START[1]))

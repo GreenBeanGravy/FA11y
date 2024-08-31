@@ -31,6 +31,9 @@ RecenterLookDown = 1500 "The sensitivity used when moving the camera down when r
 RecenterLookUp = -820 "The sensitivity used when moving the camera up when recentering the camera."
 ResetRecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
 ResetRecenterLookUp = -580 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
+PathfindingCheckInterval = 3 "The interval in seconds between pathfinding position checks."
+PathfindingPointRadius = 5 "The radius in meters within which a pathfinding point is considered reached."
+MinimumMovementDistance = 1 "The minimum distance the player must move in meters within a second while pathfinding to avoid pressing the spacebar."
 
 [SCRIPT KEYBINDS]
 Fire = lctrl "Invokes a left click for firing or using your currently held item."
@@ -45,6 +48,7 @@ Turn Around = num 0 "Turns the player camera around 180 degrees by moving the mo
 Recenter = num 5 "Recenters the player camera using many configurable sensitivity values."
 Scroll Up = num 7 "Scrolls up on the current mouse position using the ScrollSensitivity sensitivity."
 Scroll Down = num 9 "Scrolls down on the current mouse position using the ScrollSensitivity sensitivity."
+Toggle Pathfinding = p "Toggles pathfinding for the current selected POI or position."
 Start Navigation = grave "Starts the player navigation process based on the players selected P O I, Game Object, or location."
 Check Health Shields = h "Announces the players Health and Shield values."
 Get Current Coordinates = c "Gets the players current map coordinates when the full-screen map is open. Useful for relaying to teammates."

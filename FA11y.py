@@ -47,6 +47,7 @@ from lib.exit_match import exit_match
 from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item, announce_ammo_manually
 from lib.ppi import find_player_position, get_player_position_description
 from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean, read_config, update_config
+from lib.pathfinder import toggle_pathfinding
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -234,6 +235,7 @@ def reload_config():
         'get current coordinates': speak_current_coordinates,
         'create custom p o i': create_custom_poi_gui,
         'announce ammo': announce_ammo_manually,
+        'toggle pathfinding': toggle_pathfinding,
     })
     
     for i in range(1, 6):
