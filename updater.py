@@ -21,7 +21,7 @@ os.system("title FA11y")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Configuration
-AUTO_UPDATE_UPDATER = True
+AUTO_UPDATE_UPDATER = False
 MAX_RESTARTS = 3
 
 def print_info(message):
@@ -56,6 +56,32 @@ def install_accessible_output2():
             print_info(f"Failed to install {module}")
             return False
     return True
+
+def get_python_version():
+    return f"cp{sys.version_info.major}{sys.version_info.minor}"
+
+def get_abi_tag():
+    return f"cp{sys.version_info.major}{sys.version_info.minor}"
+
+def install_simpleaudio():
+    python_version = get_python_version()
+    abi_tag = get_abi_tag()
+    platform = "win_amd64" if sys.maxsize > 2**32 else "win32"
+    wheel_filename = f"simpleaudio-1.0.4-{python_version}-{abi_tag}-{platform}.whl"
+    wheel_path = os.path.join(os.getcwd(), 'whls', wheel_filename)
+
+    if not os.path.exists(wheel_path):
+        print_info(f"Wheel file not found: {wheel_path}")
+        return False
+
+    try:
+        subprocess.run([sys.executable, "-m", "pip", "install", wheel_path, "-v"], 
+                       check=True, capture_output=True, text=True)
+        print_info("SimpleAudio installed successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        print_info(f"Failed to install SimpleAudio: {e}")
+        return False
 
 def download_file_to_path(url, path):
     response = requests.get(url)
@@ -94,6 +120,8 @@ def install_required_modules_and_whls():
 
     if not os.path.exists('whls'):
         download_folder("GreenBeanGravy/FA11y", "main", "whls")
+    
+    simpleaudio_installed = install_simpleaudio()
 
 def create_mock_imp():
     class MockImp:
