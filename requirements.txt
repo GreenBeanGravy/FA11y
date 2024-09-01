@@ -30,6 +30,3 @@ pynvml
 easyocr
 librosa
 soundfile
-
-# Optional dependencies
-simpleaudio; platform_system == "Windows"
