@@ -19,6 +19,7 @@ AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weap
 AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
+PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
 TurnSensitivity = 100 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
 SecondaryTurnSensitivity = 50 "The sensitivity used for secondary turning left and right when MouseKeys is enabled."
 TurnAroundSensitivity = 1158 "The sensitivity used when turning the player around. Only adjust this if you are having issues."
@@ -38,6 +39,7 @@ PathfindingPointRadius = 5 "The radius in meters within which a pathfinding poin
 MinimumMovementDistance = 1 "The minimum distance the player must move in meters within a second while pathfinding to avoid pressing the spacebar."
 PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
+FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
 
 [SCRIPT KEYBINDS]
 Fire = lctrl "Invokes a left click for firing or using your currently held item."
@@ -228,3 +230,4 @@ def update_config(config):
         print(f"Updated config file: {CONFIG_FILE}")
     
     return config
+

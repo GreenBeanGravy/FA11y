@@ -79,7 +79,7 @@ def find_minimap_icon_direction(sensitivity=1.0):
 def speak_minimap_direction():
     direction, angle = find_minimap_icon_direction()
     if direction and angle is not None:
-        message = f"Facing {direction}, {angle:.0f} degrees"
+        message = f"Facing {direction} at {angle:.0f} degrees"
         print(message)
         speaker.speak(message)
     else:
