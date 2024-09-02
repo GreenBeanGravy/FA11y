@@ -1,9 +1,9 @@
 import os
 import sys
 import subprocess
-import shutil
 import time
 import concurrent.futures
+from functools import lru_cache
 
 # Ensure the "requests" library is installed before importing it
 try:
@@ -11,8 +11,6 @@ try:
 except ImportError:
     subprocess.run([sys.executable, '-m', 'pip', 'install', 'requests'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     import requests
-
-from functools import lru_cache
 
 # Set the command window title
 os.system("title FA11y")
@@ -25,9 +23,13 @@ AUTO_UPDATE_UPDATER = True
 MAX_RESTARTS = 3
 
 def print_info(message):
+    """Prints information to the console."""
     print(message)
 
 def install_required_modules():
+    """
+    Install required Python modules using pip and handle any import errors.
+    """
     modules = ['requests', 'psutil']
     
     # Check for pywin32
@@ -36,6 +38,7 @@ def install_required_modules():
     except ImportError:
         modules.append('pywin32')
     
+    # Install all required modules concurrently
     with concurrent.futures.ThreadPoolExecutor() as executor:
         executor.map(lambda module: subprocess.run(
             [sys.executable, '-m', 'pip', 'install', module],
@@ -43,6 +46,9 @@ def install_required_modules():
         ), modules)
 
 def install_accessible_output2():
+    """
+    Installs the accessible_output2 module from a wheel or PyPI.
+    """
     module = 'accessible_output2'
     wheel_path = os.path.join(os.getcwd(), 'whls', 'accessible_output2-0.17-py2.py3-none-any.whl')
     try:
@@ -57,17 +63,13 @@ def install_accessible_output2():
             return False
     return True
 
-def get_python_version():
-    return f"cp{sys.version_info.major}{sys.version_info.minor}"
-
-def get_abi_tag():
-    return f"cp{sys.version_info.major}{sys.version_info.minor}"
-
 def install_simpleaudio():
-    python_version = get_python_version()
-    abi_tag = get_abi_tag()
+    """
+    Installs the simpleaudio module from a local wheel file.
+    """
+    python_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
     platform = "win_amd64" if sys.maxsize > 2**32 else "win32"
-    wheel_filename = f"simpleaudio-1.0.4-{python_version}-{abi_tag}-{platform}.whl"
+    wheel_filename = f"simpleaudio-1.0.4-{python_version}-{python_version}-{platform}.whl"
     wheel_path = os.path.join(os.getcwd(), 'whls', wheel_filename)
 
     if not os.path.exists(wheel_path):
@@ -75,8 +77,7 @@ def install_simpleaudio():
         return False
 
     try:
-        subprocess.run([sys.executable, "-m", "pip", "install", wheel_path, "-v"], 
-                       check=True, capture_output=True, text=True)
+        subprocess.run([sys.executable, "-m", "pip", "install", wheel_path], check=True, capture_output=True, text=True)
         print_info("SimpleAudio installed successfully")
         return True
     except subprocess.CalledProcessError as e:
@@ -84,12 +85,21 @@ def install_simpleaudio():
         return False
 
 def download_file_to_path(url, path):
-    response = requests.get(url)
-    response.raise_for_status()
-    with open(path, 'wb') as f:
-        f.write(response.content)
+    """
+    Downloads a file from a URL to a specified local path.
+    """
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(path, 'wb') as f:
+            f.write(response.content)
+    except requests.RequestException as e:
+        print_info(f"Failed to download {url}: {e}")
 
 def download_folder(repo, branch, folder):
+    """
+    Downloads all files in a GitHub repository folder to a local folder.
+    """
     url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
     try:
         response = requests.get(url)
@@ -97,12 +107,7 @@ def download_folder(repo, branch, folder):
         files = response.json()
         os.makedirs(folder, exist_ok=True)
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = []
-            for file in files:
-                if file['type'] == 'file':
-                    file_url = file['download_url']
-                    file_path = os.path.join(folder, file['name'])
-                    futures.append(executor.submit(download_file_to_path, file_url, file_path))
+            futures = [executor.submit(download_file_to_path, file['download_url'], os.path.join(folder, file['name'])) for file in files if file['type'] == 'file']
             concurrent.futures.wait(futures)
         print_info(f"Downloaded folder: {folder}")
     except requests.RequestException as e:
@@ -110,6 +115,9 @@ def download_folder(repo, branch, folder):
         sys.exit(1)
 
 def install_required_modules_and_whls():
+    """
+    Installs required modules and wheel files.
+    """
     restart_count = int(os.environ.get('UPDATER_RESTART_COUNT', 0))
     if restart_count >= MAX_RESTARTS:
         print_info(f"Maximum restarts ({MAX_RESTARTS}) reached. Continuing without further restarts.")
@@ -121,9 +129,12 @@ def install_required_modules_and_whls():
     if not os.path.exists('whls'):
         download_folder("GreenBeanGravy/FA11y", "main", "whls")
     
-    simpleaudio_installed = install_simpleaudio()
+    install_simpleaudio()
 
 def create_mock_imp():
+    """
+    Creates a mock 'imp' module for Python compatibility.
+    """
     class MockImp:
         __name__ = 'imp'
         
@@ -135,23 +146,11 @@ def create_mock_imp():
 
     sys.modules['imp'] = MockImp()
 
-print_info("Starting updater!")
-install_required_modules_and_whls()
-ao2_available = install_accessible_output2()
-
-if sys.version_info >= (3, 12):
-    create_mock_imp()
-
-speaker = None
-if ao2_available:
-    try:
-        from accessible_output2.outputs.auto import Auto
-        speaker = Auto()
-    except ImportError:
-        print_info("Failed to import accessible_output2. Speech output will be unavailable.")
-
 @lru_cache(maxsize=None)
 def get_repo_files(repo, branch='main'):
+    """
+    Gets the list of files in a GitHub repository branch.
+    """
     url = f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1"
     try:
         response = requests.get(url)
@@ -163,6 +162,9 @@ def get_repo_files(repo, branch='main'):
         return []
 
 def download_file(repo, file_path):
+    """
+    Downloads a single file from a GitHub repository.
+    """
     url = f"https://raw.githubusercontent.com/{repo}/main/{file_path}"
     try:
         response = requests.get(url)
@@ -173,12 +175,18 @@ def download_file(repo, file_path):
         return None
 
 def file_needs_update(local_path, github_content):
+    """
+    Checks if a local file needs to be updated with new content.
+    """
     if not os.path.exists(local_path):
         return True
     with open(local_path, 'rb') as file:
         return file.read() != github_content
 
 def update_script(repo, script_name):
+    """
+    Updates the script from a GitHub repository if needed.
+    """
     if not AUTO_UPDATE_UPDATER:
         return False
     github_content = download_file(repo, script_name)
@@ -190,7 +198,10 @@ def update_script(repo, script_name):
     print_info(f"Updated script: {script_name}")
     return True
 
-def check_and_update_file(repo, file_path, script_name):
+def check_and_update_file(repo, file_path):
+    """
+    Checks if a file needs to be updated from the GitHub repository.
+    """
     if file_path.lower() == 'readme.md':
         readme_content = download_file(repo, file_path)
         if readme_content and file_needs_update('README.txt', readme_content):
@@ -200,10 +211,8 @@ def check_and_update_file(repo, file_path, script_name):
             return True
         return False
 
+    # Adjust the filter to ensure all relevant files are considered
     if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg')) and file_path != 'VERSION':
-        return False
-
-    if file_path in ('config.txt', 'CUSTOM_POI.txt') and os.path.exists(file_path):
         return False
 
     github_content = download_file(repo, file_path)
@@ -220,8 +229,10 @@ def check_and_update_file(repo, file_path, script_name):
     return True
 
 def update_folder(repo, folder, branch='main'):
+    """
+    Updates a folder from a GitHub repository.
+    """
     url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
-
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -241,12 +252,10 @@ def update_folder(repo, folder, branch='main'):
         print_info(f"Failed to update {folder} folder: {e}")
         return False
 
-def process_updates(repo, repo_files, script_name):
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        updates = list(executor.map(lambda file_path: check_and_update_file(repo, file_path, script_name), repo_files))
-    return any(updates)
-
 def check_legendary():
+    """
+    Checks if Legendary is installed or downloads it.
+    """
     legendary_path = os.path.join(os.getcwd(), "legendary.exe")
     if os.path.exists(legendary_path):
         print_info("Legendary found.")
@@ -264,28 +273,32 @@ def check_legendary():
         return False
 
 def install_requirements():
-    if not os.path.exists('requirements.txt'):
-        print_info("requirements.txt not found. Downloading from GitHub...")
-        url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/requirements.txt"
-        try:
-            download_file_to_path(url, 'requirements.txt')
-            print_info("requirements.txt downloaded successfully.")
-        except Exception as e:
-            print_info(f"Failed to download requirements.txt: {e}")
-            return False
+    """
+    Install dependencies listed in requirements.txt.
+    """
+    requirements_file = 'requirements.txt'
 
-    print_info("Installing requirements...")
+    if not os.path.exists(requirements_file):
+        print_info(f"{requirements_file} not found. Downloading from GitHub...")
+        url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/requirements.txt"
+        download_file_to_path(url, requirements_file)
+
+    print_info(f"Installing dependencies from {requirements_file}...")
     try:
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], 
-                       check=True, capture_output=True, text=True)
-        print_info("Requirements installed successfully")
+        subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '-r', requirements_file], 
+            check=True, capture_output=True, text=True
+        )
+        print_info("Dependencies installed successfully from requirements.txt.")
         return True
     except subprocess.CalledProcessError as e:
-        print_info(f"Failed to install requirements: {e}")
+        print_info(f"Failed to install dependencies from {requirements_file}: {e}")
         return False
 
-
 def get_version(repo):
+    """
+    Fetches the version file from a GitHub repository.
+    """
     url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
     try:
         response = requests.get(url)
@@ -296,9 +309,15 @@ def get_version(repo):
         return None
 
 def parse_version(version):
+    """
+    Parses a version string into a tuple of integers.
+    """
     return tuple(map(int, version.split('.')))
 
 def check_version():
+    """
+    Checks if the local version matches the repository version.
+    """
     repo = "GreenBeanGravy/FA11y"
     local_version = None
     if os.path.exists('VERSION'):
@@ -323,30 +342,51 @@ def check_version():
         return True
 
 def main():
+    """
+    Main function to run the updater script.
+    """
     script_name = os.path.basename(__file__)
 
     if update_script("GreenBeanGravy/FA11y", script_name):
-        if speaker:
-            speaker.speak("Please restart the updater for updates. Closing in 5 seconds.")
         print_info("Please restart the updater for updates. Closing in 5 seconds.")
         time.sleep(5)
         sys.exit(0)
 
-    update_required = check_version()
-    if not update_required:
+    install_required_modules_and_whls()
+    
+    ao2_available = install_accessible_output2()
+    speaker = None
+
+    if ao2_available:
+        try:
+            from accessible_output2.outputs.auto import Auto
+            speaker = Auto()
+        except ImportError:
+            print_info("Failed to import accessible_output2. Speech output will be unavailable.")
+
+    print_info("Checking and installing requirements...")
+    requirements_installed = install_requirements()
+
+    if requirements_installed:
+        print_info("All requirements installed!")
+        if speaker:
+            speaker.speak("All requirements installed!")
+    else:
+        print_info("Some updates may have failed. Please check the console output.")
+        if speaker:
+            speaker.speak("Some updates may have failed. Please check the console output.")
+
+    # Ensure to check for updates if version differs
+    if not check_version():
+        print_info("You are on the latest version of FA11y!")
         if speaker:
             speaker.speak("You are on the latest version of FA11y!")
-        print_info("You are on the latest version of FA11y!")
-        if '--run-by-fa11y' in sys.argv:
-            sys.exit(0)  # Exit immediately if run by FA11y
-        else:
-            time.sleep(3)
         sys.exit(0)
 
     repo_files = get_repo_files("GreenBeanGravy/FA11y")
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        update_results = list(executor.map(lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path, script_name), repo_files))
+        update_results = list(executor.map(lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path), repo_files))
         updates_available = any(update_results)
 
     icons_updated = update_folder("GreenBeanGravy/FA11y", "icons")
@@ -356,20 +396,7 @@ def main():
     if fa11y_updates:
         print_info("Updates processed.")
 
-    print_info("Checking and installing requirements...")
-    requirements_installed = install_requirements()
-
-    if requirements_installed:
-        if speaker:
-            speaker.speak("All updates applied!")
-        print_info("All updates applied!")
-    else:
-        if speaker:
-            speaker.speak("Some updates may have failed. Please check the console output.")
-        print_info("Some updates may have failed. Please check the console output.")
-
-    legendary_exists = check_legendary()
-    if not legendary_exists:
+    if not check_legendary():
         print_info("Failed to download or find Legendary. Please download it manually and add it to your system PATH.")
 
     print_info("Update process completed")
@@ -380,11 +407,11 @@ def main():
             speaker.speak(closing_message)
         print_info(closing_message)
         time.sleep(5)
-        sys.exit(1)  # Exit with code 1 to indicate updates were applied
+        sys.exit(1)
     else:
         print_info("Closing in 5 seconds...")
         time.sleep(5)
-        sys.exit(0)  # Exit with code 0 to indicate no updates were applied
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
