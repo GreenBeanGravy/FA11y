@@ -21,7 +21,7 @@ os.system("title FA11y")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Configuration
-AUTO_UPDATE_UPDATER = False
+AUTO_UPDATE_UPDATER = True
 MAX_RESTARTS = 3
 
 def print_info(message):
