@@ -34,15 +34,19 @@ def set_pitch_shift_factor(factor):
     pitch_shift_factor = max(0.1, min(1.0, factor))
     print(f"Pitch shift factor set to: {pitch_shift_factor}")
 
-def pitch_shift(sound, factor):
-    # Get the sound array
-    array = pygame.sndarray.array(sound)
-    
-    # Perform the pitch shift
-    shifted = signal.resample(array, int(len(array) / factor))
-    
-    # Convert back to a Sound object
-    return pygame.sndarray.make_sound(shifted.astype(np.int16))
+def pitch_shift(sound):
+    try:
+        # Get the sound array
+        array = pygame.sndarray.array(sound)
+        
+        # Perform the pitch shift
+        shifted = signal.resample(array, int(len(array) / pitch_shift_factor))
+        
+        # Convert back to a Sound object
+        return pygame.sndarray.make_sound(shifted.astype(np.int16))
+    except Exception as e:
+        print(f"Error in pitch_shift: {e}")
+        return sound  # Return original sound if pitch shift fails
 
 def calculate_volumes(angle):
     rad_angle = np.radians((angle + 90) % 360)
@@ -69,12 +73,12 @@ def play_north_audio(angle):
         sound_behind = is_behind(angle)
         
         if sound_behind:
-            pitched_sound = pitch_shift(north_sound, pitch_shift_factor)
-            pitched_sound.set_volume(left_volume, right_volume)
+            pitched_sound = pitch_shift(north_sound)
+            pitched_sound.set_volume(left_volume)  # Changed this line
             pitched_sound.play()
             print(f"Playing pitched sound: {pitch_shift_factor}, Angle: {angle}")
         else:
-            north_sound.set_volume(left_volume, right_volume)
+            north_sound.set_volume(left_volume)  # Changed this line
             north_sound.play()
             print(f"Playing normal sound, Angle: {angle}")
     
