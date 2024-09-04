@@ -1,10 +1,9 @@
 import numpy as np
 from scipy import signal
-import pygame
+import simpleaudio as sa
+import soundfile as sf
 import os
-
-# Initialize pygame mixer
-pygame.mixer.init()
+import threading
 
 # Global variables
 NORTH_SOUND_FILE = 'sounds/north.ogg'
@@ -12,12 +11,25 @@ north_volume = 1.0
 play_north_sound = True
 pitch_shift_factor = 0.5
 
-# Load the north sound
+# Load and pre-process the north sound
 try:
-    north_sound = pygame.mixer.Sound(NORTH_SOUND_FILE)
-except pygame.error as e:
-    print(f"Error loading sound file: {e}")
-    north_sound = None
+    north_audio_data, sample_rate = sf.read(NORTH_SOUND_FILE)
+    north_audio_data = north_audio_data.astype(np.float32)
+    if north_audio_data.ndim == 2:
+        north_audio_data = north_audio_data.mean(axis=1)  # Convert stereo to mono
+    north_audio_data = north_audio_data / np.max(np.abs(north_audio_data))  # Normalize
+    
+    # Pre-compute pitched version
+    pitched_audio_data = signal.resample(north_audio_data, int(len(north_audio_data) / pitch_shift_factor))
+except Exception as e:
+    print(f"Error loading audio: {e}")
+    north_audio_data = None
+    pitched_audio_data = None
+    sample_rate = None
+
+# Pre-allocate play objects
+normal_play_obj = None
+pitched_play_obj = None
 
 def set_north_volume(volume):
     global north_volume
@@ -30,23 +42,10 @@ def set_play_north_sound(play):
     print(f"Play north sound set to: {play_north_sound}")
 
 def set_pitch_shift_factor(factor):
-    global pitch_shift_factor
+    global pitch_shift_factor, pitched_audio_data
     pitch_shift_factor = max(0.1, min(1.0, factor))
+    pitched_audio_data = signal.resample(north_audio_data, int(len(north_audio_data) / pitch_shift_factor))
     print(f"Pitch shift factor set to: {pitch_shift_factor}")
-
-def pitch_shift(sound):
-    try:
-        # Get the sound array
-        array = pygame.sndarray.array(sound)
-        
-        # Perform the pitch shift
-        shifted = signal.resample(array, int(len(array) / pitch_shift_factor))
-        
-        # Convert back to a Sound object
-        return pygame.sndarray.make_sound(shifted.astype(np.int16))
-    except Exception as e:
-        print(f"Error in pitch_shift: {e}")
-        return sound  # Return original sound if pitch shift fails
 
 def calculate_volumes(angle):
     rad_angle = np.radians((angle + 90) % 360)
@@ -57,10 +56,18 @@ def calculate_volumes(angle):
 def is_behind(angle):
     return 90 <= angle <= 270
 
+def play_audio_thread(audio_data, left_volume, right_volume):
+    global sample_rate
+    left_channel = (audio_data * left_volume).astype(np.float32)
+    right_channel = (audio_data * right_volume).astype(np.float32)
+    stereo_data = np.column_stack((left_channel, right_channel))
+    stereo_data = (stereo_data * 32767).astype(np.int16)
+    sa.play_buffer(stereo_data, 2, 2, sample_rate)
+
 def play_north_audio(angle):
-    global north_sound
+    global north_audio_data, pitched_audio_data, normal_play_obj, pitched_play_obj
     
-    if not play_north_sound or north_sound is None:
+    if not play_north_sound or north_audio_data is None:
         print("North sound is disabled or not loaded.")
         return
 
@@ -72,30 +79,18 @@ def play_north_audio(angle):
         
         sound_behind = is_behind(angle)
         
+        # Stop any currently playing sounds
+        if normal_play_obj and normal_play_obj.is_playing():
+            normal_play_obj.stop()
+        if pitched_play_obj and pitched_play_obj.is_playing():
+            pitched_play_obj.stop()
+        
         if sound_behind:
-            pitched_sound = pitch_shift(north_sound)
-            pitched_sound.set_volume(left_volume)  # Changed this line
-            pitched_sound.play()
             print(f"Playing pitched sound: {pitch_shift_factor}, Angle: {angle}")
+            threading.Thread(target=play_audio_thread, args=(pitched_audio_data, left_volume, right_volume)).start()
         else:
-            north_sound.set_volume(left_volume)  # Changed this line
-            north_sound.play()
             print(f"Playing normal sound, Angle: {angle}")
+            threading.Thread(target=play_audio_thread, args=(north_audio_data, left_volume, right_volume)).start()
     
     except Exception as e:
         print(f"Error playing north audio: {e}")
-
-# Test function
-def test_north_sound():
-    print("Testing north sound...")
-    for angle in range(0, 360, 45):
-        print(f"\nTesting angle: {angle}")
-        play_north_audio(angle)
-        pygame.time.wait(1000)  # Wait for 1 second between sounds
-
-if __name__ == "__main__":
-    if os.path.exists(NORTH_SOUND_FILE):
-        print("North sound file found.")
-        test_north_sound()
-    else:
-        print(f"Error: North sound file not found at {NORTH_SOUND_FILE}")
