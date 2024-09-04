@@ -91,21 +91,24 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
     
     shell = win32com.client.Dispatch("WScript.Shell")
     
-    for _ in range(10):  # Increased retry attempts
+    # New: Release mouse capture from other windows
+    ctypes.windll.user32.ReleaseCapture()
+    
+    for _ in range(15):  # Increased retry attempts
         try:
-            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, 
-                                  win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
-            win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0, 
-                                  win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+            # New: Attempt to bring window to foreground using different methods
             win32gui.SetForegroundWindow(hwnd)
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+            ctypes.windll.user32.BringWindowToTop(hwnd)
+            ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
             
             # Check if focus was successful
             if win32gui.GetForegroundWindow() == hwnd:
                 break
             
-            # Alternative focus method
+            # Alternative focus methods
             shell.SendKeys('%')
-            ctypes.windll.user32.SetForegroundWindow(hwnd)
+            win32gui.SetActiveWindow(hwnd)
             
             # Check again
             if win32gui.GetForegroundWindow() == hwnd:
@@ -113,7 +116,7 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
         except pywintypes.error:
             pass
         
-        time.sleep(0.2)  # Increased delay
+        time.sleep(0.1)  # Slightly reduced delay
     else:
         print("Failed to set window focus after multiple attempts")
 
@@ -126,15 +129,30 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
         else:
             window.after(100, focus_widget.focus_set)
 
-    # Final check and fallback
+    # New: Final check and fallback using SetWindowPos
     if win32gui.GetForegroundWindow() != hwnd:
         try:
-            ctypes.windll.user32.BlockInput(True)  # Block input to force focus
-            ctypes.windll.user32.SetForegroundWindow(hwnd)
-            time.sleep(0.1)
-            ctypes.windll.user32.BlockInput(False)
+            # Move the window slightly to force a redraw and potential focus
+            current_pos = win32gui.GetWindowRect(hwnd)
+            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST,
+                                  current_pos[0], current_pos[1],
+                                  current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
+                                  win32con.SWP_SHOWWINDOW)
+            win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST,
+                                  current_pos[0], current_pos[1],
+                                  current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
+                                  win32con.SWP_SHOWWINDOW)
         except:
-            print("Failed to force focus using ctypes")
+            print("Failed to force focus using SetWindowPos")
+
+    # New: Attempt to move mouse cursor to the center of the window
+    try:
+        rect = win32gui.GetWindowRect(hwnd)
+        center_x = (rect[0] + rect[2]) // 2
+        center_y = (rect[1] + rect[3]) // 2
+        ctypes.windll.user32.SetCursorPos(center_x, center_y)
+    except:
+        print("Failed to move cursor to window center")
 
 def get_config_value(config, section, key, fallback=None):
     try:
