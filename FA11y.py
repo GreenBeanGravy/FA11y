@@ -41,13 +41,14 @@ from lib.guis.gamemode_selector import select_gamemode_tk
 from lib.guis.coordinate_utils import speak_current_coordinates, get_current_coordinates
 from lib.guis.custom_poi_creator import create_custom_poi_gui
 from lib.height_checker import start_height_checker
-from lib.minimap_direction import speak_minimap_direction
+from lib.minimap_direction import speak_minimap_direction, find_minimap_icon_direction
 from lib.guis.config_gui import create_config_gui
 from lib.exit_match import exit_match
 from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item, announce_ammo_manually
 from lib.ppi import find_player_position, get_player_position_description
 from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean, read_config, update_config
 from lib.pathfinder import toggle_pathfinding
+from lib.north_sound import play_north_audio, set_north_volume, set_play_north_sound, set_pitch_shift_factor
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -156,7 +157,14 @@ def handle_movement(action, reset_sensitivity):
             y_move = sensitivity
         
         smooth_move_mouse(x_move, y_move, turn_delay, turn_steps)
-        return
+
+        direction, angle = find_minimap_icon_direction()
+        if angle is not None:
+            print(f"Direction: {direction}, Angle: {angle}")  # Debug print
+            play_north_audio(angle)
+        else:
+            print("Unable to determine angle from minimap")
+
     elif action == 'turn around':
         x_move = get_config_int(config, 'SETTINGS', 'TurnAroundSensitivity', 1158)
         smooth_move_mouse(x_move, 0, turn_delay, turn_steps)
@@ -203,6 +211,13 @@ def reload_config():
     
     mouse_keys_enabled = get_config_boolean(config, 'SETTINGS', 'MouseKeys', True)
     reset_sensitivity = get_config_boolean(config, 'SETTINGS', 'ResetSensitivity', False)
+
+    north_volume = get_config_float(config, 'SETTINGS', 'NorthSoundVolume', 1.0)
+    play_north_sound = get_config_boolean(config, 'SETTINGS', 'PlayNorthSound', True)
+    pitch_shift_factor = get_config_float(config, 'SETTINGS', 'NorthSoundPitchShift', 0.5)
+    set_north_volume(north_volume)
+    set_play_north_sound(play_north_sound)
+    set_pitch_shift_factor(pitch_shift_factor)
     
     action_handlers.clear()
     
