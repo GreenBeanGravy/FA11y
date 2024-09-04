@@ -1,33 +1,46 @@
+import os
 import numpy as np
-import soundfile as sf
 from scipy import signal
 
-# Try to import simpleaudio, but provide a fallback if it's not available
+# Check for required libraries and their versions
+try:
+    import soundfile as sf
+except ImportError:
+    print("soundfile is not installed. Please install it using 'pip install soundfile'")
+    exit(1)
+
 try:
     import simpleaudio as sa
     SIMPLEAUDIO_AVAILABLE = True
 except ImportError:
     SIMPLEAUDIO_AVAILABLE = False
     print("simpleaudio is not available. Falling back to pygame for audio.")
-    import pygame
-    pygame.mixer.init()
+    try:
+        import pygame
+        pygame.mixer.init()
+    except ImportError:
+        print("Neither simpleaudio nor pygame is available. Please install one of them.")
+        exit(1)
 
 # Load the north sound
 NORTH_SOUND_FILE = 'sounds/north.ogg'
 
-if SIMPLEAUDIO_AVAILABLE:
-    try:
+if not os.path.exists(NORTH_SOUND_FILE):
+    print(f"Error: Audio file '{NORTH_SOUND_FILE}' not found.")
+    exit(1)
+
+try:
+    if SIMPLEAUDIO_AVAILABLE:
         north_audio_data, sample_rate = sf.read(NORTH_SOUND_FILE)
         north_audio_data = north_audio_data.astype(np.float32)
         if north_audio_data.ndim == 2:
             north_audio_data = north_audio_data.mean(axis=1)  # Convert stereo to mono
         north_audio_data = north_audio_data / np.max(np.abs(north_audio_data))  # Normalize
-    except Exception as e:
-        print(f"Error loading audio: {e}")
-        north_audio_data = None
-        sample_rate = None
-else:
-    north_pygame_sound = pygame.mixer.Sound(NORTH_SOUND_FILE)
+    else:
+        north_pygame_sound = pygame.mixer.Sound(NORTH_SOUND_FILE)
+except Exception as e:
+    print(f"Error loading audio: {e}")
+    exit(1)
 
 # Global variables
 north_volume = 1.0
@@ -51,17 +64,6 @@ def set_pitch_shift_factor(factor):
 
 def pitch_shift(audio, factor):
     return signal.resample(audio, int(len(audio) / factor))
-
-def play_north_audio(angle):
-    if not play_north_sound:
-        print("North sound is disabled.")
-        return
-
-    print(f"Received angle: {angle}")
-    if SIMPLEAUDIO_AVAILABLE:
-        play_simpleaudio(angle)
-    else:
-        play_pygame_sound(angle)
 
 def is_behind(angle):
     # Sound is behind when player faces between 90 (East) and 270 (West)
@@ -104,7 +106,12 @@ def play_simpleaudio(angle):
     stereo_data = (stereo_data * 32767).astype(np.int16)
 
     # Play the sound
-    play_obj = sa.play_buffer(stereo_data, 2, 2, sample_rate)
+    try:
+        play_obj = sa.play_buffer(stereo_data, 2, 2, sample_rate)
+        print("Audio played successfully using simpleaudio")
+    except Exception as e:
+        print(f"Error playing audio with simpleaudio: {e}")
+        raise
 
 def play_pygame_sound(angle):
     global north_volume, pitch_shift_factor
@@ -119,14 +126,42 @@ def play_pygame_sound(angle):
     north_pygame_sound.set_volume(left_volume, right_volume)
 
     # Play the sound with pitch shift if behind
-    if sound_behind:
-        pitched_sound = pygame.sndarray.array(north_pygame_sound)
-        pitched_sound = pitch_shift(pitched_sound, pitch_shift_factor)
-        pitched_sound = pygame.sndarray.make_sound(pitched_sound.astype(np.int16))
-        pitched_sound.play()
-        print(f"Playing pitched sound: {pitch_shift_factor}, Angle: {angle}")
-    else:
-        north_pygame_sound.play()
-        print(f"Playing normal sound, Angle: {angle}")
+    try:
+        if sound_behind:
+            pitched_sound = pygame.sndarray.array(north_pygame_sound)
+            pitched_sound = pitch_shift(pitched_sound, pitch_shift_factor)
+            pitched_sound = pygame.sndarray.make_sound(pitched_sound.astype(np.int16))
+            pitched_sound.play()
+            print(f"Playing pitched sound: {pitch_shift_factor}, Angle: {angle}")
+        else:
+            north_pygame_sound.play()
+            print(f"Playing normal sound, Angle: {angle}")
+        print("Audio played successfully using pygame")
+    except Exception as e:
+        print(f"Error playing audio with pygame: {e}")
+        raise
 
-print(f"Audio system initialized. Using {'simpleaudio' if SIMPLEAUDIO_AVAILABLE else 'pygame'}")
+def play_north_audio(angle):
+    if not play_north_sound:
+        print("North sound is disabled.")
+        return
+
+    print(f"Received angle: {angle}")
+    try:
+        if SIMPLEAUDIO_AVAILABLE:
+            play_simpleaudio(angle)
+        else:
+            play_pygame_sound(angle)
+    except Exception as e:
+        print(f"Error playing audio: {e}")
+        # If simpleaudio fails, try pygame as a fallback
+        if SIMPLEAUDIO_AVAILABLE:
+            print("Falling back to pygame...")
+            try:
+                import pygame
+                pygame.mixer.init()
+                global north_pygame_sound
+                north_pygame_sound = pygame.mixer.Sound(NORTH_SOUND_FILE)
+                play_pygame_sound(angle)
+            except Exception as e:
+                print(f"Pygame fallback also failed: {e}")
