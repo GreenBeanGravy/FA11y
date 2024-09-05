@@ -7,6 +7,7 @@ import pygame
 import pyautogui
 import ctypes
 import soundfile as sf
+from collections import defaultdict
 from lib.ppi import find_player_position
 from lib.utilities import get_config_int, get_config_float, get_config_boolean, read_config
 from accessible_output2.outputs.auto import Auto
@@ -71,10 +72,43 @@ def create_cost_map(overlay):
     
     return cost_map
 
+def find_road_center(pos, cost_map):
+    x, y = pos
+    road_pixels = []
+    for dx in range(-5, 6):
+        for dy in range(-5, 6):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < cost_map.shape[0] and 0 <= ny < cost_map.shape[1]:
+                if cost_map[nx, ny] == COST['road']:
+                    road_pixels.append((nx, ny))
+    if road_pixels:
+        center = np.mean(road_pixels, axis=0)
+        return (int(center[0]), int(center[1]))
+    return pos
+
+def find_nearest_accessible(pos, cost_map):
+    x, y = pos
+    for radius in range(1, 100):  # Increase search radius up to 100 pixels
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                if dx*dx + dy*dy <= radius*radius:  # Check if within circular radius
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < cost_map.shape[0] and 0 <= ny < cost_map.shape[1]:
+                        if cost_map[nx, ny] != COST['inaccessible']:
+                            return (nx, ny)
+    return None  # If no accessible point found within 100 pixel radius
+
 def a_star(start, goal, cost_map):
-    if cost_map is None or not (0 <= start[0] < cost_map.shape[0] and 0 <= start[1] < cost_map.shape[1]) or \
-       not (0 <= goal[0] < cost_map.shape[0] and 0 <= goal[1] < cost_map.shape[1]) or \
-       cost_map[start] == COST['inaccessible'] or cost_map[goal] == COST['inaccessible']:
+    if cost_map is None:
+        return None
+
+    # Find nearest accessible point if start or goal is inaccessible
+    if cost_map[start] == COST['inaccessible']:
+        start = find_nearest_accessible(start, cost_map)
+    if cost_map[goal] == COST['inaccessible']:
+        goal = find_nearest_accessible(goal, cost_map)
+
+    if start is None or goal is None:
         return None
 
     def get_neighbors(pos):
@@ -84,13 +118,23 @@ def a_star(start, goal, cost_map):
             if 0 <= nx < cost_map.shape[0] and 0 <= ny < cost_map.shape[1]:
                 yield (nx, ny)
 
-    g_score = {start: 0}
-    f_score = {start: manhattan_distance(start, goal)}
+    def is_within_bounds(pos):
+        return 0 <= pos[0] < cost_map.shape[0] and 0 <= pos[1] < cost_map.shape[1]
+
+    g_score = defaultdict(lambda: float('inf'))
+    g_score[start] = 0
+    f_score = defaultdict(lambda: float('inf'))
+    f_score[start] = manhattan_distance(start, goal)
+    
     open_heap = [(f_score[start], start)]
+    closed_set = set()
     came_from = {}
 
     while open_heap:
-        current = heapq.heappop(open_heap)[1]
+        current_f, current = heapq.heappop(open_heap)
+
+        if current in closed_set:
+            continue
 
         if current == goal:
             path = []
@@ -100,14 +144,29 @@ def a_star(start, goal, cost_map):
             path.append(start)
             return path[::-1]
 
+        closed_set.add(current)
+
         for neighbor in get_neighbors(current):
+            if neighbor in closed_set:
+                continue
+
+            if not is_within_bounds(neighbor):
+                print(f"Warning: Neighbor {neighbor} is out of bounds")
+                continue
+
             tentative_g_score = g_score[current] + cost_map[neighbor]
 
-            if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+            if tentative_g_score < g_score[neighbor]:
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g_score
                 f_score[neighbor] = g_score[neighbor] + manhattan_distance(neighbor, goal)
-                heapq.heappush(open_heap, (f_score[neighbor], neighbor))
+                
+                # If the neighbor is on a road, find the center of the road
+                if cost_map[neighbor] == COST['road']:
+                    road_center = find_road_center(neighbor, cost_map)
+                    heapq.heappush(open_heap, (f_score[neighbor], road_center))
+                else:
+                    heapq.heappush(open_heap, (f_score[neighbor], neighbor))
 
     return None
 
@@ -155,6 +214,8 @@ class Pathfinder:
         self.current_facing_point_index = -1
         self.last_facing_state = False
         self.update_config()
+        self.last_valid_distance = None
+        self.last_valid_angle = None
 
     def load_audio(self):
         try:
@@ -194,18 +255,21 @@ class Pathfinder:
         start_overlay = self.convert_to_overlay_coordinates(*start)
         goal_overlay = self.convert_to_overlay_coordinates(*goal)
         print(f"Starting pathfinding from {start_overlay} to {goal_overlay}")
-
+        print(f"Cost map shape: {self.cost_map.shape}")
+    
         self.poi_name = poi_name
         speaker.speak(f"Pathfinding to {self.poi_name}")
-
+    
         self.current_path = a_star(start_overlay, goal_overlay, self.cost_map)
         if self.current_path:
+            # Apply road center prioritization to the path
+            self.current_path = [find_road_center(point, self.cost_map) for point in self.current_path]
             self.current_path = optimize_path(self.current_path, self.cost_map)
             self.current_path = [self.convert_to_screen_coordinates(y, x) for y, x in self.current_path]
             self.current_point_index = 0
             self.active = True
             self.stop_event.clear()
-
+    
             self.threads = [
                 threading.Thread(target=self.pathfinding_loop),
                 threading.Thread(target=self.movement_check_loop),
@@ -254,10 +318,18 @@ class Pathfinder:
             if self.current_point_index < len(self.current_path):
                 player_position = find_player_position()
                 player_direction, _ = find_minimap_icon_direction()
-                if player_position and player_direction:
-                    next_point = self.current_path[self.current_point_index]
+                next_point = self.current_path[self.current_point_index]
+                
+                if player_position:
                     distance = self.calculate_distance(player_position, next_point)
-                    angle = self.calculate_angle(player_position, player_direction, next_point)
+                    
+                    if player_direction:
+                        angle = self.calculate_angle(player_position, player_direction, next_point)
+                        self.last_valid_distance = distance
+                        self.last_valid_angle = angle
+                    else:
+                        print("Unable to determine player direction, using last known angle")
+                        angle = self.last_valid_angle if self.last_valid_angle is not None else 0
                     
                     if self.perform_facing_check:
                         facing_point = abs(angle) <= self.facing_point_angle_threshold
@@ -274,12 +346,25 @@ class Pathfinder:
                         # Always play the next point sound when perform_facing_check is off
                         self.play_spatial_sound(distance, angle)
                     
-                    time.sleep(self.ping_frequency)
+                    # Stop pathfinding if player is 150 meters away from the current point
+                    if distance > 150:
+                        speaker.speak("Player too far from current point. Stopping pathfinding.")
+                        self.stop_pathfinding()
+                        return
+                    
+                    print(f"Distance to next point: {distance:.2f}, Angle: {angle:.2f}")
+                else:
+                    print("Unable to determine player position, using last known distance and angle")
+                    if self.last_valid_distance is not None and self.last_valid_angle is not None:
+                        self.play_spatial_sound(self.last_valid_distance, self.last_valid_angle)
+                    else:
+                        print("No last known position available, skipping sound")
             else:
                 self.current_facing_point_index = -1
                 self.last_facing_state = False
-            time.sleep(0.01)
-
+            
+            time.sleep(self.ping_frequency)
+    
     def calculate_distance(self, start, end):
         return np.linalg.norm(np.array(start) - np.array(end)) * 2.65
 
@@ -313,8 +398,10 @@ class Pathfinder:
             self.current_sound = None
 
         if not SIMPLEAUDIO_AVAILABLE:
-            next_point_ping_sound.set_volume(1 - min(distance / 100, 1))
+            volume = 1 - min(distance / self.ping_volume_max_distance, 1)
+            next_point_ping_sound.set_volume(volume)
             next_point_ping_sound.play()
+            print(f"Playing ping sound with volume: {volume}")
             return
 
         volume_factor = 1 - min(distance / self.ping_volume_max_distance, 1)
@@ -327,6 +414,7 @@ class Pathfinder:
         stereo_sound = np.column_stack((adjusted_sound * left_volume, adjusted_sound * right_volume))
         stereo_sound = (stereo_sound * 32767).astype(np.int16)
         self.current_sound = sa.play_buffer(stereo_sound, 2, 2, self.sample_rate)
+        print(f"Playing spatial sound with volume factor: {volume_factor}, pan: {pan}")
 
     def movement_check_loop(self):
         while not self.stop_event.is_set():
@@ -346,7 +434,7 @@ class Pathfinder:
             self.consecutive_position_fails += 1
             if self.consecutive_position_fails >= 3:
                 speaker.speak("Unable to determine player position. Stopping pathfinding.")
-                self.stop_event.set()
+                self.stop_pathfinding()
             return
         self.consecutive_position_fails = 0
 
@@ -373,7 +461,7 @@ class Pathfinder:
                     if self.current_point_index >= len(self.current_path):
                         pathfinding_success_sound.play()
                         speaker.speak(f"Reached {self.poi_name}")
-                        self.stop_event.set()
+                        self.stop_pathfinding()
                         return
                     
                     break  # Exit the inner loop and continue checking from the new current point
@@ -392,7 +480,7 @@ class Pathfinder:
                     if self.current_point_index >= len(self.current_path):
                         pathfinding_success_sound.play()
                         speaker.speak(f"Reached {self.poi_name}")
-                        self.stop_event.set()
+                        self.stop_pathfinding()
                         return
                 else:
                     break  # Exit the outer loop if we're not close enough to the current point
