@@ -6,8 +6,7 @@ import os
 import re
 import win32api
 import win32con
-from lib.utilities import force_focus_window, get_config_int, get_config_float, get_config_value, get_config_boolean
-
+from lib.utilities import force_focus_window, get_config_int, get_config_float, get_config_value, get_config_boolean, DEFAULT_CONFIG
 
 speaker = Auto()
 
@@ -118,6 +117,10 @@ def is_numeric(value):
 
 def create_config_gui(update_script_callback):
     config = load_config()
+    default_config = configparser.ConfigParser(interpolation=None)
+    default_config.optionxform = str
+    default_config.read_string(DEFAULT_CONFIG)
+
     root = tk.Tk()
     root.title("FA11y Configuration")
     root.attributes('-topmost', True)
@@ -249,13 +252,10 @@ def create_config_gui(update_script_callback):
 
     def speak_help():
         controls = [
-            "Use Up and Down arrows to navigate between options",
-            "Use Tab and Shift+Tab to switch between tabs",
-            "Press Enter to toggle checkboxes, edit text fields, or capture keybinds",
-            "When editing a text field, use Up Arrow to hear the current value",
-            "Press Escape to cancel editing a config entry, or to save and close the config panel",
-            "When capturing a keybind, press Backspace to disable the keybind",
-            "Press H at any time to hear these instructions again"
+            "Up/Down: Navigate options. Tab/Shift+Tab: Switch tabs",
+            "Enter: Toggle, edit, or capture. Up Arrow while editing: Hear current value",
+            "Escape: Cancel edit or save and close. Backspace while capturing: Disable keybind",
+            "R: Reset option to default. H: Repeat these instructions"
         ]
         speak(". ".join(controls))
 
@@ -293,6 +293,25 @@ def create_config_gui(update_script_callback):
                 return
             root.update()
 
+    def reset_to_default(widget):
+        current_tab = notebook.tab(notebook.select(), "text")
+        key = get_widget_text(widget)
+        default_value, default_description = get_config_value(default_config, current_tab, key)
+        
+        if isinstance(widget, ttk.Checkbutton):
+            variables[(current_tab, key)].set(default_value.lower() == 'true')
+            widget.state(['!alternate'])
+            if default_value.lower() == 'true':
+                widget.state(['selected'])
+            else:
+                widget.state(['!selected'])
+        elif isinstance(widget, ttk.Entry):
+            widget.delete(0, tk.END)
+            widget.insert(0, default_value)
+            variables[(current_tab, key)].set(default_value)
+        
+        speak(f"{key} reset to default value: {default_value}")
+
     def on_key(event):
         if event.keysym.lower() == 'h':
             speak_help()
@@ -302,6 +321,12 @@ def create_config_gui(update_script_callback):
             capture_keybind()
             capturing_keybind[0] = False
             root.focus_get().config(state='readonly')
+            return "break"
+        
+        if event.keysym.lower() == 'r' and not currently_editing[0]:
+            current_widget = root.focus_get()
+            if isinstance(current_widget, (ttk.Checkbutton, ttk.Entry)):
+                reset_to_default(current_widget)
             return "break"
 
     def on_enter(event):
@@ -323,8 +348,17 @@ def create_config_gui(update_script_callback):
             elif currently_editing[0] == current:
                 currently_editing[0] = None
                 current.config(state='readonly')
-                if is_numeric(current.get()) or current.get() == "":
-                    speak(f"{get_widget_text(current)} set to {current.get() or 'empty'}")
+                if current.get() == "":
+                    # Reset to default value if no new value is set
+                    current_tab = notebook.tab(notebook.select(), "text")
+                    key = get_widget_text(current)
+                    default_value, _ = get_config_value(default_config, current_tab, key)
+                    current.delete(0, tk.END)
+                    current.insert(0, default_value)
+                    variables[(current_tab, key)].set(default_value)
+                    speak(f"No value entered. {key} reset to default value: {default_value}")
+                elif is_numeric(current.get()):
+                    speak(f"{get_widget_text(current)} set to {current.get()}")
                 else:
                     speak(f"Invalid input. {get_widget_text(current)} must be a number. Value not changed.")
                     current.delete(0, tk.END)
@@ -332,7 +366,8 @@ def create_config_gui(update_script_callback):
             elif not currently_editing[0]:
                 currently_editing[0] = current
                 current.config(state='normal')
-                speak(f"Editing {get_widget_text(current)}. Current value: {current.get()}. Press Enter when done.")
+                current.delete(0, tk.END)  # Clear the contents when starting to edit
+                speak(f"Editing {get_widget_text(current)}. Current value cleared. Enter new value and press Enter when done.")
         return "break"
 
     def save_and_close():
