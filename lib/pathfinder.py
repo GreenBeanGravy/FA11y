@@ -11,7 +11,7 @@ from lib.utilities import get_config_int, get_config_float, get_config_boolean, 
 from accessible_output2.outputs.auto import Auto
 from lib.player_location import ROI_START_ORIG, ROI_END_ORIG
 from lib.minimap_direction import find_minimap_icon_direction
-from lib.icon import auto_turn_towards_poi
+from lib.icon import auto_turn_towards_poi, find_closest_poi, load_poi_from_file
 
 speaker = Auto()
 
@@ -350,6 +350,7 @@ class Pathfinder:
                     if self.current_point_index >= len(self.current_path):
                         spatial_pathfinding_success.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                         speaker.speak(f"Reached {self.poi_name}")
+                        self.stop_pathfinding()
                         self.stop_event.set()
                         return
                     
@@ -369,6 +370,7 @@ class Pathfinder:
                     if self.current_point_index >= len(self.current_path):
                         spatial_pathfinding_success.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                         speaker.speak(f"Reached {self.poi_name}")
+                        self.stop_pathfinding()
                         self.stop_event.set()
                         return
                 else:
@@ -428,9 +430,20 @@ def toggle_pathfinding():
     
     if len(selected_poi) == 3:
         start = find_player_position()
-        goal = (int(selected_poi[1]), int(selected_poi[2]))
-        poi_name = selected_poi[0]
         if start:
+            poi_name = selected_poi[0]
+            if poi_name.lower() == 'closest':
+                poi_list = load_poi_from_file()
+                closest_poi = find_closest_poi(start, poi_list)
+                if closest_poi:
+                    poi_name, coordinates = closest_poi
+                    goal = coordinates  # coordinates is already a tuple (x, y)
+                else:
+                    speaker.speak("No POIs found to pathfind to.")
+                    return
+            else:
+                goal = (int(selected_poi[1]), int(selected_poi[2]))
+
             if pathfinder_instance.active:
                 pathfinder_instance.stop_pathfinding()
             else:
