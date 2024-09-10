@@ -22,7 +22,7 @@ def count_pixels(mask, contour):
     colored_pixels = cv2.countNonZero(cv2.bitwise_and(cv2.bitwise_not(mask), temp_mask))
     return white_pixels, colored_pixels
 
-def find_minimap_icon_direction(sensitivity=1.0):
+def find_minimap_icon_direction(sensitivity=0.9):
     # Capture the minimap area using the updated coordinates for the center
     screenshot = pyautogui.screenshot(region=(MINIMAP_START[0], MINIMAP_START[1], 
                                               MINIMAP_END[0] - MINIMAP_START[0], 
