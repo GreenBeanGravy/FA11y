@@ -16,17 +16,14 @@ def set_north_volume(volume):
     global north_volume
     north_volume = max(0.0, min(1.0, volume))
     spatial_audio.set_volume(north_volume)  # Set the volume in the SpatialAudio module
-    print(f"North volume set to: {north_volume}")
 
 def set_play_north_sound(play):
     global play_north_sound
     play_north_sound = play
-    print(f"Play north sound set to: {play_north_sound}")
 
 def set_pitch_shift_factor(factor):
     global pitch_shift_factor
     pitch_shift_factor = max(0.1, min(1.0, factor))
-    print(f"Pitch shift factor set to: {pitch_shift_factor}")
 
 def calculate_volumes(angle):
     """Calculate left and right channel volumes based on angle."""
