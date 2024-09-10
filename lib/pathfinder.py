@@ -3,10 +3,9 @@ import numpy as np
 import heapq
 import time
 import threading
-import pygame
 import pyautogui
 import ctypes
-import soundfile as sf
+from lib.spatial_audio import SpatialAudio
 from lib.ppi import find_player_position
 from lib.utilities import get_config_int, get_config_float, get_config_boolean, read_config
 from accessible_output2.outputs.auto import Auto
@@ -14,18 +13,7 @@ from lib.player_location import ROI_START_ORIG, ROI_END_ORIG
 from lib.minimap_direction import find_minimap_icon_direction
 from lib.icon import auto_turn_towards_poi
 
-# Try to import simpleaudio, but provide a fallback if it's not available
-try:
-    import simpleaudio as sa
-    SIMPLEAUDIO_AVAILABLE = True
-except ImportError:
-    SIMPLEAUDIO_AVAILABLE = False
-    print("simpleaudio is not available. Some audio features will be disabled.")
-
 speaker = Auto()
-
-# Initialize pygame mixer
-pygame.mixer.init()
 
 # Define sound file paths
 POINT_REACHED_SOUND = 'sounds/point_reached.ogg'
@@ -33,11 +21,11 @@ PATHFINDING_SUCCESS_SOUND = 'sounds/pathfinding_success.ogg'
 NEXT_POINT_PING_SOUND = 'sounds/next_point_ping.ogg'
 FACING_POINT_SOUND = 'sounds/facing_point.ogg'
 
-# Load sounds
-point_reached_sound = pygame.mixer.Sound(POINT_REACHED_SOUND)
-pathfinding_success_sound = pygame.mixer.Sound(PATHFINDING_SUCCESS_SOUND)
-next_point_ping_sound = pygame.mixer.Sound(NEXT_POINT_PING_SOUND)
-facing_point_sound = pygame.mixer.Sound(FACING_POINT_SOUND)
+# Initialize SpatialAudio for each sound
+spatial_next_point_ping = SpatialAudio(NEXT_POINT_PING_SOUND)
+spatial_point_reached = SpatialAudio(POINT_REACHED_SOUND)
+spatial_pathfinding_success = SpatialAudio(PATHFINDING_SUCCESS_SOUND)
+spatial_facing_point = SpatialAudio(FACING_POINT_SOUND)
 
 # Define colors (BGR format)
 INACCESSIBLE = (0, 0, 255)
@@ -149,24 +137,9 @@ class Pathfinder:
         self.last_position = None
         self.poi_name = ""
         self.update_config()
-        self.load_audio()
-        self.threads = []
         self.current_sound = None
         self.current_facing_point_index = -1
         self.last_facing_state = False
-        self.update_config()
-
-    def load_audio(self):
-        try:
-            audio_data, self.sample_rate = sf.read(NEXT_POINT_PING_SOUND)
-            self.ping_sound = audio_data.astype(np.float32)
-            if self.ping_sound.ndim == 2:
-                self.ping_sound = self.ping_sound.mean(axis=1)  # Convert stereo to mono
-            self.ping_sound = self.ping_sound / np.max(np.abs(self.ping_sound))  # Normalize
-        except Exception as e:
-            print(f"Error loading audio: {e}")
-            self.ping_sound = None
-            self.sample_rate = None
 
     def update_config(self):
         self.config = read_config()  # Re-read the config
@@ -250,6 +223,7 @@ class Pathfinder:
                 self.stop_event.set()
 
     def audio_ping_loop(self):
+        """Audio ping loop to give feedback on the player's position relative to the next waypoint."""
         while not self.stop_event.is_set():
             if self.current_point_index < len(self.current_path):
                 player_position = find_player_position()
@@ -264,7 +238,7 @@ class Pathfinder:
                         
                         if facing_point:
                             if not self.last_facing_state or self.current_facing_point_index != self.current_point_index:
-                                facing_point_sound.play()
+                                spatial_facing_point.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                                 self.current_facing_point_index = self.current_point_index
                         else:
                             self.play_spatial_sound(distance, angle)
@@ -308,25 +282,26 @@ class Pathfinder:
         return angle
 
     def play_spatial_sound(self, distance, angle):
+        """Play a spatial sound based on the player's distance and angle to the next waypoint."""
+        # Stop any currently playing sound
         if self.current_sound:
             self.current_sound.stop()
             self.current_sound = None
 
-        if not SIMPLEAUDIO_AVAILABLE:
-            next_point_ping_sound.set_volume(1 - min(distance / 100, 1))
-            next_point_ping_sound.play()
-            return
-
+        # Calculate volume based on distance
         volume_factor = 1 - min(distance / self.ping_volume_max_distance, 1)
-        adjusted_sound = self.ping_sound * volume_factor
 
+        # Calculate stereo panning based on angle
         pan = np.clip(angle / 90, -1, 1)
         left_volume = np.clip((1 - pan) / 2, 0, 1)
         right_volume = np.clip((1 + pan) / 2, 0, 1)
-        
-        stereo_sound = np.column_stack((adjusted_sound * left_volume, adjusted_sound * right_volume))
-        stereo_sound = (stereo_sound * 32767).astype(np.int16)
-        self.current_sound = sa.play_buffer(stereo_sound, 2, 2, self.sample_rate)
+
+        # Play the spatial audio using the ping sound
+        spatial_next_point_ping.play_audio(
+            left_weight=left_volume,
+            right_weight=right_volume,
+            volume=volume_factor
+        )
 
     def movement_check_loop(self):
         while not self.stop_event.is_set():
@@ -362,7 +337,7 @@ class Pathfinder:
                 if distance_to_next < distance_to_current:
                     # Player is closer to a further point, consider current point reached
                     self.current_point_index = i  # Update to the furthest point the player is closer to
-                    point_reached_sound.play()
+                    spatial_point_reached.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                     points_left = len(self.current_path) - self.current_point_index
                     
                     if points_left > 0:
@@ -371,7 +346,7 @@ class Pathfinder:
                         self.last_facing_state = False
                     
                     if self.current_point_index >= len(self.current_path):
-                        pathfinding_success_sound.play()
+                        spatial_pathfinding_success.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                         speaker.speak(f"Reached {self.poi_name}")
                         self.stop_event.set()
                         return
@@ -381,7 +356,7 @@ class Pathfinder:
                 # If we didn't break from the inner loop, check if we're close enough to the current point
                 if distance_to_current <= self.pathfinding_point_radius:
                     self.current_point_index += 1
-                    point_reached_sound.play()
+                    spatial_point_reached.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                     points_left = len(self.current_path) - self.current_point_index
                     
                     if points_left > 0:
@@ -390,7 +365,7 @@ class Pathfinder:
                         self.last_facing_state = False
                     
                     if self.current_point_index >= len(self.current_path):
-                        pathfinding_success_sound.play()
+                        spatial_pathfinding_success.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                         speaker.speak(f"Reached {self.poi_name}")
                         self.stop_event.set()
                         return
@@ -398,6 +373,7 @@ class Pathfinder:
                     break  # Exit the outer loop if we're not close enough to the current point
 
     def auto_turn_loop(self):
+        """Auto-turn loop for navigating towards waypoints."""
         while not self.stop_event.is_set():
             if self.current_point_index < len(self.current_path):
                 player_position = find_player_position()
@@ -411,7 +387,7 @@ class Pathfinder:
                         
                         if facing_point:
                             if not self.last_facing_state or self.current_facing_point_index != self.current_point_index:
-                                facing_point_sound.play()
+                                spatial_facing_point.play_audio(left_weight=1.0, right_weight=1.0, volume=1.0)
                                 self.current_facing_point_index = self.current_point_index
                             self.auto_turn_failures = 0
                         else:
