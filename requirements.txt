@@ -30,3 +30,4 @@ easyocr
 librosa
 soundfile
 easyocr
+pyaudio
