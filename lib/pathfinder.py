@@ -72,8 +72,9 @@ def a_star(start, goal, cost_map):
             if 0 <= nx < cost_map.shape[0] and 0 <= ny < cost_map.shape[1]:
                 yield (nx, ny)
 
-    g_score = {start: 0}
-    f_score = {start: manhattan_distance(start, goal)}
+    # Use np.float64 to prevent overflow
+    g_score = {start: np.float64(0)}
+    f_score = {start: np.float64(manhattan_distance(start, goal))}
     open_heap = [(f_score[start], start)]
     came_from = {}
 
@@ -89,12 +90,13 @@ def a_star(start, goal, cost_map):
             return path[::-1]
 
         for neighbor in get_neighbors(current):
-            tentative_g_score = g_score[current] + cost_map[neighbor]
+            # Ensure the costs are cast to float64 to avoid overflow
+            tentative_g_score = g_score[current] + np.float64(cost_map[neighbor])
 
             if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = g_score[neighbor] + manhattan_distance(neighbor, goal)
+                f_score[neighbor] = g_score[neighbor] + np.float64(manhattan_distance(neighbor, goal))
                 heapq.heappush(open_heap, (f_score[neighbor], neighbor))
 
     return None
