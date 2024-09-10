@@ -21,7 +21,7 @@ CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA1
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
 PlayNorthSound = true "Toggles whether the north direction sound should play when turning."
-TurnSensitivity = 100 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
+TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
 SecondaryTurnSensitivity = 50 "The sensitivity used for secondary turning left and right when MouseKeys is enabled."
 TurnAroundSensitivity = 1158 "The sensitivity used when turning the player around. Only adjust this if you are having issues."
 ScrollSensitivity = 120 "The sensitivity used for the scroll up and down actions."
@@ -41,7 +41,7 @@ MinimumMovementDistance = 1 "The minimum distance the player must move in meters
 PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
-NorthSoundVolume = 0.1 "Controls the volume of the north direction sound (0.0 to 1.0)."
+NorthSoundVolume = 0.25 "Controls the volume of the north direction sound (0.0 to 1.0)."
 NorthSoundPitchShift = 0.5 "Controls the pitch shift of the north sound when it's behind the player (0.1 to 1.0, where 0.5 is 50 percent lower pitch)."
 
 [SCRIPT KEYBINDS]
