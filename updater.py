@@ -63,27 +63,6 @@ def install_accessible_output2():
             return False
     return True
 
-def install_simpleaudio():
-    """
-    Installs the simpleaudio module from a local wheel file.
-    """
-    python_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
-    platform = "win_amd64" if sys.maxsize > 2**32 else "win32"
-    wheel_filename = f"simpleaudio-1.0.4-{python_version}-{python_version}-{platform}.whl"
-    wheel_path = os.path.join(os.getcwd(), 'whls', wheel_filename)
-
-    if not os.path.exists(wheel_path):
-        print_info(f"Wheel file not found: {wheel_path}")
-        return False
-
-    try:
-        subprocess.run([sys.executable, "-m", "pip", "install", wheel_path], check=True, capture_output=True, text=True)
-        print_info("SimpleAudio installed successfully")
-        return True
-    except subprocess.CalledProcessError as e:
-        print_info(f"Failed to install SimpleAudio: {e}")
-        return False
-
 def download_file_to_path(url, path):
     """
     Downloads a file from a URL to a specified local path.
@@ -128,8 +107,6 @@ def install_required_modules_and_whls():
 
     if not os.path.exists('whls'):
         download_folder("GreenBeanGravy/FA11y", "main", "whls")
-    
-    install_simpleaudio()
 
 def create_mock_imp():
     """
