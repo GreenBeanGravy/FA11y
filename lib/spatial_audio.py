@@ -28,7 +28,6 @@ class SpatialAudio:
             self.audio_data = self.audio_data.astype(np.float32)
             self.audio_data /= np.max(np.abs(self.audio_data))  # Normalize
             self.original_audio_data = np.copy(self.audio_data)  # Keep a copy of the original data
-            print(f"Loaded audio: {self.audio_file} | Sample rate: {self.sample_rate} | Data shape: {self.audio_data.shape}")
         except Exception as e:
             print(f"Error loading audio: {e}")
             self.audio_data = None
@@ -47,7 +46,6 @@ class SpatialAudio:
     def set_volume(self, volume):
         """Set the global volume."""
         self.volume = max(0.0, min(1.0, volume))
-        print(f"Volume set to: {self.volume}")
 
     def apply_pitch_shift(self, factor):
         """Apply the pitch shift and resample the audio."""
