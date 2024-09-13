@@ -1,29 +1,31 @@
 import os
 import sys
 
-# Set the command window title
-os.system("title FA11y")
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
-
-import ctypes
 import configparser
+import ctypes
+import subprocess
 import threading
 import time
-import win32api
-import win32con
-import keyboard
-import subprocess
-import winshell
+
 import pyautogui
-from win32com.client import Dispatch
 import pygame
 import requests
+import win32api
+import win32con
+import win32com.client
+import winshell
+
+# Set the command window title
+os.system("title FA11y")
+
+# Hide the Pygame support prompt before importing pygame
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
     class MockImp:
         __name__ = 'imp'
-        
+
         @staticmethod
         def is_frozen(arg=None):
             if arg == "__main__":
@@ -34,21 +36,46 @@ if sys.version_info >= (3, 12):
 
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection
-from lib.hsr import start_health_shield_rarity_detection, check_health_shields, check_rarity
-from lib.mouse import smooth_move_mouse, left_mouse_down, left_mouse_up, right_mouse_down, right_mouse_up, mouse_scroll
+from lib.hsr import (
+    start_health_shield_rarity_detection,
+    check_health_shields,
+    check_rarity,
+)
+from lib.mouse import (
+    smooth_move_mouse,
+    left_mouse_down,
+    left_mouse_up,
+    right_mouse_down,
+    right_mouse_up,
+    mouse_scroll,
+)
 from lib.guis.gui import select_poi_tk
 from lib.guis.gamemode_selector import select_gamemode_tk
-from lib.guis.coordinate_utils import speak_current_coordinates, get_current_coordinates
+from lib.guis.coordinate_utils import speak_current_coordinates
 from lib.guis.custom_poi_creator import create_custom_poi_gui
 from lib.height_checker import start_height_checker
 from lib.minimap_direction import speak_minimap_direction, find_minimap_icon_direction
 from lib.guis.config_gui import create_config_gui
 from lib.exit_match import exit_match
-from lib.hotbar_detection import initialize_hotbar_detection, detect_hotbar_item, announce_ammo_manually
-from lib.ppi import find_player_position, get_player_position_description
-from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean, read_config, update_config
+from lib.hotbar_detection import (
+    initialize_hotbar_detection,
+    detect_hotbar_item,
+    announce_ammo_manually,
+)
+from lib.utilities import (
+    get_config_int,
+    get_config_float,
+    get_config_value,
+    get_config_boolean,
+    read_config,
+)
 from lib.pathfinder import toggle_pathfinding
-from lib.north_sound import play_north_audio, set_north_volume, set_play_north_sound, set_pitch_shift_factor
+from lib.north_sound import (
+    play_north_audio,
+    set_north_volume,
+    set_play_north_sound,
+    set_pitch_shift_factor,
+)
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -115,25 +142,45 @@ key_listener_thread = None
 stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 
+
 def is_numlock_on():
+    """Check if Num Lock is currently enabled."""
     return win32api.GetKeyState(win32con.VK_NUMLOCK) & 1 != 0
 
+
 def is_key_pressed(key):
+    """Check if a specific key is currently pressed.
+
+    Args:
+        key (str): The name of the key to check.
+
+    Returns:
+        bool: True if the key is pressed, False otherwise.
+    """
     key_lower = key.lower()
     if key_lower in VK_KEYS:
-        return win32api.GetAsyncKeyState(VK_KEYS[key_lower]) & 0x8000 != 0
+        vk_code = VK_KEYS[key_lower]
     else:
         try:
             vk_code = ord(key.upper())
-            return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
-        except:
+        except (TypeError, ValueError):
             print(f"Unrecognized key: {key}. Skipping...")
             return False
+    return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
+
 
 def check_white_pixel():
+    """Check if the pixel at a specific location is white."""
     return pyautogui.pixelMatchesColor(1908, 14, (255, 255, 255))
 
+
 def handle_movement(action, reset_sensitivity):
+    """Handle movement actions based on the specified action.
+
+    Args:
+        action (str): The movement action to perform.
+        reset_sensitivity (bool): Whether to use reset sensitivity values.
+    """
     global config
     turn_sensitivity = get_config_int(config, 'SETTINGS', 'TurnSensitivity', 100)
     secondary_turn_sensitivity = get_config_int(config, 'SETTINGS', 'SecondaryTurnSensitivity', 50)
@@ -155,7 +202,7 @@ def handle_movement(action, reset_sensitivity):
             y_move = -sensitivity
         elif action == 'look down':
             y_move = sensitivity
-        
+
         smooth_move_mouse(x_move, y_move, turn_delay, turn_steps)
 
         direction, angle = find_minimap_icon_direction()
@@ -176,14 +223,23 @@ def handle_movement(action, reset_sensitivity):
         else:
             recenter_move = get_config_int(config, 'SETTINGS', 'RecenterLookDown', 1500)
             down_move = get_config_int(config, 'SETTINGS', 'RecenterLookUp', -820)
-        
+
         smooth_move_mouse(0, recenter_move, recenter_step_delay, recenter_steps, recenter_step_speed, down_move, recenter_delay)
         speaker.speak("Reset Camera")
         return
 
     smooth_move_mouse(x_move, y_move, recenter_delay)
 
+
 def normalize_key(key):
+    """Normalize special keys to their standard names.
+
+    Args:
+        key (str): The key name to normalize.
+
+    Returns:
+        str: The normalized key name.
+    """
     key_mapping = {
         '`': 'grave',
         '\\': 'backslash',
@@ -195,20 +251,28 @@ def normalize_key(key):
     }
     return key_mapping.get(key, key)
 
+
 def handle_scroll(action):
+    """Handle scroll actions based on the specified action.
+
+    Args:
+        action (str): The scroll action to perform.
+    """
     global config
     scroll_sensitivity = get_config_int(config, 'SETTINGS', 'ScrollSensitivity', 120)
     if action == 'scroll down':
         scroll_sensitivity = -scroll_sensitivity
     mouse_scroll(scroll_sensitivity)
 
+
 def reload_config():
+    """Reload configuration and update key bindings and action handlers."""
     global config, action_handlers, key_bindings
     config = read_config()
-    
-    key_bindings = {key.lower(): get_config_value(config, 'SCRIPT KEYBINDS', key)[0].lower() 
+
+    key_bindings = {key.lower(): get_config_value(config, 'SCRIPT KEYBINDS', key)[0].lower()
                     for key in config['SCRIPT KEYBINDS'] if get_config_value(config, 'SCRIPT KEYBINDS', key)[0]}
-    
+
     mouse_keys_enabled = get_config_boolean(config, 'SETTINGS', 'MouseKeys', True)
     reset_sensitivity = get_config_boolean(config, 'SETTINGS', 'ResetSensitivity', False)
 
@@ -218,9 +282,9 @@ def reload_config():
     set_north_volume(north_volume)
     set_play_north_sound(play_north_sound)
     set_pitch_shift_factor(pitch_shift_factor)
-    
+
     action_handlers.clear()
-    
+
     action_handlers['start navigation'] = lambda: start_icon_detection(use_ppi=check_white_pixel())
 
     if mouse_keys_enabled:
@@ -238,7 +302,7 @@ def reload_config():
             'scroll up': lambda: handle_scroll('scroll up'),
             'scroll down': lambda: handle_scroll('scroll down')
         })
-    
+
     action_handlers.update({
         'announce direction faced': speak_minimap_direction,
         'check health shields': check_health_shields,
@@ -252,11 +316,13 @@ def reload_config():
         'announce ammo': announce_ammo_manually,
         'toggle pathfinding': toggle_pathfinding,
     })
-    
+
     for i in range(1, 6):
         action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
 
+
 def key_listener():
+    """Listen for key events and trigger corresponding actions."""
     global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open
     while not stop_key_listener.is_set():
         if not config_gui_open.is_set():
@@ -266,7 +332,7 @@ def key_listener():
             for action, key in key_bindings.items():
                 if not key:
                     continue
-                
+
                 normalized_key = normalize_key(key)
                 key_pressed = is_key_pressed(normalized_key)
                 action_lower = action.lower()
@@ -274,7 +340,12 @@ def key_listener():
                 if action_lower not in action_handlers:
                     continue
 
-                if not mouse_keys_enabled and action_lower in ['fire', 'target', 'turn left', 'turn right', 'secondary turn left', 'secondary turn right', 'look up', 'look down', 'turn around', 'recenter', 'scroll up', 'scroll down']:
+                if not mouse_keys_enabled and action_lower in [
+                    'fire', 'target', 'turn left', 'turn right',
+                    'secondary turn left', 'secondary turn right',
+                    'look up', 'look down', 'turn around', 'recenter',
+                    'scroll up', 'scroll down'
+                ]:
                     continue
 
                 if action_lower in ['fire', 'target'] and not numlock_on:
@@ -295,13 +366,15 @@ def key_listener():
 
         time.sleep(0.001)
 
+
 def create_desktop_shortcut():
+    """Create a desktop shortcut for FA11y."""
     desktop = winshell.desktop()
     path = os.path.join(desktop, "FA11y.lnk")
     target = os.path.abspath(sys.argv[0])
     wDir = os.path.dirname(target)
-    
-    shell = Dispatch('WScript.Shell')
+
+    shell = win32com.client.Dispatch('WScript.Shell')
     shortcut = shell.CreateShortCut(path)
     shortcut.Targetpath = target
     shortcut.WorkingDirectory = wDir
@@ -309,26 +382,44 @@ def create_desktop_shortcut():
 
 
 def update_script_config(new_config):
+    """Update the script configuration.
+
+    Args:
+        new_config (ConfigParser): The new configuration object.
+    """
     global config, key_listener_thread, stop_key_listener
     config = new_config
     reload_config()
-    
+
     stop_key_listener.set()
-    
+
     stop_key_listener.clear()
     key_listener_thread = threading.Thread(target=key_listener, daemon=True)
     key_listener_thread.start()
 
+
 def open_config_gui():
+    """Open the configuration GUI."""
     config_gui_open.set()
     create_config_gui(update_script_config)
     config_gui_open.clear()
 
+
 def run_updater():
+    """Run the updater script."""
     result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
     return result.returncode == 1
 
+
 def get_version(repo):
+    """Fetch the version from the GitHub repository.
+
+    Args:
+        repo (str): The GitHub repository in 'owner/repo' format.
+
+    Returns:
+        str or None: The version string if fetched successfully, else None.
+    """
     url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
     try:
         response = requests.get(url)
@@ -338,21 +429,32 @@ def get_version(repo):
         print(f"Failed to fetch VERSION file: {e}")
         return None
 
+
 def parse_version(version):
+    """Parse a version string into a tuple of integers.
+
+    Args:
+        version (str): The version string.
+
+    Returns:
+        tuple: The parsed version as a tuple of integers.
+    """
     return tuple(map(int, version.split('.')))
 
+
 def check_for_updates():
+    """Check for updates and notify the user if an update is available."""
     repo = "GreenBeanGravy/FA11y"
     update_notified = False
-    
+
     while True:
         local_version = None
         if os.path.exists('VERSION'):
             with open('VERSION', 'r') as f:
                 local_version = f.read().strip()
-        
+
         repo_version = get_version(repo)
-        
+
         if not local_version:
             print("No local version found. Update may be required.")
         elif not repo_version:
@@ -361,25 +463,30 @@ def check_for_updates():
             try:
                 local_v = parse_version(local_version)
                 repo_v = parse_version(repo_version)
-                if local_v != repo_v:  # Update if local version is not equal to repo version
+                if local_v != repo_v:
                     if not update_notified:
                         update_sound.play()
                         speaker.speak("An update is available for FA11y! Restart FA11y to update!")
                         print("An update is available for FA11y! Restart FA11y to update!")
                         update_notified = True
                 else:
-                    update_notified = False  # Reset the flag if versions match
+                    update_notified = False
             except ValueError:
                 print("Invalid version format. Treating as update required.")
-        
+
         time.sleep(30)
 
+
 def get_legendary_username():
+    """Get the username from the 'legendary' command-line tool.
+
+    Returns:
+        str or None: The username if found, else None.
+    """
     try:
-        # Change the working directory to the script's directory
         script_dir = os.path.dirname(os.path.abspath(__file__))
         os.chdir(script_dir)
-        
+
         result = subprocess.run(["legendary", "status"], capture_output=True, text=True)
         if result.returncode == 0:
             output = result.stdout
@@ -393,20 +500,21 @@ def get_legendary_username():
         print(f"Failed to run 'legendary status': {str(e)}")
         return None
 
+
 def main():
+    """Main entry point for FA11y."""
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
     try:
         print("Starting FA11y...")
 
-        # Get the players username from legendary
-        LOCAL_USERNAME = get_legendary_username()
-        if LOCAL_USERNAME:
-            print(f"Welcome back {LOCAL_USERNAME}!")
-            speaker.speak(f"Welcome back {LOCAL_USERNAME}!")
+        local_username = get_legendary_username()
+        if local_username:
+            print(f"Welcome back {local_username}!")
+            speaker.speak(f"Welcome back {local_username}!")
         else:
             print("You are not logged into Legendary.")
             speaker.speak("You are not logged into Legendary.")
-        
+
         config = read_config()
 
         if get_config_boolean(config, 'SETTINGS', 'AutoUpdates', True):
@@ -417,7 +525,7 @@ def main():
             create_desktop_shortcut()
 
         reload_config()
-        
+
         stop_key_listener.clear()
         key_listener_thread = threading.Thread(target=key_listener, daemon=True)
         key_listener_thread.start()
@@ -426,7 +534,6 @@ def main():
         update_thread.start()
 
         threading.Thread(target=start_height_checker, daemon=True).start()
-
         threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
 
         initialize_hotbar_detection()
@@ -441,6 +548,7 @@ def main():
         stop_key_listener.set()
         print("FA11y is closing...")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
