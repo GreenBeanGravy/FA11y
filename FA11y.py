@@ -8,6 +8,9 @@ import threading
 import time
 
 import pyautogui
+
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+
 import pygame
 import requests
 import win32api
@@ -17,9 +20,6 @@ import winshell
 
 # Set the command window title
 os.system("title FA11y")
-
-# Hide the Pygame support prompt before importing pygame
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
