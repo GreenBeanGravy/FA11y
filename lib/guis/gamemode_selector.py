@@ -2,20 +2,22 @@ import tkinter as tk
 import time
 import pyautogui
 import os
-from accessible_output2.outputs.auto import Auto
 from functools import partial
+
+from accessible_output2.outputs.auto import Auto
 from lib.utilities import force_focus_window
 
+# Initialize speaker
 speaker = Auto()
 
 GAMEMODES_FOLDER = "GAMEMODES"
 
-def speak(s):
-    speaker.speak(s)
+def speak(text):
+    speaker.speak(text)
 
-def delayed_speak(s):
+def delayed_speak(text):
     time.sleep(0.2)
-    speak(s)
+    speak(text)
 
 def smooth_move_and_click(x, y, duration=0.04):
     pyautogui.moveTo(x, y, duration=duration)
@@ -51,7 +53,7 @@ def select_gamemode(gamemode):
     smooth_move_and_click(900, 200)
     time.sleep(0.1)  # Wait 100ms before clearing the field
 
-    # Clear the field using backspace - improved method
+    # Clear the field using backspace
     pyautogui.typewrite('\b' * 50, interval=0.01)
 
     # Type the new gamemode
@@ -93,20 +95,19 @@ def select_gamemode_tk():
     root = tk.Tk()
     root.title("Gamemode Selector")
     root.attributes('-topmost', True)
-    
+
     buttons_frame = tk.Frame(root)
     buttons_frame.pack()
 
     def select_gamemode_action(gamemode):
         root.destroy()
-        if select_gamemode(gamemode):
-            return
-        speak("Failed to select gamemode. Please try again.")
+        if not select_gamemode(gamemode):
+            speak("Failed to select gamemode. Please try again.")
 
     buttons = []
     for gamemode in gamemodes:
         button = tk.Button(buttons_frame, text=gamemode[0], command=partial(select_gamemode_action, gamemode))
-        button.pack()
+        button.pack(pady=2, padx=10, fill='x')
         buttons.append(button)
 
     def navigate(event):

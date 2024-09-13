@@ -2,68 +2,62 @@ import tkinter as tk
 import time
 import pyautogui
 import configparser
-from accessible_output2.outputs.auto import Auto
 from functools import partial
-from lib.object_finder import OBJECT_CONFIGS
-from lib.player_location import ROI_START_ORIG, ROI_END_ORIG
-from lib.utilities import force_focus_window
-from lib.player_location import get_quadrant, get_position_in_quadrant
 
+from accessible_output2.outputs.auto import Auto
+from lib.object_finder import OBJECT_CONFIGS
+from lib.player_location import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
+from lib.utilities import force_focus_window
+
+# Initialize speaker
 speaker = Auto()
 
 # Load POIs once at the start
-try:
-    with open('POI.txt', 'r') as file:
-        pois_from_file = [tuple(line.strip().split(',')) for line in file]
-except FileNotFoundError:
-    print("POI.txt not found. Creating an empty file.")
-    open('POI.txt', 'w').close()
-    pois_from_file = []
+def load_pois(file_path='POI.txt'):
+    try:
+        with open(file_path, 'r') as file:
+            return [tuple(line.strip().split(',')) for line in file]
+    except FileNotFoundError:
+        print(f"{file_path} not found. Creating an empty file.")
+        open(file_path, 'w').close()
+        return []
 
-# Game objects are now dynamically generated from OBJECT_CONFIGS
+pois_from_file = load_pois()
+
+# Game objects are dynamically generated from OBJECT_CONFIGS
 game_objects = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
 
 current_poi_set = 0
 
 def load_custom_pois():
-    try:
-        with open('CUSTOM_POI.txt', 'r') as file:
-            return [tuple(line.strip().split(',')) for line in file if line.strip()]
-    except FileNotFoundError:
-        print("CUSTOM_POI.txt not found. Creating an empty file.")
-        open('CUSTOM_POI.txt', 'w').close()
-        return []
+    return load_pois('CUSTOM_POI.txt')
 
-def speak(s):
-    speaker.speak(s)
+def speak(text):
+    speaker.speak(text)
 
-def delayed_speak(s):
+def delayed_speak(text):
     time.sleep(0.2)
-    speak(s)
+    speak(text)
 
 def update_config_file(selected_poi_name):
     config = configparser.ConfigParser()
     config.read('CONFIG.txt')
-    
+
     if 'POI' not in config:
         config['POI'] = {}
 
     if selected_poi_name.startswith("Position,"):
         config['POI']['selected_poi'] = selected_poi_name
     else:
-        # Check in pois_from_file
+        # Search in various POI sources
         poi_entry = next((poi for poi in pois_from_file if poi[0].lower() == selected_poi_name.lower()), None)
-        
-        # If not found, check in custom POIs
         if not poi_entry:
             custom_pois = load_custom_pois()
             poi_entry = next((poi for poi in custom_pois if poi[0].lower() == selected_poi_name.lower()), None)
-        
-        # If still not found, check in game objects and special POIs
         if not poi_entry:
             combined_pois = [("Safe Zone", "0", "0"), ("Closest", "0", "0")] + game_objects
             poi_entry = next((poi for poi in combined_pois if poi[0].lower() == selected_poi_name.lower()), None)
-        
+
         if poi_entry:
             config['POI']['selected_poi'] = f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
         else:
@@ -79,7 +73,7 @@ def input_custom_coordinates(root):
         coord_window.attributes('-topmost', True)
 
         entry = tk.Entry(coord_window)
-        entry.pack(pady=10)
+        entry.pack(pady=10, padx=10)
         entry.focus_set()
 
         speak(f"{coordinate.upper()} coordinate. Input field, blank. Enter a value between {min_value} and {max_value}")
@@ -109,10 +103,9 @@ def input_custom_coordinates(root):
 
     def get_y_coordinate(x_value):
         def set_coordinates(y_value):
-            # Transform coordinates to match the player icon search area
             transformed_x = x_value + ROI_START_ORIG[0]
             transformed_y = y_value + ROI_START_ORIG[1]
-            
+
             update_config_file(f"Position,{transformed_x},{transformed_y}")
             speak(f"Custom position set to {x_value}, {y_value} in the visible area")
             pyautogui.click()
@@ -128,14 +121,14 @@ def poi_sort_key(poi):
     width, height = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
     quadrant = get_quadrant(x, y, width, height)
     position_in_quadrant = get_position_in_quadrant(x, y, width // 2, height // 2)
-    
-    # Create a numeric value for position_in_quadrant
+
+    # Numeric value for position_in_quadrant
     position_value = {
         "top-left": 0, "top": 1, "top-right": 2,
         "left": 3, "center": 4, "right": 5,
         "bottom-left": 6, "bottom": 7, "bottom-right": 8
     }.get(position_in_quadrant, 9)  # Default to 9 if not found
-    
+
     return (quadrant, position_value, y, x)
 
 def get_poi_position_description(poi):
@@ -144,7 +137,7 @@ def get_poi_position_description(poi):
     width, height = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
     quadrant = get_quadrant(x, y, width, height)
     position_in_quadrant = get_position_in_quadrant(x, y, width // 2, height // 2)
-    
+
     quadrant_names = ["top-left", "top-right", "bottom-left", "bottom-right"]
     return f"{name}, in the {position_in_quadrant} of the {quadrant_names[quadrant]} quadrant"
 
@@ -152,9 +145,9 @@ def select_poi_tk():
     root = tk.Tk()
     root.title("POI Selector")
     root.attributes('-topmost', True)
-    
+
     buttons_frame = tk.Frame(root)
-    buttons_frame.pack()
+    buttons_frame.pack(pady=10, padx=10)
 
     def select_poi(poi):
         if poi == "Custom Coordinates":
@@ -173,10 +166,10 @@ def select_poi_tk():
             current_poi_set = (current_poi_set + 1) % 4
         else:
             current_poi_set = (current_poi_set - 1) % 4
-    
+
         for widget in buttons_frame.winfo_children():
             widget.destroy()
-    
+
         if current_poi_set == 0:
             fixed_pois = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
             sorted_pois = sorted(pois_from_file, key=poi_sort_key)
@@ -202,12 +195,15 @@ def select_poi_tk():
         for poi in pois_to_use:
             poi_name = poi[0] if isinstance(poi, tuple) else poi
             button = tk.Button(buttons_frame, text=poi_name, command=partial(select_poi, poi_name))
-            button.pack()
+            button.pack(pady=2, fill='x')
             buttons.append(button)
 
         if buttons:
             buttons[0].focus_set()
-            root.after(100, lambda: delayed_speak(get_poi_position_description(pois_to_use[0]) if isinstance(pois_to_use[0], tuple) else pois_to_use[0]))
+            if isinstance(pois_to_use[0], tuple):
+                speak(get_poi_position_description(pois_to_use[0]))
+            else:
+                speak(pois_to_use[0])
 
     def navigate(event):
         buttons = [w for w in buttons_frame.winfo_children() if isinstance(w, tk.Button)]
@@ -220,13 +216,10 @@ def select_poi_tk():
         else:
             next_index = 0
         buttons[next_index].focus_set()
-        
-        if current_poi_set in [0, 1]:  # For Game POIs and Custom POIs
-            poi = next((poi for poi in pois_from_file + load_custom_pois() if poi[0] == buttons[next_index]['text']), None)
-            if poi:
-                speak(get_poi_position_description(poi))
-            else:
-                speak(buttons[next_index]['text'])
+
+        poi = next((poi for poi in pois_from_file + load_custom_pois() if poi[0] == buttons[next_index]['text']), None)
+        if poi:
+            speak(get_poi_position_description(poi))
         else:
             speak(buttons[next_index]['text'])
 
@@ -239,21 +232,13 @@ def select_poi_tk():
         speak("Closing P O I selector")
         root.destroy()
 
-    def on_close():
-        root.destroy()
-        # Explicitly delete any Tkinter variables if they exist
-        for var in root.children.values():
-            if isinstance(var, tk.Variable):
-                var.set(None)
-                del var
-
     root.bind('<Tab>', lambda e: refresh_buttons(True))
     root.bind('<Shift-Tab>', lambda e: refresh_buttons(False))
     root.bind('<Up>', navigate)
     root.bind('<Down>', navigate)
     root.bind('<Return>', on_return)
     root.bind('<Escape>', on_escape)
-    root.protocol("WM_DELETE_WINDOW", on_close)
+    root.protocol("WM_DELETE_WINDOW", lambda: root.destroy())
 
     refresh_buttons(initial=True)
 
