@@ -1,12 +1,15 @@
+import os
+import time
+import ctypes
+import configparser
+
+import pywintypes
 import win32gui
 import win32con
 import win32com.client
-import ctypes
-import time
-import pywintypes
+import win32api
+import win32process  # Added import
 from accessible_output2.outputs.auto import Auto
-import configparser
-import os
 
 speaker = Auto()
 CONFIG_FILE = 'config.txt'
@@ -78,61 +81,96 @@ Detect Hotbar 5 = 5 "Announces details about the item the player is currently ho
 [POI]
 selected_poi = closest, 0, 0"""
 
+
 def force_focus_window(window, speak_text=None, focus_widget=None):
+    """Force focus on a given window, with optional speech and widget focus.
+
+    Args:
+        window (Tk): The window to focus.
+        speak_text (str, optional): Text to speak after focusing. Defaults to None.
+        focus_widget (Widget or callable, optional): Widget to focus after window is focused. Defaults to None.
+    """
     window.deiconify()
     window.attributes('-topmost', True)
     window.update()
     window.lift()
-    
+
     hwnd = win32gui.GetParent(window.winfo_id())
-    
+
     # Ensure window is not minimized
     win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-    
+
     shell = win32com.client.Dispatch("WScript.Shell")
-    
-    # New: Release mouse capture from other windows
+
+    # Release mouse capture from other windows
     ctypes.windll.user32.ReleaseCapture()
-    
-    for _ in range(15):  # Increased retry attempts
+
+    # Try to allow the process to set the foreground window
+    try:
+        ctypes.windll.user32.AllowSetForegroundWindow(ctypes.windll.kernel32.GetCurrentProcessId())
+    except Exception as e:
+        print(f"AllowSetForegroundWindow failed: {e}")
+
+    # Initialize foreground_thread_id to None
+    foreground_thread_id = None
+
+    # Attach input threads
+    try:
+        current_thread_id = win32api.GetCurrentThreadId()
+        foreground_window = win32gui.GetForegroundWindow()
+        if foreground_window != hwnd:
+            foreground_thread_id = win32process.GetWindowThreadProcessId(foreground_window)[0]
+            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, True)
+    except Exception as e:
+        print(f"AttachThreadInput failed: {e}")
+
+    # Try multiple methods to bring the window to the foreground
+    for _ in range(15):
         try:
-            # New: Attempt to bring window to foreground using different methods
             win32gui.SetForegroundWindow(hwnd)
+            win32gui.BringWindowToTop(hwnd)
+            win32gui.SetFocus(hwnd)
+            win32gui.SetActiveWindow(hwnd)
+
+            if win32gui.GetForegroundWindow() == hwnd:
+                break
+
+            # Alternative methods
+            shell.SendKeys('%')
             ctypes.windll.user32.SetForegroundWindow(hwnd)
             ctypes.windll.user32.BringWindowToTop(hwnd)
             ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
-            
-            # Check if focus was successful
-            if win32gui.GetForegroundWindow() == hwnd:
-                break
-            
-            # Alternative focus methods
-            shell.SendKeys('%')
-            win32gui.SetActiveWindow(hwnd)
-            
-            # Check again
+            ctypes.windll.user32.SetFocus(hwnd)
+            ctypes.windll.user32.SetActiveWindow(hwnd)
+
             if win32gui.GetForegroundWindow() == hwnd:
                 break
         except pywintypes.error:
             pass
-        
-        time.sleep(0.1)  # Slightly reduced delay
+
+        time.sleep(0.1)
     else:
         print("Failed to set window focus after multiple attempts")
 
+    # Detach input threads
+    try:
+        if foreground_thread_id is not None:
+            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, False)
+    except Exception as e:
+        print(f"DetachThreadInput failed: {e}")
+
     if speak_text:
         speaker.speak(speak_text)
-    
+
     if focus_widget:
         if callable(focus_widget):
             window.after(100, focus_widget)
         else:
             window.after(100, focus_widget.focus_set)
 
-    # New: Final check and fallback using SetWindowPos
+    # Final check and fallback using SetWindowPos
     if win32gui.GetForegroundWindow() != hwnd:
         try:
-            # Move the window slightly to force a redraw and potential focus
             current_pos = win32gui.GetWindowRect(hwnd)
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST,
                                   current_pos[0], current_pos[1],
@@ -142,19 +180,30 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
                                   current_pos[0], current_pos[1],
                                   current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
                                   win32con.SWP_SHOWWINDOW)
-        except:
-            print("Failed to force focus using SetWindowPos")
+        except Exception as e:
+            print(f"Failed to force focus using SetWindowPos: {e}")
 
-    # New: Attempt to move mouse cursor to the center of the window
+    # Attempt to move mouse cursor to the center of the window
     try:
         rect = win32gui.GetWindowRect(hwnd)
         center_x = (rect[0] + rect[2]) // 2
         center_y = (rect[1] + rect[3]) // 2
         ctypes.windll.user32.SetCursorPos(center_x, center_y)
-    except:
-        print("Failed to move cursor to window center")
+    except Exception as e:
+        print(f"Failed to move cursor to window center: {e}")
 
 def get_config_value(config, section, key, fallback=None):
+    """Retrieve a configuration value and its description.
+
+    Args:
+        config (ConfigParser): The configuration parser object.
+        section (str): The section in the config file.
+        key (str): The key within the section.
+        fallback (any, optional): The fallback value if key is not found. Defaults to None.
+
+    Returns:
+        tuple: The value and description.
+    """
     try:
         value = config.get(section, key)
         parts = value.split('"')
@@ -166,30 +215,73 @@ def get_config_value(config, section, key, fallback=None):
         return fallback, ""
 
 def get_config_int(config, section, key, fallback=None):
+    """Retrieve an integer configuration value.
+
+    Args:
+        config (ConfigParser): The configuration parser object.
+        section (str): The section in the config file.
+        key (str): The key within the section.
+        fallback (any, optional): The fallback value if key is not found or invalid. Defaults to None.
+
+    Returns:
+        int or None: The integer value or None if invalid.
+    """
     value, _ = get_config_value(config, section, key, fallback)
-    return int(value) if value is not None else None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return fallback
 
 def get_config_float(config, section, key, fallback=None):
+    """Retrieve a float configuration value.
+
+    Args:
+        config (ConfigParser): The configuration parser object.
+        section (str): The section in the config file.
+        key (str): The key within the section.
+        fallback (any, optional): The fallback value if key is not found or invalid. Defaults to None.
+
+    Returns:
+        float or None: The float value or None if invalid.
+    """
     value, _ = get_config_value(config, section, key, fallback)
-    return float(value) if value is not None else None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return fallback
 
 def get_config_boolean(config, section, key, fallback=False):
+    """Retrieve a boolean configuration value.
+
+    Args:
+        config (ConfigParser): The configuration parser object.
+        section (str): The section in the config file.
+        key (str): The key within the section.
+        fallback (bool, optional): The fallback value if key is not found or invalid. Defaults to False.
+
+    Returns:
+        bool: The boolean value.
+    """
     value, _ = get_config_value(config, section, key, str(fallback))
     return value.lower() in ('true', 'yes', 'on', '1')
 
 def read_config():
+    """Read and parse the configuration file.
+
+    Returns:
+        ConfigParser: The configuration parser object.
+    """
     config = configparser.ConfigParser(interpolation=None)
     config.optionxform = str
-    
+
     try:
         if os.path.exists(CONFIG_FILE):
             config.read(CONFIG_FILE)
-            # Check if the file is empty or missing section headers
             if not config.sections():
                 raise configparser.MissingSectionHeaderError(CONFIG_FILE, 1, "File contains no section headers.")
         else:
             raise FileNotFoundError
-        
+
         config = update_config(config)
     except (configparser.MissingSectionHeaderError, FileNotFoundError):
         print(f"Config file is corrupted or missing. Creating a new one with default values.")
@@ -199,56 +291,61 @@ def read_config():
         with open(CONFIG_FILE, 'w') as configfile:
             config.write(configfile)
         print(f"Created new config file: {CONFIG_FILE}")
-    
+
     return config
 
 def update_config(config):
+    """Update the configuration file with default values if necessary.
+
+    Args:
+        config (ConfigParser): The existing configuration parser object.
+
+    Returns:
+        ConfigParser: The updated configuration parser object.
+    """
     default_config = configparser.ConfigParser(interpolation=None)
     default_config.optionxform = str
     default_config.read_string(DEFAULT_CONFIG)
-    
+
     updated = False
-    
+
     for section in default_config.sections():
         if not config.has_section(section):
             config.add_section(section)
             updated = True
-        
+
         new_section = {}
         existing_keys = {k.lower(): (k, config[section][k]) for k in config[section]}
-        
+
         for key, value in default_config.items(section):
             lower_key = key.lower()
             default_value, default_description = get_config_value(default_config, section, key)
-            
+
             if lower_key in existing_keys:
                 original_key, existing_value = existing_keys[lower_key]
                 existing_value, existing_description = get_config_value(config, section, original_key)
-                
+
                 if original_key != key:
                     updated = True
-                
-                # Preserve existing value, use default description if no existing description
+
                 new_value = f"{existing_value}"
                 if existing_description:
                     new_value += f' "{existing_description}"'
                 elif default_description:
                     new_value += f' "{default_description}"'
                     updated = True
-                
+
                 new_section[key] = new_value
             else:
-                new_section[key] = value  # This includes the default description
+                new_section[key] = value
                 updated = True
-        
+
         config[section] = new_section
-    
-    # Always rewrite the config file to ensure order is maintained
+
     with open(CONFIG_FILE, 'w') as configfile:
         config.write(configfile)
-    
+
     if updated:
         print(f"Updated config file: {CONFIG_FILE}")
-    
-    return config
 
+    return config
