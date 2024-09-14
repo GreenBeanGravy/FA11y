@@ -48,6 +48,7 @@ NorthSoundVolume = 0.25 "Controls the volume of the north direction sound (0.0 t
 NorthSoundPitchShift = 0.5 "Controls the pitch shift of the north sound when it's behind the player (0.1 to 1.0, where 0.5 is 50 percent lower pitch)."
 
 [SCRIPT KEYBINDS]
+Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."
 Fire = lctrl "Invokes a left click for firing or using your currently held item."
 Target = rctrl "Invokes a right click for aiming your currently held item."
 Turn Left = num 1 "Turns the player camera left by moving the mouse using the TurnSensitivity sensitivity."

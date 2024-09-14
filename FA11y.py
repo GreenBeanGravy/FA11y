@@ -141,12 +141,11 @@ key_bindings = {}
 key_listener_thread = None
 stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
-
+keybinds_enabled = True
 
 def is_numlock_on():
     """Check if Num Lock is currently enabled."""
     return win32api.GetKeyState(win32con.VK_NUMLOCK) & 1 != 0
-
 
 def is_key_pressed(key):
     """Check if a specific key is currently pressed.
@@ -168,11 +167,9 @@ def is_key_pressed(key):
             return False
     return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
 
-
 def check_white_pixel():
     """Check if the pixel at a specific location is white."""
     return pyautogui.pixelMatchesColor(1908, 14, (255, 255, 255))
-
 
 def handle_movement(action, reset_sensitivity):
     """Handle movement actions based on the specified action.
@@ -230,7 +227,6 @@ def handle_movement(action, reset_sensitivity):
 
     smooth_move_mouse(x_move, y_move, recenter_delay)
 
-
 def normalize_key(key):
     """Normalize special keys to their standard names.
 
@@ -251,7 +247,6 @@ def normalize_key(key):
     }
     return key_mapping.get(key, key)
 
-
 def handle_scroll(action):
     """Handle scroll actions based on the specified action.
 
@@ -263,7 +258,6 @@ def handle_scroll(action):
     if action == 'scroll down':
         scroll_sensitivity = -scroll_sensitivity
     mouse_scroll(scroll_sensitivity)
-
 
 def reload_config():
     """Reload configuration and update key bindings and action handlers."""
@@ -315,15 +309,23 @@ def reload_config():
         'create custom p o i': create_custom_poi_gui,
         'announce ammo': announce_ammo_manually,
         'toggle pathfinding': toggle_pathfinding,
+        'toggle keybinds': toggle_keybinds
     })
 
     for i in range(1, 6):
         action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
 
+def toggle_keybinds():
+    """Toggle the use of all other script keybinds except for this one."""
+    global keybinds_enabled
+    keybinds_enabled = not keybinds_enabled
+    state = 'enabled' if keybinds_enabled else 'disabled'
+    speaker.speak(f"FA11y {state}")
+    print(f"FA11y has been {state}.")
 
 def key_listener():
     """Listen for key events and trigger corresponding actions."""
-    global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open
+    global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open, keybinds_enabled
     while not stop_key_listener.is_set():
         if not config_gui_open.is_set():
             numlock_on = is_numlock_on()
@@ -338,6 +340,10 @@ def key_listener():
                 action_lower = action.lower()
 
                 if action_lower not in action_handlers:
+                    continue
+
+                # Skip other actions if keybinds are disabled
+                if not keybinds_enabled and action_lower != 'toggle keybinds':
                     continue
 
                 if not mouse_keys_enabled and action_lower in [
@@ -366,7 +372,6 @@ def key_listener():
 
         time.sleep(0.001)
 
-
 def create_desktop_shortcut():
     """Create a desktop shortcut for FA11y."""
     desktop = winshell.desktop()
@@ -379,7 +384,6 @@ def create_desktop_shortcut():
     shortcut.Targetpath = target
     shortcut.WorkingDirectory = wDir
     shortcut.save()
-
 
 def update_script_config(new_config):
     """Update the script configuration.
@@ -397,19 +401,16 @@ def update_script_config(new_config):
     key_listener_thread = threading.Thread(target=key_listener, daemon=True)
     key_listener_thread.start()
 
-
 def open_config_gui():
     """Open the configuration GUI."""
     config_gui_open.set()
     create_config_gui(update_script_config)
     config_gui_open.clear()
 
-
 def run_updater():
     """Run the updater script."""
     result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
     return result.returncode == 1
-
 
 def get_version(repo):
     """Fetch the version from the GitHub repository.
@@ -429,7 +430,6 @@ def get_version(repo):
         print(f"Failed to fetch VERSION file: {e}")
         return None
 
-
 def parse_version(version):
     """Parse a version string into a tuple of integers.
 
@@ -440,7 +440,6 @@ def parse_version(version):
         tuple: The parsed version as a tuple of integers.
     """
     return tuple(map(int, version.split('.')))
-
 
 def check_for_updates():
     """Check for updates and notify the user if an update is available."""
@@ -476,7 +475,6 @@ def check_for_updates():
 
         time.sleep(30)
 
-
 def get_legendary_username():
     """Get the username from the 'legendary' command-line tool.
 
@@ -499,7 +497,6 @@ def get_legendary_username():
     except Exception as e:
         print(f"Failed to run 'legendary status': {str(e)}")
         return None
-
 
 def main():
     """Main entry point for FA11y."""
@@ -548,7 +545,6 @@ def main():
         stop_key_listener.set()
         print("FA11y is closing...")
         sys.exit(0)
-
 
 if __name__ == "__main__":
     main()
