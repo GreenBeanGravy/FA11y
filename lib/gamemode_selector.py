@@ -27,7 +27,7 @@ def select_gamemode(gamemode):
         return
 
     # Click on game mode selection
-    pyautogui.click(172, 67)
+    pyautogui.click(110, 67)
     time.sleep(0.5)
 
     # Type and enter game mode
