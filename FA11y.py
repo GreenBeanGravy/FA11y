@@ -173,7 +173,6 @@ def check_white_pixel():
 
 def handle_movement(action, reset_sensitivity):
     """Handle movement actions based on the specified action.
-
     Args:
         action (str): The movement action to perform.
         reset_sensitivity (bool): Whether to use reset sensitivity values.
@@ -181,6 +180,7 @@ def handle_movement(action, reset_sensitivity):
     global config
     turn_sensitivity = get_config_int(config, 'SETTINGS', 'TurnSensitivity', 100)
     secondary_turn_sensitivity = get_config_int(config, 'SETTINGS', 'SecondaryTurnSensitivity', 50)
+    up_down_sensitivity = turn_sensitivity // 2
     turn_delay = get_config_float(config, 'SETTINGS', 'TurnDelay', 0.01)
     turn_steps = get_config_int(config, 'SETTINGS', 'TurnSteps', 5)
     recenter_delay = get_config_float(config, 'SETTINGS', 'RecenterDelay', 0.05)
@@ -190,7 +190,13 @@ def handle_movement(action, reset_sensitivity):
     x_move, y_move = 0, 0
 
     if action in ['turn left', 'turn right', 'secondary turn left', 'secondary turn right', 'look up', 'look down']:
-        sensitivity = secondary_turn_sensitivity if 'secondary' in action else turn_sensitivity
+        if 'secondary' in action:
+            sensitivity = secondary_turn_sensitivity
+        elif action in ['look up', 'look down']:
+            sensitivity = up_down_sensitivity
+        else:
+            sensitivity = turn_sensitivity
+
         if 'left' in action:
             x_move = -sensitivity
         elif 'right' in action:
@@ -201,7 +207,6 @@ def handle_movement(action, reset_sensitivity):
             y_move = sensitivity
 
         smooth_move_mouse(x_move, y_move, turn_delay, turn_steps)
-
         direction, angle = find_minimap_icon_direction()
         if angle is not None:
             print(f"Direction: {direction}, Angle: {angle}")  # Debug print
