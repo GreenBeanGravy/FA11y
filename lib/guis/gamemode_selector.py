@@ -46,7 +46,7 @@ def load_gamemodes():
 
 def select_gamemode(gamemode):
     # Click on game mode selection
-    smooth_move_and_click(172, 67)
+    smooth_move_and_click(109, 67)
     time.sleep(0.5)
 
     # Click at 900, 200
