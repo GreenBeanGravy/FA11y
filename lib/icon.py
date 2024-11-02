@@ -19,7 +19,7 @@ speaker = Auto()
 
 # Constants
 MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1300, 2000
-ROI_START_ORIG, ROI_END_ORIG = (590, 190), (1490, 1010)
+ROI_START_ORIG, ROI_END_ORIG = (584, 84), (1490, 1010)
 
 def load_poi_from_file():
     with open('POI.txt', 'r') as file:
