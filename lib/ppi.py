@@ -5,7 +5,7 @@ import os
 from threading import Lock
 
 # Constants
-ROI_START_ORIG, ROI_END_ORIG = (590, 190), (1490, 1010)
+ROI_START_ORIG, ROI_END_ORIG = (584, 84), (1490, 1010)
 CAPTURE_REGION = {"top": 30, "left": 1600, "width": 300, "height": 300}
 MAP_IMAGE_PATH = "map.jpg"
 
