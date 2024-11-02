@@ -168,7 +168,7 @@ def is_key_pressed(key):
 
 def check_white_pixel():
     """Check if the pixel at a specific location is white."""
-    return pyautogui.pixelMatchesColor(1908, 14, (255, 255, 255))
+    return pyautogui.pixelMatchesColor(1879, 62, (255, 255, 255))
 
 def handle_movement(action, reset_sensitivity):
     """Handle movement actions based on the specified action.
