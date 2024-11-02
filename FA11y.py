@@ -37,7 +37,6 @@ if sys.version_info >= (3, 12):
 from accessible_output2.outputs.auto import Auto
 from lib.icon import start_icon_detection
 from lib.hsr import (
-    start_health_shield_rarity_detection,
     check_health_shields,
     check_rarity,
 )
@@ -536,7 +535,6 @@ def main():
         update_thread.start()
 
         threading.Thread(target=start_height_checker, daemon=True).start()
-        threading.Thread(target=start_health_shield_rarity_detection, daemon=True).start()
 
         initialize_hotbar_detection()
 
