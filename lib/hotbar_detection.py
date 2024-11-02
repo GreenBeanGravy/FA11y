@@ -10,11 +10,11 @@ from lib.utilities import get_config_boolean
 
 # Constants
 SLOT_COORDS = [
-    (1514, 931, 1577, 975),  # Slot 1
-    (1595, 931, 1658, 975),  # Slot 2
-    (1677, 931, 1740, 975),  # Slot 3
-    (1759, 931, 1822, 975),  # Slot 4
-    (1840, 931, 1903, 975)   # Slot 5
+    (1502, 931, 1565, 975),  # Slot 1
+    (1583, 931, 1646, 975),  # Slot 2
+    (1665, 931, 1728, 975),  # Slot 3
+    (1747, 931, 1810, 975),  # Slot 4
+    (1828, 931, 1891, 975)   # Slot 5
 ]
 SECONDARY_SLOT_COORDS = [(x, y-11, x2, y2-11) for x, y, x2, y2 in SLOT_COORDS]
 IMAGES_FOLDER = "images"
@@ -132,9 +132,9 @@ def detect_hotbar_item_thread(slot_index):
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
         
-        if announce_attachments_enabled:
-            timer_thread = Thread(target=timer_thread_function, args=(0.4, announce_attachments))
-            timer_thread.start()
+        #if announce_attachments_enabled:
+            #timer_thread = Thread(target=timer_thread_function, args=(0.4, announce_attachments))
+            #timer_thread.start()
 
 def check_secondary_slot(slot_index):
     if stop_event.is_set():
