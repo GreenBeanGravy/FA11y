@@ -26,7 +26,7 @@ def check_value(pixels, start_x, y, decreases, color, tolerance, name, no_value_
 def check_rarity():
     screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
     pixels = screenshot.load()
-    for coords in [(1205, 777), (1205, 802)]:
+    for coords in [(1205, 657), (1205, 802)]:
         pixel_color = pixels[coords]
         for rarity, color in rarity_colors.items():
             if pixel_within_tolerance(pixel_color, color, rarity_tolerance):
@@ -37,9 +37,5 @@ def check_rarity():
 def check_health_shields():
     screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
     pixels = screenshot.load()
-    check_value(pixels, 453, 982, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
-    check_value(pixels, 453, 950, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
-
-def start_health_shield_rarity_detection():
-    # This function is now empty as key handling is done in the main script
-    pass
+    check_value(pixels, 384, 980, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
+    check_value(pixels, 384, 950, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
