@@ -1,16 +1,16 @@
-Rebel's Roost,757,284
-Doomstadt,908,348
-Doom's Courtyard,1131,304
-Castle Doom,1246,328
-The Underworld,668,441
-Grim Gate,762,539
-Restored Reels,913,597
-Reckless Railways,1121,535
-Grand Glacier,1302,546
-The Raft,700,655
-Nitrodrome,908,756
-Mount Olympus,1181,787
-Sandy Steppes,708,850
-Brutal Beachhead,808,968
-Redline Rig,1020,940
-Brawler's Battleground,1159,919
+Craggy Cliffs,1068,207
+The Yacht,1397,139
+Steamy Stacks,1328,268
+Pleasant Park,900,330
+Sweaty Sands,677,440
+Salty Springs,855,520
+Frenzy Farm,1131,445
+Dirty Docks, 1396,514
+The DoggPound,975,547
+Holly Hedges,641,612
+Weeping Woods,849,682
+Lazy Lake,1167,759
+Retail Row,1325,720
+Slurpy Swamp,782,823
+Misty Meadows,1065,911
+The Rig,631,874
