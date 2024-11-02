@@ -62,7 +62,7 @@ def select_gamemode(gamemode):
 
     # Wait for white pixel with a 5-second timeout
     start_time = time.time()
-    while not pyautogui.pixelMatchesColor(84, 328, (255, 255, 255)):
+    while not pyautogui.pixelMatchesColor(123, 327, (255, 255, 255)):
         if time.time() - start_time > 5:
             speaker.speak("Timed out waiting for game mode to load.")
             return False
@@ -70,7 +70,7 @@ def select_gamemode(gamemode):
     time.sleep(0.1)
 
     # Click on game mode
-    smooth_move_and_click(300, 515)
+    smooth_move_and_click(250, 436)
     time.sleep(0.7)
 
     # Click on play button
