@@ -5,8 +5,8 @@ from accessible_output2.outputs.auto import Auto
 
 speaker = Auto()
 
-MINIMAP_START = (1746, 144)
-MINIMAP_END = (1777, 175)
+MINIMAP_START = (1736, 165)
+MINIMAP_END = (1761, 192)
 MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1170, 1400
 MAX_OUTLAWED_PIXELS = 20  # Maximum number of outlawed pixels allowed within a contour
 
