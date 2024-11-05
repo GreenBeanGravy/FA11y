@@ -122,10 +122,13 @@ def handle_movement(action: str, reset_sensitivity: bool) -> None:
             y_move = sensitivity
 
         smooth_move_mouse(x_move, y_move, turn_delay, turn_steps)
+        return
 
     elif action == 'turn around':
         x_move = get_config_int(config, 'SETTINGS', 'TurnAroundSensitivity', 1158)
         smooth_move_mouse(x_move, 0, turn_delay, turn_steps)
+        return  # Add return here to prevent the second movement
+
     elif action == 'recenter':
         if reset_sensitivity:
             recenter_move = get_config_int(config, 'SETTINGS', 'ResetRecenterLookDown', 1500)
@@ -136,9 +139,10 @@ def handle_movement(action: str, reset_sensitivity: bool) -> None:
 
         smooth_move_mouse(0, recenter_move, recenter_step_delay, recenter_steps, recenter_step_speed, down_move, recenter_delay)
         speaker.speak("Reset Camera")
+        return  # Add return here to be explicit
 
-    if action != 'recenter':
-        smooth_move_mouse(x_move, y_move, recenter_delay)
+    # This line should now only execute if none of the above conditions are met
+    smooth_move_mouse(x_move, y_move, recenter_delay)
 
 def handle_scroll(action: str) -> None:
     """Handle scroll wheel actions."""
