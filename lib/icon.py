@@ -73,13 +73,14 @@ def handle_poi_selection(selected_poi, center_mass_screen):
         print("Detecting safe zone")
         return 'Safe Zone', start_storm_detection()
     elif poi_name == 'closest':
-        print("Finding closest POI")
+        print("Finding closest main POI")
         if center_mass_screen is None:
             center_mass_screen = find_player_icon_location()
         if center_mass_screen:
-            all_pois = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
-                       for poi in poi_data.main_pois + poi_data.landmarks]
-            return find_closest_poi(center_mass_screen, all_pois)
+            # Only use main POIs for the "Closest" option
+            main_pois = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
+                        for poi in poi_data.main_pois]
+            return find_closest_poi(center_mass_screen, main_pois)
         else:
             print("Could not determine player location for finding closest POI")
             return "Closest", None
@@ -88,6 +89,7 @@ def handle_poi_selection(selected_poi, center_mass_screen):
         if center_mass_screen is None:
             center_mass_screen = find_player_icon_location()
         if center_mass_screen:
+            # Only use landmarks for the "Closest Landmark" option
             landmarks = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
                         for poi in poi_data.landmarks]
             return find_closest_poi(center_mass_screen, landmarks)
