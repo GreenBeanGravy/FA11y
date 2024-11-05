@@ -20,4 +20,4 @@ def exit_match():
         time.sleep(0.25)  # Wait 250ms
         pyautogui.click()  # Click again at the same position
     else:
-        speaker.speak("You are not in your quick menu!")
+        speaker.speak("Open your quick menu before attempting to leave a match. Press Escape to open your quick menu, and try again.")

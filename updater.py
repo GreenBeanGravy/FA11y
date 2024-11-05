@@ -189,7 +189,7 @@ def check_and_update_file(repo, file_path):
         return False
 
     # Adjust the filter to ensure all relevant files are considered
-    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg')) and file_path != 'VERSION':
+    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg', '.pkl')) and file_path != 'VERSION':
         return False
 
     github_content = download_file(repo, file_path)

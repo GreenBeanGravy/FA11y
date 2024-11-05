@@ -8,7 +8,7 @@ import win32gui
 import win32con
 import win32com.client
 import win32api
-import win32process  # Added import
+import win32process
 from accessible_output2.outputs.auto import Auto
 
 speaker = Auto()
@@ -23,7 +23,6 @@ AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
-PlayNorthSound = true "Toggles whether the north direction sound should play when turning."
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
 SecondaryTurnSensitivity = 50 "The sensitivity used for secondary turning left and right when MouseKeys is enabled."
 TurnAroundSensitivity = 1158 "The sensitivity used when turning the player around. Only adjust this if you are having issues."
@@ -44,8 +43,6 @@ MinimumMovementDistance = 1 "The minimum distance the player must move in meters
 PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
-NorthSoundVolume = 0.25 "Controls the volume of the north direction sound (0.0 to 1.0)."
-NorthSoundPitchShift = 0.5 "Controls the pitch shift of the north sound when it's behind the player (0.1 to 1.0, where 0.5 is 50 percent lower pitch)."
 
 [SCRIPT KEYBINDS]
 Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."
@@ -64,7 +61,6 @@ Scroll Down = num 9 "Scrolls down on the current mouse position using the Scroll
 Toggle Pathfinding = p "Toggles pathfinding for the current selected POI or position."
 Start Navigation = grave "Starts the player navigation process based on the players selected P O I, Game Object, or location."
 Check Health Shields = h "Announces the players Health and Shield values."
-Get Current Coordinates = c "Gets the players current map coordinates when the full-screen map is open. Useful for relaying to teammates."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."
 Announce Ammo = j "Announces the current ammo in the mag and reserves."
 Check Rarity = bracketleft "Announces the rarity of a selected item when the player is in the in-game inventory."

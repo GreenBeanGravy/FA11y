@@ -12,9 +12,9 @@ def check_pixel_color(x, y, target_color):
 
 def interpolate_height(pixel_y):
     # Define the known points
-    y1, h1 = 27, 750
-    y2, h2 = 150, 325
-    y3, h3 = 279, 0
+    y1, h1 = 47, 750
+    y2, h2 = 173, 325
+    y3, h3 = 299, 0
 
     # Check which range the pixel_y falls into
     if y1 <= pixel_y <= y2:
@@ -29,9 +29,9 @@ def interpolate_height(pixel_y):
 
 def check_height():
     target_color = (255, 255, 255)  # White
-    check_points = [(1586, 309), (1597, 309), (1608, 309), (1609, 11)]
-    height_x = 1587
-    min_y, max_y = 27, 279  # Updated to match the new range
+    check_points = [(1576, 329), (1586, 329), (1596, 329), (1599, 33)]
+    height_x = 1583
+    min_y, max_y = 47, 299  # Updated to match the new range
     
     while True:
         if all(check_pixel_color(x, y, target_color) for x, y in check_points):

@@ -11,7 +11,8 @@ from lib.utilities import get_config_int, get_config_float, get_config_boolean, 
 from accessible_output2.outputs.auto import Auto
 from lib.player_location import ROI_START_ORIG, ROI_END_ORIG
 from lib.minimap_direction import find_minimap_icon_direction
-from lib.icon import auto_turn_towards_poi, find_closest_poi, load_poi_from_file
+from lib.icon import auto_turn_towards_poi, find_closest_poi
+from lib.guis.poi_selector_gui import POIData
 
 speaker = Auto()
 
@@ -433,16 +434,26 @@ def toggle_pathfinding():
         if start:
             poi_name = selected_poi[0]
             if poi_name.lower() == 'closest':
-                poi_list = load_poi_from_file()
-                closest_poi = find_closest_poi(start, poi_list)
+                # Initialize POI data with new coordinate system
+                poi_data = POIData()
+                # Combine main POIs and landmarks
+                all_pois = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
+                           for poi in poi_data.main_pois + poi_data.landmarks]
+                closest_poi = find_closest_poi(start, all_pois)
                 if closest_poi:
                     poi_name, coordinates = closest_poi
-                    goal = coordinates  # coordinates is already a tuple (x, y)
+                    goal = coordinates
                 else:
                     speaker.speak("No POIs found to pathfind to.")
                     return
             else:
-                goal = (int(selected_poi[1]), int(selected_poi[2]))
+                try:
+                    x = int(float(selected_poi[1]))
+                    y = int(float(selected_poi[2]))
+                    goal = (x, y)
+                except ValueError:
+                    speaker.speak("Invalid POI coordinates")
+                    return
 
             if pathfinder_instance.active:
                 pathfinder_instance.stop_pathfinding()

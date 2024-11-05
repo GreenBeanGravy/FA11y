@@ -1,12 +1,5 @@
 import re
-from accessible_output2.outputs.auto import Auto
 from lib.player_location import find_player_icon_location, ROI_START_ORIG, ROI_END_ORIG
-
-# Initialize speaker
-speaker = Auto()
-
-def speak(text):
-    speaker.speak(text)
 
 def get_current_coordinates():
     return find_player_icon_location()
@@ -32,30 +25,3 @@ def get_position_in_quadrant(x, y, quad_width, quad_height):
         return horizontal
     else:
         return "center"
-
-def speak_current_coordinates():
-    coords = get_current_coordinates()
-    if coords:
-        roi_x = coords[0] - ROI_START_ORIG[0]
-        roi_y = coords[1] - ROI_START_ORIG[1]
-
-        roi_width = ROI_END_ORIG[0] - ROI_START_ORIG[0]
-        roi_height = ROI_END_ORIG[1] - ROI_START_ORIG[1]
-        roi_x = max(0, min(roi_x, roi_width))
-        roi_y = max(0, min(roi_y, roi_height))
-
-        quadrant = get_quadrant(roi_x, roi_y, roi_width, roi_height)
-
-        quad_width = roi_width // 2
-        quad_height = roi_height // 2
-        quad_x = roi_x % quad_width
-        quad_y = roi_y % quad_height
-        position_in_quadrant = get_position_in_quadrant(quad_x, quad_y, quad_width, quad_height)
-
-        speak(f"You are at {roi_x}, {roi_y}, in the {position_in_quadrant} of the {quadrant} quadrant")
-        print(f"On-screen coordinates: {coords[0]}, {coords[1]}")
-        print(f"Visible area coordinates: {roi_x}, {roi_y}")
-        print(f"Quadrant: {quadrant}")
-        print(f"Position in quadrant: {position_in_quadrant}")
-    else:
-        speak("Unable to determine current coordinates")
