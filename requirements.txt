@@ -1,5 +1,4 @@
 opencv-python
-numpy
 keyboard
 pyautogui
 accessible_output2
@@ -31,3 +30,4 @@ librosa
 soundfile
 easyocr
 pyaudio
+numpy==1.26.4
