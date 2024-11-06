@@ -105,6 +105,10 @@ class IslandSelectorGUI:
         self.ui = AccessibleUIBackend("Island Selector")
         self.setup_ui()
 
+    def is_valid_island_code(self, code: str) -> bool:
+        """Check if the island code matches the expected format (1111-1111-1111)."""
+        return bool(re.match(r'^\d{4}-\d{4}-\d{4}$', code))
+
     def setup_ui(self):
         """Initialize the UI with search and results tabs."""
         self.ui.add_tab("Search")
@@ -124,7 +128,7 @@ class IslandSelectorGUI:
         pyautogui.click()
 
     def select_island(self, island: Dict) -> bool:
-        """Perform the island selection sequence."""
+        """Perform the island selection sequence with fallback to name search."""
         try:
             # Click gamemode selection
             self.smooth_move_and_click(109, 67)
@@ -134,9 +138,19 @@ class IslandSelectorGUI:
             self.smooth_move_and_click(900, 200)
             time.sleep(0.1)
 
-            # Clear and enter new gamemode
+            # Clear previous text
             pyautogui.typewrite('\b' * 50, interval=0.01)
-            pyautogui.write(island['code'])
+
+            # Check if we have a valid island code
+            if self.is_valid_island_code(island['code']):
+                # Use the code directly
+                search_text = island['code']
+            else:
+                # Fall back to using the island name
+                search_text = island['title']
+
+            # Enter the search text
+            pyautogui.write(search_text)
             pyautogui.press('enter')
 
             # Wait for white pixel indicator
@@ -251,3 +265,6 @@ def launch_island_selector():
     ))
 
     selector.ui.run()
+
+if __name__ == "__main__":
+    launch_island_selector()
