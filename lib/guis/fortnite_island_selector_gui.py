@@ -166,7 +166,7 @@ class FortniteIslandSearch:
             print(f"Error extracting islands: {str(e)}")
             return []
 
-    def search_islands(self, query: str, page: int = 1, lang: str = "en-US", max_retries: int = 2) -> Tuple[List[Dict], bool]:
+    def search_islands(self, query: str, page: int = 1, lang: str = "en-US", max_retries: int = 20) -> Tuple[List[Dict], bool]:
         url = "https://www.fortnite.com/search"
         params = {
             'q': query,
@@ -197,7 +197,7 @@ class FortniteIslandSearch:
                 if e.response.status_code == 403 and retries < max_retries:
                     print(f"403 error encountered, retry {retries + 1} of {max_retries}")
                     retries += 1
-                    time.sleep(1)  # Add delay between retries
+                    time.sleep(0.1)  # Add delay between retries
                 else:
                     raise
             except Exception as e:
@@ -329,7 +329,7 @@ class IslandSelectorGUI:
             time.sleep(0.5)
 
             # Click search field
-            self.smooth_move_and_click(900, 200)
+            self.smooth_move_and_click(1280, 200)
             time.sleep(0.1)
 
             # Clear existing text
