@@ -60,7 +60,7 @@ def select_gamemode(gamemode: Tuple[str, str, List[str]]) -> bool:
         time.sleep(0.5)
 
         # Click search field
-        self.smooth_move_and_click(1280, 200)
+        smooth_move_and_click(1280, 200)
         time.sleep(0.1)
 
         # Clear and enter new gamemode
