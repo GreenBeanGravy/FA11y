@@ -31,4 +31,3 @@ librosa
 soundfile
 easyocr
 pyaudio
-numpy==1.24.3
