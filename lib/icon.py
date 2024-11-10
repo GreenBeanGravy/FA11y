@@ -10,15 +10,23 @@ from lib.object_finder import OBJECT_CONFIGS, find_closest_object
 from lib.guis.poi_selector_gui import POIData
 from lib.minimap_direction import find_minimap_icon_direction
 from lib.mouse import smooth_move_mouse
-from lib.player_location import find_player_icon_location, find_player_icon_location_with_direction, get_player_position_description, calculate_poi_info, generate_poi_message
+from lib.player_location import (
+    find_player_icon_location,
+    find_player_icon_location_with_direction,
+    get_player_position_description,
+    calculate_poi_info,
+    generate_poi_message,
+    ROI_START_ORIG,
+    ROI_END_ORIG,
+    SCALE_FACTOR,
+    MIN_AREA,
+    MAX_AREA
+)
 from lib.ppi import find_player_position, get_player_position_description
 from lib.utilities import get_config_boolean
 
 pyautogui.FAILSAFE = False
 speaker = Auto()
-
-MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1300, 2000
-ROI_START_ORIG, ROI_END_ORIG = (584, 84), (1490, 1010)
 
 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
 SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
@@ -77,7 +85,6 @@ def handle_poi_selection(selected_poi, center_mass_screen):
         if center_mass_screen is None:
             center_mass_screen = find_player_icon_location()
         if center_mass_screen:
-            # Only use main POIs for the "Closest" option
             main_pois = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
                         for poi in poi_data.main_pois]
             return find_closest_poi(center_mass_screen, main_pois)
@@ -89,7 +96,6 @@ def handle_poi_selection(selected_poi, center_mass_screen):
         if center_mass_screen is None:
             center_mass_screen = find_player_icon_location()
         if center_mass_screen:
-            # Only use landmarks for the "Closest Landmark" option
             landmarks = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
                         for poi in poi_data.landmarks]
             return find_closest_poi(center_mass_screen, landmarks)
@@ -139,35 +145,12 @@ def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
         speaker.speak(f"Error: Invalid POI location for {poi_name}")
 
 def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
-    print(f"Processing screenshot for POI: {poi_name}, Coordinates: {selected_coordinates}")
-    screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
-    roi_color = screenshot[4 * ROI_START_ORIG[1]:4 * ROI_END_ORIG[1], 4 * ROI_START_ORIG[0]:4 * ROI_END_ORIG[0]]
-    roi_gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(roi_gray, 229, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    valid_contours = [cnt for cnt in contours if MIN_SHAPE_SIZE < cv2.contourArea(cnt) < MAX_SHAPE_SIZE]
-    
-    if valid_contours:
-        contour = max(valid_contours, key=cv2.contourArea)
-        M = cv2.moments(contour)
-        center_mass = np.array([M["m10"] / M["m00"], M["m01"] / M["m00"]])
-        
-        hull = cv2.convexHull(contour)
-        if len(hull) > 2:
-            vertices = np.squeeze(hull)
-            farthest_vertex = vertices[np.argmax(np.linalg.norm(vertices - center_mass, axis=1))]
-            direction_vector = farthest_vertex - center_mass
-            
-            player_angle, cardinal_direction = get_angle_and_direction(direction_vector)
-            relative_direction, relative_angle = get_relative_direction(direction_vector, np.array(selected_coordinates) - center_mass_screen)
-            distance = np.linalg.norm(np.array(center_mass_screen) - np.array(selected_coordinates)) * 2.65
-            
-            print(f"Player facing: {cardinal_direction} ({player_angle:.2f} degrees)")
-            print(f"POI relative direction: {relative_direction} ({relative_angle:.2f} degrees)")
-            
-            message = f"At {poi_name}" if distance <= 40 else f"{poi_name} is {relative_direction} {int(distance)} meters"
-            print(message)
-            speaker.speak(message)
+    location, angle = find_player_icon_location_with_direction()
+    if location is not None:
+        poi_info = calculate_poi_info(location, angle, selected_coordinates)
+        message = generate_poi_message(poi_name, angle, poi_info)
+        print(message)
+        speaker.speak(message)
     else:
         print("Player icon not located in screenshot processing.")
         speaker.speak("Player icon not located.")
@@ -259,10 +242,9 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
     consecutive_failures = 0
 
     for attempts in range(max_attempts):
-        current_direction, current_angle = find_minimap_icon_direction(sensitivity)
+        current_direction, current_angle = find_minimap_icon_direction()
         if current_direction is None or current_angle is None:
-            print(f"Unable to determine current direction. Sensitivity: {sensitivity:.2f}, Attempt {attempts + 1}/{max_attempts}")
-            sensitivity = max(sensitivity - 0.05, min_sensitivity)
+            print(f"Unable to determine current direction. Attempt {attempts + 1}/{max_attempts}")
             consecutive_failures += 1
             
             if attempts < 3 and consecutive_failures == 3:
@@ -295,8 +277,6 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
         
         smooth_move_mouse(int(turn_amount * turn_direction * (turn_speed / 100)), 0, 0.01)
         time.sleep(0.05)
-        
-        sensitivity = min(sensitivity + 0.05, 1.0) if abs(angle_difference) < 45 else sensitivity
 
     print(f"Failed to turn towards {poi_name} after maximum attempts.")
     return False

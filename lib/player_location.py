@@ -3,10 +3,10 @@ import numpy as np
 import pyautogui
 
 # Constants
-MIN_SHAPE_SIZE, MAX_SHAPE_SIZE = 1300, 2000
-ROI_START_ORIG, ROI_END_ORIG = (590, 190), (1490, 1010)
-COLOR_THRESHOLD = 50  # All colors under this RGB color value are outlawed
-MAX_OUTLAWED_PIXELS = 100  # Maximum number of outlawed pixels allowed within a contour
+ROI_START_ORIG, ROI_END_ORIG = (584, 84), (1490, 1010)
+SCALE_FACTOR = 4
+MIN_AREA = 1008
+MAX_AREA = 1386
 
 def get_angle_and_direction(vector):
     angle = np.degrees(np.arctan2(-vector[1], vector[0]))
@@ -19,19 +19,13 @@ def get_cardinal_direction(angle):
 
 def calculate_poi_info(player_location, player_angle, poi_location):
     if player_location is None:
-        distance = None
-        poi_angle = None
-        cardinal_direction = None
-        relative_direction = "unknown"
-    else:
-        poi_vector = np.array(poi_location) - np.array(player_location)
-        distance = np.linalg.norm(poi_vector) * 2.65
-        poi_angle, cardinal_direction = get_angle_and_direction(poi_vector)
-        
-        if player_angle is not None:
-            relative_direction = get_relative_direction(player_angle, poi_angle)
-        else:
-            relative_direction = "unknown"
+        return None, None, None, "unknown"
+    
+    poi_vector = np.array(poi_location) - np.array(player_location)
+    distance = np.linalg.norm(poi_vector) * 2.65
+    poi_angle, cardinal_direction = get_angle_and_direction(poi_vector)
+    
+    relative_direction = get_relative_direction(player_angle, poi_angle) if player_angle is not None else "unknown"
     
     return distance, poi_angle, cardinal_direction, relative_direction
 
@@ -89,10 +83,7 @@ def generate_poi_message(poi_name, player_angle, poi_info):
 
 def get_quadrant(x, y, width, height):
     mid_x, mid_y = width // 2, height // 2
-    if x < mid_x:
-        return 0 if y < mid_y else 2
-    else:
-        return 1 if y < mid_y else 3
+    return (1 if x >= mid_x else 0) + (2 if y >= mid_y else 0)
 
 def get_position_in_quadrant(x, y, quad_width, quad_height):
     third_x, third_y = quad_width // 3, quad_height // 3
@@ -108,6 +99,9 @@ def get_position_in_quadrant(x, y, quad_width, quad_height):
         return "center"
 
 def get_player_position_description(location, poi_name=None, poi_location=None, player_angle=None):
+    if location is None:
+        return "Player position unknown"
+        
     x, y = location
     x, y = x - ROI_START_ORIG[0], y - ROI_START_ORIG[1]
     width, height = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
@@ -124,82 +118,72 @@ def get_player_position_description(location, poi_name=None, poi_location=None, 
     
     return base_description
 
-def count_pixels(mask, contour):
-    temp_mask = np.zeros(mask.shape, dtype=np.uint8)
-    cv2.drawContours(temp_mask, [contour], 0, 255, -1)
-    white_pixels = cv2.countNonZero(cv2.bitwise_and(mask, temp_mask))
-    black_pixels = cv2.countNonZero(cv2.bitwise_and(cv2.bitwise_not(mask), temp_mask))
-    return white_pixels, black_pixels
+def find_triangle_tip(contour, center_mass):
+    # Get minimum area bounding triangle
+    triangle = cv2.minEnclosingTriangle(contour)[1]
+    if triangle is None or len(triangle) < 3:
+        return None
+
+    # Convert triangle points to integer coordinates
+    points = triangle.reshape(-1, 2).astype(np.int32)
+    
+    # Calculate pairwise distances between all vertices
+    distances = np.zeros((3, 3))
+    for i in range(3):
+        for j in range(3):
+            distances[i, j] = np.linalg.norm(points[i] - points[j])
+            
+    # The tip should be the vertex with largest total distance to other vertices
+    total_distances = np.sum(distances, axis=1)
+    tip_idx = np.argmax(total_distances)
+    
+    return points[tip_idx]
 
 def find_player_icon_location():
-    print("Finding player icon location")
-    screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
-    roi_color = screenshot[4 * ROI_START_ORIG[1]:4 * ROI_END_ORIG[1], 4 * ROI_START_ORIG[0]:4 * ROI_END_ORIG[0]]
-    roi_gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(roi_gray, 229, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    valid_contours = []
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if MIN_SHAPE_SIZE < area < MAX_SHAPE_SIZE:
-            white_pixels, black_pixels = count_pixels(binary, cnt)
-            if black_pixels <= MAX_OUTLAWED_PIXELS:
-                valid_contours.append((cnt, white_pixels, black_pixels))
-    
-    valid_contours.sort(key=lambda x: x[1], reverse=True)  # Sort by white pixel count
-    
-    print("Top 5 detected contours:")
-    for i, (cnt, white_pixels, black_pixels) in enumerate(valid_contours[:5], 1):
-        print(f"Contour {i}: White pixels: {white_pixels}, Black pixels: {black_pixels}")
-    
-    if valid_contours:
-        best_contour = valid_contours[0][0]
-        M = cv2.moments(best_contour)
-        location = ((int(M["m10"] / M["m00"]) // 4) + ROI_START_ORIG[0], (int(M["m01"] / M["m00"]) // 4) + ROI_START_ORIG[1])
-        print(f"Player icon located at: {location}")
-        return location
-    print("Player icon not found")
-    return None
+    """Simple version that only returns location without direction"""
+    location, _ = find_player_icon_location_with_direction()
+    return location
 
 def find_player_icon_location_with_direction():
-    print("Finding player icon location and direction")
-    screenshot = cv2.resize(np.array(pyautogui.screenshot()), None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
-    roi_color = screenshot[4 * ROI_START_ORIG[1]:4 * ROI_END_ORIG[1], 4 * ROI_START_ORIG[0]:4 * ROI_END_ORIG[0]]
-    roi_gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(roi_gray, 229, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    """Find both player location and direction using improved detection method"""
+    # Capture and upscale screenshot
+    screenshot = np.array(pyautogui.screenshot(region=(
+        ROI_START_ORIG[0],
+        ROI_START_ORIG[1],
+        ROI_END_ORIG[0] - ROI_START_ORIG[0],
+        ROI_END_ORIG[1] - ROI_START_ORIG[1]
+    )))
     
-    valid_contours = []
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if MIN_SHAPE_SIZE < area < MAX_SHAPE_SIZE:
-            white_pixels, black_pixels = count_pixels(binary, cnt)
-            if black_pixels <= MAX_OUTLAWED_PIXELS:
-                valid_contours.append((cnt, white_pixels, black_pixels))
+    screenshot_large = cv2.resize(screenshot, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR, 
+                                interpolation=cv2.INTER_LINEAR)
     
-    valid_contours.sort(key=lambda x: x[1], reverse=True)  # Sort by white pixel count
+    # Extract white pixels
+    white_mask = cv2.inRange(screenshot_large, (253, 253, 253), (255, 255, 255))
+    contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    print("Top 5 detected contours:")
-    for i, (cnt, white_pixels, black_pixels) in enumerate(valid_contours[:5], 1):
-        print(f"Contour {i}: White pixels: {white_pixels}, Black pixels: {black_pixels}")
-    
-    if valid_contours:
-        best_contour = valid_contours[0][0]
-        M = cv2.moments(best_contour)
-        center_mass = np.array([int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])])
-        
-        hull = cv2.convexHull(best_contour)
-        hull_points = [point[0] for point in hull]
-        farthest_point = max(hull_points, key=lambda p: np.linalg.norm(p - center_mass))
-        
-        direction_vector = farthest_point - center_mass
-        player_angle, _ = get_angle_and_direction(direction_vector)
-        
-        center_location = ((center_mass[0] // 4) + ROI_START_ORIG[0], (center_mass[1] // 4) + ROI_START_ORIG[1])
-        
-        print(f"Player icon located at: {center_location}, facing angle: {player_angle}")
-        return center_location, player_angle
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if MIN_AREA < area < MAX_AREA:
+            M = cv2.moments(contour)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                center_mass = np.array([cx, cy])
+                
+                # Find tip using triangle method
+                tip_point = find_triangle_tip(contour, center_mass)
+                if tip_point is not None:
+                    # Calculate angle using the tip
+                    direction_vector = tip_point - center_mass
+                    angle = np.degrees(np.arctan2(-direction_vector[1], direction_vector[0]))
+                    angle = (90 - angle) % 360
+                    
+                    # Convert coordinates back to original scale and add ROI offset
+                    real_cx = cx // SCALE_FACTOR + ROI_START_ORIG[0]
+                    real_cy = cy // SCALE_FACTOR + ROI_START_ORIG[1]
+                    
+                    print(f"Player icon located at: ({real_cx}, {real_cy}), facing angle: {angle:.1f}°")
+                    return (real_cx, real_cy), angle
     
     print("Player icon not found")
-    return None
+    return None, None
