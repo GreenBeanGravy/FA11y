@@ -6,6 +6,20 @@ import re
 import threading
 from typing import Optional
 import ctypes
+
+# Check Python version and create mock imp if necessary
+if sys.version_info >= (3, 12):
+    class MockImp:
+        __name__ = 'imp'
+
+        @staticmethod
+        def is_frozen(arg=None):
+            if arg == "__main__":
+                return hasattr(sys, "frozen") or '__compiled__' in globals()
+            return hasattr(sys, 'frozen') or hasattr(sys, 'importers') or getattr(sys, 'frozen', False)
+
+    sys.modules['imp'] = MockImp()
+    
 from lib.guis.AccessibleUIBackend import AccessibleUIBackend
 
 if sys.platform.startswith('win'):
