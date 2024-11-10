@@ -1,2 +1,0 @@
-battle royale
-solo,duo,trio,squad
