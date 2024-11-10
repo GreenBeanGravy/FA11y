@@ -47,7 +47,6 @@ from lib.mouse import (
 )
 # Updated imports for the new GUI implementations
 from lib.guis.poi_selector_gui import POIData, select_poi_tk
-from lib.guis.fortnite_island_selector_gui import launch_island_selector
 from lib.guis.gamemode_selector_gui import select_gamemode_tk
 from lib.guis.custom_poi_gui import create_custom_poi_gui
 from lib.guis.config_gui import create_config_gui
@@ -195,7 +194,6 @@ def reload_config() -> None:
         'check rarity': check_rarity,
         'open p o i selector': lambda: select_poi_tk(poi_data_instance),
         'open gamemode selector': select_gamemode_tk,
-        'open island search': launch_island_selector,
         'open configuration menu': open_config_gui,
         'exit match': exit_match,
         'create custom p o i': create_custom_poi_gui,
