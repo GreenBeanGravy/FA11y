@@ -3,7 +3,7 @@ import configparser
 from lib.guis.AccessibleUIBackend import AccessibleUIBackend
 from lib.utilities import force_focus_window, DEFAULT_CONFIG
 from tkinter import ttk
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 
 def create_config_gui(update_script_callback: Callable[[configparser.ConfigParser], None]) -> None:
     """Create and display the configuration GUI.
@@ -24,49 +24,86 @@ def create_config_gui(update_script_callback: Callable[[configparser.ConfigParse
     )
     config = ui.config
 
-    # Add all configuration sections and their widgets
+    # Create tabs first
+    ui.add_tab("Toggles")
+    ui.add_tab("Values")
+    ui.add_tab("Keybinds")
+
+    # Map for organizing items into tabs
+    section_tab_mapping: Dict[str, Dict[str, str]] = {
+        "SETTINGS": {},  # Will be populated with key -> tab mappings
+        "SCRIPT KEYBINDS": {},  # All keys go to "Keybinds" tab
+    }
+
+    # Analyze each setting to determine its appropriate tab
     for section in config.sections():
-        ui.add_tab(section)
+        if section == "POI":  # Skip POI section
+            continue
+            
         for key in config[section]:
             value_string = config[section][key]
-            value, description = ui.extract_value_and_description(value_string)
+            value, _ = ui.extract_value_and_description(value_string)
 
-            if section == 'SCRIPT KEYBINDS':
-                ui.add_keybind(section, key, initial_value=value_string)
+            if section == "SCRIPT KEYBINDS":
+                section_tab_mapping[section][key] = "Keybinds"
             elif value.lower() in ['true', 'false']:
-                ui.add_checkbox(section, key, initial_value=value_string)
+                section_tab_mapping["SETTINGS"][key] = "Toggles"
             else:
-                ui.add_entry(section, key, initial_value=value_string)
+                section_tab_mapping["SETTINGS"][key] = "Values"
+
+    # Add items to their respective tabs
+    for section in config.sections():
+        if section == "POI":  # Skip POI section
+            continue
+            
+        for key in config[section]:
+            value_string = config[section][key]
+            tab_name = section_tab_mapping[section].get(key)
+
+            if tab_name == "Keybinds":
+                ui.add_keybind(tab_name, key, value_string)
+            elif tab_name == "Toggles":
+                ui.add_checkbox(tab_name, key, value_string)
+            elif tab_name == "Values":
+                ui.add_entry(tab_name, key, value_string)
 
     def save_and_close() -> None:
         """Save configuration, update the script, and close the GUI."""
         try:
-            # Save all sections
-            for tab_name in ui.tabs:
-                if tab_name not in ui.config.sections():
-                    ui.config.add_section(tab_name)
+            # Ensure all original sections exist
+            for section in ["SETTINGS", "SCRIPT KEYBINDS", "POI"]:
+                if section not in ui.config.sections():
+                    ui.config.add_section(section)
 
-                # Save all variables in each section
-                for key, var in ui.variables[tab_name].items():
-                    widget = None
-                    # Find the corresponding widget
-                    for w in ui.widgets[tab_name]:
-                        if isinstance(w, ttk.Checkbutton) and w.cget('text') == key:
-                            widget = w
-                            break
-                        elif hasattr(w, 'master') and w.master.winfo_children() and \
-                             w.master.winfo_children()[0].cget('text') == key:
-                            widget = w
-                            break
+            # Save POI section as is if it exists
+            if "POI" in config.sections():
+                for key in config["POI"]:
+                    ui.config["POI"][key] = config["POI"][key]
 
-                    description = getattr(widget, 'description', '') if widget else ''
+            # Save values back to their original sections
+            for section, mappings in section_tab_mapping.items():
+                for key, tab_name in mappings.items():
+                    if tab_name in ui.variables and key in ui.variables[tab_name]:
+                        widget = None
+                        # Find the corresponding widget
+                        for w in ui.widgets[tab_name]:
+                            if isinstance(w, ttk.Checkbutton) and w.cget('text') == key:
+                                widget = w
+                                break
+                            elif hasattr(w, 'master') and w.master.winfo_children() and \
+                                 w.master.winfo_children()[0].cget('text') == key:
+                                widget = w
+                                break
 
-                    if isinstance(var, tk.BooleanVar):
-                        value = 'true' if var.get() else 'false'
-                    else:
-                        value = var.get()
+                        description = getattr(widget, 'description', '') if widget else ''
+                        var = ui.variables[tab_name][key]
 
-                    ui.config[tab_name][key] = f"{value} \"{description}\"" if description else value
+                        if isinstance(var, tk.BooleanVar):
+                            value = 'true' if var.get() else 'false'
+                        else:
+                            value = var.get()
+
+                        ui.config[section][key] = f"{value} \"{description}\"" if description else value
 
             # Save configuration and update the script
             ui.save_config()

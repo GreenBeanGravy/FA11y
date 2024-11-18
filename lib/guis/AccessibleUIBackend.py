@@ -124,9 +124,10 @@ class AccessibleUIBackend:
     def add_keybind(self, tab_name: str, text: str, initial_value: str = "") -> None:
         """Add a keybind entry to the interface."""
         value, description = self.extract_value_and_description(initial_value)
-        self.add_entry(tab_name, text, value)
+        self.add_entry(tab_name, text, initial_value)
         entry = self.widgets[tab_name][-1]
         entry.bind('<FocusIn>', lambda e: None)
+        entry.is_keybind = True
         
         if value:
             self.keybind_map[value.lower()] = text
@@ -155,7 +156,7 @@ class AccessibleUIBackend:
         next_widget.focus_set()
 
         widget_info = self.get_widget_info(next_widget)
-        if widget_info:  # Only speak if there's widget info to speak
+        if widget_info:
             self.speak(widget_info)
             
         return "break"
@@ -167,7 +168,7 @@ class AccessibleUIBackend:
         if self.widgets[tab]:
             self.widgets[tab][0].focus_set()
             widget_info = self.get_widget_info(self.widgets[tab][0])
-            if widget_info:  # Only speak if there's widget info to speak
+            if widget_info:
                 self.speak(widget_info)
 
     def change_tab(self, event) -> str:
@@ -187,21 +188,39 @@ class AccessibleUIBackend:
         """Get speaking information for a widget."""
         if isinstance(widget, ttk.Button):
             if hasattr(widget, 'custom_speech'):
-                return ""  # Return empty string for custom speech buttons
-            return ""
+                return widget.custom_speech
+            return f"{widget.cget('text')}, button"
         elif isinstance(widget, ttk.Checkbutton):
-            return f"{widget.cget('text')}, {'checked' if widget.instate(['selected']) else 'unchecked'}, press Enter to toggle"
+            description = getattr(widget, 'description', '')
+            info = f"{widget.cget('text')}, {'checked' if widget.instate(['selected']) else 'unchecked'}, press Enter to toggle"
+            if description:
+                info += f". {description}"
+            return info
         elif isinstance(widget, ttk.Entry):
-            return f"{widget.master.winfo_children()[0].cget('text')}, {widget.get() or 'No value set'}, press Enter to edit"
-        elif isinstance(widget, ttk.Combobox):
-            return f"{widget.master.winfo_children()[0].cget('text')}, current value: {widget.get()}, press Enter to open dropdown"
-        elif isinstance(widget, ttk.Scale):
-            return f"{widget.master.winfo_children()[0].cget('text')}, current value: {widget.get()}, use left and right arrow keys to adjust"
+            key = widget.master.winfo_children()[0].cget('text')
+            description = getattr(widget, 'description', '')
+            is_keybind = getattr(widget, 'is_keybind', False)
+            info = f"{key}, current value: {widget.get() or 'No value set'}"
+            if is_keybind:
+                info += ", press Enter to capture new keybind"
+            else:
+                info += ", press Enter to edit"
+            if description:
+                info += f". {description}"
+            return info
         return "Unknown widget"
 
     def handle_keybind_capture(self, widget: ttk.Entry, key: str) -> None:
         """Handle keybind capture process."""
+        if not self.capturing_keybind:
+            return
+
         action_name = widget.master.winfo_children()[0].cget('text')
+
+        # Prevent capturing of system keys
+        if key.lower() in ['tab', 'shift+tab', 'return', 'escape']:
+            self.speak("This key cannot be bound")
+            return
 
         if key.lower() == 'backspace':
             widget.delete(0, tk.END)
@@ -214,7 +233,7 @@ class AccessibleUIBackend:
                 self.speak(f"Warning: {key} was previously bound to {old_action}. That keybind has been removed.")
                 for tab_name, tab_widgets in self.widgets.items():
                     for w in tab_widgets:
-                        if isinstance(w, ttk.Entry):
+                        if isinstance(w, ttk.Entry) and getattr(w, 'is_keybind', False):
                             key_label = w.master.winfo_children()[0].cget('text')
                             if key_label == old_action:
                                 w.config(state='normal')
@@ -241,28 +260,25 @@ class AccessibleUIBackend:
             self.speak(f"{current_widget.cget('text')} {'checked' if current_widget.instate(['selected']) else 'unchecked'}")
         elif isinstance(current_widget, ttk.Entry):
             if self.capturing_keybind:
-                pass
+                return "break"
             elif self.currently_editing == current_widget:
                 self.finish_editing(current_widget)
             else:
-                action_name = current_widget.master.winfo_children()[0].cget('text')
-                if action_name in self.keybind_map.values():
+                if getattr(current_widget, 'is_keybind', False):
                     self.capture_keybind(current_widget)
                 else:
                     self.start_editing(current_widget)
         elif isinstance(current_widget, ttk.Button):
             current_widget.invoke()
-        elif isinstance(current_widget, ttk.Combobox):
-            current_widget.event_generate('<Down>')
-        elif isinstance(current_widget, ttk.Scale):
-            self.speak(f"Current value: {current_widget.get()}")
         return "break"
 
     def on_escape(self, event) -> str:
         """Handle Escape key press."""
         if self.capturing_keybind:
             self.capturing_keybind = False
-            self.root.focus_get().config(state='readonly')
+            current_widget = self.root.focus_get()
+            if isinstance(current_widget, ttk.Entry):
+                current_widget.config(state='readonly')
             self.speak("Keybind capture cancelled")
         elif self.currently_editing:
             widget = self.currently_editing
@@ -308,64 +324,30 @@ class AccessibleUIBackend:
                 self.speak(f"{key} reset to default value.")
         return None
 
-    def save_and_close(self) -> None:
-        """Save configuration and close the UI window.
-        
-        This method:
-        1. Saves all widget values to the configuration
-        2. Writes the configuration to file if specified
-        3. Provides audio feedback on success/failure
-        4. Closes the UI window
-        """
-        try:
-            # Save all sections
-            for tab_name in self.tabs:
-                if tab_name not in self.config.sections():
-                    self.config.add_section(tab_name)
+    def capture_key(self, widget: ttk.Entry) -> None:
+        """Capture keyboard input for keybind setting."""
+        if not self.capturing_keybind:
+            return
 
-                # Save all variables in each section
-                for key, var in self.variables[tab_name].items():
-                    widget = None
-                    # Find the corresponding widget
-                    for w in self.widgets[tab_name]:
-                        if isinstance(w, ttk.Checkbutton) and w.cget('text') == key:
-                            widget = w
-                            break
-                        elif hasattr(w, 'master') and w.master.winfo_children() and \
-                             w.master.winfo_children()[0].cget('text') == key:
-                            widget = w
-                            break
-
-                    # Get description if available
-                    description = getattr(widget, 'description', '') if widget else ''
-
-                    # Format the value based on variable type
-                    if isinstance(var, tk.BooleanVar):
-                        value = 'true' if var.get() else 'false'
-                    else:
-                        value = var.get()
-
-                    # Save with description if available
-                    self.config[tab_name][key] = f"{value} \"{description}\"" if description else value
-
-            # Write to file if specified
-            if self.config_file:
-                self.save_config()
-            
-            self.speak("Closing..")
-            
-        except Exception as e:
-            print(f"Error saving configuration: {e}")
-            self.speak("Error saving configuration")
-        finally:
-            self.root.destroy()
+        key = get_pressed_key()
+        if key:
+            if key.lower() == 'enter':
+                # Skip Enter key and continue capturing
+                self.root.after(50, self.capture_key, widget)
+            elif key.lower() == 'escape':
+                self.capturing_keybind = False
+                widget.config(state='readonly')
+                self.speak("Keybind capture cancelled")
+            else:
+                self.handle_keybind_capture(widget, key)
+        else:
+            self.root.after(50, self.capture_key, widget)
 
     def start_editing(self, widget: ttk.Entry) -> None:
-        """Start editing a text entry widget.
-        
-        Args:
-            widget: The entry widget to edit
-        """
+        """Start editing a text entry widget."""
+        if self.capturing_keybind or self.currently_editing:
+            return
+            
         self.currently_editing = widget
         self.previous_value = widget.get()
         widget.config(state='normal')
@@ -373,11 +355,10 @@ class AccessibleUIBackend:
         self.speak(f"Editing {widget.master.winfo_children()[0].cget('text')}. Enter new value and press Enter when done.")
 
     def finish_editing(self, widget: ttk.Entry) -> None:
-        """Complete editing of a text entry widget.
-        
-        Args:
-            widget: The entry widget being edited
-        """
+        """Complete editing of a text entry widget."""
+        if not self.currently_editing:
+            return
+            
         self.currently_editing = None
         widget.config(state='readonly')
         new_value = widget.get()
@@ -398,43 +379,58 @@ class AccessibleUIBackend:
             self.speak(f"{key} set to {new_value}")
 
     def capture_keybind(self, widget: ttk.Entry) -> None:
-        """Start capturing a new keybind.
-        
-        Args:
-            widget: The entry widget for the keybind
-        """
+        """Start capturing a new keybind."""
+        if self.capturing_keybind or self.currently_editing:
+            return
+            
         self.capturing_keybind = True
         widget.config(state='normal')
         widget.delete(0, tk.END)
         self.speak("Press any key to set the keybind. Press Backspace to disable this keybind. Press Escape to cancel.")
         self.root.after(50, self.capture_key, widget)
 
-    def capture_key(self, widget: ttk.Entry) -> None:
-        """Capture keyboard input for keybind setting.
-        
-        Args:
-            widget: The entry widget for the keybind
-        """
-        if not self.capturing_keybind:
-            return
+    def save_and_close(self) -> None:
+        """Save configuration and close the UI window."""
+        try:
+            # Save all sections
+            for tab_name in self.tabs:
+                if tab_name not in self.config.sections():
+                    self.config.add_section(tab_name)
 
-        key = get_pressed_key()
-        if key:
-            if key.lower() == 'enter':
-                # Skip Enter key and continue capturing
-                self.root.after(50, self.capture_key, widget)
-            elif key.lower() == 'escape':
-                self.capturing_keybind = False
-                widget.config(state='readonly')
-                self.speak("Keybind capture cancelled")
-            else:
-                self.handle_keybind_capture(widget, key)
-        else:
-            self.root.after(50, self.capture_key, widget)
+                # Save all variables in each section
+                for key, var in self.variables[tab_name].items():
+                    widget = None
+                    # Find the corresponding widget
+                    for w in self.widgets[tab_name]:
+                        if isinstance(w, ttk.Checkbutton) and w.cget('text') == key:
+                            widget = w
+                            break
+                        elif hasattr(w, 'master') and w.master.winfo_children() and \
+                             w.master.winfo_children()[0].cget('text') == key:
+                            widget = w
+                            break
+
+                    description = getattr(widget, 'description', '') if widget else ''
+                    
+                    if isinstance(var, tk.BooleanVar):
+                        value = 'true' if var.get() else 'false'
+                    else:
+                        value = var.get()
+
+                    self.config[tab_name][key] = f"{value} \"{description}\"" if description else value
+
+            # Save configuration to file if specified
+            if self.config_file:
+                self.save_config()
+
+            self.speak("Closing..")
+            
+        except Exception as e:
+            print(f"Error saving configuration: {e}")
+            self.speak("Error saving configuration")
+        finally:
+            self.root.destroy()
 
     def run(self) -> None:
-        """Start the UI event loop.
-        
-        This method blocks until the window is closed.
-        """
+        """Start the UI event loop."""
         self.root.mainloop()
