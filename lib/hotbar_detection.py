@@ -247,8 +247,8 @@ def detect_hotbar_item_thread(slot_index):
     # Load configuration
     config = configparser.ConfigParser()
     config.read('config.txt')
-    announce_attachments_enabled = get_config_boolean(config, 'SETTINGS', 'AnnounceWeaponAttachments', True)
-    announce_ammo_enabled = get_config_boolean(config, 'SETTINGS', 'AnnounceAmmo', True)
+    announce_attachments_enabled = get_config_boolean(config, 'AnnounceWeaponAttachments', True)
+    announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
 
     # Check primary slot
     best_match_name, best_score = check_slot(SLOT_COORDS[slot_index])

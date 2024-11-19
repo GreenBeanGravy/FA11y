@@ -2,6 +2,7 @@ import os
 import time
 import ctypes
 import configparser
+from typing import Dict, Tuple, Optional, Any, Union
 
 import pywintypes
 import win32gui
@@ -14,7 +15,8 @@ from accessible_output2.outputs.auto import Auto
 speaker = Auto()
 CONFIG_FILE = 'config.txt'
 
-DEFAULT_CONFIG = """[SETTINGS]
+# Modified DEFAULT_CONFIG to use new section format
+DEFAULT_CONFIG = """[Toggles]
 MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
 ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
 AnnounceWeaponAttachments = true "Toggles the announcements of weapon attachments when equipping weapons."
@@ -23,6 +25,8 @@ AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
+
+[Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
 SecondaryTurnSensitivity = 50 "The sensitivity used for secondary turning left and right when MouseKeys is enabled."
 TurnAroundSensitivity = 1158 "The sensitivity used when turning the player around. Only adjust this if you are having issues."
@@ -44,7 +48,7 @@ PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping so
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
 
-[SCRIPT KEYBINDS]
+[Keybinds]
 Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."
 Fire = lctrl "Invokes a left click for firing or using your currently held item."
 Target = rctrl "Invokes a right click for aiming your currently held item."
@@ -78,14 +82,246 @@ Detect Hotbar 5 = 5 "Announces details about the item the player is currently ho
 [POI]
 selected_poi = closest, 0, 0"""
 
+# Mapping for where settings should go in new format
+SETTINGS_MAPPING = {
+    'MouseKeys': 'Toggles',
+    'ResetSensitivity': 'Toggles',
+    'AnnounceWeaponAttachments': 'Toggles',
+    'AnnounceAmmo': 'Toggles',
+    'AutoUpdates': 'Toggles',
+    'CreateDesktopShortcut': 'Toggles',
+    'AutoTurn': 'Toggles',
+    'PerformFacingCheck': 'Toggles',
+    # All other settings go to Values by default
+}
 
-def force_focus_window(window, speak_text=None, focus_widget=None):
+def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any = None) -> Tuple[str, str]:
+    """Get a configuration value from any section.
+    
+    Args:
+        config: The configuration parser object
+        key: The key to look for
+        fallback: The fallback value if key is not found
+        
+    Returns:
+        tuple: (value, description)
+    """
+    for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS']:
+        if section in config and key in config[section]:
+            value = config[section][key]
+            parts = value.split('"')
+            if len(parts) > 1:
+                return parts[0].strip(), parts[1]
+            return parts[0].strip(), ""
+    return fallback, ""
+
+def get_config_section_for_key(key: str, value: str) -> str:
+    """Determine which section a key should be in based on its value and mapping.
+    
+    Args:
+        key: The configuration key
+        value: The value associated with the key
+        
+    Returns:
+        str: The appropriate section name
+    """
+    if key in SETTINGS_MAPPING:
+        return SETTINGS_MAPPING[key]
+    if value.lower() in ['true', 'false']:
+        return 'Toggles'
+    return 'Values'
+
+def migrate_config_to_new_format(config: configparser.ConfigParser) -> configparser.ConfigParser:
+    """Migrate an old format config to the new format.
+    
+    Args:
+        config: The old configuration parser object
+        
+    Returns:
+        ConfigParser: The new format configuration
+    """
+    new_config = configparser.ConfigParser(interpolation=None)
+    new_config.optionxform = str
+    
+    # Initialize new sections
+    new_config.add_section('Toggles')
+    new_config.add_section('Values')
+    new_config.add_section('Keybinds')
+    
+    # Migrate settings
+    if 'SETTINGS' in config:
+        for key, value in config['SETTINGS'].items():
+            target_section = get_config_section_for_key(key, value.split('"')[0].strip())
+            new_config[target_section][key] = value
+            
+    # Migrate keybinds
+    if 'SCRIPT KEYBINDS' in config:
+        for key, value in config['SCRIPT KEYBINDS'].items():
+            new_config['Keybinds'][key] = value
+            
+    # Preserve POI section
+    if 'POI' in config:
+        new_config.add_section('POI')
+        for key, value in config['POI'].items():
+            new_config['POI'][key] = value
+            
+    return new_config
+
+def read_config() -> configparser.ConfigParser:
+    """Read and parse the configuration file, converting to new format if needed.
+    
+    Returns:
+        ConfigParser: The configuration parser object
+    """
+    config = configparser.ConfigParser(interpolation=None)
+    config.optionxform = str
+
+    try:
+        if os.path.exists(CONFIG_FILE):
+            config.read(CONFIG_FILE)
+            if not config.sections():
+                raise configparser.MissingSectionHeaderError(CONFIG_FILE, 1, "File contains no section headers.")
+        else:
+            raise FileNotFoundError
+
+        # Check if config needs migration
+        if 'SETTINGS' in config.sections() or 'SCRIPT KEYBINDS' in config.sections():
+            print("Converting config to new format...")
+            config = migrate_config_to_new_format(config)
+            
+        config = update_config(config)
+        
+        # Save the migrated config
+        with open(CONFIG_FILE, 'w') as configfile:
+            config.write(configfile)
+            
+    except (configparser.MissingSectionHeaderError, FileNotFoundError):
+        print(f"Config file is corrupted or missing. Creating a new one with default values.")
+        if os.path.exists(CONFIG_FILE):
+            os.remove(CONFIG_FILE)
+        config.read_string(DEFAULT_CONFIG)
+        with open(CONFIG_FILE, 'w') as configfile:
+            config.write(configfile)
+        print(f"Created new config file: {CONFIG_FILE}")
+
+    return config
+
+def update_config(config: configparser.ConfigParser) -> configparser.ConfigParser:
+    """Update the configuration file with default values if necessary.
+    
+    Args:
+        config: The configuration parser object
+        
+    Returns:
+        ConfigParser: The updated configuration
+    """
+    default_config = configparser.ConfigParser(interpolation=None)
+    default_config.optionxform = str
+    default_config.read_string(DEFAULT_CONFIG)
+
+    updated = False
+
+    # Ensure all sections exist
+    for section in default_config.sections():
+        if not config.has_section(section):
+            config.add_section(section)
+            updated = True
+
+    # Update all sections
+    for section in default_config.sections():
+        if section == 'POI':
+            continue  # Skip POI section as it's user-specific
+            
+        new_section = {}
+        existing_keys = {k.lower(): (k, config[section][k]) for k in config[section]}
+
+        for key, value in default_config.items(section):
+            lower_key = key.lower()
+            default_value, default_description = get_config_value(default_config, key)
+
+            if lower_key in existing_keys:
+                original_key, existing_value = existing_keys[lower_key]
+                existing_value, existing_description = get_config_value(config, original_key)
+
+                if original_key != key:
+                    updated = True
+
+                new_value = f"{existing_value}"
+                if existing_description:
+                    new_value += f' "{existing_description}"'
+                elif default_description:
+                    new_value += f' "{default_description}"'
+                    updated = True
+
+                new_section[key] = new_value
+            else:
+                new_section[key] = value
+                updated = True
+
+        config[section] = new_section
+
+    if updated:
+        with open(CONFIG_FILE, 'w') as configfile:
+            config.write(configfile)
+        print(f"Updated config file: {CONFIG_FILE}")
+
+    return config
+
+def get_config_int(config: configparser.ConfigParser, key: str, fallback: Optional[int] = None) -> Optional[int]:
+    """Get an integer configuration value from any section.
+    
+    Args:
+        config: The configuration parser object
+        key: The key to look for
+        fallback: The fallback value if key is not found or invalid
+        
+    Returns:
+        int or None: The integer value or fallback
+    """
+    value, _ = get_config_value(config, key, fallback)
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return fallback
+
+def get_config_float(config: configparser.ConfigParser, key: str, fallback: Optional[float] = None) -> Optional[float]:
+    """Get a float configuration value from any section.
+    
+    Args:
+        config: The configuration parser object
+        key: The key to look for
+        fallback: The fallback value if key is not found or invalid
+        
+    Returns:
+        float or None: The float value or fallback
+    """
+    value, _ = get_config_value(config, key, fallback)
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return fallback
+
+def get_config_boolean(config: configparser.ConfigParser, key: str, fallback: bool = False) -> bool:
+    """Get a boolean configuration value from any section.
+    
+    Args:
+        config: The configuration parser object
+        key: The key to look for
+        fallback: The fallback value if key is not found or invalid
+        
+    Returns:
+        bool: The boolean value or fallback
+    """
+    value, _ = get_config_value(config, key, str(fallback))
+    return value.lower() in ('true', 'yes', 'on', '1')
+
+def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: Optional[Union[callable, Any]] = None) -> None:
     """Force focus on a given window, with optional speech and widget focus.
 
     Args:
-        window (Tk): The window to focus.
-        speak_text (str, optional): Text to speak after focusing. Defaults to None.
-        focus_widget (Widget or callable, optional): Widget to focus after window is focused. Defaults to None.
+        window: The window to focus
+        speak_text: Text to speak after focusing
+        focus_widget: Widget to focus after window is focused
     """
     window.deiconify()
     window.attributes('-topmost', True)
@@ -170,13 +406,13 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
         try:
             current_pos = win32gui.GetWindowRect(hwnd)
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST,
-                                  current_pos[0], current_pos[1],
-                                  current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                  win32con.SWP_SHOWWINDOW)
+                                current_pos[0], current_pos[1],
+                                current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
+                                win32con.SWP_SHOWWINDOW)
             win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST,
-                                  current_pos[0], current_pos[1],
-                                  current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                  win32con.SWP_SHOWWINDOW)
+                                current_pos[0], current_pos[1],
+                                current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
+                                win32con.SWP_SHOWWINDOW)
         except Exception as e:
             print(f"Failed to force focus using SetWindowPos: {e}")
 
@@ -188,161 +424,3 @@ def force_focus_window(window, speak_text=None, focus_widget=None):
         ctypes.windll.user32.SetCursorPos(center_x, center_y)
     except Exception as e:
         print(f"Failed to move cursor to window center: {e}")
-
-def get_config_value(config, section, key, fallback=None):
-    """Retrieve a configuration value and its description.
-
-    Args:
-        config (ConfigParser): The configuration parser object.
-        section (str): The section in the config file.
-        key (str): The key within the section.
-        fallback (any, optional): The fallback value if key is not found. Defaults to None.
-
-    Returns:
-        tuple: The value and description.
-    """
-    try:
-        value = config.get(section, key)
-        parts = value.split('"')
-        if len(parts) > 1:
-            return parts[0].strip(), parts[1]
-        else:
-            return parts[0].strip(), ""
-    except configparser.NoOptionError:
-        return fallback, ""
-
-def get_config_int(config, section, key, fallback=None):
-    """Retrieve an integer configuration value.
-
-    Args:
-        config (ConfigParser): The configuration parser object.
-        section (str): The section in the config file.
-        key (str): The key within the section.
-        fallback (any, optional): The fallback value if key is not found or invalid. Defaults to None.
-
-    Returns:
-        int or None: The integer value or None if invalid.
-    """
-    value, _ = get_config_value(config, section, key, fallback)
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return fallback
-
-def get_config_float(config, section, key, fallback=None):
-    """Retrieve a float configuration value.
-
-    Args:
-        config (ConfigParser): The configuration parser object.
-        section (str): The section in the config file.
-        key (str): The key within the section.
-        fallback (any, optional): The fallback value if key is not found or invalid. Defaults to None.
-
-    Returns:
-        float or None: The float value or None if invalid.
-    """
-    value, _ = get_config_value(config, section, key, fallback)
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return fallback
-
-def get_config_boolean(config, section, key, fallback=False):
-    """Retrieve a boolean configuration value.
-
-    Args:
-        config (ConfigParser): The configuration parser object.
-        section (str): The section in the config file.
-        key (str): The key within the section.
-        fallback (bool, optional): The fallback value if key is not found or invalid. Defaults to False.
-
-    Returns:
-        bool: The boolean value.
-    """
-    value, _ = get_config_value(config, section, key, str(fallback))
-    return value.lower() in ('true', 'yes', 'on', '1')
-
-def read_config():
-    """Read and parse the configuration file.
-
-    Returns:
-        ConfigParser: The configuration parser object.
-    """
-    config = configparser.ConfigParser(interpolation=None)
-    config.optionxform = str
-
-    try:
-        if os.path.exists(CONFIG_FILE):
-            config.read(CONFIG_FILE)
-            if not config.sections():
-                raise configparser.MissingSectionHeaderError(CONFIG_FILE, 1, "File contains no section headers.")
-        else:
-            raise FileNotFoundError
-
-        config = update_config(config)
-    except (configparser.MissingSectionHeaderError, FileNotFoundError):
-        print(f"Config file is corrupted or missing. Creating a new one with default values.")
-        if os.path.exists(CONFIG_FILE):
-            os.remove(CONFIG_FILE)
-        config.read_string(DEFAULT_CONFIG)
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-        print(f"Created new config file: {CONFIG_FILE}")
-
-    return config
-
-def update_config(config):
-    """Update the configuration file with default values if necessary.
-
-    Args:
-        config (ConfigParser): The existing configuration parser object.
-
-    Returns:
-        ConfigParser: The updated configuration parser object.
-    """
-    default_config = configparser.ConfigParser(interpolation=None)
-    default_config.optionxform = str
-    default_config.read_string(DEFAULT_CONFIG)
-
-    updated = False
-
-    for section in default_config.sections():
-        if not config.has_section(section):
-            config.add_section(section)
-            updated = True
-
-        new_section = {}
-        existing_keys = {k.lower(): (k, config[section][k]) for k in config[section]}
-
-        for key, value in default_config.items(section):
-            lower_key = key.lower()
-            default_value, default_description = get_config_value(default_config, section, key)
-
-            if lower_key in existing_keys:
-                original_key, existing_value = existing_keys[lower_key]
-                existing_value, existing_description = get_config_value(config, section, original_key)
-
-                if original_key != key:
-                    updated = True
-
-                new_value = f"{existing_value}"
-                if existing_description:
-                    new_value += f' "{existing_description}"'
-                elif default_description:
-                    new_value += f' "{default_description}"'
-                    updated = True
-
-                new_section[key] = new_value
-            else:
-                new_section[key] = value
-                updated = True
-
-        config[section] = new_section
-
-    with open(CONFIG_FILE, 'w') as configfile:
-        config.write(configfile)
-
-    if updated:
-        print(f"Updated config file: {CONFIG_FILE}")
-
-    return config

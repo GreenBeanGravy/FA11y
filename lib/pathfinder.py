@@ -146,14 +146,14 @@ class Pathfinder:
 
     def update_config(self):
         self.config = read_config()  # Re-read the config
-        self.auto_turn_enabled = get_config_boolean(self.config, 'SETTINGS', 'AutoTurn', False)
-        self.pathfinding_check_interval = get_config_float(self.config, 'SETTINGS', 'PathfindingCheckInterval', 0.2)
-        self.pathfinding_point_radius = get_config_int(self.config, 'SETTINGS', 'PathfindingPointRadius', 10)
-        self.minimum_movement_distance = get_config_float(self.config, 'SETTINGS', 'MinimumMovementDistance', 2)
-        self.ping_volume_max_distance = get_config_float(self.config, 'SETTINGS', 'PingVolumeMaxDistance', 100)
-        self.ping_frequency = get_config_float(self.config, 'SETTINGS', 'PingFrequency', 0.5)
-        self.facing_point_angle_threshold = get_config_float(self.config, 'SETTINGS', 'FacingPointAngleThreshold', 30)
-        self.perform_facing_check = get_config_boolean(self.config, 'SETTINGS', 'PerformFacingCheck', True)
+        self.auto_turn_enabled = get_config_boolean(self.config, 'AutoTurn', False)
+        self.pathfinding_check_interval = get_config_float(self.config, 'PathfindingCheckInterval', 0.2)
+        self.pathfinding_point_radius = get_config_int(self.config, 'PathfindingPointRadius', 10)
+        self.minimum_movement_distance = get_config_float(self.config, 'MinimumMovementDistance', 2)
+        self.ping_volume_max_distance = get_config_float(self.config, 'PingVolumeMaxDistance', 100)
+        self.ping_frequency = get_config_float(self.config, 'PingFrequency', 0.5)
+        self.facing_point_angle_threshold = get_config_float(self.config, 'FacingPointAngleThreshold', 30)
+        self.perform_facing_check = get_config_boolean(self.config, 'PerformFacingCheck', True)
 
     def convert_to_overlay_coordinates(self, x, y):
         overlay_x = int((x - ROI_START_ORIG[0]) * (self.overlay.shape[1] / (ROI_END_ORIG[0] - ROI_START_ORIG[0])))
