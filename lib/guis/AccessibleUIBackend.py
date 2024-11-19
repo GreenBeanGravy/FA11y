@@ -88,6 +88,7 @@ class AccessibleUIBackend:
         if custom_speech is not None:
             def on_focus(event):
                 self.speak(custom_speech)
+                return "break"
             button.bind('<FocusIn>', on_focus)
             button.custom_speech = custom_speech
         
