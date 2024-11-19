@@ -1,40 +1,56 @@
-from lib.guis.AccessibleUIBackend import AccessibleUIBackend
-import pyautogui
-from lib.player_location import find_player_icon_location
-from lib.utilities import force_focus_window
+from tkinter import ttk
+import tkinter as tk
 from typing import Optional, Tuple
 
+from lib.guis.AccessibleUIBackend import AccessibleUIBackend
+from lib.player_location import find_player_icon_location
+from lib.utilities import force_focus_window
+import pyautogui
+
 def create_custom_poi_gui() -> None:
-    """Create a GUI for adding custom Points of Interest (POIs) at the player's current location.
+    """Create and display the custom POI GUI.
     
-    This GUI allows users to:
-    1. Enter a name for a new POI
-    2. Save the POI at the current player coordinates
-    3. Provides audio feedback for all actions
+    Allows users to save a custom POI at their current location with a custom name.
+    The GUI provides accessible feedback and keyboard navigation.
     """
+    # Get initial coordinates
     coordinates: Optional[Tuple[int, int]] = find_player_icon_location()
     if not coordinates:
         print("Unable to determine player location for custom POI")
         return
 
+    # Initialize UI
     ui = AccessibleUIBackend(title="Enter custom POI name")
-    
-    # Set up the main tab
     ui.add_tab("Custom POI")
-    
-    # Add the POI name entry field
-    ui.add_entry(
-        "Custom POI",
-        "POI Name",
-        "Enter a name for this location"
-    )
 
-    def save_poi() -> None:
-        """Save the POI name and coordinates to the CUSTOM_POI.txt file.
+    # Create the entry field
+    def create_entry_field() -> None:
+        frame = ttk.Frame(ui.tabs["Custom POI"])
+        frame.pack(fill='x', padx=5, pady=5)
         
-        Validates the POI name and provides appropriate feedback.
-        Also refocuses the game window after saving.
-        """
+        label = ttk.Label(frame, text="POI Name")
+        label.pack(side='left')
+        
+        var = tk.StringVar()
+        entry = ttk.Entry(frame, textvariable=var, state='readonly')
+        entry.pack(side='right', expand=True, fill='x')
+        entry.description = "Enter a name for this location"
+        
+        ui.widgets["Custom POI"].append(entry)
+        ui.variables["Custom POI"]["POI Name"] = var
+
+    # Create the save button
+    def create_save_button() -> None:
+        button = ttk.Button(ui.tabs["Custom POI"], 
+                          text="Save POI",
+                          command=save_poi)
+        button.pack(fill='x', padx=5, pady=5)
+        button.custom_speech = "Save POI"
+        ui.widgets["Custom POI"].append(button)
+
+    # Save functionality
+    def save_poi() -> None:
+        """Save the POI name and coordinates to the CUSTOM_POI.txt file."""
         poi_name = ui.variables["Custom POI"]["POI Name"].get().strip()
         if poi_name:
             try:
@@ -42,7 +58,7 @@ def create_custom_poi_gui() -> None:
                     file.write(f"{poi_name},{coordinates[0]},{coordinates[1]}\n")
                 ui.speak(f"Custom P O I {poi_name} saved")
                 ui.root.destroy()
-                # Refocus the Fortnite window at current mouse position
+                # Refocus the Fortnite window
                 pyautogui.click()
             except Exception as e:
                 print(f"Error saving custom POI: {e}")
@@ -50,27 +66,34 @@ def create_custom_poi_gui() -> None:
         else:
             ui.speak("Please enter a name for the P O I")
 
-    # Add save button with custom speech
-    ui.add_button(
-        "Custom POI",
-        "Save POI",
-        save_poi,
-        custom_speech="Save POI"
-    )
+    # Window initialization
+    def initialize_window() -> None:
+        """Set up window properties and size."""
+        ui.root.geometry("300x150")
+        ui.root.resizable(False, False)
+        ui.root.protocol("WM_DELETE_WINDOW", ui.save_and_close)
 
-    # Configure window size
-    ui.root.geometry("300x150")
-    
-    # Set up initial focus
+    # Focus handling
     def focus_first_widget() -> None:
-        """Focus the POI name entry field."""
-        ui.widgets["Custom POI"][0].focus_set()
+        """Focus the first widget and announce its state."""
+        if ui.widgets["Custom POI"]:
+            first_widget = ui.widgets["Custom POI"][0]
+            first_widget.focus_set()
+            widget_info = ui.get_widget_info(first_widget)
+            if widget_info:
+                ui.speak(widget_info)
 
-    # Initialize window with no announcement
+    # Create interface elements
+    create_entry_field()
+    create_save_button()
+    initialize_window()
+
+    # Initialize focus
     ui.root.after(100, lambda: force_focus_window(
         ui.root,
         "",
         focus_first_widget
     ))
 
+    # Start the UI
     ui.run()
