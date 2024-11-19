@@ -38,7 +38,8 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, st
     if step_speed is None:
         step_speed = get_config_int(config, 'RecenterStepSpeed', 0)
     
-    step_speed_seconds = step_speed / 1000.0 if step_speed > 0 else step_delay
+    # Convert milliseconds to seconds for any step_speed value
+    step_speed_seconds = step_speed / 1000.0
     
     def move():
         step_dx, step_dy = dx // steps, dy // steps
@@ -59,12 +60,12 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, st
                 remaining_time = max(0, step_speed_seconds - elapsed_time)
                 time.sleep(remaining_time)
             else:
-                time.sleep(step_delay)
+                time.sleep(step_delay)  # step_delay is already in seconds from caller
             
             print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
 
         if second_dy is not None and recenter_delay is not None:
-            time.sleep(recenter_delay)
+            time.sleep(recenter_delay)  # recenter_delay is already in seconds from caller
             step_dy = second_dy // steps
             for i in range(steps):
                 start_time = time.time()
@@ -82,7 +83,7 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, st
                     remaining_time = max(0, step_speed_seconds - elapsed_time)
                     time.sleep(remaining_time)
                 else:
-                    time.sleep(step_delay)
+                    time.sleep(step_delay)  # step_delay is already in seconds from caller
                 
                 print(f"Step {i+1} (second movement): Moved by dx: 0, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
 

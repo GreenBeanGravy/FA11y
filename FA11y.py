@@ -99,7 +99,7 @@ def handle_movement(action: str, reset_sensitivity: bool) -> None:
     turn_steps = get_config_int(config, 'TurnSteps', 5)
     recenter_delay = get_config_float(config, 'RecenterDelay', 0.05)
     recenter_steps = get_config_int(config, 'RecenterSteps', 10)
-    recenter_step_delay = get_config_float(config, 'RecenterStepDelay', 0)
+    recenter_step_delay = get_config_float(config, 'RecenterStepDelay', 0) / 1000.0
     recenter_step_speed = get_config_int(config, 'RecenterStepSpeed', 0)
     up_down_sensitivity = turn_sensitivity // 2
     x_move, y_move = 0, 0
