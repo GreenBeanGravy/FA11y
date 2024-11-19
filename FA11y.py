@@ -99,7 +99,7 @@ def handle_movement(action: str, reset_sensitivity: bool) -> None:
     turn_steps = get_config_int(config, 'TurnSteps', 5)
     recenter_delay = get_config_float(config, 'RecenterDelay', 0.05)
     recenter_steps = get_config_int(config, 'RecenterSteps', 10)
-    recenter_step_delay = get_config_float(config, 'RecenterStepDelay', 0)
+    recenter_step_delay = get_config_float(config, 'RecenterStepDelay', 0) / 1000.0
     recenter_step_speed = get_config_int(config, 'RecenterStepSpeed', 0)
     up_down_sensitivity = turn_sensitivity // 2
     x_move, y_move = 0, 0
@@ -125,29 +125,27 @@ def handle_movement(action: str, reset_sensitivity: bool) -> None:
         return
 
     elif action == 'turn around':
-        x_move = get_config_int(config, 'SETTINGS', 'TurnAroundSensitivity', 1158)
+        x_move = get_config_int(config, 'TurnAroundSensitivity', 1158)
         smooth_move_mouse(x_move, 0, turn_delay, turn_steps)
-        return  # Add return here to prevent the second movement
-
+        return
     elif action == 'recenter':
         if reset_sensitivity:
-            recenter_move = get_config_int(config, 'SETTINGS', 'ResetRecenterLookDown', 1500)
-            down_move = get_config_int(config, 'SETTINGS', 'ResetRecenterLookUp', -580)
+            recenter_move = get_config_int(config, 'ResetRecenterLookDown', 1500)
+            down_move = get_config_int(config, 'ResetRecenterLookUp', -580)
         else:
-            recenter_move = get_config_int(config, 'SETTINGS', 'RecenterLookDown', 1500)
-            down_move = get_config_int(config, 'SETTINGS', 'RecenterLookUp', -820)
+            recenter_move = get_config_int(config, 'RecenterLookDown', 1500)
+            down_move = get_config_int(config, 'RecenterLookUp', -820)
 
         smooth_move_mouse(0, recenter_move, recenter_step_delay, recenter_steps, recenter_step_speed, down_move, recenter_delay)
         speaker.speak("Reset Camera")
-        return  # Add return here to be explicit
+        return
 
-    # This line should now only execute if none of the above conditions are met
     smooth_move_mouse(x_move, y_move, recenter_delay)
 
 def handle_scroll(action: str) -> None:
     """Handle scroll wheel actions."""
     global config
-    scroll_sensitivity = get_config_int(config, 'SETTINGS', 'ScrollSensitivity', 120)
+    scroll_sensitivity = get_config_int(config, 'ScrollSensitivity', 120)
     if action == 'scroll down':
         scroll_sensitivity = -scroll_sensitivity
     mouse_scroll(scroll_sensitivity)
