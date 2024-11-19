@@ -93,15 +93,15 @@ poi_data_instance = None
 def handle_movement(action: str, reset_sensitivity: bool) -> None:
     """Handle all movement-related actions."""
     global config
-    turn_sensitivity = get_config_int(config, 'SETTINGS', 'TurnSensitivity', 100)
-    secondary_turn_sensitivity = get_config_int(config, 'SETTINGS', 'SecondaryTurnSensitivity', 50)
+    turn_sensitivity = get_config_int(config, 'TurnSensitivity', 100)
+    secondary_turn_sensitivity = get_config_int(config, 'SecondaryTurnSensitivity', 50)
+    turn_delay = get_config_float(config, 'TurnDelay', 0.01)
+    turn_steps = get_config_int(config, 'TurnSteps', 5)
+    recenter_delay = get_config_float(config, 'RecenterDelay', 0.05)
+    recenter_steps = get_config_int(config, 'RecenterSteps', 10)
+    recenter_step_delay = get_config_float(config, 'RecenterStepDelay', 0)
+    recenter_step_speed = get_config_int(config, 'RecenterStepSpeed', 0)
     up_down_sensitivity = turn_sensitivity // 2
-    turn_delay = get_config_float(config, 'SETTINGS', 'TurnDelay', 0.01)
-    turn_steps = get_config_int(config, 'SETTINGS', 'TurnSteps', 5)
-    recenter_delay = get_config_float(config, 'SETTINGS', 'RecenterDelay', 0.05)
-    recenter_steps = get_config_int(config, 'SETTINGS', 'RecenterSteps', 10)
-    recenter_step_delay = get_config_float(config, 'SETTINGS', 'RecenterStepDelay', 0) / 1000
-    recenter_step_speed = get_config_int(config, 'SETTINGS', 'RecenterStepSpeed', 0)
     x_move, y_move = 0, 0
 
     if action in ['turn left', 'turn right', 'secondary turn left', 'secondary turn right', 'look up', 'look down']:
@@ -162,11 +162,11 @@ def reload_config() -> None:
         print("Initializing POI data...")
         poi_data_instance = POIData()
 
-    key_bindings = {key.lower(): get_config_value(config, 'SCRIPT KEYBINDS', key)[0].lower()
-                    for key in config['SCRIPT KEYBINDS'] if get_config_value(config, 'SCRIPT KEYBINDS', key)[0]}
+    key_bindings = {key.lower(): get_config_value(config, key)[0].lower()
+                    for key in config['Keybinds'] if get_config_value(config, key)[0]}
 
-    mouse_keys_enabled = get_config_boolean(config, 'SETTINGS', 'MouseKeys', True)
-    reset_sensitivity = get_config_boolean(config, 'SETTINGS', 'ResetSensitivity', False)
+    mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
+    reset_sensitivity = get_config_boolean(config, 'ResetSensitivity', False)
 
     action_handlers.clear()
 
@@ -219,7 +219,7 @@ def key_listener() -> None:
     while not stop_key_listener.is_set():
         if not config_gui_open.is_set():
             numlock_on = is_numlock_on()
-            mouse_keys_enabled = get_config_boolean(config, 'SETTINGS', 'MouseKeys', True)
+            mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
 
             for action, key in key_bindings.items():
                 if not key:
@@ -386,12 +386,12 @@ def main() -> None:
         config = read_config()
 
         # Check for updates if enabled
-        if get_config_boolean(config, 'SETTINGS', 'AutoUpdates', True):
+        if get_config_boolean(config, 'AutoUpdates', True):
             if run_updater():
                 sys.exit(0)
 
         # Create desktop shortcut if enabled
-        if get_config_boolean(config, 'SETTINGS', 'CreateDesktopShortcut', True):
+        if get_config_boolean(config, 'CreateDesktopShortcut', True):
             create_desktop_shortcut()
 
         # Initialize core systems

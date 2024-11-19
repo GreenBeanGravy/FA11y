@@ -171,8 +171,7 @@ def icon_detection_cycle(selected_poi, use_ppi):
 
     config = configparser.ConfigParser()
     config.read('CONFIG.txt')
-    auto_turn_enabled = get_config_boolean(config, 'SETTINGS', 'AutoTurn', False)
-
+    auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
     if use_ppi:
         player_location = find_player_position()
         if player_location is None:

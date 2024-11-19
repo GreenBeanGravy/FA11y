@@ -34,9 +34,9 @@ config = read_config()
 def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, step_speed: int = None, second_dy: int = None, recenter_delay: float = None):
     print(f"Smooth moving mouse by dx: {dx}, dy: {dy} MICKEYS, step_delay: {step_delay}, steps: {steps}, step_speed: {step_speed}, second_dy: {second_dy}")
     if steps is None:
-        steps = get_config_int(config, 'SETTINGS', 'TurnSteps', 5)
+        steps = get_config_int(config, 'TurnSteps', 5)
     if step_speed is None:
-        step_speed = get_config_int(config, 'SETTINGS', 'RecenterStepSpeed', 0)
+        step_speed = get_config_int(config, 'RecenterStepSpeed', 0)
     
     step_speed_seconds = step_speed / 1000.0 if step_speed > 0 else step_delay
     
