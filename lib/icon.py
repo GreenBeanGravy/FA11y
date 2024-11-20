@@ -25,6 +25,7 @@ from lib.player_location import (
 )
 from lib.ppi import find_player_position, get_player_position_description
 from lib.utilities import get_config_boolean
+from lib.custom_poi_handler import update_poi_handler
 
 # Initialize spatial audio for POI sound
 spatial_poi = SpatialAudio('sounds/poi.ogg')
@@ -62,12 +63,20 @@ def load_config():
     except (KeyError, configparser.NoSectionError):
         return ('none', '0', '0')
 
-def handle_poi_selection(selected_poi, center_mass_screen):
+def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
     print(f"Handling POI selection: {selected_poi}")
     poi_data = POIData()
     
     if isinstance(selected_poi, tuple) and len(selected_poi) == 1:
         selected_poi = selected_poi[0]
+    
+    # Handle custom POI selection first
+    custom_result = update_poi_handler(
+        selected_poi[0] if isinstance(selected_poi, tuple) else selected_poi, 
+        use_ppi
+    )
+    if custom_result[0]:
+        return custom_result
     
     if isinstance(selected_poi, str):
         parts = selected_poi.split(',')
@@ -87,7 +96,7 @@ def handle_poi_selection(selected_poi, center_mass_screen):
     elif poi_name == 'closest':
         print("Finding closest main POI")
         if center_mass_screen is None:
-            center_mass_screen = find_player_icon_location()
+            center_mass_screen = find_player_position() if use_ppi else find_player_icon_location()
         if center_mass_screen:
             main_pois = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
                         for poi in poi_data.main_pois]
@@ -98,7 +107,7 @@ def handle_poi_selection(selected_poi, center_mass_screen):
     elif poi_name == 'closest landmark':
         print("Finding closest landmark")
         if center_mass_screen is None:
-            center_mass_screen = find_player_icon_location()
+            center_mass_screen = find_player_position() if use_ppi else find_player_icon_location()
         if center_mass_screen:
             landmarks = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
                         for poi in poi_data.landmarks]
@@ -130,7 +139,7 @@ def handle_poi_selection(selected_poi, center_mass_screen):
             print(f"Error: POI '{selected_poi}' not found in API data")
             return selected_poi, None
 
-def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
+def perform_poi_actions(poi_data, center_mass_screen, speak_info=True, use_ppi=False):
     poi_name, coordinates = poi_data
     print(f"Performing actions for POI: {poi_name}, Coordinates: {coordinates}")
 
@@ -138,7 +147,7 @@ def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
         x, y = coordinates
         try:
             if center_mass_screen and speak_info:
-                process_screenshot((int(x), int(y)), poi_name, center_mass_screen)
+                process_screenshot((int(x), int(y)), poi_name, center_mass_screen, use_ppi)
             elif not speak_info:
                 print(f"Clicked on {poi_name}. Info will be spoken after auto-turn.")
         except ValueError:
@@ -148,16 +157,22 @@ def perform_poi_actions(poi_data, center_mass_screen, speak_info=True):
         print(f"Error: Invalid POI location for {poi_name}")
         speaker.speak(f"Error: Invalid POI location for {poi_name}")
 
-def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
-    location, angle = find_player_icon_location_with_direction()
+def process_screenshot(selected_coordinates, poi_name, center_mass_screen, use_ppi=False):
+    if use_ppi:
+        location = find_player_position()
+        _, angle = find_minimap_icon_direction()
+    else:
+        location, angle = find_player_icon_location_with_direction()
+    
     if location is not None:
         poi_info = calculate_poi_info(location, angle, selected_coordinates)
         message = generate_poi_message(poi_name, angle, poi_info)
         print(message)
         speaker.speak(message)
     else:
-        print("Player icon not located in screenshot processing.")
-        speaker.speak("Player icon not located.")
+        method = "PPI" if use_ppi else "player icon"
+        print(f"Player location not found using {method}.")
+        speaker.speak(f"Player location not found using {method}.")
 
 def play_spatial_poi_sound(player_position, player_angle, poi_location):
     """Play spatial POI sound based on relative position."""
@@ -218,7 +233,7 @@ def start_icon_detection(use_ppi=False):
 
 def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
     """Modified icon detection cycle with universal spatial audio support."""
-    print(f"Icon detection cycle started. Selected POI: {selected_poi}")
+    print(f"Icon detection cycle started. Selected POI: {selected_poi}, Using PPI: {use_ppi}")
     
     if selected_poi.lower() == 'none':
         print("No POI selected.")
@@ -234,7 +249,7 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         return
 
     # Get POI information
-    poi_data = handle_poi_selection(selected_poi, player_location)
+    poi_data = handle_poi_selection(selected_poi, player_location, use_ppi)
     print(f"POI data: {poi_data}")
     
     if poi_data[1] is None:
@@ -253,7 +268,7 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         pyautogui.click()
 
     # Perform POI actions
-    perform_poi_actions(poi_data, player_location, speak_info=False)
+    perform_poi_actions(poi_data, player_location, speak_info=False, use_ppi=use_ppi)
     
     # Handle auto-turning if enabled
     config = configparser.ConfigParser()
