@@ -194,7 +194,7 @@ def reload_config() -> None:
         'open gamemode selector': select_gamemode_tk,
         'open configuration menu': open_config_gui,
         'exit match': exit_match,
-        'create custom p o i': create_custom_poi_gui,
+        'create custom p o i': handle_custom_poi_gui,
         'announce ammo': announce_ammo_manually,
         'toggle pathfinding': toggle_pathfinding,
         'toggle keybinds': toggle_keybinds
@@ -287,6 +287,10 @@ def open_config_gui() -> None:
     config_gui_open.set()
     create_config_gui(update_script_config)
     config_gui_open.clear()
+
+def handle_custom_poi_gui():
+    use_ppi = check_for_pixel()
+    create_custom_poi_gui(use_ppi)
 
 def run_updater() -> bool:
     """Run the updater script."""
