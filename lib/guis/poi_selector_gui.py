@@ -157,11 +157,27 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
     poi_data = existing_poi_data or POIData()
     favorites_manager = FavoritesManager()
 
+    # Load custom POIs
+    def load_custom_pois() -> List[Tuple[str, str, str]]:
+        custom_pois = []
+        if os.path.exists('CUSTOM_POI.txt'):
+            try:
+                with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
+                    for line in f:
+                        parts = line.strip().split(',')
+                        if len(parts) == 3:
+                            name, x, y = parts
+                            custom_pois.append((name, x, y))
+            except Exception as e:
+                print(f"Error loading custom POIs: {e}")
+        return sorted(custom_pois, key=poi_sort_key)
+
     # Set up POI sets
     poi_sets = [
         ("Main P O I's", SPECIAL_POIS + sorted(poi_data.main_pois, key=poi_sort_key)),
         ("Landmarks", [CLOSEST_LANDMARK] + sorted(poi_data.landmarks, key=poi_sort_key)),
         ("Game Objects", GAME_OBJECTS),
+        ("Custom P O I's", load_custom_pois()),
         ("Favorites", favorites_manager.get_favorites_as_tuples())
     ]
 
@@ -210,19 +226,20 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
         ui.speak(set_name)
 
         if not pois_to_use:
+            no_poi_message = "No custom POIs set" if index == 3 else "No POIs available"
             button = ttk.Button(ui.tabs["P O I's"], 
-                              text="No POIs available",
+                              text=no_poi_message,
                               command=lambda: None)
             button.pack(fill='x', padx=5, pady=5)
-            button.custom_speech = "No POIs available"
+            button.custom_speech = no_poi_message
             ui.widgets["P O I's"].append(button)
-            ui.speak("No P O Is available")
+            ui.speak(no_poi_message)
             return
 
         frame = ttk.Frame(ui.tabs["P O I's"])
         frame.pack(expand=True, fill='both')
 
-        if index in [1, 3]:  # Landmarks or Favorites
+        if index in [1, 3, 4]:  # Landmarks, Custom POIs, or Favorites
             create_button_grid(frame, pois_to_use, index)
         else:  # Main POIs and Game Objects
             for poi in pois_to_use:
@@ -257,7 +274,7 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
             pyautogui.click()
             ui.root.destroy()
             return
-    
+        
         source_tab = favorites_manager.get_source_tab(poi)
         if source_tab:
             for set_name, pois in poi_sets:
@@ -286,10 +303,10 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
                 if poi:
                     is_added = favorites_manager.toggle_favorite(poi, current_set[0])
                     focused.configure(text=f"⭐ {poi_text}" if is_added else poi_text)
-                    poi_sets[3] = ("Favorites", favorites_manager.get_favorites_as_tuples())
+                    poi_sets[4] = ("Favorites", favorites_manager.get_favorites_as_tuples())  # Updated index to 4
                     
-                    if current_poi_set[0] == 3:
-                        set_poi_buttons(3)
+                    if current_poi_set[0] == 4:  # Updated index to 4
+                        set_poi_buttons(4)  # Updated index to 4
                     
                     action = "added to" if is_added else "removed from"
                     ui.speak(f"{poi_text} {action} favorites")
@@ -307,16 +324,16 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
         if confirmation:
             favorites_manager.favorites = []
             favorites_manager.save_favorites()
-            poi_sets[3] = ("Favorites", favorites_manager.get_favorites_as_tuples())
-            if current_poi_set[0] == 3:
-                set_poi_buttons(3)
+            poi_sets[4] = ("Favorites", favorites_manager.get_favorites_as_tuples())  # Updated index to 4
+            if current_poi_set[0] == 4:  # Updated index to 4
+                set_poi_buttons(4)  # Updated index to 4
             ui.speak("All favorites removed")
         else:
             ui.speak("Operation cancelled")
 
     def handle_remove_all_favorites(event) -> str:
         """Handle the remove all favorites key press."""
-        if current_poi_set[0] == 3:
+        if current_poi_set[0] == 4:  # Updated index to 4
             show_remove_all_confirmation()
         return "break"
 
@@ -366,12 +383,7 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
     ui.run()
 
 def update_config_file(selected_poi_name: str, poi_data: POIData) -> None:
-    """Update the configuration file with the selected POI.
-    
-    Args:
-        selected_poi_name: Name of the selected POI
-        poi_data: POIData instance containing POI information
-    """
+    """Update the configuration file with the selected POI."""
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
 
@@ -381,26 +393,47 @@ def update_config_file(selected_poi_name: str, poi_data: POIData) -> None:
     # Handle "Closest Landmark" specifically
     if selected_poi_name.lower() == "closest landmark":
         config['POI']['selected_poi'] = "Closest Landmark, 0, 0"
+        
     else:
-        poi_entry = next(
-            (poi for poi in poi_data.main_pois if poi[0].lower() == selected_poi_name.lower()),
-            next(
-                (poi for poi in poi_data.landmarks if poi[0].lower() == selected_poi_name.lower()),
+        # Check custom POIs first
+        custom_poi = None
+        if os.path.exists('CUSTOM_POI.txt'):
+            try:
+                with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
+                    for line in f:
+                        parts = line.strip().split(',')
+                        if len(parts) == 3 and parts[0].lower() == selected_poi_name.lower():
+                            custom_poi = parts
+                            break
+            except Exception as e:
+                print(f"Error reading custom POIs: {e}")
+
+        if custom_poi:
+            config['POI']['selected_poi'] = f'{custom_poi[0]}, {custom_poi[1]}, {custom_poi[2]}'
+        else:
+            # Check other POI types
+            poi_entry = next(
+                (poi for poi in poi_data.main_pois if poi[0].lower() == selected_poi_name.lower()),
                 next(
-                    (poi for poi in SPECIAL_POIS + GAME_OBJECTS 
-                     if poi[0].lower() == selected_poi_name.lower()),
-                    None
+                    (poi for poi in poi_data.landmarks if poi[0].lower() == selected_poi_name.lower()),
+                    next(
+                        (poi for poi in SPECIAL_POIS + GAME_OBJECTS 
+                         if poi[0].lower() == selected_poi_name.lower()),
+                        None
+                    )
                 )
             )
-        )
 
-        config['POI']['selected_poi'] = (
-            f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
-            if poi_entry else 'none, 0, 0'
-        )
+            config['POI']['selected_poi'] = (
+                f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
+                if poi_entry else 'none, 0, 0'
+            )
 
     with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
         config.write(configfile)
+
+    # Debug output
+    print(f"Updated config file with POI: {config['POI']['selected_poi']}")
 
 def poi_sort_key(poi: Tuple[str, str, str]) -> Tuple[int, int, int, int]:
     """Generate a sort key for POI ordering.
