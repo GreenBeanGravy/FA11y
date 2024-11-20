@@ -282,7 +282,7 @@ def check_secondary_slot(slot_index):
         speaker.speak(best_match_name)
         config = configparser.ConfigParser()
         config.read('config.txt')
-        announce_ammo_enabled = get_config_boolean(config, 'SETTINGS', 'AnnounceAmmo', True)
+        announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
         if easyocr_available and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()

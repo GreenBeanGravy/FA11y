@@ -10,6 +10,7 @@ from lib.object_finder import OBJECT_CONFIGS, find_closest_object
 from lib.guis.poi_selector_gui import POIData
 from lib.minimap_direction import find_minimap_icon_direction
 from lib.mouse import smooth_move_mouse
+from lib.spatial_audio import SpatialAudio
 from lib.player_location import (
     find_player_icon_location,
     find_player_icon_location_with_direction,
@@ -24,6 +25,9 @@ from lib.player_location import (
 )
 from lib.ppi import find_player_position, get_player_position_description
 from lib.utilities import get_config_boolean
+
+# Initialize spatial audio for POI sound
+spatial_poi = SpatialAudio('sounds/poi.ogg')
 
 pyautogui.FAILSAFE = False
 speaker = Auto()
@@ -155,13 +159,65 @@ def process_screenshot(selected_coordinates, poi_name, center_mass_screen):
         print("Player icon not located in screenshot processing.")
         speaker.speak("Player icon not located.")
 
+def play_spatial_poi_sound(player_position, player_angle, poi_location):
+    """Play spatial POI sound based on relative position."""
+    if player_position and poi_location and player_angle is not None:
+        # Calculate vector from player to POI
+        poi_vector = np.array(poi_location) - np.array(player_position)
+        distance = np.linalg.norm(poi_vector) * 2.65
+        
+        # Calculate angle to POI
+        poi_angle = np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))
+        poi_angle = (90 - poi_angle) % 360
+        
+        # Calculate relative angle from player's facing direction
+        relative_angle = (poi_angle - player_angle + 180) % 360 - 180
+        
+        # Calculate left/right weights based on relative angle
+        # Convert angle to -1 to 1 range for panning
+        pan = np.clip(relative_angle / 90, -1, 1)
+        left_weight = np.clip((1 - pan) / 2, 0, 1)
+        right_weight = np.clip((1 + pan) / 2, 0, 1)
+        
+        # Calculate volume based on distance
+        volume = max(0.1, min(1.0, 1 - (distance / 1000)))
+        
+        # Play the spatial sound
+        spatial_poi.play_audio(
+            left_weight=left_weight,
+            right_weight=right_weight,
+            volume=volume
+        )
+
+def get_player_info(use_ppi):
+    """Get player location and angle using either PPI or normal icon detection."""
+    if use_ppi:
+        player_location = find_player_position()
+        if player_location is None:
+            return None, None
+        _, player_angle = find_minimap_icon_direction()
+        return player_location, player_angle
+    else:
+        player_info = find_player_icon_location_with_direction()
+        if player_info is None:
+            return None, None
+        return player_info
+
 def start_icon_detection(use_ppi=False):
+    """Start icon detection with universal spatial sound support."""
     print("Starting icon detection")
     config = load_config()
     selected_poi = config[0] if isinstance(config, tuple) else config
-    icon_detection_cycle(selected_poi, use_ppi)
+    
+    # Load spatial sound configuration
+    config_parser = configparser.ConfigParser()
+    config_parser.read('CONFIG.txt')
+    play_poi_sound = get_config_boolean(config_parser, 'PlayPOISound', True)
+    
+    icon_detection_cycle(selected_poi, use_ppi, play_poi_sound)
 
-def icon_detection_cycle(selected_poi, use_ppi):
+def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
+    """Modified icon detection cycle with universal spatial audio support."""
     print(f"Icon detection cycle started. Selected POI: {selected_poi}")
     
     if selected_poi.lower() == 'none':
@@ -169,24 +225,15 @@ def icon_detection_cycle(selected_poi, use_ppi):
         speaker.speak("No POI selected. Please select a POI first.")
         return
 
-    config = configparser.ConfigParser()
-    config.read('CONFIG.txt')
-    auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
-    if use_ppi:
-        player_location = find_player_position()
-        if player_location is None:
-            print("Could not find player position using PPI")
-            speaker.speak("Could not find player position using PPI")
-            return
-        player_angle = None
-    else:
-        player_info = find_player_icon_location_with_direction()
-        if player_info is None:
-            print("Could not find player icon or determine direction")
-            player_location, player_angle = None, None
-        else:
-            player_location, player_angle = player_info
+    # Get player information
+    player_location, player_angle = get_player_info(use_ppi)
+    if player_location is None:
+        method = "PPI" if use_ppi else "icon detection"
+        print(f"Could not find player position using {method}")
+        speaker.speak(f"Could not find player position using {method}")
+        return
 
+    # Get POI information
     poi_data = handle_poi_selection(selected_poi, player_location)
     print(f"POI data: {poi_data}")
     
@@ -195,17 +242,23 @@ def icon_detection_cycle(selected_poi, use_ppi):
         speaker.speak(f"{poi_data[0]} not located.")
         return
 
+    # Play spatial POI sound if enabled
+    if play_poi_sound and player_angle is not None:
+        play_spatial_poi_sound(player_location, player_angle, poi_data[1])
+
+    # Handle clicking for non-PPI mode
     if not use_ppi:
         pyautogui.moveTo(poi_data[1][0], poi_data[1][1])
         pyautogui.rightClick()
         pyautogui.click()
 
-    if player_angle is None:
-        _, player_angle = find_minimap_icon_direction()
-        if player_angle is None:
-            print("Could not determine player direction from minimap")
-
+    # Perform POI actions
     perform_poi_actions(poi_data, player_location, speak_info=False)
+    
+    # Handle auto-turning if enabled
+    config = configparser.ConfigParser()
+    config.read('CONFIG.txt')
+    auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
     
     if auto_turn_enabled:
         if not use_ppi:
@@ -215,6 +268,7 @@ def icon_detection_cycle(selected_poi, use_ppi):
     else:
         success = False
 
+    # Get final angle and speak result
     _, latest_angle = find_minimap_icon_direction()
     if latest_angle is None:
         print("Unable to determine final player direction. Using initial direction.")

@@ -168,7 +168,7 @@ def reload_config() -> None:
 
     action_handlers.clear()
 
-    action_handlers['start navigation'] = lambda: start_icon_detection(use_ppi=check_white_pixel())
+    action_handlers['start navigation'] = lambda: start_icon_detection(use_ppi=check_for_pixel())
 
     if mouse_keys_enabled:
         action_handlers.update({
@@ -361,9 +361,10 @@ def get_legendary_username() -> str:
         print(f"Failed to run 'legendary status': {str(e)}")
         return None
 
-def check_white_pixel():
-    """Check if the pixel at a specific location is white."""
-    return pyautogui.pixelMatchesColor(1879, 62, (255, 255, 255))
+def check_for_pixel():
+    """Check if the pixel at a specific location is white or (60, 61, 80)."""
+    return pyautogui.pixelMatchesColor(1879, 62, (255, 255, 255)) or \
+           pyautogui.pixelMatchesColor(1879, 62, (60, 61, 80))
 
 def main() -> None:
     """Main entry point for FA11y."""
