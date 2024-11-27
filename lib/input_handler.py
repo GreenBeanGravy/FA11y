@@ -1,7 +1,7 @@
 import win32api
 import win32con
 
-# Virtual Key Codes for NUMPAD and Special Keys
+# Virtual Key Codes for NUMPAD, Special Keys, and Mouse Buttons
 VK_KEYS = {
     'num 0': win32con.VK_NUMPAD0,
     'num 1': win32con.VK_NUMPAD1,
@@ -25,6 +25,7 @@ VK_KEYS = {
     'rshift': win32con.VK_RSHIFT,
     'lalt': win32con.VK_LMENU,
     'ralt': win32con.VK_RMENU,
+    'middle mouse': 0x04,
     'f1': win32con.VK_F1,
     'f2': win32con.VK_F2,
     'f3': win32con.VK_F3,
@@ -79,8 +80,13 @@ def is_key_pressed(key):
     return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
 
 def get_pressed_key():
+    # Check middle mouse first
+    if is_key_pressed('middle mouse'):
+        return 'middle mouse'
+    
+    # Then check all other keys
     for key in list(VK_KEYS.keys()) + [chr(i) for i in range(65, 91)]:
-        if is_key_pressed(key):
+        if key != 'middle mouse' and is_key_pressed(key):
             return key
     return None
 
