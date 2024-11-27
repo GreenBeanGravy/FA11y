@@ -24,7 +24,7 @@ from lib.player_location import (
     MAX_AREA
 )
 from lib.ppi import find_player_position, get_player_position_description
-from lib.utilities import get_config_boolean
+from lib.utilities import get_config_boolean, get_config_float
 from lib.custom_poi_handler import update_poi_handler
 
 # Initialize spatial audio for POI sound
@@ -251,7 +251,7 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         method = "PPI" if use_ppi else "icon detection"
         print(f"Could not find player position using {method}")
         speaker.speak(f"Could not find player position using {method}")
-        return
+        # Proceed without player location
 
     # Get POI information
     poi_data = handle_poi_selection(selected_poi, player_location, use_ppi)
@@ -263,8 +263,9 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         return
 
     # Play spatial POI sound if enabled
-    if play_poi_sound and player_angle is not None:
-        play_spatial_poi_sound(player_location, player_angle, poi_data[1])
+    if play_poi_sound:
+        if player_angle is not None and player_location is not None:
+            play_spatial_poi_sound(player_location, player_angle, poi_data[1])
 
     # Handle clicking for non-PPI mode
     if not use_ppi:
