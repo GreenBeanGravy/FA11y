@@ -48,6 +48,8 @@ MinimumMovementDistance = 1 "The minimum distance the player must move in meters
 PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
+MinimumPOIVolume = 0.05 "The minimum volume for the P O I sound when the P O I is farthest."
+MaximumPOIVolume = 1.0 "The maximum volume for the P O I sound when the P O I is closest."
 
 [Keybinds]
 Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."

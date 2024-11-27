@@ -189,13 +189,18 @@ def play_spatial_poi_sound(player_position, player_angle, poi_location):
         relative_angle = (poi_angle - player_angle + 180) % 360 - 180
         
         # Calculate left/right weights based on relative angle
-        # Convert angle to -1 to 1 range for panning
         pan = np.clip(relative_angle / 90, -1, 1)
         left_weight = np.clip((1 - pan) / 2, 0, 1)
         right_weight = np.clip((1 + pan) / 2, 0, 1)
         
-        # Calculate volume based on distance
-        volume = max(0.1, min(1.0, 1 - (distance / 1000)))
+        # Get volume settings from config
+        config = configparser.ConfigParser()
+        config.read('config.txt')
+        min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05)
+        max_volume = get_config_float(config, 'MaximumPOIVolume', 1.0)
+        
+        # Calculate volume based on distance with new min/max settings
+        volume = max(min_volume, min(max_volume, 1 - (distance / 1000)))
         
         # Play the spatial sound
         spatial_poi.play_audio(
