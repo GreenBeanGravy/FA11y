@@ -7,6 +7,8 @@ import os
 import re
 from lib.input_handler import is_key_pressed, get_pressed_key, VK_KEYS
 
+from lib.spatial_audio import SpatialAudio
+
 class AccessibleUIBackend:
     def __init__(self, title: str = "Accessible Menu", config_file: Optional[str] = None, 
                  default_config: Optional[configparser.ConfigParser] = None):
@@ -378,6 +380,17 @@ class AccessibleUIBackend:
         else:
             self.variables[current_tab][key].set(new_value)
             self.speak(f"{key} set to {new_value}")
+
+        # Play POI sound at the volume set for specific keys
+        if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
+            try:
+                volume = float(new_value)
+                volume = max(0.0, min(volume, 1.0))  # Ensure volume is between 0.0 and 1.0
+                # Play the POI sound at this volume
+                spatial_poi = SpatialAudio('sounds/poi.ogg')
+                spatial_poi.play_audio(left_weight=1.0, right_weight=1.0, volume=volume)
+            except Exception as e:
+                print(f"Error playing POI sound: {e}")
 
     def capture_keybind(self, widget: ttk.Entry) -> None:
         """Start capturing a new keybind."""
