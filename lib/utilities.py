@@ -26,6 +26,7 @@ CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA1
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
 PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
+MinimapStormDetection = false "Toggles storm detection on the minimap. When enabled, FA11y will warn you when you're near the storm."
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
@@ -48,6 +49,8 @@ MinimumMovementDistance = 1 "The minimum distance the player must move in meters
 PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
+MinimumPOIVolume = 0.05 "The minimum volume for the P O I sound when the P O I is farthest."
+MaximumPOIVolume = 1.0 "The maximum volume for the P O I sound when the P O I is closest."
 
 [Keybinds]
 Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."

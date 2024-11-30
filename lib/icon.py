@@ -24,7 +24,7 @@ from lib.player_location import (
     MAX_AREA
 )
 from lib.ppi import find_player_position, get_player_position_description
-from lib.utilities import get_config_boolean
+from lib.utilities import get_config_boolean, get_config_float
 from lib.custom_poi_handler import update_poi_handler
 
 # Initialize spatial audio for POI sound
@@ -189,13 +189,18 @@ def play_spatial_poi_sound(player_position, player_angle, poi_location):
         relative_angle = (poi_angle - player_angle + 180) % 360 - 180
         
         # Calculate left/right weights based on relative angle
-        # Convert angle to -1 to 1 range for panning
         pan = np.clip(relative_angle / 90, -1, 1)
         left_weight = np.clip((1 - pan) / 2, 0, 1)
         right_weight = np.clip((1 + pan) / 2, 0, 1)
         
-        # Calculate volume based on distance
-        volume = max(0.1, min(1.0, 1 - (distance / 1000)))
+        # Get volume settings from config
+        config = configparser.ConfigParser()
+        config.read('config.txt')
+        min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05)
+        max_volume = get_config_float(config, 'MaximumPOIVolume', 1.0)
+        
+        # Calculate volume based on distance with new min/max settings
+        volume = max(min_volume, min(max_volume, 1 - (distance / 1000)))
         
         # Play the spatial sound
         spatial_poi.play_audio(
@@ -246,7 +251,7 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         method = "PPI" if use_ppi else "icon detection"
         print(f"Could not find player position using {method}")
         speaker.speak(f"Could not find player position using {method}")
-        return
+        # Proceed without player location
 
     # Get POI information
     poi_data = handle_poi_selection(selected_poi, player_location, use_ppi)
@@ -258,8 +263,9 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         return
 
     # Play spatial POI sound if enabled
-    if play_poi_sound and player_angle is not None:
-        play_spatial_poi_sound(player_location, player_angle, poi_data[1])
+    if play_poi_sound:
+        if player_angle is not None and player_location is not None:
+            play_spatial_poi_sound(player_location, player_angle, poi_data[1])
 
     # Handle clicking for non-PPI mode
     if not use_ppi:
