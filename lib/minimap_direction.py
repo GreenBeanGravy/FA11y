@@ -10,8 +10,8 @@ from lib.player_location import (
 
 speaker = Auto()
 
-MINIMAP_START = (1736, 165)
-MINIMAP_END = (1761, 192)
+MINIMAP_START = (1735, 154)
+MINIMAP_END = (1766, 184)
 MIN_AREA = 800
 MAX_AREA = 1100
 
