@@ -3,7 +3,7 @@ import numpy as np
 import pyautogui
 
 # Constants
-ROI_START_ORIG, ROI_END_ORIG = (584, 84), (1490, 1010)
+ROI_START_ORIG, ROI_END_ORIG = (524, 84), (1390, 1010)
 SCALE_FACTOR = 4
 MIN_AREA = 1008
 MAX_AREA = 1386
