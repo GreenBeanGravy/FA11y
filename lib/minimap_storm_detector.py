@@ -8,9 +8,9 @@ from lib.player_location import get_angle_and_direction, get_relative_direction
 from lib.minimap_direction import find_minimap_icon_direction
 
 # Constants for storm detection
-MINIMAP_START = (1610, 10)
-MINIMAP_END = (1910, 310)
-MINIMAP_CENTER = (1750, 180)
+MINIMAP_START = (1600, 20)
+MINIMAP_END = (1900, 320)
+MINIMAP_CENTER = (1750, 170)
 
 # Storm detection settings
 TARGET_COLOR = np.array([165, 29, 146])  # Purple color of the storm
