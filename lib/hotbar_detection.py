@@ -23,6 +23,9 @@ SLOT_COORDS = [
 # Secondary slots are slightly above primary slots
 SECONDARY_SLOT_COORDS = [(x, y-11, x2, y2-11) for x, y, x2, y2 in SLOT_COORDS]
 
+# Area we use to check the uses/ammo a consumable item has remaining
+CONSUMABLE_COUNT_AREA = (1314, 927, 1392, 971)
+
 # Directory configuration
 IMAGES_FOLDER = "images"
 ATTACHMENTS_FOLDER = "attachments"
@@ -288,21 +291,27 @@ def check_secondary_slot(slot_index):
             timer_thread.start()
 
 def announce_ammo():
-    """Announce current and reserve ammo counts."""
+    """Announce current and reserve ammo counts or consumable count."""
     if stop_event.is_set() or not easyocr_available:
         return
     with mss() as sct:
-        current_ammo, reserve_ammo = detect_ammo(sct)
-    if current_ammo is not None or reserve_ammo is not None:
+        current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
+    
+    if consumable_count is not None:
+        speaker.speak(f"{consumable_count} uses left")
+    elif current_ammo is not None or reserve_ammo is not None:
         speaker.speak(f"with {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
     else:
-        print("OCR failed to detect any ammo values.")
+        print("OCR failed to detect any values.")
 
 def announce_ammo_manually():
-    """Manually announce ammo counts when requested."""
+    """Manually announce ammo counts or consumable count when requested."""
     sct = mss()
-    current_ammo, reserve_ammo = detect_ammo(sct)
-    if current_ammo is not None or reserve_ammo is not None:
+    current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
+    
+    if consumable_count is not None:
+        speaker.speak(f"You have {consumable_count} uses left")
+    elif current_ammo is not None or reserve_ammo is not None:
         speaker.speak(f"You have {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
     else:
         speaker.speak("No ammo")
@@ -357,16 +366,16 @@ def detect_divider(screenshot):
 
 def detect_ammo(sct):
     """
-    Detect current and reserve ammo counts.
+    Detect current and reserve ammo counts or consumable count.
     
     Args:
         sct (mss.mss): Screenshot context
         
     Returns:
-        tuple: (current_ammo, reserve_ammo)
+        tuple: (current_ammo, reserve_ammo, consumable_count)
     """
     if not easyocr_available:
-        return None, None
+        return None, None, None
     
     screenshot = np.array(sct.grab({'left': 1200, 'top': 900, 'width': 800, 'height': 200}))
     screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGBA2BGR)
@@ -374,6 +383,7 @@ def detect_ammo(sct):
     divider_pos = detect_divider(screenshot)
     
     if divider_pos:
+        # Regular ammo detection logic
         divider_x, _ = divider_pos
         
         current_ammo_area = {'left': divider_x + 1200 - 75, 'top': AMMO_Y_COORDS['current'][0], 
@@ -387,10 +397,48 @@ def detect_ammo(sct):
         current_ammo = detect_ammo_count(current_ammo_screenshot)
         reserve_ammo = detect_ammo_count(reserve_ammo_screenshot)
         
-        return current_ammo, reserve_ammo
+        return current_ammo, reserve_ammo, None
     else:
-        print("Failed to detect ammo divider.")
-        return None, None
+        # Try to detect consumable count
+        consumable_area = {'left': CONSUMABLE_COUNT_AREA[0], 'top': CONSUMABLE_COUNT_AREA[1],
+                          'width': CONSUMABLE_COUNT_AREA[2] - CONSUMABLE_COUNT_AREA[0],
+                          'height': CONSUMABLE_COUNT_AREA[3] - CONSUMABLE_COUNT_AREA[1]}
+        
+        consumable_screenshot = np.array(sct.grab(consumable_area))
+        consumable_count = detect_consumable_count(consumable_screenshot)
+        
+        if consumable_count is not None:
+            return None, None, consumable_count
+        
+        print("Failed to detect ammo divider or consumable count.")
+        return None, None, None
+
+def detect_consumable_count(consumable_screenshot):
+    """
+    Detect consumable item count from a screenshot using OCR.
+    
+    Args:
+        consumable_screenshot (np.ndarray): Screenshot of consumable count area
+        
+    Returns:
+        int: Detected consumable count or None if detection fails
+    """
+    if not easyocr_available:
+        return None
+    
+    gray = cv2.cvtColor(consumable_screenshot, cv2.COLOR_BGR2GRAY)
+    _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
+    if np.mean(binary) > 127:
+        binary = cv2.bitwise_not(binary)
+    binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    
+    results = reader.readtext(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
+    
+    if results:
+        count_text = results[0][1]
+        count = int(count_text) if count_text.isdigit() else None
+        return count if count and count <= 999 else None
+    return None
 
 def detect_ammo_count(ammo_screenshot):
     """
