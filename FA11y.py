@@ -381,8 +381,8 @@ def get_legendary_username() -> str:
 
 def check_for_pixel():
     """Check if the pixel at a specific location is white or (60, 61, 80)."""
-    return pyautogui.pixelMatchesColor(1879, 62, (255, 255, 255)) or \
-           pyautogui.pixelMatchesColor(1879, 62, (60, 61, 80))
+    return pyautogui.pixelMatchesColor(1877, 50, (255, 255, 255)) or \
+           pyautogui.pixelMatchesColor(1877, 50, (60, 61, 80))
 
 def main() -> None:
     """Main entry point for FA11y."""
