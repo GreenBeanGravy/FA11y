@@ -410,7 +410,7 @@ class AccessibleUIBackend:
             for tab_name in self.tabs:
                 if tab_name not in self.config.sections():
                     self.config.add_section(tab_name)
-
+    
                 # Save all variables in each section
                 for key, var in self.variables[tab_name].items():
                     widget = None
@@ -423,27 +423,53 @@ class AccessibleUIBackend:
                              w.master.winfo_children()[0].cget('text') == key:
                             widget = w
                             break
-
+    
                     description = getattr(widget, 'description', '') if widget else ''
                     
                     if isinstance(var, tk.BooleanVar):
                         value = 'true' if var.get() else 'false'
                     else:
                         value = var.get()
-
+    
                     self.config[tab_name][key] = f"{value} \"{description}\"" if description else value
-
+    
             # Save configuration to file if specified
             if self.config_file:
                 self.save_config()
-
+    
             self.speak("Closing..")
             
         except Exception as e:
             print(f"Error saving configuration: {e}")
             self.speak("Error saving configuration")
         finally:
-            self.root.destroy()
+            # Clean up variables before destroying window
+            for tab_vars in self.variables.values():
+                for var in tab_vars.values():
+                    if hasattr(var, '_name'):
+                        try:
+                            var._root = None
+                        except Exception:
+                            pass
+    
+            # Destroy all widgets explicitly
+            for tab_name, widgets in self.widgets.items():
+                for widget in widgets:
+                    try:
+                        widget.destroy()
+                    except Exception:
+                        pass
+    
+            # Clear references
+            self.widgets.clear()
+            self.variables.clear()
+            
+            # Finally destroy the root window
+            try:
+                self.root.quit()
+                self.root.destroy()
+            except Exception:
+                pass
 
     def run(self) -> None:
         """Start the UI event loop."""

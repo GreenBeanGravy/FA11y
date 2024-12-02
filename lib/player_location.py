@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import pyautogui
+from lib.utilities import read_config, get_config_boolean
 
 # Constants
 ROI_START_ORIG, ROI_END_ORIG = (524, 84), (1390, 1010)
@@ -53,33 +54,41 @@ def get_relative_direction(player_angle, poi_angle):
         return "in front and to the left"
 
 def generate_poi_message(poi_name, player_angle, poi_info):
+    """Generate POI message with distance before direction."""
+    config = read_config()
+    simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
+    
     distance, poi_angle, cardinal_direction, relative_direction = poi_info
     
     if distance is None:
         return f"Pinged {poi_name}, player position unknown."
 
-    if player_angle is None:
-        message = f"{poi_name} is {int(distance)} meters away"
-        if cardinal_direction:
-            message += f", {cardinal_direction}"
-        if poi_angle is not None:
-            message += f" at {poi_angle:.0f} degrees"
-        message += ". Player direction not found."
-    else:
-        player_cardinal = get_cardinal_direction(player_angle)
-        
-        # Check if the player is roughly facing the POI (within 20 degrees)
-        is_facing = abs((poi_angle - player_angle + 180) % 360 - 180) <= 20
-
-        if is_facing:
-            message = f"Facing {poi_name} at {int(distance)} meters away, "
+    if simplify:
+        if player_angle is None:
+            return f"{poi_name} {int(distance)} meters {cardinal_direction}"
         else:
-            message = f"{poi_name} is {relative_direction} {int(distance)} meters away, "
+            return f"{poi_name} {int(distance)} meters {relative_direction} at {poi_angle:.0f} degrees"
+    else:
+        if player_angle is None:
+            message = f"{poi_name} is {int(distance)} meters away"
+            if cardinal_direction:
+                message += f", {cardinal_direction}"
+            if poi_angle is not None:
+                message += f" at {poi_angle:.0f} degrees"
+            message += ". Player direction not found."
+        else:
+            player_cardinal = get_cardinal_direction(player_angle)
+            is_facing = abs((poi_angle - player_angle + 180) % 360 - 180) <= 20
 
-        message += f"{cardinal_direction} at {poi_angle:.0f} degrees, "
-        message += f"facing {player_cardinal} at {player_angle:.0f} degrees"
-    
-    return message
+            if is_facing:
+                message = f"Facing {poi_name} {int(distance)} meters away, "
+            else:
+                message = f"{poi_name} {int(distance)} meters away {relative_direction}, "
+
+            message += f"{cardinal_direction} at {poi_angle:.0f} degrees, "
+            message += f"facing {player_cardinal} at {player_angle:.0f} degrees"
+        
+        return message
 
 def get_quadrant(x, y, width, height):
     mid_x, mid_y = width // 2, height // 2

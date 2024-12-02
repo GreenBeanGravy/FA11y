@@ -446,9 +446,24 @@ def main() -> None:
         print(f"An error occurred: {str(e)}")
         speaker.speak(f"An error occurred: {str(e)}")
     finally:
+        # Clean up operations
         stop_key_listener.set()
         if storm_detector:
             storm_detector.stop_monitoring()
+
+        # Clean up any remaining tkinter variables
+        if 'tk' in sys.modules:
+            try:
+                import tkinter as tk
+                if tk._default_root:
+                    # Destroy any remaining tkinter windows
+                    for widget in tk._default_root.winfo_children():
+                        widget.destroy()
+                    tk._default_root.destroy()
+                    tk._default_root = None
+            except Exception:
+                pass
+
         print("FA11y is closing...")
         sys.exit(0)
 

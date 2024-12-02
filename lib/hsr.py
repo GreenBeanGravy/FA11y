@@ -1,5 +1,6 @@
 from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
+from lib.utilities import read_config, get_config_boolean
 
 speaker = Auto()
 health_color, shield_color = (158, 255, 99), (110, 235, 255)
@@ -15,13 +16,24 @@ def pixel_within_tolerance(pixel_color, target_color, tol):
     return all(abs(pc - tc) <= tol for pc, tc in zip(pixel_color, target_color))
 
 def check_value(pixels, start_x, y, decreases, color, tolerance, name, no_value_msg):
+    """
+    Check health/shield values and announce with simplified speech if enabled.
+    """
+    config = read_config()
+    simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
+    
     x = start_x
     for i in range(100, 0, -1):
         if pixel_within_tolerance(pixels[x, y], color, tolerance):
-            speaker.speak(f'{i} {name}')
+            if simplify:
+                speaker.speak(str(i))
+            else:
+                speaker.speak(f'{i} {name}')
             return
-        x -= decreases[i % len(decreases)]
-    speaker.speak(no_value_msg)
+    if simplify:
+        speaker.speak('0')
+    else:
+        speaker.speak(no_value_msg)
 
 def check_rarity():
     screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
