@@ -6,7 +6,7 @@ from mss import mss
 from accessible_output2.outputs.auto import Auto
 from threading import Thread, Event
 import configparser
-from lib.utilities import get_config_boolean
+from lib.utilities import read_config, get_config_boolean
 import zlib
 import pickle
 from pathlib import Path
@@ -291,28 +291,47 @@ def check_secondary_slot(slot_index):
             timer_thread.start()
 
 def announce_ammo():
-    """Announce current and reserve ammo counts or consumable count."""
+    """Announce current and reserve ammo counts or consumable counts with simplified speech if enabled."""
     if stop_event.is_set() or not easyocr_available:
         return
+        
+    config = read_config()
+    simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
+    
     with mss() as sct:
         current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
     
     if consumable_count is not None:
-        speaker.speak(f"{consumable_count} uses left")
+        if simplify:
+            speaker.speak(f"{consumable_count}")
+        else:
+            speaker.speak(f"{consumable_count} uses left")
     elif current_ammo is not None or reserve_ammo is not None:
-        speaker.speak(f"with {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
+        if simplify:
+            speaker.speak(f"{current_ammo or 0} mag {reserve_ammo or 0} reserves")
+        else:
+            speaker.speak(f"with {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
     else:
         print("OCR failed to detect any values.")
 
 def announce_ammo_manually():
-    """Manually announce ammo counts or consumable count when requested."""
+    """Manually announce ammo counts or consumable counts with simplified speech if enabled."""
+    config = read_config()
+    simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
+    
     sct = mss()
     current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
     
     if consumable_count is not None:
-        speaker.speak(f"You have {consumable_count} uses left")
+        if simplify:
+            speaker.speak(f"{consumable_count} uses")
+        else:
+            speaker.speak(f"You have {consumable_count} uses left")
     elif current_ammo is not None or reserve_ammo is not None:
-        speaker.speak(f"You have {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
+        if simplify:
+            speaker.speak(f"{current_ammo or 0} mag {reserve_ammo or 0} reserves")
+        else:
+            speaker.speak(f"You have {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
     else:
         speaker.speak("No ammo")
 
