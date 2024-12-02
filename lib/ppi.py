@@ -46,9 +46,9 @@ def find_best_match(captured_area):
     
     matches = bf.knnMatch(des1, map_descriptors, k=2)
     
-    good_matches = [m for m, n in matches if m.distance < 0.85 * n.distance]
+    good_matches = [m for m, n in matches if m.distance < 0.75 * n.distance]
     
-    if len(good_matches) > 20:
+    if len(good_matches) > 10:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([map_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         
