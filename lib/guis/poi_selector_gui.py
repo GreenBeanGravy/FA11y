@@ -71,22 +71,43 @@ class FavoritesManager:
         return fav.source_tab if fav else None
 
 class CoordinateSystem:
-    def __init__(self):
-        self.REFERENCE_PAIRS = {
-            (-75056, -87856): (631, 874),    # THE RIG
-            (114368, 113456): (1397, 139),   # THE YACHT
-            (61312, -22656): (900, 330),     # PLEASANT PARK
-            (35136, -74992): (677, 440),     # SWEATY SANDS
-            (-88320, 25856): (1063, 911),    # MISTY MEADOWS
-            (-29696, -36096): (833, 688),    # WEEPING WOODS
-            (-48384, 53184): (1167, 769),    # LAZY LAKE
-            (-65536, -47680): (788, 826),    # SLURPY SWAMP
-            (82880, 96064): (1333, 267),     # STEAMY STACKS
-            (13568, 113920): (1397, 522)     # DIRTY DOCKS
-        }
+    def __init__(self, poi_file="pois.txt"):
+        self.poi_file = poi_file
+        self.REFERENCE_PAIRS = self._load_reference_pairs()
         self.transform_matrix = self._calculate_transformation_matrix()
 
+    def _load_reference_pairs(self) -> dict:
+        """
+        Load POI reference pairs from the pois.txt file.
+        Expected format (one POI per line):
+        name|screen_x,screen_y|world_x,world_y
+        """
+        reference_pairs = {}
+        try:
+            with open(self.poi_file, 'r') as f:
+                for line in f:
+                    # Skip empty lines and comments
+                    if not line.strip() or line.strip().startswith('#'):
+                        continue
+                    
+                    # Parse the POI data
+                    parts = line.strip().split('|')
+                    if len(parts) == 3:
+                        name = parts[0].strip()
+                        screen_x, screen_y = map(int, parts[1].strip().split(','))
+                        world_x, world_y = map(float, parts[2].strip().split(','))
+                        reference_pairs[(world_x, world_y)] = (screen_x, screen_y)
+        except FileNotFoundError:
+            print(f"Warning: {self.poi_file} not found. Using empty reference pairs.")
+        except Exception as e:
+            print(f"Error loading POI data: {e}")
+        
+        return reference_pairs
+
     def _calculate_transformation_matrix(self) -> np.ndarray:
+        if not self.REFERENCE_PAIRS:
+            raise ValueError("No reference pairs available to calculate transformation matrix")
+            
         world_coords = np.array([(x, y) for x, y in self.REFERENCE_PAIRS.keys()])
         screen_coords = np.array([coord for coord in self.REFERENCE_PAIRS.values()])
         world_coords_homogeneous = np.column_stack([world_coords, np.ones(len(world_coords))])
