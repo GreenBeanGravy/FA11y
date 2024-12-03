@@ -68,8 +68,6 @@ from lib.utilities import (
 from lib.pathfinder import toggle_pathfinding
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
 
-from lib.minimap_storm_detector import get_storm_detector
-
 # Initialize pygame mixer
 pygame.mixer.init()
 
@@ -279,17 +277,6 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
     config = new_config
     reload_config()
 
-    # Handle storm detection toggle
-    storm_enabled = get_config_boolean(config, 'MinimapStormDetection', False)
-    storm_detector = get_storm_detector()
-    
-    if storm_enabled and not storm_detector.monitoring:
-        print("Starting storm detection...")
-        storm_detector.start_monitoring()
-    elif not storm_enabled and storm_detector.monitoring:
-        print("Stopping storm detection...")
-        storm_detector.stop_monitoring()
-
     # Restart key listener
     stop_key_listener.set()
     stop_key_listener.clear()
@@ -428,14 +415,6 @@ def main() -> None:
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
-
-        # Initialize storm detection if enabled
-        storm_detector = None
-        if get_config_boolean(config, 'MinimapStormDetection', False):
-            print("Starting storm detection...")
-            storm_detector = get_storm_detector()
-            storm_detector.start_monitoring()
-            speaker.speak("Storm detection enabled")
 
         # Notify user that FA11y is running
         speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
