@@ -4,7 +4,7 @@
 FA11y runs seperately from Fortnite, and does not modify, read, or in any way interact with the Fortnite game files or memory. FA11y relies entirely on what can be seen on screen in order to get the information it needs. As a result of this, FA11y requires that you set your monitor to a resolution of 1920x1080 in order to operate. No other resolutions will work! FA11y is also prone to obstructions from notifications, and will also have various issues if Fortnite is accidentally taken out of fullscreen.
 
 ## About
-FA11y aims to make many important elements of Fortnite accessible to blind and visually impaired players. With FA11y, you can:
+FA11y aims to make many important elements of Fortnite accessible to blind and visually impaired players. FA11y *currently* does not make the menus of Fortnite accessible, but with FA11y you can do the following:
 
 - Get directions to selected Points of Interest (P O I's), landmarks, and even the Safe Zone with stereo audio feedback.
 - Check your available Health and Shields.
