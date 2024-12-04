@@ -273,7 +273,7 @@ def create_desktop_shortcut() -> None:
 
 def update_script_config(new_config: configparser.ConfigParser) -> None:
     """Update script configuration and restart key listener."""
-    global config, key_listener_thread, stop_key_listener, storm_detector
+    global config, key_listener_thread, stop_key_listener
     config = new_config
     reload_config()
 
@@ -427,8 +427,6 @@ def main() -> None:
     finally:
         # Clean up operations
         stop_key_listener.set()
-        if storm_detector:
-            storm_detector.stop_monitoring()
 
         # Clean up any remaining tkinter variables
         if 'tk' in sys.modules:
