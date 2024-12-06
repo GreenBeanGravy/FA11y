@@ -1,34 +1,39 @@
-# FA11y: Fortnite Accessibility Tool for the blind and visually impaired!
+# FA11y: Fortnite Accessibility Tool for the Blind and Visually Impaired!
+
+## FA11y IS NOT A MOD
+FA11y runs seperately from Fortnite, and does not modify, read, or in any way interact with the Fortnite game files or memory. FA11y relies entirely on what can be seen on screen in order to get the information it needs. As a result of this, FA11y requires that you set your monitor to a resolution of 1920x1080 in order to operate. No other resolutions will work! FA11y is also prone to obstructions from notifications, and will also have various issues if Fortnite is accidentally taken out of fullscreen.
 
 ## About
-FA11y aims to make many important elements of Fortnite accessible to blind and visually impaired players. With FA11y, you can:
+FA11y aims to make many important elements of Fortnite accessible to blind and visually impaired players. FA11y *currently* does not make the menus of Fortnite accessible, but with FA11y you can do the following:
 
-- Get directions to Points of Interest (POIs) and place an audible, stereo marker on them!
-- Check your available Health and Shields!
-- Check the rarity of selected weapons in your inventory!
-- Get directions to the Safe Zone, away from the number one killer of blind players, the storm!
-- Get directions to seasonal POIs!
-- Get your height while skydiving in real time!
-- Get the direction you are currently facing!
-- Automatically turn towards a selected POI!
-- Install and verify Fortnite accessibly!
-- Launch Fortnite accessibly in either performance mode or Direct X 11!
-- Select game modes easily with an accessible interface!
-- Instantly leave the current match at the press of a button!
-- Customize most FA11y settings through an accessible configuration menu!
+- Get directions to selected Points of Interest (P O I's), landmarks, and even the Safe Zone with stereo audio feedback.
+- Check your available Health and Shields.
+- Get your height while skydiving in real time.
+- Check the direction you are currently facing.
+- Automatically turn towards a selected P O I when navigating to it.
+- Install, verify, update, and launch Fortnite accessibly!
+- Select game modes easily with an accessible interface.
+- Instantly leave your current match at the press of a button.
+- Get announcements when you equip weapons and consumables, along with your available magazine and reserve ammo counts and consumable item count!
+- Fully control and recenter your camera using just your keyboard!
 
-## DEFAULT Keybinds (configurable to your liking!)
+## DEFAULT Keybinds (fully configurable)
 
-- **`]` (Right Bracket)**: Open the POI selection menu
-- **`Tab` / `Shift + Tab`**: Cycle between GAME POIs and GAME OBJECTS within the POI selection menu
-- **`Enter` / `Space`**: Select a POI in the menu
-- **`Up Arrow` / `Down Arrow`**: Navigate through the POI menu
-- **`[` (Left Bracket)**: Check the rarity of the currently selected item in your inventory
-- **`H`**: Check your Health and Shields
-- **`` ` `` (Grave Accent / Backtick)**: Run player icon detection on the map to give directions to the selected POI, and with AutoTurn enabled, automatically face the POI!
-- **`Left Control`**: Left click
-- **`Right Control`**: Right click
-- **`Num5`**: Recenter the camera
+### Navigation & Interaction
+- **`]` (Right Bracket)**: Open P O I selection menu
+  - **`Tab` / `Shift + Tab`**: Cycle between P O I categories
+  - **`Enter`**: Select a P O I
+- **`Up Arrow` / `Down Arrow`**: Navigate through most menus
+- **`` ` `` (Grave Accent)**: Get directions to a selected P O I
+- **`P`**: Toggle pathfinding to a selected P O I (Note: Currently not functional on the new season as of 12/1/2024)
+- **`;` (Semicolon)**: Announce the direction you are currently facing
+- **`'` (Apostrophe)**: Open the gamemode selector
+- **`\` (Backslash)**: Create a custom P O I at current location
+
+### Movement & Camera Control
+- **`Left Control`**: Left mouse click / Fire
+- **`Right Control`**: Right mouse click / Aim
+- **`Num5`**: Recenter camera
 - **`Num4`**: Turn slightly left
 - **`Num1`**: Turn left
 - **`Num6`**: Turn slightly right
@@ -38,29 +43,39 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 - **`Num0`**: Turn 180 degrees
 - **`Num7`**: Scroll up
 - **`Num9`**: Scroll down
-- **`;` (Semicolon)**: Speak the direction that the player is currently facing
-- **`'` (Apostrophe)**: Open the gamemode selector
-- **`F9`**: Open the FA11y configuration menu
-- **`F12`**: Leave current match
+
+### Information & Status
+- **`H`**: Check Health and Shields
+- **`[` (Left Bracket)**: Check equipped item rarity (Note: Currently non-functional, but it remains largely unneeded)
+- **`J`**: Announce current ammo counts/consumbale uses
+- **`1-5`**: Equip and announce details about items in hotbar slots
+- **`F8`**: Toggle all FA11y keybinds
+- **`F9`**: Open FA11y configuration menu
+- **`F12`**: Leave current match while the Quick Menu is open (Note: Open your Quick Menu with "`Escape`" anywhere in Fortnite)
 
 ## Setup
-1. Ensure you have Python 3.9 or later installed. Make sure to check the box to "Add Python to PATH" during installation.
-2. Download the latest release of FA11y.
-3. Extract the folder to a location of your choice. Avoid placing it inside the Fortnite directory or any system folders.
-4. Open the folder and run `updater.py`. Wait for it to complete.
-5. You should now be able to run `FA11y.py` without issues.
-6. Optional: Configure your FA11y settings and keybinds by pressing `F9` when FA11y has started!
+1. Install Python 3.9 or later (ensure "Add Python to PATH" is checked during installation)
+2. Download the latest FA11y release
+3. Extract to a location of your choice (avoid Fortnite directory and system folders)
+4. Run `updater.py` and wait for completion
+5. Launch FA11y by running `FA11y.py`
 
-## Using Legendary:
-Legendary is a command line interface for the Epic Games Launcher. You won't need the Epic Games launcher installed to use Legendary. In order to install Fortnite, follow these steps:
-* Open a command line window in the directory of your `"Legendary.exe"` file, which should be your root `FA11y` folder. If Legendary did not get added to your system PATH automatically, you may need to begin all commands with "`.\`". If you do NOT have `"Legendary.exe"` in your root FA11y folder, run the `"updater.py"` script.
-* Once you have opened the command line window, type the command `"Legendary auth"`. This will bring up a page to log into your Epic Games account, where you will need to log in to your Epic Games account, log in with another service, or create a new account. Additionally, you may be hit with an inaccessible hCaptcha at some point during the login process. This is being worked on, but in the mean time, you may need to get sighted assistance if you DO receieve this captcha.
-* If after you successfully log in, you get a screen showing raw HTML code, copy the listed authorization token, without the quotations, to your clipboard, and paste it into the command line window. Otherwise, you can ignore this.
-* Assuming everything went smoothly for you, you should now be logged into Legendary! You can easily check this by running the `"Legendary auth"` command again.
+## Using Legendary CLI
+Legendary is the command-line interface we use for Fortnite installation. No Epic Games launcher needed. To get started:
 
-## Getting Fortnite:
-* Go to [the following link](https://store.epicgames.com/en-US/p/fortnite) to open the Fortnite page on the Epic Games store website, which you should now already be logged into.
-* Find and click on the `"GET"` button.
-* Follow the prompts that appear near the bottom of the page.
-* After you successfully have added Fortnite to your Epic Games account, you can now run the `"Fortnite_Installer.py"` script found in your `FA11y` directory! While the installer is running, you can use the keybinds: `"P"` to get the last progress update, `"-"` or  `"+"` to adjust the speed of progress update announcements, and `"ESCAPE"` to cancel the entire install process.
-* After the installer has completed, you can now run either of the batch files that launch Fortnite, preferably, use the `"performance_fortnite_launcher.bat"` one for best performance.
+1. The Legendary executable should be in your FA11y folder after running the updater. If not, run `updater.py` again.
+2. Open a command prompt in your FA11y folder (note: you can do this by navigating to the search field/edit field containing the current folder path, and replacing all contents with "cmd" and pressing enter)
+3. Type `legendary auth` and press enter to start the login process
+4. Follow the login prompts (note: you may encounter an hCaptcha - sighted assistance may be needed at this time)
+5. If you see raw HTML after login, copy the authorization token and paste it in the command prompt, otherwise ignore this
+6. Verify login with `legendary auth` again
+
+## Installing Fortnite
+1. Visit [Fortnite's store page](https://store.epicgames.com/en-US/p/fortnite)
+2. Click "GET" and follow the prompts
+3. After adding Fortnite to your account, run `FortniteManager.py` from your FA11y folder, and press the "Install/Update Fortnite" button at the top
+4. During installation:
+   - `P`: Announce last progress update
+   - `-` / `+`: Adjust the frequency of progress updates
+   - `Escape`: Cancel installation
+5. Once complete, you can run Fortnite using either launch button at the bottom of the Fortnite Manager. Performance mode is recommended.
