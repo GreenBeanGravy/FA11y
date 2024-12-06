@@ -84,7 +84,10 @@ Detect Hotbar 4 = 4 "Announces details about the item the player is currently ho
 Detect Hotbar 5 = 5 "Announces details about the item the player is currently holding in slot 5."
 
 [POI]
-selected_poi = closest, 0, 0"""
+selected_poi = closest, 0, 0
+
+[MAP]
+last_selected_map = Main"""
 
 # Mapping for where settings should go in new format
 SETTINGS_MAPPING = {
