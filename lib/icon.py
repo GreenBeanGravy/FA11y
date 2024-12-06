@@ -63,12 +63,33 @@ def load_config():
     except (KeyError, configparser.NoSectionError):
         return ('none', '0', '0')
 
+def load_selected_map():
+    """Load the last selected map from config."""
+    config = configparser.ConfigParser()
+    config.read('CONFIG.txt')
+    try:
+        return config.get('MAP', 'last_selected_map', fallback='main')
+    except (configparser.NoSectionError, configparser.NoOptionError):
+        return 'main'
+
+def get_poi_from_map_data(poi_name, map_data):
+    """Find POI in map data's POIs and landmarks."""
+    # First check POIs
+    for poi in map_data.pois:
+        if poi[0].lower() == poi_name.lower():
+            return poi[0], (int(float(poi[1])), int(float(poi[2])))
+            
+    # Then check landmarks
+    for poi in map_data.landmarks:
+        if poi[0].lower() == poi_name.lower():
+            return poi[0], (int(float(poi[1])), int(float(poi[2])))
+            
+    return None
+
 def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
+    """Handle POI selection with map support."""
     print(f"Handling POI selection: {selected_poi}")
     poi_data = POIData()
-    
-    if isinstance(selected_poi, tuple) and len(selected_poi) == 1:
-        selected_poi = selected_poi[0]
     
     # Handle custom POI selection first
     custom_result = update_poi_handler(
@@ -78,6 +99,22 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
     if custom_result[0]:
         return custom_result
     
+    # Get selected map
+    selected_map = load_selected_map()
+    
+    # Get map data for selected map
+    map_data = poi_data.maps_info.get(selected_map)
+    
+    # If map_data exists and isn't 'main', try to find POI in that map first
+    if map_data and selected_map != 'main':
+        result = get_poi_from_map_data(
+            selected_poi[0] if isinstance(selected_poi, tuple) else selected_poi,
+            map_data
+        )
+        if result:
+            return result
+
+    # Handle string format POIs
     if isinstance(selected_poi, str):
         parts = selected_poi.split(',')
         if len(parts) == 3 and parts[0].lower() == 'position':
@@ -90,13 +127,12 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
     
     poi_name = selected_poi[0].lower() if isinstance(selected_poi, tuple) else selected_poi.lower()
     
+    # Handle special POI types
     if poi_name == 'safe zone':
         print("Detecting safe zone")
         return 'Safe Zone', start_storm_detection()
     elif poi_name == 'closest':
         print("Finding closest main POI")
-        if center_mass_screen is None:
-            center_mass_screen = find_player_position() if use_ppi else find_player_icon_location()
         if center_mass_screen:
             main_pois = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
                         for poi in poi_data.main_pois]
@@ -106,8 +142,6 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
             return "Closest", None
     elif poi_name == 'closest landmark':
         print("Finding closest landmark")
-        if center_mass_screen is None:
-            center_mass_screen = find_player_position() if use_ppi else find_player_icon_location()
         if center_mass_screen:
             landmarks = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
                         for poi in poi_data.landmarks]
@@ -115,29 +149,31 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
         else:
             print("Could not determine player location for finding closest landmark")
             return "Closest Landmark", None
-    else:
-        if poi_name in OBJECT_CONFIGS or poi_name.replace(' ', '_') in OBJECT_CONFIGS:
-            print(f"Detecting game object: {poi_name}")
-            object_name = poi_name if poi_name in OBJECT_CONFIGS else poi_name.replace(' ', '_')
-            icon_path, threshold = OBJECT_CONFIGS[object_name]
-            result = find_closest_object(icon_path, threshold)
-            if result:
-                print(f"Game object {poi_name} found at: {result}")
-                return poi_name, result
-            else:
-                print(f"Game object {poi_name} not found on screen")
-                return poi_name, None
+    
+    # Handle game objects
+    if poi_name in OBJECT_CONFIGS or poi_name.replace(' ', '_') in OBJECT_CONFIGS:
+        print(f"Detecting game object: {poi_name}")
+        object_name = poi_name if poi_name in OBJECT_CONFIGS else poi_name.replace(' ', '_')
+        icon_path, threshold = OBJECT_CONFIGS[object_name]
+        result = find_closest_object(icon_path, threshold)
+        if result:
+            print(f"Game object {poi_name} found at: {result}")
+            return poi_name, result
         else:
-            for poi in poi_data.main_pois:
-                if poi[0].lower() == poi_name:
-                    return poi[0], (int(float(poi[1])), int(float(poi[2])))
+            print(f"Game object {poi_name} not found on screen")
+            return poi_name, None
+    
+    # Check main map POIs and landmarks
+    for poi in poi_data.main_pois:
+        if poi[0].lower() == poi_name:
+            return poi[0], (int(float(poi[1])), int(float(poi[2])))
+    
+    for poi in poi_data.landmarks:
+        if poi[0].lower() == poi_name:
+            return poi[0], (int(float(poi[1])), int(float(poi[2])))
             
-            for poi in poi_data.landmarks:
-                if poi[0].lower() == poi_name:
-                    return poi[0], (int(float(poi[1])), int(float(poi[2])))
-            
-            print(f"Error: POI '{selected_poi}' not found in API data")
-            return selected_poi, None
+    print(f"Error: POI '{selected_poi}' not found in any map")
+    return selected_poi, None
 
 def perform_poi_actions(poi_data, center_mass_screen, speak_info=True, use_ppi=False):
     poi_name, coordinates = poi_data
@@ -199,7 +235,7 @@ def play_spatial_poi_sound(player_position, player_angle, poi_location):
         min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05)
         max_volume = get_config_float(config, 'MaximumPOIVolume', 1.0)
         
-        # Calculate volume based on distance with new min/max settings
+        # Calculate volume based on distance
         volume = max(min_volume, min(max_volume, 1 - (distance / 1000)))
         
         # Play the spatial sound
@@ -218,10 +254,7 @@ def get_player_info(use_ppi):
         _, player_angle = find_minimap_icon_direction()
         return player_location, player_angle
     else:
-        player_info = find_player_icon_location_with_direction()
-        if player_info is None:
-            return None, None
-        return player_info
+        return find_player_icon_location_with_direction()
 
 def start_icon_detection(use_ppi=False):
     """Start icon detection with universal spatial sound support."""
@@ -237,7 +270,7 @@ def start_icon_detection(use_ppi=False):
     icon_detection_cycle(selected_poi, use_ppi, play_poi_sound)
 
 def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
-    """Modified icon detection cycle with universal spatial audio support."""
+    """Icon detection cycle with multi-map support."""
     print(f"Icon detection cycle started. Selected POI: {selected_poi}, Using PPI: {use_ppi}")
     
     if selected_poi.lower() == 'none':
@@ -251,7 +284,6 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         method = "PPI" if use_ppi else "icon detection"
         print(f"Could not find player position using {method}")
         speaker.speak(f"Could not find player position using {method}")
-        # Proceed without player location
 
     # Get POI information
     poi_data = handle_poi_selection(selected_poi, player_location, use_ppi)
@@ -301,9 +333,6 @@ def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location
     poi_info = calculate_poi_info(player_location, player_angle, poi_location)
     message = generate_poi_message(poi_name, player_angle, poi_info)
 
-    if auto_turn_enabled and success:
-        message = f"{message}"
-
     print(message)
     speaker.speak(message)
 
@@ -318,7 +347,6 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
     for attempts in range(max_attempts):
         current_direction, current_angle = find_minimap_icon_direction()
         if current_direction is None or current_angle is None:
-            print(f"Unable to determine current direction. Attempt {attempts + 1}/{max_attempts}")
             consecutive_failures += 1
             
             if attempts < 3 and consecutive_failures == 3:
