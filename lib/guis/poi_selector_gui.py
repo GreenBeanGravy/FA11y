@@ -202,9 +202,14 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
     ui.add_tab("P O I's")
     
     current_poi_set = [0]
-    current_map = ['main']
     poi_data = existing_poi_data or POIData()
     favorites_manager = FavoritesManager()
+
+    # Initialize current_map with last selected map if valid
+    config = configparser.ConfigParser()
+    config.read('CONFIG.txt')
+    last_map = config.get('MAP', 'last_selected_map', fallback='main')
+    current_map = [last_map if last_map in poi_data.maps_info else 'main']
 
     def load_custom_pois() -> List[Tuple[str, str, str]]:
         custom_pois = []
@@ -233,11 +238,14 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
             map_data = poi_data.maps_info[current_map[0]]
             poi_sets = []
             
+            # Include Safe Zone and Closest for all maps
+            special_pois = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
+            
             # Only add tabs for categories that have content
             if map_data.has_pois():
-                poi_sets.append((f"{current_map[0].title()} P O I's", sorted(map_data.pois, key=poi_sort_key)))
+                poi_sets.append((f"{current_map[0].title()} P O I's", special_pois + sorted(map_data.pois, key=poi_sort_key)))
             if map_data.has_landmarks():
-                poi_sets.append((f"{current_map[0].title()} Landmarks", sorted(map_data.landmarks, key=poi_sort_key)))
+                poi_sets.append((f"{current_map[0].title()} Landmarks", [CLOSEST_LANDMARK] + sorted(map_data.landmarks, key=poi_sort_key)))
                 
             custom_pois = load_custom_pois()
             if custom_pois:
@@ -254,7 +262,7 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
         current_index = maps.index(current_map[0])
         new_index = (current_index + direction) % len(maps)
         current_map[0] = maps[new_index]
-        current_poi_set[0] = 0
+        current_poi_set[0] = 0  # Reset to first POI set when switching maps
         rebuild_interface()
 
     def rebuild_interface() -> None:
