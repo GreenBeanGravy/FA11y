@@ -19,6 +19,7 @@ CONFIG_FILE = 'config.txt'
 # Modified DEFAULT_CONFIG to use new section format
 DEFAULT_CONFIG = """[Toggles]
 SimplifySpeechOutput = false "Toggles simplifying speech for various FA11y announcements."
+BetaUpdates = false "Toggles whether FA11y should check for and install beta updates instead."
 MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
 ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
 AnnounceWeaponAttachments = true "Toggles the announcements of weapon attachments when equipping weapons."

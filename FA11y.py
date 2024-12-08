@@ -294,20 +294,24 @@ def handle_custom_poi_gui():
     use_ppi = check_for_pixel()
     create_custom_poi_gui(use_ppi)
 
-def run_updater() -> bool:
-    """Run the updater script."""
-    result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
+def run_updater(beta: bool = False) -> bool:
+    """Run the updater script with optional beta flag."""
+    cmd = [sys.executable, 'updater.py', '--run-by-fa11y']
+    if beta:
+        cmd.append('--beta')
+    result = subprocess.run(cmd, capture_output=True, text=True)
     return result.returncode == 1
 
-def get_version(repo: str) -> str:
+def get_version(repo: str, branch: str = 'main') -> str:
     """Get version from GitHub repository."""
-    url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
+    version_file = "BETA_VERSION" if branch == 'beta' else "VERSION"
+    url = f"https://raw.githubusercontent.com/{repo}/{branch}/{version_file}"
     try:
         response = requests.get(url)
         response.raise_for_status()
         return response.text.strip()
     except requests.RequestException as e:
-        print(f"Failed to fetch VERSION file: {e}")
+        print(f"Failed to fetch {version_file} file: {e}")
         return None
 
 def parse_version(version: str) -> tuple:
@@ -318,19 +322,25 @@ def check_for_updates() -> None:
     """Periodically check for updates."""
     repo = "GreenBeanGravy/FA11y"
     update_notified = False
-
+    
     while True:
+        beta_updates = get_config_boolean(config, 'BetaUpdates', False)
+        branch = 'beta' if beta_updates else 'main'
+        version_file = "BETA_VERSION" if branch == 'beta' else "VERSION"
+        
         local_version = None
-        if os.path.exists('VERSION'):
-            with open('VERSION', 'r') as f:
+        local_file = version_file if os.path.exists(version_file) else "VERSION"
+        
+        if os.path.exists(local_file):
+            with open(local_file, 'r') as f:
                 local_version = f.read().strip()
 
-        repo_version = get_version(repo)
+        repo_version = get_version(repo, branch)
 
         if not local_version:
             print("No local version found. Update may be required.")
         elif not repo_version:
-            print("Failed to fetch repository version. Skipping version check.")
+            print(f"Failed to fetch repository version from {branch} branch. Skipping version check.")
         else:
             try:
                 local_v = parse_version(local_version)
@@ -338,8 +348,9 @@ def check_for_updates() -> None:
                 if local_v != repo_v:
                     if not update_notified:
                         update_sound.play()
-                        speaker.speak("An update is available for FA11y! Restart FA11y to update!")
-                        print("An update is available for FA11y! Restart FA11y to update!")
+                        update_type = "beta " if beta_updates else ""
+                        speaker.speak(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
+                        print(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
                         update_notified = True
                 else:
                     update_notified = False
@@ -392,7 +403,8 @@ def main() -> None:
 
         # Check for updates if enabled
         if get_config_boolean(config, 'AutoUpdates', True):
-            if run_updater():
+            beta_updates = get_config_boolean(config, 'BetaUpdates', False)
+            if run_updater(beta_updates):
                 sys.exit(0)
 
         # Create desktop shortcut if enabled
