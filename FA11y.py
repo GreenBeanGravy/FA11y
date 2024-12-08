@@ -294,11 +294,19 @@ def handle_custom_poi_gui():
     use_ppi = check_for_pixel()
     create_custom_poi_gui(use_ppi)
 
-def run_updater(beta: bool = False) -> bool:
-    """Run the updater script with optional beta flag."""
+def run_updater(force_branch=None) -> bool:
+    """Run the updater script."""
     cmd = [sys.executable, 'updater.py', '--run-by-fa11y']
-    if beta:
+    
+    # Allow forcing a specific branch, but normally use config
+    if force_branch is not None:
+        use_beta = force_branch == 'beta'
+    else:
+        use_beta = get_config_boolean(config, 'BetaUpdates', False)
+    
+    if use_beta:
         cmd.append('--beta')
+    
     result = subprocess.run(cmd, capture_output=True, text=True)
     return result.returncode == 1
 
@@ -322,10 +330,17 @@ def check_for_updates() -> None:
     """Periodically check for updates."""
     repo = "GreenBeanGravy/FA11y"
     update_notified = False
+    last_beta_state = get_config_boolean(config, 'BetaUpdates', False)
     
     while True:
-        beta_updates = get_config_boolean(config, 'BetaUpdates', False)
-        branch = 'beta' if beta_updates else 'main'
+        # Check if beta setting has changed
+        current_beta_state = get_config_boolean(config, 'BetaUpdates', False)
+        if current_beta_state != last_beta_state:
+            print("Beta update setting changed, resetting update check...")
+            update_notified = False
+            last_beta_state = current_beta_state
+        
+        branch = 'beta' if current_beta_state else 'main'
         version_file = "BETA_VERSION" if branch == 'beta' else "VERSION"
         
         local_version = None
@@ -338,7 +353,12 @@ def check_for_updates() -> None:
         repo_version = get_version(repo, branch)
 
         if not local_version:
-            print("No local version found. Update may be required.")
+            if not update_notified:
+                update_sound.play()
+                update_type = "beta " if current_beta_state else ""
+                speaker.speak(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
+                print(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
+                update_notified = True
         elif not repo_version:
             print(f"Failed to fetch repository version from {branch} branch. Skipping version check.")
         else:
@@ -348,16 +368,18 @@ def check_for_updates() -> None:
                 if local_v != repo_v:
                     if not update_notified:
                         update_sound.play()
-                        update_type = "beta " if beta_updates else ""
+                        update_type = "beta " if current_beta_state else ""
                         speaker.speak(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
                         print(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
                         update_notified = True
                 else:
                     update_notified = False
             except ValueError:
-                print("Invalid version format. Treating as update required.")
+                if not update_notified:
+                    print("Invalid version format. Update may be required.")
+                    update_notified = True
 
-        time.sleep(30)
+        time.sleep(30)  # Check every 30 seconds
 
 def get_legendary_username() -> str:
     """Get username from Legendary launcher."""
