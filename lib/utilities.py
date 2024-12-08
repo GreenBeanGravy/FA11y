@@ -2,6 +2,7 @@ import os
 import time
 import ctypes
 import configparser
+import tkinter as tk
 from typing import Dict, Tuple, Optional, Any, Union
 
 import pywintypes
@@ -330,104 +331,113 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
         speak_text: Text to speak after focusing
         focus_widget: Widget to focus after window is focused
     """
-    window.deiconify()
-    window.attributes('-topmost', True)
-    window.update()
-    window.lift()
-
-    hwnd = win32gui.GetParent(window.winfo_id())
-
-    # Ensure window is not minimized
-    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-
-    shell = win32com.client.Dispatch("WScript.Shell")
-
-    # Release mouse capture from other windows
-    ctypes.windll.user32.ReleaseCapture()
-
-    # Try to allow the process to set the foreground window
     try:
-        ctypes.windll.user32.AllowSetForegroundWindow(ctypes.windll.kernel32.GetCurrentProcessId())
-    except Exception as e:
-        print(f"AllowSetForegroundWindow failed: {e}")
+        # Check if window still exists/valid
+        if not window.winfo_exists():
+            print("Window no longer exists - skipping focus")
+            return
+            
+        window.deiconify()
+        window.attributes('-topmost', True)
+        window.update()
+        window.lift()
 
-    # Initialize foreground_thread_id to None
-    foreground_thread_id = None
+        hwnd = win32gui.GetParent(window.winfo_id())
 
-    # Attach input threads
-    try:
-        current_thread_id = win32api.GetCurrentThreadId()
-        foreground_window = win32gui.GetForegroundWindow()
-        if foreground_window != hwnd:
-            foreground_thread_id = win32process.GetWindowThreadProcessId(foreground_window)[0]
-            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, True)
-    except Exception as e:
-        print(f"AttachThreadInput failed: {e}")
+        # Ensure window is not minimized
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
 
-    # Try multiple methods to bring the window to the foreground
-    for _ in range(15):
+        shell = win32com.client.Dispatch("WScript.Shell")
+
+        # Release mouse capture from other windows
+        ctypes.windll.user32.ReleaseCapture()
+
+        # Try to allow the process to set the foreground window
         try:
-            win32gui.SetForegroundWindow(hwnd)
-            win32gui.BringWindowToTop(hwnd)
-            win32gui.SetFocus(hwnd)
-            win32gui.SetActiveWindow(hwnd)
-
-            if win32gui.GetForegroundWindow() == hwnd:
-                break
-
-            # Alternative methods
-            shell.SendKeys('%')
-            ctypes.windll.user32.SetForegroundWindow(hwnd)
-            ctypes.windll.user32.BringWindowToTop(hwnd)
-            ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
-            ctypes.windll.user32.SetFocus(hwnd)
-            ctypes.windll.user32.SetActiveWindow(hwnd)
-
-            if win32gui.GetForegroundWindow() == hwnd:
-                break
-        except pywintypes.error:
-            pass
-
-        time.sleep(0.1)
-    else:
-        print("Failed to set window focus after multiple attempts")
-
-    # Detach input threads
-    try:
-        if foreground_thread_id is not None:
-            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, False)
-    except Exception as e:
-        print(f"DetachThreadInput failed: {e}")
-
-    if speak_text:
-        speaker.speak(speak_text)
-
-    if focus_widget:
-        if callable(focus_widget):
-            window.after(100, focus_widget)
-        else:
-            window.after(100, focus_widget.focus_set)
-
-    # Final check and fallback using SetWindowPos
-    if win32gui.GetForegroundWindow() != hwnd:
-        try:
-            current_pos = win32gui.GetWindowRect(hwnd)
-            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST,
-                                current_pos[0], current_pos[1],
-                                current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                win32con.SWP_SHOWWINDOW)
-            win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST,
-                                current_pos[0], current_pos[1],
-                                current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                win32con.SWP_SHOWWINDOW)
+            ctypes.windll.user32.AllowSetForegroundWindow(ctypes.windll.kernel32.GetCurrentProcessId())
         except Exception as e:
-            print(f"Failed to force focus using SetWindowPos: {e}")
+            print(f"AllowSetForegroundWindow failed: {e}")
 
-    # Attempt to move mouse cursor to the center of the window
-    try:
-        rect = win32gui.GetWindowRect(hwnd)
-        center_x = (rect[0] + rect[2]) // 2
-        center_y = (rect[1] + rect[3]) // 2
-        ctypes.windll.user32.SetCursorPos(center_x, center_y)
-    except Exception as e:
-        print(f"Failed to move cursor to window center: {e}")
+        # Initialize foreground_thread_id to None
+        foreground_thread_id = None
+
+        # Attach input threads
+        try:
+            current_thread_id = win32api.GetCurrentThreadId()
+            foreground_window = win32gui.GetForegroundWindow()
+            if foreground_window != hwnd:
+                foreground_thread_id = win32process.GetWindowThreadProcessId(foreground_window)[0]
+                ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, True)
+        except Exception as e:
+            print(f"AttachThreadInput failed: {e}")
+
+        # Try multiple methods to bring the window to the foreground
+        for _ in range(15):
+            try:
+                win32gui.SetForegroundWindow(hwnd)
+                win32gui.BringWindowToTop(hwnd)
+                win32gui.SetFocus(hwnd)
+                win32gui.SetActiveWindow(hwnd)
+
+                if win32gui.GetForegroundWindow() == hwnd:
+                    break
+
+                # Alternative methods
+                shell.SendKeys('%')
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+                ctypes.windll.user32.BringWindowToTop(hwnd)
+                ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
+                ctypes.windll.user32.SetFocus(hwnd)
+                ctypes.windll.user32.SetActiveWindow(hwnd)
+
+                if win32gui.GetForegroundWindow() == hwnd:
+                    break
+            except pywintypes.error:
+                pass
+
+            time.sleep(0.1)
+        else:
+            print("Failed to set window focus after multiple attempts")
+
+        # Detach input threads
+        try:
+            if foreground_thread_id is not None:
+                ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, False)
+        except Exception as e:
+            print(f"DetachThreadInput failed: {e}")
+
+        if speak_text:
+            speaker.speak(speak_text)
+
+        if focus_widget:
+            if callable(focus_widget):
+                window.after(100, focus_widget)
+            else:
+                window.after(100, focus_widget.focus_set)
+
+        # Final check and fallback using SetWindowPos
+        if win32gui.GetForegroundWindow() != hwnd:
+            try:
+                current_pos = win32gui.GetWindowRect(hwnd)
+                win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST,
+                                    current_pos[0], current_pos[1],
+                                    current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
+                                    win32con.SWP_SHOWWINDOW)
+                win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST,
+                                    current_pos[0], current_pos[1],
+                                    current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
+                                    win32con.SWP_SHOWWINDOW)
+            except Exception as e:
+                print(f"Failed to force focus using SetWindowPos: {e}")
+
+        # Attempt to move mouse cursor to the center of the window
+        try:
+            rect = win32gui.GetWindowRect(hwnd)
+            center_x = (rect[0] + rect[2]) // 2
+            center_y = (rect[1] + rect[3]) // 2
+            ctypes.windll.user32.SetCursorPos(center_x, center_y)
+        except Exception as e:
+            print(f"Failed to move cursor to window center: {e}")
+            
+    except (_tkinter.TclError, Exception) as e:
+        print(f"Error focusing window: {e}")
