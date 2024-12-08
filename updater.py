@@ -134,7 +134,7 @@ def get_repo_files(repo: str, branch: str = 'main') -> list:
         return [item['path'] for item in tree if item['type'] == 'blob']
     except requests.RequestException as e:
         print_info(f"Failed to get repo files from {branch} branch: {e}")
-        return []v
+        return None
 
 def download_file(repo: str, file_path: str, branch: str = 'main') -> Optional[bytes]:
     """Downloads a single file from a GitHub repository."""
