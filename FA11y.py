@@ -285,9 +285,10 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
 
 def open_config_gui() -> None:
     """Open the configuration GUI."""
-    config_gui_open.set()
-    create_config_gui(update_script_config)
-    config_gui_open.clear()
+    if not config_gui_open.is_set():
+        config_gui_open.set()
+        create_config_gui(update_script_config)
+        config_gui_open.clear()
 
 def handle_custom_poi_gui():
     use_ppi = check_for_pixel()
