@@ -16,14 +16,13 @@ health_decreases, shield_decreases = [4, 3, 3], [3, 4, 3]
 def pixel_within_tolerance(pixel_color, target_color, tol):
     return all(abs(pc - tc) <= tol for pc, tc in zip(pixel_color, target_color))
 
-def check_value(pixels, start_x, y, decreases, color, tolerance, name, no_value_msg):
+def check_value(pixels, start_x, y, decreases, color, tolerance):
     x = start_x
     for i in range(100, 0, -1):
         if pixel_within_tolerance(pixels[x, y], color, tolerance):
-            speaker.speak(f'{i} {name}')
-            return
-        x -= decreases[i % len(decreases)]
-    speaker.speak(no_value_msg)
+            return i
+        x -= decreases[i % len(decreases)]  # Use the decreases pattern correctly
+    return None
 
 def check_rarity():
     screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
@@ -37,7 +36,26 @@ def check_rarity():
     speaker.speak('Cannot find rarity.')
 
 def check_health_shields():
+    config = read_config()
+    simplify = get_config_boolean(config, 'SimplifiedSpeech', False)
+    
     screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
     pixels = screenshot.load()
-    check_value(pixels, 384, 980, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
-    check_value(pixels, 384, 950, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
+    
+    health = check_value(pixels, 384, 980, health_decreases, health_color, tolerance)
+    shields = check_value(pixels, 384, 950, shield_decreases, shield_color, tolerance)
+    
+    if health is None:
+        speaker.speak('Cannot find Health Value!')
+        return
+        
+    if simplify:
+        speaker.speak(f"{health}")
+        if shields:
+            speaker.speak(f"{shields}")
+    else:
+        speaker.speak(f"{health} Health")
+        if shields:
+            speaker.speak(f"{shields} Shields")
+        elif shields is None:
+            speaker.speak("No Shields")
