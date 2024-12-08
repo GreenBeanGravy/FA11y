@@ -278,15 +278,8 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         speaker.speak("No POI selected. Please select a POI first.")
         return
 
-    # Get player information
-    player_location, player_angle = get_player_info(use_ppi)
-    if player_location is None:
-        method = "PPI" if use_ppi else "icon detection"
-        print(f"Could not find player position using {method}")
-        speaker.speak(f"Could not find player position using {method}")
-
-    # Get POI information
-    poi_data = handle_poi_selection(selected_poi, player_location, use_ppi)
+    # Get POI information first
+    poi_data = handle_poi_selection(selected_poi, None, use_ppi)
     print(f"POI data: {poi_data}")
     
     if poi_data[1] is None:
@@ -294,40 +287,60 @@ def icon_detection_cycle(selected_poi, use_ppi, play_poi_sound=True):
         speaker.speak(f"{poi_data[0]} not located.")
         return
 
-    # Play spatial POI sound if enabled
-    if play_poi_sound:
-        if player_angle is not None and player_location is not None:
-            play_spatial_poi_sound(player_location, player_angle, poi_data[1])
+    # Get player information
+    player_location, player_angle = get_player_info(use_ppi)
+    
+    if use_ppi:
+        # In PPI mode, we need player location to continue
+        if player_location is None:
+            print("Could not find player position using PPI")
+            speaker.speak("Could not find player position using PPI")
+            return
+    else:
+        # In non-PPI mode, we can proceed without player location
+        if player_location is None:
+            print("Could not find player icon. Placing ping at POI location.")
+            # Just click the POI location since we can't find the player
+            pyautogui.moveTo(poi_data[1][0], poi_data[1][1])
+            pyautogui.rightClick()
+            pyautogui.click()
+            return
 
-    # Handle clicking for non-PPI mode
+    # Play spatial POI sound if enabled and we have player location
+    if play_poi_sound and player_location is not None and player_angle is not None:
+        play_spatial_poi_sound(player_location, player_angle, poi_data[1])
+
+    # Handle clicking for non-PPI mode (we already handled the case where player_location is None)
     if not use_ppi:
         pyautogui.moveTo(poi_data[1][0], poi_data[1][1])
         pyautogui.rightClick()
         pyautogui.click()
 
-    # Perform POI actions
-    perform_poi_actions(poi_data, player_location, speak_info=False, use_ppi=use_ppi)
-    
-    # Handle auto-turning if enabled
-    config = configparser.ConfigParser()
-    config.read('CONFIG.txt')
-    auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
-    
-    if auto_turn_enabled:
-        if not use_ppi:
-            pyautogui.press('escape')
-            time.sleep(0.1)
-        success = auto_turn_towards_poi(player_location, poi_data[1], poi_data[0])
-    else:
-        success = False
+    # Only perform POI actions and auto-turn if we have player location
+    if player_location is not None:
+        # Perform POI actions
+        perform_poi_actions(poi_data, player_location, speak_info=False, use_ppi=use_ppi)
+        
+        # Handle auto-turning if enabled
+        config = configparser.ConfigParser()
+        config.read('CONFIG.txt')
+        auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
+        
+        if auto_turn_enabled:
+            if not use_ppi:
+                pyautogui.press('escape')
+                time.sleep(0.1)
+            success = auto_turn_towards_poi(player_location, poi_data[1], poi_data[0])
+        else:
+            success = False
 
-    # Get final angle and speak result
-    _, latest_angle = find_minimap_icon_direction()
-    if latest_angle is None:
-        print("Unable to determine final player direction. Using initial direction.")
-        latest_angle = player_angle
+        # Get final angle and speak result
+        _, latest_angle = find_minimap_icon_direction()
+        if latest_angle is None:
+            print("Unable to determine final player direction. Using initial direction.")
+            latest_angle = player_angle
 
-    speak_auto_turn_result(poi_data[0], player_location, latest_angle, poi_data[1], auto_turn_enabled, success)
+        speak_auto_turn_result(poi_data[0], player_location, latest_angle, poi_data[1], auto_turn_enabled, success)
 
 def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location, auto_turn_enabled, success):
     poi_info = calculate_poi_info(player_location, player_angle, poi_location)
