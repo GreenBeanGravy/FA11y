@@ -51,6 +51,11 @@ def read_config_boolean(config_path='config.txt', section='Toggles', key='BetaUp
     except:
         return False  # Default to main branch if config reading fails
 
+def get_target_branch():
+    """Get the target branch based on config setting."""
+    use_beta = read_config_boolean()
+    return 'beta' if use_beta else 'main'
+
 def install_required_modules():
     """
     Install required Python modules using pip and handle any import errors.
@@ -132,7 +137,8 @@ def install_required_modules_and_whls():
     print_info("Modules installed.")
 
     if not os.path.exists('whls'):
-        download_folder("GreenBeanGravy/FA11y", "main", "whls")
+        target_branch = get_target_branch()
+        download_folder("GreenBeanGravy/FA11y", target_branch, "whls")
 
 @lru_cache(maxsize=None)
 def get_repo_files(repo: str, branch: str = 'main') -> list:
@@ -167,39 +173,16 @@ def file_needs_update(local_path, github_content):
     with open(local_path, 'rb') as file:
         return file.read() != github_content
 
-def check_file_needs_update(repo: str, file_path: str, target_branch: str) -> bool:
-    """
-    Check if a file needs updating by comparing with the target branch.
-    """
-    if not os.path.exists(file_path):
-        return True
-
-    target_content = download_file(repo, file_path, target_branch)
-    if target_content is None:
-        return False
-
-    try:
-        with open(file_path, 'rb') as f:
-            current_content = f.read()
-        return current_content != target_content
-    except:
-        return True
-
-def update_script(repo, script_name, branch='main'):
+def update_script(repo, script_name):
     """
     Updates the script from a GitHub repository if needed.
     """
     if not AUTO_UPDATE_UPDATER:
         return False
     
-    use_beta = read_config_boolean()
-    target_branch = 'beta' if use_beta else 'main'
+    target_branch = get_target_branch()
+    github_content = download_file(repo, script_name, target_branch)
     
-    # If we're checking a branch that doesn't match our target, skip the update
-    if branch != target_branch:
-        return False
-        
-    github_content = download_file(repo, script_name, branch)
     if github_content is None or not file_needs_update(script_name, github_content):
         return False
 
@@ -208,17 +191,11 @@ def update_script(repo, script_name, branch='main'):
     print_info(f"Updated script: {script_name}")
     return True
 
-def check_and_update_file(repo, file_path, branch='main'):
+def check_and_update_file(repo, file_path):
     """
     Checks if a file needs to be updated based on the target branch.
     """
-    # Use the config to determine which branch we should be using
-    use_beta = read_config_boolean()
-    target_branch = 'beta' if use_beta else 'main'
-    
-    # If we're checking a branch that doesn't match our target, skip the update
-    if branch != target_branch:
-        return False
+    target_branch = get_target_branch()
 
     if file_path.lower() == 'readme.md':
         readme_content = download_file(repo, file_path, target_branch)
@@ -245,18 +222,13 @@ def check_and_update_file(repo, file_path, branch='main'):
     print_info(f"Updated file: {file_path}")
     return True
 
-def update_folder(repo, folder, branch='main'):
+def update_folder(repo, folder):
     """
     Updates a folder from a GitHub repository.
     """
-    use_beta = read_config_boolean()
-    target_branch = 'beta' if use_beta else 'main'
+    target_branch = get_target_branch()
+    url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={target_branch}"
     
-    # If we're checking a branch that doesn't match our target, skip the update
-    if branch != target_branch:
-        return False
-        
-    url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -296,15 +268,16 @@ def check_legendary():
         print_info(f"Failed to download Legendary: {e}")
         return False
 
-def install_requirements(branch='main'):
+def install_requirements():
     """
     Install dependencies listed in requirements.txt.
     """
     requirements_file = 'requirements.txt'
+    target_branch = get_target_branch()
 
     if not os.path.exists(requirements_file):
         print_info(f"{requirements_file} not found. Downloading from GitHub...")
-        url = f"https://raw.githubusercontent.com/GreenBeanGravy/FA11y/{branch}/requirements.txt"
+        url = f"https://raw.githubusercontent.com/GreenBeanGravy/FA11y/{target_branch}/requirements.txt"
         download_file_to_path(url, requirements_file)
 
     print_info(f"Installing dependencies from {requirements_file}...")
@@ -319,49 +292,25 @@ def install_requirements(branch='main'):
         print_info(f"Failed to install dependencies from {requirements_file}: {e}")
         return False
 
-def get_version(repo, branch='main'):
-    """
-    Fetches the version file from a GitHub repository.
-    """
-    version_file = "BETA_VERSION" if branch == 'beta' else "VERSION"
-    url = f"https://raw.githubusercontent.com/{repo}/{branch}/{version_file}"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text.strip()
-    except requests.RequestException as e:
-        print_info(f"Failed to fetch {version_file} file: {e}")
-        return None
-
-def parse_version(version):
-    """
-    Parses a version string into a tuple of integers.
-    """
-    return tuple(map(int, version.split('.')))
-
-def check_version(branch='main'):
+def check_version():
     """
     Checks if updates are needed based on config and file contents.
     """
     repo = "GreenBeanGravy/FA11y"
+    target_branch = get_target_branch()
     
-    # Determine which branch we should be using based on config
-    use_beta = read_config_boolean()
-    target_branch = 'beta' if use_beta else 'main'
-    
-    # If the requested branch doesn't match what we should be using, 
-    # force an update to the correct branch
-    if branch != target_branch:
-        print_info(f"Branch mismatch: requested {branch} but config indicates {target_branch}")
-        return True
-
     # Check VERSION/BETA_VERSION file first
     version_file = "BETA_VERSION" if target_branch == 'beta' else "VERSION"
-    if check_file_needs_update(repo, version_file, target_branch):
-        print_info(f"Version file needs update for {target_branch} branch")
+    if not os.path.exists(version_file):
+        print_info(f"Version file not found, update needed")
         return True
-
-    return False
+        
+    github_content = download_file(repo, version_file, target_branch)
+    if github_content is None:
+        print_info(f"Could not fetch version file from {target_branch} branch")
+        return False
+        
+    return file_needs_update(version_file, github_content)
 
 def main():
     """
@@ -370,19 +319,16 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--run-by-fa11y', action='store_true', help='Indicates if updater was run by FA11y')
-    parser.add_argument('--beta', action='store_true', help='Use beta branch for updates')
     args = parser.parse_args()
 
-    branch = 'beta' if args.beta else 'main'
+    target_branch = get_target_branch()
     script_name = os.path.basename(__file__)
 
-    # Get the intended branch from config
-    use_beta = read_config_boolean()
-    target_branch = 'beta' if use_beta else 'main'
+    print_info(f"Using {target_branch} branch based on configuration...")
 
     # Check for updater script updates first
-    if update_script("GreenBeanGravy/FA11y", script_name, target_branch):
-        print_info("Please restart the updater for updates. Closing in 5 seconds.")
+    if update_script("GreenBeanGravy/FA11y", script_name):
+        print_info("Please restart the updater for updates. Closing in 5 seconds...")
         time.sleep(5)
         sys.exit(0)
 
@@ -399,7 +345,7 @@ def main():
             print_info("Failed to import accessible_output2. Speech output will be unavailable.")
 
     print_info(f"Checking and installing requirements from {target_branch} branch...")
-    requirements_installed = install_requirements(target_branch)
+    requirements_installed = install_requirements()
 
     if requirements_installed:
         print_info("All requirements installed!")
@@ -411,22 +357,21 @@ def main():
             speaker.speak("Some updates may have failed. Please check the console output.")
 
     # Check if we need to update
-    update_needed = check_version(branch)
+    update_needed = check_version()
 
-    # If we need an update or the branch doesn't match config, proceed with updates
-    if update_needed or branch != target_branch:
+    if update_needed:
         repo_files = get_repo_files("GreenBeanGravy/FA11y", target_branch)
         
         if repo_files:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 update_results = list(executor.map(
-                    lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path, target_branch),
+                    lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path),
                     repo_files
                 ))
                 updates_available = any(update_results)
 
-            icons_updated = update_folder("GreenBeanGravy/FA11y", "icons", target_branch)
-            images_updated = update_folder("GreenBeanGravy/FA11y", "images", target_branch)
+            icons_updated = update_folder("GreenBeanGravy/FA11y", "icons")
+            images_updated = update_folder("GreenBeanGravy/FA11y", "images")
             fa11y_updates = updates_available or icons_updated or images_updated
 
             if fa11y_updates:
@@ -438,7 +383,7 @@ def main():
             print_info("Update process completed")
 
             if fa11y_updates:
-                update_type = "beta " if use_beta else ""
+                update_type = "beta " if target_branch == "beta" else ""
                 closing_message = f"FA11y {update_type}update complete! Closing in 5 seconds..."
                 if speaker:
                     speaker.speak(closing_message)
