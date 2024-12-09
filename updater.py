@@ -4,32 +4,13 @@ import subprocess
 import time
 import concurrent.futures
 from functools import lru_cache
-from typing import Optional
-import configparser
 
-def print_info(message):
-    """Prints information to the console."""
-    print(message)
-
-def ensure_required_modules():
-    """Check and install required modules."""
-    required_modules = ['requests', 'psutil', 'argparse']
-    
-    for module in required_modules:
-        try:
-            __import__(module)
-        except ImportError:
-            print_info(f"Installing required module: {module}")
-            subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
-                         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            
-    # Now you can safely import your modules
-    global requests, argparse
+# Ensure the "requests" library is installed before importing it
+try:
     import requests
-    import argparse
-
-# Run module check before anything else
-ensure_required_modules()
+except ImportError:
+    subprocess.run([sys.executable, '-m', 'pip', 'install', 'requests'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    import requests
 
 # Set the command window title
 os.system("title FA11y")
@@ -41,20 +22,9 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 AUTO_UPDATE_UPDATER = True
 MAX_RESTARTS = 3
 
-def read_config_boolean(config_path='config.txt', section='Toggles', key='BetaUpdates'):
-    """Read boolean value from config file."""
-    config = configparser.ConfigParser()
-    try:
-        config.read(config_path)
-        value = config.get(section, key).split('"')[0].strip().lower()
-        return value == 'true'
-    except:
-        return False  # Default to main branch if config reading fails
-
-def get_target_branch():
-    """Get the target branch based on config setting."""
-    use_beta = read_config_boolean()
-    return 'beta' if use_beta else 'main'
+def print_info(message):
+    """Prints information to the console."""
+    print(message)
 
 def install_required_modules():
     """
@@ -116,8 +86,7 @@ def download_folder(repo, branch, folder):
         files = response.json()
         os.makedirs(folder, exist_ok=True)
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(download_file_to_path, file['download_url'], os.path.join(folder, file['name'])) 
-                      for file in files if file['type'] == 'file']
+            futures = [executor.submit(download_file_to_path, file['download_url'], os.path.join(folder, file['name'])) for file in files if file['type'] == 'file']
             concurrent.futures.wait(futures)
         print_info(f"Downloaded folder: {folder}")
     except requests.RequestException as e:
@@ -137,12 +106,28 @@ def install_required_modules_and_whls():
     print_info("Modules installed.")
 
     if not os.path.exists('whls'):
-        target_branch = get_target_branch()
-        download_folder("GreenBeanGravy/FA11y", target_branch, "whls")
+        download_folder("GreenBeanGravy/FA11y", "main", "whls")
+
+def create_mock_imp():
+    """
+    Creates a mock 'imp' module for Python compatibility.
+    """
+    class MockImp:
+        __name__ = 'imp'
+        
+        @staticmethod
+        def is_frozen(arg=None):
+            if arg == "__main__":
+                return hasattr(sys, "frozen") or '__compiled__' in globals()
+            return hasattr(sys, 'frozen') or hasattr(sys, 'importers') or getattr(sys, 'frozen', False)
+
+    sys.modules['imp'] = MockImp()
 
 @lru_cache(maxsize=None)
-def get_repo_files(repo: str, branch: str = 'main') -> list:
-    """Gets the list of files in a GitHub repository branch."""
+def get_repo_files(repo, branch='main'):
+    """
+    Gets the list of files in a GitHub repository branch.
+    """
     url = f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1"
     try:
         response = requests.get(url)
@@ -150,18 +135,20 @@ def get_repo_files(repo: str, branch: str = 'main') -> list:
         tree = response.json().get('tree', [])
         return [item['path'] for item in tree if item['type'] == 'blob']
     except requests.RequestException as e:
-        print_info(f"Failed to get repo files from {branch} branch: {e}")
-        return None
+        print_info(f"Failed to get repo files: {e}")
+        return []
 
-def download_file(repo: str, file_path: str, branch: str = 'main') -> Optional[bytes]:
-    """Downloads a single file from a GitHub repository."""
-    url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
+def download_file(repo, file_path):
+    """
+    Downloads a single file from a GitHub repository.
+    """
+    url = f"https://raw.githubusercontent.com/{repo}/main/{file_path}"
     try:
         response = requests.get(url)
         response.raise_for_status()
         return response.content
     except requests.RequestException as e:
-        print_info(f"Failed to download file {file_path} from {branch} branch: {e}")
+        print_info(f"Failed to download file {file_path}: {e}")
         return None
 
 def file_needs_update(local_path, github_content):
@@ -179,10 +166,7 @@ def update_script(repo, script_name):
     """
     if not AUTO_UPDATE_UPDATER:
         return False
-    
-    target_branch = get_target_branch()
-    github_content = download_file(repo, script_name, target_branch)
-    
+    github_content = download_file(repo, script_name)
     if github_content is None or not file_needs_update(script_name, github_content):
         return False
 
@@ -193,12 +177,10 @@ def update_script(repo, script_name):
 
 def check_and_update_file(repo, file_path):
     """
-    Checks if a file needs to be updated based on the target branch.
+    Checks if a file needs to be updated from the GitHub repository.
     """
-    target_branch = get_target_branch()
-
     if file_path.lower() == 'readme.md':
-        readme_content = download_file(repo, file_path, target_branch)
+        readme_content = download_file(repo, file_path)
         if readme_content and file_needs_update('README.txt', readme_content):
             with open('README.txt', 'wb') as file:
                 file.write(readme_content)
@@ -206,10 +188,11 @@ def check_and_update_file(repo, file_path):
             return True
         return False
 
-    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg', '.pkl')) and file_path not in ('VERSION', 'BETA_VERSION'):
+    # Adjust the filter to ensure all relevant files are considered
+    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg', '.pkl')) and file_path != 'VERSION':
         return False
 
-    github_content = download_file(repo, file_path, target_branch)
+    github_content = download_file(repo, file_path)
     if github_content is None or not file_needs_update(file_path, github_content):
         return False
 
@@ -222,13 +205,11 @@ def check_and_update_file(repo, file_path):
     print_info(f"Updated file: {file_path}")
     return True
 
-def update_folder(repo, folder):
+def update_folder(repo, folder, branch='main'):
     """
     Updates a folder from a GitHub repository.
     """
-    target_branch = get_target_branch()
-    url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={target_branch}"
-    
+    url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -273,11 +254,10 @@ def install_requirements():
     Install dependencies listed in requirements.txt.
     """
     requirements_file = 'requirements.txt'
-    target_branch = get_target_branch()
 
     if not os.path.exists(requirements_file):
         print_info(f"{requirements_file} not found. Downloading from GitHub...")
-        url = f"https://raw.githubusercontent.com/GreenBeanGravy/FA11y/{target_branch}/requirements.txt"
+        url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/requirements.txt"
         download_file_to_path(url, requirements_file)
 
     print_info(f"Installing dependencies from {requirements_file}...")
@@ -292,43 +272,60 @@ def install_requirements():
         print_info(f"Failed to install dependencies from {requirements_file}: {e}")
         return False
 
+def get_version(repo):
+    """
+    Fetches the version file from a GitHub repository.
+    """
+    url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text.strip()
+    except requests.RequestException as e:
+        print_info(f"Failed to fetch VERSION file: {e}")
+        return None
+
+def parse_version(version):
+    """
+    Parses a version string into a tuple of integers.
+    """
+    return tuple(map(int, version.split('.')))
+
 def check_version():
     """
-    Checks if updates are needed based on config and file contents.
+    Checks if the local version matches the repository version.
     """
     repo = "GreenBeanGravy/FA11y"
-    target_branch = get_target_branch()
+    local_version = None
+    if os.path.exists('VERSION'):
+        with open('VERSION', 'r') as f:
+            local_version = f.read().strip()
     
-    # Check VERSION/BETA_VERSION file first
-    version_file = "BETA_VERSION" if target_branch == 'beta' else "VERSION"
-    if not os.path.exists(version_file):
-        print_info(f"Version file not found, update needed")
-        return True
-        
-    github_content = download_file(repo, version_file, target_branch)
-    if github_content is None:
-        print_info(f"Could not fetch version file from {target_branch} branch")
+    repo_version = get_version(repo)
+    
+    if not local_version:
+        return True  # No local version, update required
+    
+    if not repo_version:
+        print_info("Failed to fetch repository version. Skipping version check.")
         return False
-        
-    return file_needs_update(version_file, github_content)
+    
+    try:
+        local_v = parse_version(local_version)
+        repo_v = parse_version(repo_version)
+        return local_v != repo_v  # Update if local version is not equal to repo version
+    except ValueError:
+        print_info("Invalid version format. Treating as update required.")
+        return True
 
 def main():
     """
     Main function to run the updater script.
     """
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--run-by-fa11y', action='store_true', help='Indicates if updater was run by FA11y')
-    args = parser.parse_args()
-
-    target_branch = get_target_branch()
     script_name = os.path.basename(__file__)
 
-    print_info(f"Using {target_branch} branch based on configuration...")
-
-    # Check for updater script updates first
     if update_script("GreenBeanGravy/FA11y", script_name):
-        print_info("Please restart the updater for updates. Closing in 5 seconds...")
+        print_info("Please restart the updater for updates. Closing in 5 seconds.")
         time.sleep(5)
         sys.exit(0)
 
@@ -344,7 +341,7 @@ def main():
         except ImportError:
             print_info("Failed to import accessible_output2. Speech output will be unavailable.")
 
-    print_info(f"Checking and installing requirements from {target_branch} branch...")
+    print_info("Checking and installing requirements...")
     requirements_installed = install_requirements()
 
     if requirements_installed:
@@ -356,50 +353,42 @@ def main():
         if speaker:
             speaker.speak("Some updates may have failed. Please check the console output.")
 
-    # Check if we need to update
-    update_needed = check_version()
-
-    if update_needed:
-        repo_files = get_repo_files("GreenBeanGravy/FA11y", target_branch)
-        
-        if repo_files:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                update_results = list(executor.map(
-                    lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path),
-                    repo_files
-                ))
-                updates_available = any(update_results)
-
-            icons_updated = update_folder("GreenBeanGravy/FA11y", "icons")
-            images_updated = update_folder("GreenBeanGravy/FA11y", "images")
-            fa11y_updates = updates_available or icons_updated or images_updated
-
-            if fa11y_updates:
-                print_info(f"Updates processed from {target_branch} branch.")
-
-            if not check_legendary():
-                print_info("Failed to download or find Legendary. Please download it manually and add it to your system PATH.")
-
-            print_info("Update process completed")
-
-            if fa11y_updates:
-                update_type = "beta " if target_branch == "beta" else ""
-                closing_message = f"FA11y {update_type}update complete! Closing in 5 seconds..."
-                if speaker:
-                    speaker.speak(closing_message)
-                print_info(closing_message)
-                time.sleep(5)
-                sys.exit(1)  # Exit with code 1 to indicate updates were installed
-        else:
-            print_info(f"Failed to get repository files from {target_branch} branch.")
-    else:
-        print_info(f"You are on the latest version of FA11y ({target_branch} branch)!")
+    # Ensure to check for updates if version differs
+    if not check_version():
+        print_info("You are on the latest version of FA11y!")
         if speaker:
-            speaker.speak(f"You are on the latest version of FA11y {target_branch} branch!")
+            speaker.speak("You are on the latest version of FA11y!")
+        sys.exit(0)
 
-    print_info("Closing in 5 seconds...")
-    time.sleep(5)
-    sys.exit(0)  # Exit with code 0 to indicate no updates were needed
+    repo_files = get_repo_files("GreenBeanGravy/FA11y")
+    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        update_results = list(executor.map(lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path), repo_files))
+        updates_available = any(update_results)
+
+    icons_updated = update_folder("GreenBeanGravy/FA11y", "icons")
+    images_updated = update_folder("GreenBeanGravy/FA11y", "images")
+    fa11y_updates = updates_available or icons_updated or images_updated
+
+    if fa11y_updates:
+        print_info("Updates processed.")
+
+    if not check_legendary():
+        print_info("Failed to download or find Legendary. Please download it manually and add it to your system PATH.")
+
+    print_info("Update process completed")
+
+    if fa11y_updates:
+        closing_message = "FA11y updated! Closing in 5 seconds..."
+        if speaker:
+            speaker.speak(closing_message)
+        print_info(closing_message)
+        time.sleep(5)
+        sys.exit(1)
+    else:
+        print_info("Closing in 5 seconds...")
+        time.sleep(5)
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()

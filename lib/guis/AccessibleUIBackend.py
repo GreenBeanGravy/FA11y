@@ -10,20 +10,9 @@ from lib.input_handler import is_key_pressed, get_pressed_key, VK_KEYS
 from lib.spatial_audio import SpatialAudio
 
 class AccessibleUIBackend:
-    _current_instance = None
-
     def __init__(self, title: str = "Accessible Menu", config_file: Optional[str] = None, 
                  default_config: Optional[configparser.ConfigParser] = None):
-        # Clean up any existing instance
-        if AccessibleUIBackend._current_instance is not None:
-            try:
-                AccessibleUIBackend._current_instance.save_and_close()
-            except:
-                pass
-            AccessibleUIBackend._current_instance = None
-
         self.root = tk.Tk()
-        AccessibleUIBackend._current_instance = self
         self.root.title(title)
         self.root.attributes('-topmost', True)
 
@@ -454,9 +443,6 @@ class AccessibleUIBackend:
             print(f"Error saving configuration: {e}")
             self.speak("Error saving configuration")
         finally:
-            # Clear the current instance reference
-            if AccessibleUIBackend._current_instance == self:
-                AccessibleUIBackend._current_instance = None
             # Clean up variables before destroying window
             for tab_vars in self.variables.values():
                 for var in tab_vars.values():

@@ -31,4 +31,3 @@ librosa
 soundfile
 easyocr
 pyaudio
-argparse

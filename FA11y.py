@@ -285,41 +285,28 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
 
 def open_config_gui() -> None:
     """Open the configuration GUI."""
-    if not config_gui_open.is_set():
-        config_gui_open.set()
-        create_config_gui(update_script_config)
-        config_gui_open.clear()
+    config_gui_open.set()
+    create_config_gui(update_script_config)
+    config_gui_open.clear()
 
 def handle_custom_poi_gui():
     use_ppi = check_for_pixel()
     create_custom_poi_gui(use_ppi)
 
-def run_updater(force_branch=None) -> bool:
+def run_updater() -> bool:
     """Run the updater script."""
-    cmd = [sys.executable, 'updater.py', '--run-by-fa11y']
-    
-    # Allow forcing a specific branch, but normally use config
-    if force_branch is not None:
-        use_beta = force_branch == 'beta'
-    else:
-        use_beta = get_config_boolean(config, 'BetaUpdates', False)
-    
-    if use_beta:
-        cmd.append('--beta')
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
     return result.returncode == 1
 
-def get_version(repo: str, branch: str = 'main') -> str:
+def get_version(repo: str) -> str:
     """Get version from GitHub repository."""
-    version_file = "BETA_VERSION" if branch == 'beta' else "VERSION"
-    url = f"https://raw.githubusercontent.com/{repo}/{branch}/{version_file}"
+    url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
     try:
         response = requests.get(url)
         response.raise_for_status()
         return response.text.strip()
     except requests.RequestException as e:
-        print(f"Failed to fetch {version_file} file: {e}")
+        print(f"Failed to fetch VERSION file: {e}")
         return None
 
 def parse_version(version: str) -> tuple:
@@ -330,37 +317,19 @@ def check_for_updates() -> None:
     """Periodically check for updates."""
     repo = "GreenBeanGravy/FA11y"
     update_notified = False
-    last_beta_state = get_config_boolean(config, 'BetaUpdates', False)
-    
+
     while True:
-        # Check if beta setting has changed
-        current_beta_state = get_config_boolean(config, 'BetaUpdates', False)
-        if current_beta_state != last_beta_state:
-            print("Beta update setting changed, resetting update check...")
-            update_notified = False
-            last_beta_state = current_beta_state
-        
-        branch = 'beta' if current_beta_state else 'main'
-        version_file = "BETA_VERSION" if branch == 'beta' else "VERSION"
-        
         local_version = None
-        local_file = version_file if os.path.exists(version_file) else "VERSION"
-        
-        if os.path.exists(local_file):
-            with open(local_file, 'r') as f:
+        if os.path.exists('VERSION'):
+            with open('VERSION', 'r') as f:
                 local_version = f.read().strip()
 
-        repo_version = get_version(repo, branch)
+        repo_version = get_version(repo)
 
         if not local_version:
-            if not update_notified:
-                update_sound.play()
-                update_type = "beta " if current_beta_state else ""
-                speaker.speak(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
-                print(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
-                update_notified = True
+            print("No local version found. Update may be required.")
         elif not repo_version:
-            print(f"Failed to fetch repository version from {branch} branch. Skipping version check.")
+            print("Failed to fetch repository version. Skipping version check.")
         else:
             try:
                 local_v = parse_version(local_version)
@@ -368,18 +337,15 @@ def check_for_updates() -> None:
                 if local_v != repo_v:
                     if not update_notified:
                         update_sound.play()
-                        update_type = "beta " if current_beta_state else ""
-                        speaker.speak(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
-                        print(f"A {update_type}update is available for FA11y! Restart FA11y to update!")
+                        speaker.speak("An update is available for FA11y! Restart FA11y to update!")
+                        print("An update is available for FA11y! Restart FA11y to update!")
                         update_notified = True
                 else:
                     update_notified = False
             except ValueError:
-                if not update_notified:
-                    print("Invalid version format. Update may be required.")
-                    update_notified = True
+                print("Invalid version format. Treating as update required.")
 
-        time.sleep(30)  # Check every 30 seconds
+        time.sleep(30)
 
 def get_legendary_username() -> str:
     """Get username from Legendary launcher."""
@@ -425,8 +391,7 @@ def main() -> None:
 
         # Check for updates if enabled
         if get_config_boolean(config, 'AutoUpdates', True):
-            beta_updates = get_config_boolean(config, 'BetaUpdates', False)
-            if run_updater(beta_updates):
+            if run_updater():
                 sys.exit(0)
 
         # Create desktop shortcut if enabled
