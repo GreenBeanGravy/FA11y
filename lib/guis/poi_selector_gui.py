@@ -209,7 +209,7 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
     config = configparser.ConfigParser()
     config.read('CONFIG.txt')
     last_map = config.get('MAP', 'last_selected_map', fallback='main')
-    current_map = [last_map if last_map in poi_data.maps_info else 'main']
+    current_map = [last_map if last_map in poi_data.maps_info and last_map != 'None' else 'main']
 
     def load_custom_pois() -> List[Tuple[str, str, str]]:
         custom_pois = []
@@ -472,62 +472,118 @@ def update_config_file(selected_poi_name: str, poi_data: POIData, map_name: str 
     if 'MAP' not in config:
         config['MAP'] = {}
 
-    # Handle "Closest Landmark" specifically
-    if selected_poi_name.lower() == "closest landmark":
-        config['POI']['selected_poi'] = "Closest Landmark, 0, 0"
-        config['MAP']['last_selected_map'] = map_name
-        
-    else:
-        # Check custom POIs first
-        custom_poi = None
-        if os.path.exists('CUSTOM_POI.txt'):
-            try:
-                with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
-                    for line in f:
-                        parts = line.strip().split(',')
-                        if len(parts) == 3 and parts[0].lower() == selected_poi_name.lower():
-                            custom_poi = parts
-                            break
-            except Exception as e:
-                print(f"Error reading custom POIs: {e}")
+    # Handle special POIs without changing the map
+    special_pois = {
+        'closest landmark': ('Closest Landmark', '0', '0'),
+        'closest': ('Closest', '0', '0'),
+        'safe zone': ('Safe Zone', '0', '0')
+    }
+    
+    name = selected_poi_name.lower()
+    if name in special_pois:
+        config['POI']['selected_poi'] = f"{special_pois[name][0]}, {special_pois[name][1]}, {special_pois[name][2]}"
+        # Don't update map for special POIs
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+            config.write(configfile)
+        return
 
-        if custom_poi:
-            config['POI']['selected_poi'] = f'{custom_poi[0]}, {custom_poi[1]}, {custom_poi[2]}'
-            config['MAP']['last_selected_map'] = map_name
-        else:
-            # Check map-specific POIs
-            if map_name == 'main':
-                poi_entry = next(
-                    (poi for poi in poi_data.main_pois if poi[0].lower() == selected_poi_name.lower()),
-                    next(
-                        (poi for poi in poi_data.landmarks if poi[0].lower() == selected_poi_name.lower()),
-                        next(
-                            (poi for poi in SPECIAL_POIS + GAME_OBJECTS 
-                             if poi[0].lower() == selected_poi_name.lower()),
-                            None
-                        )
-                    )
-                )
-            else:
-                map_data = poi_data.maps_info[map_name]
-                poi_entry = next(
-                    (poi for poi in map_data.pois if poi[0].lower() == selected_poi_name.lower()),
-                    next(
-                        (poi for poi in map_data.landmarks if poi[0].lower() == selected_poi_name.lower()),
-                        None
-                    )
-                )
+    # Handle game objects
+    game_object_names = [obj[0].lower() for obj in GAME_OBJECTS]
+    if name in game_object_names:
+        # Find original case from GAME_OBJECTS
+        original_name = next(obj[0] for obj in GAME_OBJECTS if obj[0].lower() == name)
+        config['POI']['selected_poi'] = f"{original_name}, 0, 0"
+        # Don't update map for game objects
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+            config.write(configfile)
+        return
 
-            config['POI']['selected_poi'] = (
-                f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
-                if poi_entry else 'none, 0, 0'
-            )
-            config['MAP']['last_selected_map'] = map_name
+    # Ensure map_name is valid, but don't reset to 'main' automatically
+    if map_name is None:
+        print(f"No map specified for POI {selected_poi_name}. Using previous map if available.")
+        map_name = config.get('MAP', 'last_selected_map', fallback='main')
 
+    # Check for direct coordinate format
+    parts = [p.strip() for p in selected_poi_name.split(',')]
+    if len(parts) == 3:
+        try:
+            name = parts[0]
+            x = int(float(parts[1]))
+            y = int(float(parts[2]))
+            config['POI']['selected_poi'] = f"{name}, {x}, {y}"
+            if map_name:  # Only update map if we have a valid one
+                config['MAP']['last_selected_map'] = map_name
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                config.write(configfile)
+            return
+        except ValueError:
+            pass
+
+    # Check custom POIs
+    if os.path.exists('CUSTOM_POI.txt'):
+        with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
+            for line in f:
+                c_parts = line.strip().split(',')
+                if len(c_parts) == 3 and c_parts[0].strip().lower() == name:
+                    try:
+                        cx, cy = int(float(c_parts[1])), int(float(c_parts[2]))
+                        config['POI']['selected_poi'] = f"{c_parts[0].strip()}, {cx}, {cy}"
+                        # Custom POIs maintain current map
+                        if map_name:
+                            config['MAP']['last_selected_map'] = map_name
+                        with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                            config.write(configfile)
+                        return
+                    except ValueError:
+                        pass
+
+    # Try to find POI in specified map first
+    if map_name and map_name != 'main':
+        map_data = poi_data.maps_info.get(map_name)
+        if map_data:
+            # Check POIs
+            for poi in map_data.pois:
+                if poi[0].lower() == name:
+                    x, y = int(float(poi[1])), int(float(poi[2]))
+                    config['POI']['selected_poi'] = f"{poi[0]}, {x}, {y}"
+                    config['MAP']['last_selected_map'] = map_name
+                    with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                        config.write(configfile)
+                    return
+            # Check landmarks
+            for poi in map_data.landmarks:
+                if poi[0].lower() == name:
+                    x, y = int(float(poi[1])), int(float(poi[2]))
+                    config['POI']['selected_poi'] = f"{poi[0]}, {x}, {y}"
+                    config['MAP']['last_selected_map'] = map_name
+                    with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                        config.write(configfile)
+                    return
+
+    # If not found in specified map or map is main, check main map POIs
+    for poi in poi_data.main_pois:
+        if poi[0].lower() == name:
+            x, y = int(float(poi[1])), int(float(poi[2]))
+            config['POI']['selected_poi'] = f"{poi[0]}, {x}, {y}"
+            config['MAP']['last_selected_map'] = 'main'
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                config.write(configfile)
+            return
+    
+    for poi in poi_data.landmarks:
+        if poi[0].lower() == name:
+            x, y = int(float(poi[1])), int(float(poi[2]))
+            config['POI']['selected_poi'] = f"{poi[0]}, {x}, {y}"
+            config['MAP']['last_selected_map'] = 'main'
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                config.write(configfile)
+            return
+
+    # If POI not found anywhere, set to none but preserve the map
+    config['POI']['selected_poi'] = 'none, 0, 0'
+    # Don't change the map if POI isn't found
     with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
         config.write(configfile)
-
-    print(f"Updated config file with POI: {config['POI']['selected_poi']} for map: {map_name}")
 
 def poi_sort_key(poi: Tuple[str, str, str]) -> Tuple[int, int, int, int]:
     name, x, y = poi
