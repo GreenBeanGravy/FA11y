@@ -229,7 +229,7 @@ def check_and_update_file(repo, file_path, branch='main'):
             return True
         return False
 
-    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg', '.pkl')) and file_path != 'VERSION':
+    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg', '.pkl')) and file_path not in ('VERSION', 'BETA_VERSION'):
         return False
 
     github_content = download_file(repo, file_path, target_branch)
