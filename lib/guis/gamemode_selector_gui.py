@@ -74,14 +74,14 @@ def select_gamemode_tk() -> None:
 
             # Wait for white pixel indicator
             start_time = time.time()
-            while not pyautogui.pixelMatchesColor(123, 327, (255, 255, 255)):
+            while not pyautogui.pixelMatchesColor(126, 400, (255, 255, 255)):
                 if time.time() - start_time > 5:
                     return False
                 time.sleep(0.1)
             time.sleep(0.1)
 
             # Complete selection sequence
-            smooth_move_and_click(250, 436)
+            smooth_move_and_click(257, 527)
             time.sleep(0.7)
             smooth_move_and_click(285, 910)
             time.sleep(0.5)
