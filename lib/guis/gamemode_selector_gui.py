@@ -74,7 +74,7 @@ def select_gamemode_tk() -> None:
 
             # Wait for white pixel indicator
             start_time = time.time()
-            while not pyautogui.pixelMatchesColor(126, 400, (255, 255, 255)):
+            while not pyautogui.pixelMatchesColor(135, 401, (255, 255, 255)):
                 if time.time() - start_time > 5:
                     return False
                 time.sleep(0.1)
