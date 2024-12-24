@@ -33,18 +33,19 @@ class MapManager:
     def switch_map(self, map_name: str) -> bool:
         if self.current_map == map_name:
             return True
-            
-        map_file = f"{map_name}.png"
+        
+        map_file = f"maps/{map_name}.png"
         if not os.path.exists(map_file):
             print(f"Error: Map file {map_file} not found")
             return False
-            
+        
         self.current_map = map_name
         self.current_image = cv2.imread(map_file, cv2.IMREAD_GRAYSCALE)
         self.current_keypoints, self.current_descriptors = sift.detectAndCompute(
             self.current_image, None
         )
         return True
+    
 map_manager = MapManager()
 
 def capture_screen():
