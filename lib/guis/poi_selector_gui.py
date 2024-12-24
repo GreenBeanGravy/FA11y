@@ -5,8 +5,10 @@ import configparser
 import json
 import os
 from dataclasses import dataclass
-import numpy as np
+from typing import Dict, List, Tuple
+import os
 import requests
+import numpy as np
 
 from lib.guis.AccessibleUIBackend import AccessibleUIBackend
 from lib.object_finder import OBJECT_CONFIGS
@@ -119,6 +121,12 @@ class CoordinateSystem:
         screen_coord = np.dot(world_coord, self.transform_matrix)
         return (int(round(screen_coord[0])), int(round(screen_coord[1])))
 
+@dataclass
+class MapData:
+    name: str
+    pois: List[Tuple[str, str, str]]
+    image_file: str
+
 class POIData:
     _instance = None
     _initialized = False
@@ -130,12 +138,42 @@ class POIData:
 
     def __init__(self):
         if not POIData._initialized:
-            self.main_pois: List[Tuple[str, str, str]] = []
-            self.landmarks: List[Tuple[str, str, str]] = []
-            self.api_data = None
+            self.maps: Dict[str, MapData] = {}
+            self.current_map = "main"  # Default map
+            self.main_pois: List[Tuple[str, str, str]] = []  # Keep these attributes
+            self.landmarks: List[Tuple[str, str, str]] = []  # Keep these attributes
             self.coordinate_system = CoordinateSystem()
-            self._fetch_and_process_pois()
+            self._load_all_maps()
+            self._fetch_and_process_pois()  # For main map
             POIData._initialized = True
+            
+    def _load_all_maps(self):
+        # Load main map first
+        self.maps["main"] = MapData("Main Map", [], "map.png")
+        
+        # Find all map POI files
+        for filename in os.listdir():
+            if filename.startswith("map_") and filename.endswith("pois.txt"):
+                map_name = filename[4:-8]  # Remove 'map_' and 'pois.txt'
+                if map_name != "main":
+                    pois = self._load_map_pois(filename)
+                    display_name = map_name.replace('_', ' ')
+                    self.maps[map_name] = MapData(
+                        name=display_name.title(),
+                        pois=pois,
+                        image_file=f"{map_name}.png"
+                    )
+
+    def _load_map_pois(self, filename: str) -> List[Tuple[str, str, str]]:
+        pois = []
+        try:
+            with open(filename, 'r') as f:
+                for line in f.readlines():
+                    name, x, y = line.strip().split(',')
+                    pois.append((name.strip(), x.strip(), y.strip()))
+        except Exception as e:
+            print(f"Error loading POIs from {filename}: {e}")
+        return pois
 
     def _fetch_and_process_pois(self) -> None:
         try:
@@ -155,13 +193,15 @@ class POIData:
                 else:
                     self.landmarks.append((name, str(screen_x), str(screen_y)))
 
+            # Also store main POIs in the maps dictionary
+            self.maps["main"].pois = self.main_pois
+
             print(f"Successfully processed {len(self.main_pois)} main POIs and {len(self.landmarks)} landmarks")
 
         except requests.RequestException as e:
             print(f"Error fetching POIs from API: {e}")
             self.main_pois = []
             self.landmarks = []
-
 # Constants
 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
 SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
@@ -169,13 +209,57 @@ CLOSEST_LANDMARK = ("Closest Landmark", "0", "0")
 
 def select_poi_tk(existing_poi_data: POIData = None) -> None:
     """Create and display the POI selector GUI."""
-    # Initialize UI
     ui = AccessibleUIBackend("POI Selector")
+    poi_data = existing_poi_data or POIData()
+    
+    # Load last used map from config
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Convert clean map name back to file format if needed
+    if current_map != 'main' and current_map + '_' in poi_data.maps:
+        current_map = current_map + '_'
+    
+    if current_map not in poi_data.maps:
+        current_map = 'main'
+    
+    current_map_ref = [current_map]  # Mutable reference
+
+    def get_current_poi_sets():
+        if current_map_ref[0] == "main":
+            return [
+                ("Main P O I's", SPECIAL_POIS + sorted(poi_data.main_pois, key=poi_sort_key)),
+                ("Landmarks", [CLOSEST_LANDMARK] + sorted(poi_data.landmarks, key=poi_sort_key)),
+                ("Game Objects", GAME_OBJECTS),
+                ("Custom P O I's", load_custom_pois()),
+                ("Favorites", favorites_manager.get_favorites_as_tuples())
+            ]
+        else:
+            current_map_name = poi_data.maps[current_map_ref[0]].name
+            return [
+                (f"{current_map_name} P O I's", SPECIAL_POIS + sorted(poi_data.maps[current_map_ref[0]].pois, key=poi_sort_key)),
+                ("Favorites", favorites_manager.get_favorites_as_tuples())
+            ]        
+    def switch_map(event=None):
+        maps = list(poi_data.maps.keys())
+        current_idx = maps.index(current_map_ref[0])
+        next_idx = (current_idx + (1 if not event.state & 0x1 else -1)) % len(maps)
+        current_map_ref[0] = maps[next_idx]
+        poi_sets.clear()
+        poi_sets.extend(get_current_poi_sets())
+        set_poi_buttons(0)  # Reset to first tab when switching maps
+        ui.speak(f"Switched to {poi_data.maps[current_map_ref[0]].name}")
+        return "break"
+    
+    # Add map switching bindings
+    ui.root.bind('<Control-Tab>', switch_map)
+    ui.root.bind('<Control-Shift-Tab>', switch_map)
+    
     ui.add_tab("P O I's")
     
     # Initialize state
     current_poi_set = [0]  # Using list for mutable reference
-    poi_data = existing_poi_data or POIData()
     favorites_manager = FavoritesManager()
 
     # Load custom POIs
@@ -193,16 +277,8 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
                 print(f"Error loading custom POIs: {e}")
         return sorted(custom_pois, key=poi_sort_key)
 
-    # Set up POI sets
-    poi_sets = [
-        ("Main P O I's", SPECIAL_POIS + sorted(poi_data.main_pois, key=poi_sort_key)),
-        ("Landmarks", [CLOSEST_LANDMARK] + sorted(poi_data.landmarks, key=poi_sort_key)),
-        ("Game Objects", GAME_OBJECTS),
-        ("Custom P O I's", load_custom_pois()),
-        ("Favorites", favorites_manager.get_favorites_as_tuples())
-    ]
-
-    # Helper functions
+    # Initialize poi_sets
+    poi_sets = get_current_poi_sets()    # Helper functions
     def should_speak_position(poi_set_index: int, poi: Tuple[str, str, str]) -> bool:
         """Determine if position should be spoken for a POI."""
         if poi_set_index == 2:  # Game Objects
@@ -289,13 +365,15 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
     # POI selection handling
     def select_poi(poi: str) -> None:
         """Handle POI selection and update configuration."""
+        # Update the current map in POIData
+        poi_data.current_map = current_map_ref[0]
+    
         if poi == "Closest Landmark":
             update_config_file(poi, poi_data)
             ui.speak("Closest Landmark selected")
-            pyautogui.click()
-            ui.root.destroy()
+            ui.save_and_close()
             return
-        
+    
         source_tab = favorites_manager.get_source_tab(poi)
         if source_tab:
             for set_name, pois in poi_sets:
@@ -306,10 +384,9 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
                             break
         else:
             update_config_file(poi, poi_data)
-        
+    
         ui.speak(f"{poi} selected")
-        pyautogui.click()
-        ui.root.destroy()
+        ui.save_and_close()
 
     # Favorites handling
     def handle_favorite_key(event) -> None:
@@ -404,57 +481,61 @@ def select_poi_tk(existing_poi_data: POIData = None) -> None:
     ui.run()
 
 def update_config_file(selected_poi_name: str, poi_data: POIData) -> None:
-    """Update the configuration file with the selected POI."""
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
-
+    
     if 'POI' not in config:
         config['POI'] = {}
-
-    # Handle "Closest Landmark" specifically
+    
+    # Save current map with clean name in config
+    current_map = poi_data.current_map
+    config['POI']['current_map'] = current_map.replace('_', '')
+    
+    # Use original map name (with underscore) for accessing map data
     if selected_poi_name.lower() == "closest landmark":
         config['POI']['selected_poi'] = "Closest Landmark, 0, 0"
-        
     else:
-        # Check custom POIs first
-        custom_poi = None
-        if os.path.exists('CUSTOM_POI.txt'):
+        # Check current map's POIs first
+        if current_map == "main":
+            poi_list = poi_data.main_pois + poi_data.landmarks
+        else:
+            # Use the original map name with underscore
+            poi_list = poi_data.maps[current_map].pois
+            
+        poi_entry = next(
+            (poi for poi in poi_list if poi[0].lower() == selected_poi_name.lower()),
+            None
+        )
+        
+        # If not found, check custom POIs
+        if not poi_entry and os.path.exists('CUSTOM_POI.txt'):
             try:
                 with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
                     for line in f:
                         parts = line.strip().split(',')
                         if len(parts) == 3 and parts[0].lower() == selected_poi_name.lower():
-                            custom_poi = parts
+                            poi_entry = tuple(parts)
                             break
             except Exception as e:
                 print(f"Error reading custom POIs: {e}")
 
-        if custom_poi:
-            config['POI']['selected_poi'] = f'{custom_poi[0]}, {custom_poi[1]}, {custom_poi[2]}'
-        else:
-            # Check other POI types
+        # If still not found, check special POIs
+        if not poi_entry:
             poi_entry = next(
-                (poi for poi in poi_data.main_pois if poi[0].lower() == selected_poi_name.lower()),
-                next(
-                    (poi for poi in poi_data.landmarks if poi[0].lower() == selected_poi_name.lower()),
-                    next(
-                        (poi for poi in SPECIAL_POIS + GAME_OBJECTS 
-                         if poi[0].lower() == selected_poi_name.lower()),
-                        None
-                    )
-                )
+                (poi for poi in SPECIAL_POIS + GAME_OBJECTS 
+                 if poi[0].lower() == selected_poi_name.lower()),
+                None
             )
 
-            config['POI']['selected_poi'] = (
-                f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
-                if poi_entry else 'none, 0, 0'
-            )
+        config['POI']['selected_poi'] = (
+            f'{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}'
+            if poi_entry else 'none, 0, 0'
+        )
 
     with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
         config.write(configfile)
 
-    # Debug output
-    print(f"Updated config file with POI: {config['POI']['selected_poi']}")
+    print(f"Updated config file with POI: {config['POI']['selected_poi']} on map: {config['POI']['current_map']}")
 
 def poi_sort_key(poi: Tuple[str, str, str]) -> Tuple[int, int, int, int]:
     """Generate a sort key for POI ordering.
