@@ -149,20 +149,22 @@ class POIData:
             
     def _load_all_maps(self):
         # Load main map first
-        self.maps["main"] = MapData("Main Map", [], "map.png")
+        self.maps["main"] = MapData("Main Map", [], "maps/main.png")
         
-        # Find all map POI files
-        for filename in os.listdir():
-            if filename.startswith("map_") and filename.endswith("pois.txt"):
-                map_name = filename[4:-8]  # Remove 'map_' and 'pois.txt'
-                if map_name != "main":
-                    pois = self._load_map_pois(filename)
-                    display_name = map_name.replace('_', ' ')
-                    self.maps[map_name] = MapData(
-                        name=display_name.title(),
-                        pois=pois,
-                        image_file=f"{map_name}.png"
-                    )
+        # Find all map POI files in maps directory
+        maps_dir = "maps"
+        if os.path.exists(maps_dir):
+            for filename in os.listdir(maps_dir):
+                if filename.startswith("map_") and filename.endswith("_pois.txt"):
+                    map_name = filename[4:-9]  # Remove 'map_' and '_pois.txt'
+                    if map_name != "main":
+                        pois = self._load_map_pois(os.path.join(maps_dir, filename))
+                        display_name = map_name.replace('_', ' ')
+                        self.maps[map_name] = MapData(
+                            name=display_name.title(),
+                            pois=pois,
+                            image_file=f"maps/{map_name}.png"
+                        )
 
     def _load_map_pois(self, filename: str) -> List[Tuple[str, str, str]]:
         pois = []
