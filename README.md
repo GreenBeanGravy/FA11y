@@ -22,6 +22,7 @@ FA11y aims to make many important elements of Fortnite accessible to blind and v
 ### Navigation & Interaction
 - **`]` (Right Bracket)**: Open P O I selection menu
   - **`Tab` / `Shift + Tab`**: Cycle between P O I categories
+  - **`Ctrl + Tab` / `Ctrl + Shift + Tab`**: Cycle between map P O I lists
   - **`Enter`**: Select a P O I
 - **`Up Arrow` / `Down Arrow`**: Navigate through most menus
 - **`` ` `` (Grave Accent)**: Get directions to a selected P O I
