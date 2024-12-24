@@ -67,6 +67,13 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
     print(f"Handling POI selection: {selected_poi}")
     poi_data = POIData()
     
+    # Get current map from config
+    config = configparser.ConfigParser()
+    config.read('CONFIG.txt')
+    current_map = config.get('POI', 'current_map', fallback='main')
+    if current_map != 'main' and current_map + '_' in poi_data.maps:
+        current_map = current_map + '_'
+    
     if isinstance(selected_poi, tuple) and len(selected_poi) == 1:
         selected_poi = selected_poi[0]
     
@@ -78,56 +85,28 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
     if custom_result[0]:
         return custom_result
     
-    if isinstance(selected_poi, str):
-        parts = selected_poi.split(',')
-        if len(parts) == 3 and parts[0].lower() == 'position':
-            try:
-                x, y = int(parts[1]), int(parts[2])
-                return 'Custom Position', (x, y)
-            except ValueError:
-                print(f"Error: Invalid custom position coordinates: {parts[1]}, {parts[2]}")
-                return 'Custom Position', None
-    
     poi_name = selected_poi[0].lower() if isinstance(selected_poi, tuple) else selected_poi.lower()
     
     if poi_name == 'safe zone':
         print("Detecting safe zone")
         return 'Safe Zone', start_storm_detection()
     elif poi_name == 'closest':
-        print("Finding closest main POI")
-        if center_mass_screen is None:
-            center_mass_screen = find_player_position() if use_ppi else find_player_icon_location()
+        print(f"Finding closest POI in {current_map} map")
         if center_mass_screen:
-            main_pois = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
-                        for poi in poi_data.main_pois]
-            return find_closest_poi(center_mass_screen, main_pois)
+            if current_map == "main":
+                pois_to_check = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
+                               for poi in poi_data.main_pois]
+            else:
+                pois_to_check = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
+                               for poi in poi_data.maps[current_map].pois]
+            return find_closest_poi(center_mass_screen, pois_to_check)
         else:
             print("Could not determine player location for finding closest POI")
             return "Closest", None
-    elif poi_name == 'closest landmark':
-        print("Finding closest landmark")
-        if center_mass_screen is None:
-            center_mass_screen = find_player_position() if use_ppi else find_player_icon_location()
-        if center_mass_screen:
-            landmarks = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
-                        for poi in poi_data.landmarks]
-            return find_closest_poi(center_mass_screen, landmarks)
-        else:
-            print("Could not determine player location for finding closest landmark")
-            return "Closest Landmark", None
     else:
-        if poi_name in OBJECT_CONFIGS or poi_name.replace(' ', '_') in OBJECT_CONFIGS:
-            print(f"Detecting game object: {poi_name}")
-            object_name = poi_name if poi_name in OBJECT_CONFIGS else poi_name.replace(' ', '_')
-            icon_path, threshold = OBJECT_CONFIGS[object_name]
-            result = find_closest_object(icon_path, threshold)
-            if result:
-                print(f"Game object {poi_name} found at: {result}")
-                return poi_name, result
-            else:
-                print(f"Game object {poi_name} not found on screen")
-                return poi_name, None
-        else:
+        # Check current map's POIs first
+        if current_map == "main":
+            # Use API data for main map
             for poi in poi_data.main_pois:
                 if poi[0].lower() == poi_name:
                     return poi[0], (int(float(poi[1])), int(float(poi[2])))
@@ -135,10 +114,14 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
             for poi in poi_data.landmarks:
                 if poi[0].lower() == poi_name:
                     return poi[0], (int(float(poi[1])), int(float(poi[2])))
-            
-            print(f"Error: POI '{selected_poi}' not found in API data")
-            return selected_poi, None
-
+        else:
+            # Use direct coordinates for other maps
+            for poi in poi_data.maps[current_map].pois:
+                if poi[0].lower() == poi_name:
+                    return poi[0], (int(float(poi[1])), int(float(poi[2])))
+    
+    print(f"Error: POI '{selected_poi}' not found in map data")
+    return selected_poi, None
 def perform_poi_actions(poi_data, center_mass_screen, speak_info=True, use_ppi=False):
     poi_name, coordinates = poi_data
     print(f"Performing actions for POI: {poi_name}, Coordinates: {coordinates}")
@@ -226,13 +209,12 @@ def get_player_info(use_ppi):
 def start_icon_detection(use_ppi=False):
     """Start icon detection with universal spatial sound support."""
     print("Starting icon detection")
-    config = load_config()
-    selected_poi = config[0] if isinstance(config, tuple) else config
+    config = configparser.ConfigParser()
+    config.read('config.txt')
+    selected_poi = config.get('POI', 'selected_poi', fallback='none, 0, 0').split(', ')[0]
     
     # Load spatial sound configuration
-    config_parser = configparser.ConfigParser()
-    config_parser.read('CONFIG.txt')
-    play_poi_sound = get_config_boolean(config_parser, 'PlayPOISound', True)
+    play_poi_sound = get_config_boolean(config, 'PlayPOISound', True)
     
     icon_detection_cycle(selected_poi, use_ppi, play_poi_sound)
 

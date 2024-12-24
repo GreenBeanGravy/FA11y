@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from mss import mss
 import os
+import configparser
 from threading import Lock
 from lib.player_location import (
     ROI_START_ORIG,
@@ -13,7 +14,6 @@ from lib.player_location import (
 
 # Constants
 CAPTURE_REGION = {"top": 20, "left": 1600, "width": 300, "height": 300}
-MAP_IMAGE_PATH = "map.jpg"
 
 # Pre-compute constants
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
@@ -22,18 +22,30 @@ WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START
 sift = cv2.SIFT_create()
 bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
 sct_lock = Lock()
-map_image = None
-map_keypoints = None
-map_descriptors = None
 
-def load_map_image(path):
-    global map_image, map_keypoints, map_descriptors
-    if not os.path.exists(path):
-        print(f"Error: Map image not found at {path}")
-        return None
-    map_image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    map_keypoints, map_descriptors = sift.detectAndCompute(map_image, None)
-    return map_image
+class MapManager:
+    def __init__(self):
+        self.current_map = None
+        self.current_image = None
+        self.current_keypoints = None
+        self.current_descriptors = None
+    
+    def switch_map(self, map_name: str) -> bool:
+        if self.current_map == map_name:
+            return True
+            
+        map_file = f"{map_name}.png"
+        if not os.path.exists(map_file):
+            print(f"Error: Map file {map_file} not found")
+            return False
+            
+        self.current_map = map_name
+        self.current_image = cv2.imread(map_file, cv2.IMREAD_GRAYSCALE)
+        self.current_keypoints, self.current_descriptors = sift.detectAndCompute(
+            self.current_image, None
+        )
+        return True
+map_manager = MapManager()
 
 def capture_screen():
     with sct_lock:
@@ -44,13 +56,13 @@ def capture_screen():
 def find_best_match(captured_area):
     kp1, des1 = sift.detectAndCompute(captured_area, None)
     
-    matches = bf.knnMatch(des1, map_descriptors, k=2)
+    matches = bf.knnMatch(des1, map_manager.current_descriptors, k=2)
     
     good_matches = [m for m, n in matches if m.distance < 0.75 * n.distance]
     
     if len(good_matches) > 10:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([map_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([map_manager.current_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         
         M, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
         h, w = captured_area.shape
@@ -60,25 +72,23 @@ def find_best_match(captured_area):
         return None
 
 def find_player_position():
-    global map_image
-    if map_image is None:
-        map_image = load_map_image(MAP_IMAGE_PATH)
-        if map_image is None:
-            return None
-
+    # Get current map from config
+    config = configparser.ConfigParser()
+    config.read('config.txt')
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Switch map if needed
+    if not map_manager.switch_map(current_map):
+        return None
+    
     captured_area = capture_screen()
     matched_region = find_best_match(captured_area)
     
     if matched_region is not None:
         center = np.mean(matched_region, axis=0).reshape(-1)
         
-        # Convert coordinates to FA11y's coordinate system
-        x = int(center[0] * WIDTH / map_image.shape[1] + ROI_START_ORIG[0])
-        y = int(center[1] * HEIGHT / map_image.shape[0] + ROI_START_ORIG[1])
+        x = int(center[0] * WIDTH / map_manager.current_image.shape[1] + ROI_START_ORIG[0])
+        y = int(center[1] * HEIGHT / map_manager.current_image.shape[0] + ROI_START_ORIG[1])
         
         return (x, y)
-    else:
-        return None
-
-# Initialize the map image
-load_map_image(MAP_IMAGE_PATH)
+    return None
