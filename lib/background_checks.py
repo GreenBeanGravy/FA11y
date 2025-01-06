@@ -11,17 +11,20 @@ class BackgroundMonitor:
         self.thread = None
         self.map_open = False
         self.is_spectating = False
+        self.inventory_open = False
         self.config = read_config()
         
         # Config flags
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
         self.announce_spectating = get_config_boolean(self.config, 'AnnounceSpectatingStatus', True)
+        self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
 
     def reload_config(self):
         """Reload configuration values."""
         self.config = read_config()
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
         self.announce_spectating = get_config_boolean(self.config, 'AnnounceSpectatingStatus', True)
+        self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
 
     def check_map_status(self):
         """Check if the map is open/closed."""
@@ -61,6 +64,29 @@ class BackgroundMonitor:
         except Exception as e:
             print(f"Error checking spectating status: {e}")
 
+    def check_inventory_status(self):
+        """Check if inventory is open/closed."""
+        if self.map_open or self.is_spectating:  # Don't check if map is open or spectating
+            return
+            
+        try:
+            # Check both pixels for inventory status
+            pixels = [(1800, 1028), (1637, 1026)]
+            all_white = all(
+                pyautogui.pixel(x, y) == (255, 255, 255)
+                for x, y in pixels
+            )
+            
+            if all_white != self.inventory_open:
+                self.inventory_open = all_white
+                if self.announce_inventory:
+                    self.speaker.speak(
+                        "Inventory opened" if all_white else "Inventory closed"
+                    )
+                    
+        except Exception as e:
+            print(f"Error checking inventory status: {e}")
+
     def monitor_loop(self):
         """Main monitoring loop."""
         while self.running:
@@ -68,6 +94,8 @@ class BackgroundMonitor:
                 self.check_map_status()
             if self.announce_spectating:
                 self.check_spectating_status()
+            if self.announce_inventory:
+                self.check_inventory_status()
             time.sleep(0.1)  # Small delay to prevent high CPU usage
 
     def start_monitoring(self):
