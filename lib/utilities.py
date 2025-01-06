@@ -29,6 +29,7 @@ PerformFacingCheck = true "Toggles whether to check if the player is facing the 
 PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceSpectatingStatus = true "Toggles announcements when spectating status changes."
+AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
