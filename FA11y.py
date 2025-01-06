@@ -51,6 +51,7 @@ from lib.guis.gamemode_selector_gui import select_gamemode_tk
 from lib.guis.custom_poi_gui import create_custom_poi_gui
 from lib.guis.config_gui import create_config_gui
 from lib.height_checker import start_height_checker
+from lib.background_checks import monitor
 from lib.minimap_direction import speak_minimap_direction, find_minimap_icon_direction
 from lib.exit_match import exit_match
 from lib.hotbar_detection import (
@@ -412,6 +413,7 @@ def main() -> None:
 
         # Start auxiliary systems
         threading.Thread(target=start_height_checker, daemon=True).start()
+        monitor.start_monitoring()
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
@@ -427,6 +429,7 @@ def main() -> None:
     finally:
         # Clean up operations
         stop_key_listener.set()
+        monitor.stop_monitoring()
 
         # Clean up any remaining tkinter variables
         if 'tk' in sys.modules:
