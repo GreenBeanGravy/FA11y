@@ -71,7 +71,7 @@ class BackgroundMonitor:
             
         try:
             # Check both pixels for inventory status
-            pixels = [(1800, 1028), (1637, 1026)]
+            pixels = [(1800, 1028), (1783, 1027)]
             all_white = all(
                 pyautogui.pixel(x, y) == (255, 255, 255)
                 for x, y in pixels

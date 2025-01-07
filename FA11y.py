@@ -59,6 +59,7 @@ from lib.hotbar_detection import (
     detect_hotbar_item,
     announce_ammo_manually,
 )
+from lib.inventory_handler import inventory_handler
 from lib.utilities import (
     get_config_int,
     get_config_float,
