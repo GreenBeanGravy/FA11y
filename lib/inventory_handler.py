@@ -1,16 +1,15 @@
 import threading
 import time
-import math
 import queue
 import pyautogui
 from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config
 from lib.input_handler import is_key_pressed, VK_KEYS
+from lib.background_checks import monitor  # Import the monitor instance
 
 class InventoryHandler:
     def __init__(self):
         self.speaker = Auto()
-        self.inventory_open = False
         self.current_slot = 0
         self.dragging = False
         self.monitoring_thread = None
@@ -18,9 +17,9 @@ class InventoryHandler:
         self.stop_monitoring = threading.Event()
         self.movement_queue = queue.Queue()
         
-        # Mouse movement parameters - optimized for snappy response
-        self.MOVEMENT_DURATION = 0.08  # Reduced for snappier movement
-        self.MOVEMENT_STEPS = 15       # Reduced steps while maintaining smoothness
+        # Mouse movement parameters
+        self.MOVEMENT_DURATION = 0.07
+        self.MOVEMENT_STEPS = 15
         
         # Key state tracking
         self.key_states = {
@@ -34,9 +33,9 @@ class InventoryHandler:
             'space': 0
         }
         
-        # Timing constants - adjusted for better responsiveness
-        self.REPEAT_DELAY = 0.3  # Reduced from 0.4
-        self.REPEAT_RATE = 0.08  # Reduced from 0.1
+        # Timing constants
+        self.REPEAT_DELAY = 0.3
+        self.REPEAT_RATE = 0.08
         
         # Slot coordinates
         self.slots = [
@@ -98,34 +97,23 @@ class InventoryHandler:
         self.smooth_move_to(self.slots[slot_index][0], self.slots[slot_index][1])
         self.speaker.speak(f"Slot {slot_index + 1}")
 
-    def check_inventory_state(self):
-        """Check if inventory is open based on UI pixels"""
-        try:
-            pixels = [(1800, 1028), (1783, 1027)]
-            return all(
-                pyautogui.pixelMatchesColor(x, y, (255, 255, 255))
-                for x, y in pixels
-            )
-        except Exception:
-            return False
-
     def handle_left_arrow(self):
         """Handle left arrow key press"""
-        if not self.inventory_open:
+        if not monitor.inventory_open:  # Use the monitor's inventory state
             return
         self.current_slot = (self.current_slot - 1) % len(self.slots)
         self.navigate_to_slot(self.current_slot)
 
     def handle_right_arrow(self):
         """Handle right arrow key press"""
-        if not self.inventory_open:
+        if not monitor.inventory_open:  # Use the monitor's inventory state
             return
         self.current_slot = (self.current_slot + 1) % len(self.slots)
         self.navigate_to_slot(self.current_slot)
 
     def handle_space(self):
         """Toggle drag state"""
-        if not self.inventory_open:
+        if not monitor.inventory_open:  # Use the monitor's inventory state
             return
         self.dragging = not self.dragging
         if self.dragging:
@@ -157,16 +145,16 @@ class InventoryHandler:
 
     def monitor_inventory(self):
         """Monitor inventory state and handle key presses"""
-        prev_state = False
+        prev_inventory_state = False
         
         while not self.stop_monitoring.is_set():
             try:
-                current_state = self.check_inventory_state()
+                # Use the monitor's inventory state
+                current_inventory_state = monitor.inventory_open
                 
                 # Handle inventory state change
-                if current_state != prev_state:
-                    self.inventory_open = current_state
-                    if current_state:
+                if current_inventory_state != prev_inventory_state:
+                    if current_inventory_state:
                         self.current_slot = 0
                         self.navigate_to_slot(0)
                     elif self.dragging:
@@ -174,7 +162,7 @@ class InventoryHandler:
                         self.dragging = False
                 
                 # Handle key presses if inventory is open
-                if self.inventory_open:
+                if current_inventory_state:
                     if self.should_handle_key('left'):
                         self.handle_left_arrow()
                     elif self.should_handle_key('right'):
@@ -182,7 +170,7 @@ class InventoryHandler:
                     elif self.should_handle_key('space'):
                         self.handle_space()
                 
-                prev_state = current_state
+                prev_inventory_state = current_inventory_state
                 time.sleep(0.001)
                 
             except Exception as e:
