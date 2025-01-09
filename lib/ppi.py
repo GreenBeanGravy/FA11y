@@ -57,19 +57,55 @@ def capture_screen():
 def find_best_match(captured_area):
     kp1, des1 = sift.detectAndCompute(captured_area, None)
     
+    # Check if features were found in the captured area
+    if des1 is None or len(des1) == 0:
+        print("No features found in captured area")
+        return None
+    
     matches = bf.knnMatch(des1, map_manager.current_descriptors, k=2)
     
-    good_matches = [m for m, n in matches if m.distance < 0.75 * n.distance]
+    # Filter good matches using ratio test
+    good_matches = []
+    for m, n in matches:
+        if m.distance < 0.75 * n.distance:
+            good_matches.append(m)
     
-    if len(good_matches) > 10:
+    # Need minimum number of matches for reliable homography
+    MIN_MATCHES = 10
+    if len(good_matches) > MIN_MATCHES:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([map_manager.current_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         
-        M, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        h, w = captured_area.shape
-        pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
-        return cv2.perspectiveTransform(pts, M)
+        # Calculate homography
+        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        
+        # Check if homography was found
+        if M is None:
+            print("Could not compute homography")
+            return None
+            
+        # Check if homography is valid
+        if not np.all(np.isfinite(M)):
+            print("Invalid homography matrix (contains inf/nan)")
+            return None
+            
+        try:
+            h, w = captured_area.shape
+            pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
+            transformed_pts = cv2.perspectiveTransform(pts, M)
+            
+            # Validate transformed points
+            if np.all(np.isfinite(transformed_pts)):
+                return transformed_pts
+            else:
+                print("Invalid transformed points (contains inf/nan)")
+                return None
+                
+        except cv2.error as e:
+            print(f"OpenCV error during perspective transform: {e}")
+            return None
     else:
+        print(f"Not enough good matches: {len(good_matches)} < {MIN_MATCHES}")
         return None
 
 def find_player_position():
