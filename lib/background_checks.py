@@ -9,9 +9,12 @@ class BackgroundMonitor:
         self.speaker = Auto()
         self.running = False
         self.thread = None
+        
+        # Public status flags that can be accessed by other modules
         self.map_open = False
         self.is_spectating = False
         self.inventory_open = False
+        
         self.config = read_config()
         
         # Config flags
@@ -29,7 +32,6 @@ class BackgroundMonitor:
     def check_map_status(self):
         """Check if the map is open/closed."""
         try:
-            # Check the specific pixel color for map status
             pixel_color = pyautogui.pixel(220, 60)
             is_map_color = all(abs(a - b) <= 10 for a, b in zip(pixel_color, (247, 255, 26)))
             
@@ -47,7 +49,6 @@ class BackgroundMonitor:
             return
             
         try:
-            # Check all four pixels for spectating status
             pixels = [(888, 20), (903, 20), (921, 20), (937, 20)]
             all_white = all(
                 pyautogui.pixel(x, y) == (255, 255, 255)
@@ -70,18 +71,18 @@ class BackgroundMonitor:
             return
             
         try:
-            # Check both pixels for inventory status
-            pixels = [(1800, 1028), (1783, 1027)]
-            all_white = all(
-                pyautogui.pixel(x, y) == (255, 255, 255)
+            pixels = [(1724, 1028), (1728, 1028), (1731, 1028)]
+            target_color = (15, 13, 28)
+            all_match = all(
+                pyautogui.pixel(x, y) == target_color
                 for x, y in pixels
             )
             
-            if all_white != self.inventory_open:
-                self.inventory_open = all_white
+            if all_match != self.inventory_open:
+                self.inventory_open = all_match
                 if self.announce_inventory:
                     self.speaker.speak(
-                        "Inventory opened" if all_white else "Inventory closed"
+                        "Inventory opened" if all_match else "Inventory closed"
                     )
                     
         except Exception as e:
@@ -96,7 +97,7 @@ class BackgroundMonitor:
                 self.check_spectating_status()
             if self.announce_inventory:
                 self.check_inventory_status()
-            time.sleep(0.1)  # Small delay to prevent high CPU usage
+            time.sleep(0.1)
 
     def start_monitoring(self):
         """Start the background monitoring thread."""
