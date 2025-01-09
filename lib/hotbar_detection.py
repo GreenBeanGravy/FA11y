@@ -10,6 +10,9 @@ from lib.utilities import read_config, get_config_boolean
 import zlib
 import pickle
 from pathlib import Path
+from threading import Thread, Event, Lock
+from queue import Queue
+
 
 # Screen coordinates for weapon slots (left, top, right, bottom)
 SLOT_COORDS = [
@@ -93,7 +96,6 @@ speaker = Auto()  # Text-to-speech output
 reference_images = {}  # Cached weapon images
 attachment_images = {}  # Attachment images
 image_cache = ImageCache()  # Image cache manager
-easyocr_available = False  # Flag for OCR availability
 
 # Thread control
 current_detection_thread = None
@@ -101,17 +103,38 @@ timer_thread = None
 stop_event = Event()
 timer_stop_event = Event()
 
-# Initialize EasyOCR for ammo count detection
-import warnings
-with warnings.catch_warnings():
-    warnings.filterwarnings('ignore')
-    try:
-        import easyocr
-        reader = easyocr.Reader(['en'], recognizer='number')
-        easyocr_available = True
-    except ImportError:
-        print("EasyOCR not available. You will not be able to read your ammo count.")
-        easyocr_available = False
+# OCR related globals
+easyocr_available = False  # Flag for OCR availability
+easyocr_ready = Event()  # Event to signal when EasyOCR is ready
+easyocr_lock = Lock()  # Lock for thread-safe access to OCR reader
+reader = None  # Global OCR reader instance
+
+def initialize_easyocr():
+    """Initialize EasyOCR in a background thread."""
+    global reader, easyocr_available
+
+    def load_easyocr():
+        global reader, easyocr_available
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore')
+            try:
+                import easyocr
+                with easyocr_lock:
+                    reader = easyocr.Reader(['en'], recognizer='number')
+                    easyocr_available = True
+                # print("EasyOCR successfully initialized")
+            except Exception as e:
+                print(f"EasyOCR initialization failed: {e}")
+                easyocr_available = False
+            finally:
+                easyocr_ready.set()
+
+    # Start loading EasyOCR in background
+    Thread(target=load_easyocr, daemon=True).start()
+    # print("EasyOCR loading started in background")
+
+initialize_easyocr()
 
 def load_images(folder, is_attachment=False):
     """
@@ -442,21 +465,31 @@ def detect_consumable_count(consumable_screenshot):
     Returns:
         int: Detected consumable count or None if detection fails
     """
+    global reader, easyocr_available
+    
+    # Wait for a short time for EasyOCR to be ready
+    if not easyocr_ready.wait(timeout=0.1):  # 100ms timeout
+        return None
+        
     if not easyocr_available:
         return None
-    
-    gray = cv2.cvtColor(consumable_screenshot, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
-    if np.mean(binary) > 127:
-        binary = cv2.bitwise_not(binary)
-    binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    
-    results = reader.readtext(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
-    
-    if results:
-        count_text = results[0][1]
-        count = int(count_text) if count_text.isdigit() else None
-        return count if count and count <= 999 else None
+
+    try:
+        gray = cv2.cvtColor(consumable_screenshot, cv2.COLOR_BGR2GRAY)
+        _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
+        if np.mean(binary) > 127:
+            binary = cv2.bitwise_not(binary)
+        binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        
+        with easyocr_lock:
+            results = reader.readtext(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
+        
+        if results:
+            count_text = results[0][1]
+            count = int(count_text) if count_text.isdigit() else None
+            return count if count and count <= 999 else None
+    except Exception as e:
+        print(f"Error in consumable count detection: {e}")
     return None
 
 def detect_ammo_count(ammo_screenshot):
@@ -469,20 +502,30 @@ def detect_ammo_count(ammo_screenshot):
     Returns:
         int: Detected ammo count or None if detection fails
     """
+    global reader, easyocr_available
+    
+    # Wait for a short time for EasyOCR to be ready
+    if not easyocr_ready.wait(timeout=0.1):  # 100ms timeout
+        return None
+        
     if not easyocr_available:
         return None
-    
-    gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
-    if np.mean(binary) > 127:
-        binary = cv2.bitwise_not(binary)
-    binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    
-    results = reader.readtext(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
-    
-    if results:
-        ammo_text = results[0][1]
-        return int(ammo_text) if ammo_text.isdigit() else None
+
+    try:
+        gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
+        _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
+        if np.mean(binary) > 127:
+            binary = cv2.bitwise_not(binary)
+        binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        
+        with easyocr_lock:
+            results = reader.readtext(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
+        
+        if results:
+            ammo_text = results[0][1]
+            return int(ammo_text) if ammo_text.isdigit() else None
+    except Exception as e:
+        print(f"Error in ammo detection: {e}")
     return None
 
 def detect_attachments(sct):
