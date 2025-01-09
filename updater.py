@@ -28,9 +28,25 @@ def print_info(message):
 
 def install_required_modules():
     """
-    Install required Python modules using pip and handle any import errors.
+    Install required Python modules using pip only if they're not already installed.
     """
-    modules = ['requests', 'psutil']
+    def is_module_installed(module):
+        try:
+            __import__(module)
+            return True
+        except ImportError:
+            return False
+
+    # List of required modules
+    modules = []
+    
+    # Check for requests
+    if not is_module_installed('requests'):
+        modules.append('requests')
+    
+    # Check for psutil
+    if not is_module_installed('psutil'):
+        modules.append('psutil')
     
     # Check for pywin32
     try:
@@ -38,26 +54,48 @@ def install_required_modules():
     except ImportError:
         modules.append('pywin32')
     
-    # Install all required modules concurrently
+    if not modules:
+        print_info("All required modules are already installed.")
+        return
+    
+    # Install only missing modules
+    print_info(f"Installing missing modules: {', '.join(modules)}")
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        executor.map(lambda module: subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', module],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        ), modules)
+        executor.map(
+            lambda module: subprocess.run(
+                [sys.executable, '-m', 'pip', 'install', module],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            ), 
+            modules
+        )
+    
+    print_info("Modules installed.")
 
 def install_accessible_output2():
     """
-    Installs the accessible_output2 module from a wheel or PyPI.
+    Installs the accessible_output2 module from a wheel or PyPI only if it's not already installed.
     """
     module = 'accessible_output2'
+    
+    # First check if the module is already installed
+    try:
+        import accessible_output2
+        print_info(f"{module} is already installed")
+        return True
+    except ImportError:
+        pass
+    
+    # If not installed, proceed with installation
     wheel_path = os.path.join(os.getcwd(), 'whls', 'accessible_output2-0.17-py2.py3-none-any.whl')
     try:
         print_info(f"Installing {module} from wheel")
-        subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', wheel_path], 
+                      check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError:
         try:
             print_info(f"Installing {module} from PyPI")
-            subprocess.run([sys.executable, '-m', 'pip', 'install', module], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([sys.executable, '-m', 'pip', 'install', module], 
+                         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError:
             print_info(f"Failed to install {module}")
             return False
@@ -251,26 +289,110 @@ def check_legendary():
 
 def install_requirements():
     """
-    Install dependencies listed in requirements.txt.
+    Install dependencies listed in requirements.txt more efficiently by:
+    1. Only downloading requirements.txt if it doesn't exist
+    2. Using importlib.metadata (Python 3.8+) or pkg_resources (older versions) to check installed packages
+    3. Only installing missing or outdated packages
     """
+    import sys
+    import requests
+    
+    # Handle different Python versions
+    if sys.version_info >= (3, 8):
+        from importlib.metadata import version, PackageNotFoundError
+        from packaging.version import parse as parse_version
+        
+        def get_package_version(pkg_name):
+            try:
+                return version(pkg_name)
+            except PackageNotFoundError:
+                return None
+    else:
+        import pkg_resources
+        from pkg_resources import parse_version
+        
+        def get_package_version(pkg_name):
+            try:
+                return pkg_resources.get_distribution(pkg_name).version
+            except pkg_resources.DistributionNotFound:
+                return None
+    
     requirements_file = 'requirements.txt'
 
+    # Download requirements.txt if it doesn't exist
     if not os.path.exists(requirements_file):
         print_info(f"{requirements_file} not found. Downloading from GitHub...")
         url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/requirements.txt"
-        download_file_to_path(url, requirements_file)
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            with open(requirements_file, 'w') as f:
+                f.write(response.text)
+        except requests.RequestException as e:
+            print_info(f"Failed to download {requirements_file}: {e}")
+            return False
 
-    print_info(f"Installing dependencies from {requirements_file}...")
+    # Read requirements
     try:
-        subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '-r', requirements_file], 
-            check=True, capture_output=True, text=True
-        )
-        print_info("Dependencies installed successfully from requirements.txt.")
-        return True
-    except subprocess.CalledProcessError as e:
-        print_info(f"Failed to install dependencies from {requirements_file}: {e}")
+        with open(requirements_file, 'r') as f:
+            requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    except Exception as e:
+        print_info(f"Failed to read {requirements_file}: {e}")
         return False
+
+    # Check what needs to be installed
+    missing_packages = []
+    upgrade_packages = []
+    
+    for requirement in requirements:
+        # Split package name and version
+        if '>=' in requirement:
+            pkg_name, version_required = requirement.split('>=')
+        elif '==' in requirement:
+            pkg_name, version_required = requirement.split('==')
+        else:
+            pkg_name = requirement
+            version_required = None
+        
+        pkg_name = pkg_name.strip()
+        if version_required:
+            version_required = version_required.strip()
+        
+        current_version = get_package_version(pkg_name)
+        if current_version is None:
+            missing_packages.append(requirement)
+        elif version_required and parse_version(current_version) < parse_version(version_required):
+            upgrade_packages.append(requirement)
+
+    # Install only if needed
+    if not missing_packages and not upgrade_packages:
+        # print_info("All requirements are already satisfied!")
+        return True
+
+    if missing_packages:
+        print_info(f"Installing missing packages: {', '.join(missing_packages)}")
+        try:
+            subprocess.run(
+                [sys.executable, '-m', 'pip', 'install'] + missing_packages,
+                check=True, capture_output=True, text=True
+            )
+        except subprocess.CalledProcessError as e:
+            print_info(f"Failed to install missing packages: {e}")
+            return False
+
+    if upgrade_packages:
+        print_info(f"Upgrading packages: {', '.join(upgrade_packages)}")
+        try:
+            subprocess.run(
+                [sys.executable, '-m', 'pip', 'install', '--upgrade'] + upgrade_packages,
+                check=True, capture_output=True, text=True
+            )
+        except subprocess.CalledProcessError as e:
+            print_info(f"Failed to upgrade packages: {e}")
+            return False
+
+    print_info("Dependencies installed successfully!")
+    return True
 
 def get_version(repo):
     """
