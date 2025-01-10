@@ -346,12 +346,17 @@ class InventoryHandler:
             self.monitor_slider_position()
 
     def announce_drop_menu_selection(self):
-        """Announce current drop menu selection"""
+        """Announce current drop menu selection and handle slider click"""
         if self.drop_menu_selection == 0:
-            # Move to slider and announce percentage
-            pyautogui.moveTo(self.drop_menu_buttons[0][0], self.drop_menu_buttons[0][1])
+            # Get slider position first
             current_percentage = self.get_slider_position()
-            self.slider_percentage = current_percentage  # Update stored position
+            # Calculate exact pixel position
+            total_range = self.slider_range['end'] - self.slider_range['start']
+            target_x = self.slider_range['start'] + int((total_range * current_percentage) / 100)
+            # Move to exact position and click
+            pyautogui.moveTo(target_x, self.slider_range['y'])
+            pyautogui.click()
+            self.slider_percentage = current_percentage
             self.speaker.speak(f"Slider {current_percentage} percent")
         else:
             # Move to button and announce name
@@ -452,10 +457,7 @@ class InventoryHandler:
                     if current_drop_menu_state:
                         self.in_drop_menu = True
                         self.drop_menu_selection = 0
-                        pyautogui.moveTo(self.drop_menu_buttons[0][0], self.drop_menu_buttons[0][1])
-                        time.sleep(0.1)
-                        pyautogui.click()
-                        self.announce_drop_menu_selection()
+                        self.announce_drop_menu_selection()  # This will also click
                     else:
                         self.in_drop_menu = False
                 
