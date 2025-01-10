@@ -83,7 +83,7 @@ class MaterialMonitor:
                         'original': img,
                         'masked': masked
                     }
-                    print(f"Loaded {material} template: {img.shape}")
+                   # print(f"Loaded {material} template: {img.shape}")
                 else:
                     print(f"Failed to load template for {material}")
         
