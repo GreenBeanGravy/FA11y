@@ -2,20 +2,50 @@ import threading
 import time
 import queue
 import pyautogui
+from mss import mss
+import numpy as np
 from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config
 from lib.input_handler import is_key_pressed, VK_KEYS
-from lib.background_checks import monitor  # Import the monitor instance
+from lib.background_checks import monitor
 
 class InventoryHandler:
     def __init__(self):
         self.speaker = Auto()
         self.current_slot = 0
+        self.current_section = "bottom"  # "bottom", "ammo", or "resources"
         self.dragging = False
         self.monitoring_thread = None
         self.movement_thread = None
         self.stop_monitoring = threading.Event()
         self.movement_queue = queue.Queue()
+        self.sct = None  # Will be initialized in the monitor thread
+        
+        # Drop menu state
+        self.in_drop_menu = False
+        self.drop_menu_selection = 0  # 0: slider, 1-4: buttons
+        self.slider_grabbed = False
+        self.slider_percentage = 50  # Default position
+        self.last_slider_check = 0
+        
+        # Drop menu coordinates
+        self.drop_menu_buttons = [
+            (747, 532),   # Slider start (0)
+            (784, 594),   # Min button (1)
+            (1199, 594),  # Max button (2)
+            (782, 662),   # Drop button (3)
+            (931, 662)    # Close button (4)
+        ]
+        self.slider_range = {
+            'start': 747,
+            'end': 1233,
+            'y': 532
+        }
+        
+        # Item change detection
+        self.last_detected_type = None
+        self.last_check_time = 0
+        self.last_navigation_time = 0
         
         # Mouse movement parameters
         self.MOVEMENT_DURATION = 0.07
@@ -25,20 +55,13 @@ class InventoryHandler:
         self.key_states = {
             'left': False,
             'right': False,
-            'space': False
-        }
-        self.key_press_times = {
-            'left': 0,
-            'right': 0,
-            'space': 0
+            'space': False,
+            'up': False,
+            'down': False
         }
         
-        # Timing constants
-        self.REPEAT_DELAY = 0.3
-        self.REPEAT_RATE = 0.08
-        
-        # Slot coordinates
-        self.slots = [
+        # Bottom section slots (hotbar)
+        self.bottom_slots = [
             (1265, 820),  # Slot 1
             (1396, 820),  # Slot 2
             (1528, 820),  # Slot 3
@@ -46,9 +69,104 @@ class InventoryHandler:
             (1794, 820)   # Slot 5
         ]
         
+        # Ammo section slots
+        self.ammo_slots = [
+            (1259, 467),  # Arrows
+            (1339, 467),  # Heavy Bullets
+            (1420, 467),  # Light Bullets
+            (1500, 467),  # Medium Bullets
+            (1577, 467),  # Rockets
+            (1659, 467)   # Shells
+        ]
+
+        # Fixed positions for sections
+        self.section_positions = {
+            "resources": (1196, 375),
+            "ammo": (1196, 468),
+            "bottom": None  # Uses slot positions
+        }
+
+        # Detection patterns
+        self.ammo_detection = {
+            "Arrows": [
+                (1286, 654), (1292, 642), (1294, 655), (1290, 652), (1374, 645),
+                (1371, 641), (1366, 646), (1372, 651), (1365, 654)
+            ],
+            "Heavy Bullets": [
+                (1286, 654), (1289, 643), (1291, 650), (1297, 641), (1293, 655),
+                (1446, 645), (1443, 641), (1438, 646), (1445, 651), (1436, 653)
+            ],
+            "Light Bullets": [
+                (1289, 642), (1285, 655), (1292, 655), (1435, 644), (1432, 641),
+                (1427, 646), (1434, 651), (1425, 653)
+            ],
+            "Medium Bullets": [
+                (1286, 655), (1291, 642), (1293, 652), (1301, 642), (1299, 656),
+                (1464, 644), (1461, 641), (1456, 646), (1463, 651), (1454, 653)
+            ],
+            "Rockets": [
+                (1286, 655), (1292, 641), (1296, 644), (1293, 655), (1290, 650),
+                (1379, 645), (1376, 641), (1370, 646), (1378, 651), (1369, 653)
+            ],
+            "Shells": [
+                (1296, 644), (1293, 641), (1288, 646), (1295, 651), (1286, 653),
+                (1358, 644), (1356, 641), (1349, 646), (1357, 651), (1348, 653)
+            ]
+        }
+
+        self.resource_detection = {
+            "Wood": [
+                (1206, 643), (1205, 655), (1214, 643), (1215, 656),
+                (1221, 642), (1256, 642), (1264, 649), (1254, 656)
+            ],
+            "Stone": [
+                (1214, 644), (1211, 640), (1206, 646), (1213, 651),
+                (1203, 653), (1268, 643), (1262, 649), (1265, 655),
+                (1266, 649), (1262, 642), (1259, 655)
+            ],
+            "Metal": [
+                (1203, 654), (1208, 642), (1211, 653), (1219, 642),
+                (1217, 656), (1265, 642), (1262, 655), (1269, 654)
+            ]
+        }
+        
         # Start threads
         self.start_monitoring()
         self.start_movement_handler()
+
+    def get_slider_position(self):
+        """Detect current slider position by finding black pixel using MSS for speed"""
+        try:
+            # Define capture region just for the slider bar
+            capture_region = {
+                'left': self.slider_range['start'],
+                'top': self.slider_range['y'] - 2,  # Small padding for detection
+                'width': self.slider_range['end'] - self.slider_range['start'],
+                'height': 4  # Small height for faster capture
+            }
+            
+            screenshot = np.array(self.sct.grab(capture_region))
+            # Find first black pixel from right to left
+            for x in range(screenshot.shape[1]-1, -1, -1):
+                if np.array_equal(screenshot[2, x][:3], [0, 0, 0]):  # Check center row
+                    return round((x / screenshot.shape[1]) * 100)
+            return 50  # Default to middle if no black pixel found
+        except Exception as e:
+            print(f"Error in slider detection: {e}")
+            return 50
+
+    def monitor_slider_position(self):
+        """Check if slider position has changed and announce if it has"""
+        current_time = time.time()
+        if current_time - self.last_slider_check < 0.1:  # Check every 0.1 seconds
+            return
+            
+        self.last_slider_check = current_time
+        current_position = self.get_slider_position()
+        
+        if current_position != self.slider_percentage:
+            self.slider_percentage = current_position
+            self.speaker.speak(f"{current_position}")
 
     def smooth_move_to(self, x, y):
         """Queue a smooth movement request"""
@@ -58,7 +176,7 @@ class InventoryHandler:
         """Handle movement requests in a separate thread"""
         while not self.stop_monitoring.is_set():
             try:
-                x, y = self.movement_queue.get(timeout=0.1)
+                x, y = self.movement_queue.get(timeout=0.01)
                 self._execute_movement(x, y)
                 self.movement_queue.task_done()
             except queue.Empty:
@@ -92,28 +210,183 @@ class InventoryHandler:
             pyautogui.moveTo(current_x, current_y, _pause=False)
             time.sleep(self.MOVEMENT_DURATION / self.MOVEMENT_STEPS)
 
+    def detect_item_type(self):
+        """Detect the type of item in the current slot based on pixel colors"""
+        if self.current_section == "ammo":
+            patterns = self.ammo_detection
+            default = "Empty Ammo Slot"
+            # Region for ammo detection
+            capture_region = {
+                'left': 1280,
+                'top': 640,
+                'width': 200,
+                'height': 50
+            }
+        elif self.current_section == "resources":
+            patterns = self.resource_detection
+            default = "Empty Resource Slot"
+            # Region for resource detection
+            capture_region = {
+                'left': 1200,
+                'top': 640,
+                'width': 100,
+                'height': 50
+            }
+        else:
+            return None
+
+        try:
+            screenshot = np.array(self.sct.grab(capture_region))
+            
+            for item_type, pixels in patterns.items():
+                all_match = True
+                for x, y in pixels:
+                    # Adjust coordinates to be relative to the screenshot
+                    rel_x = x - capture_region['left']
+                    rel_y = y - capture_region['top']
+                    pixel = screenshot[rel_y, rel_x][:3]
+                    if not np.array_equal(pixel, [255, 255, 255]):
+                        all_match = False
+                        break
+                if all_match:
+                    return item_type
+            
+            return default
+            
+        except Exception as e:
+            print(f"Error in item detection: {e}")
+            return "Detection Error"
+
     def navigate_to_slot(self, slot_index):
         """Move to a specific inventory slot"""
-        self.smooth_move_to(self.slots[slot_index][0], self.slots[slot_index][1])
-        self.speaker.speak(f"Slot {slot_index + 1}")
+        if self.current_section == "bottom":
+            slots = self.bottom_slots
+            self.smooth_move_to(slots[slot_index][0], slots[slot_index][1])
+            self.speaker.speak(f"Slot {slot_index + 1}")
+        else:  # ammo or resources section
+            time.sleep(0.01)  # Wait for UI to update
+            item_type = self.detect_item_type()
+            self.speaker.speak(item_type)
+            # Update last known type and reset check timer
+            self.last_detected_type = item_type
+            self.last_check_time = time.time()
+            self.last_navigation_time = time.time()
 
-    def handle_left_arrow(self):
-        """Handle left arrow key press"""
-        if not monitor.inventory_open:  # Use the monitor's inventory state
+    def handle_vertical_navigation(self, direction):
+        """Handle up/down navigation between sections with wrapping"""
+        if not monitor.inventory_open:
             return
-        self.current_slot = (self.current_slot - 1) % len(self.slots)
+            
+        sections = ["resources", "ammo", "bottom"]
+        current_index = sections.index(self.current_section)
+        
+        if direction == 'up':
+            new_index = (current_index - 1) % len(sections)
+        else:  # down
+            new_index = (current_index + 1) % len(sections)
+            
+        new_section = sections[new_index]
+        self.current_section = new_section
+        self.current_slot = 0
+        
+        # Announce section name and initial item
+        if new_section == "bottom":
+            self.speaker.speak("Hotbar")
+            self.navigate_to_slot(0)
+        else:
+            # Move to fixed section position and announce
+            position = self.section_positions[new_section]
+            self.smooth_move_to(position[0], position[1])
+            section_name = new_section.capitalize()
+            self.speaker.speak(section_name)
+            
+            # Wait and detect initial item
+            time.sleep(0.01)
+            item_type = self.detect_item_type()
+            self.speaker.speak(item_type)
+            
+            # Initialize tracking
+            self.last_detected_type = item_type
+            self.last_check_time = time.time()
+            self.last_navigation_time = time.time()
+
+    def handle_horizontal_navigation(self, direction):
+        """Handle left/right navigation within a section"""
+        if not monitor.inventory_open:
+            return
+            
+        if self.current_section == "bottom":
+            max_slots = len(self.bottom_slots)
+        elif self.current_section == "ammo":
+            max_slots = len(self.ammo_slots)
+        else:  # resources
+            max_slots = len(self.resource_detection)
+            
+        if direction == 'left':
+            self.current_slot = (self.current_slot - 1) % max_slots
+        else:  # right
+            self.current_slot = (self.current_slot + 1) % max_slots
+            
         self.navigate_to_slot(self.current_slot)
 
-    def handle_right_arrow(self):
-        """Handle right arrow key press"""
-        if not monitor.inventory_open:  # Use the monitor's inventory state
-            return
-        self.current_slot = (self.current_slot + 1) % len(self.slots)
-        self.navigate_to_slot(self.current_slot)
+    def handle_drop_menu_navigation(self):
+        """Handle navigation in drop menu"""
+        if self.check_key_press('up'):
+            self.drop_menu_selection = (self.drop_menu_selection - 1) % 5
+            self.announce_drop_menu_selection()
+        elif self.check_key_press('down'):
+            self.drop_menu_selection = (self.drop_menu_selection + 1) % 5
+            self.announce_drop_menu_selection()
+        elif self.check_key_press('space'):
+            if self.drop_menu_selection != 0:  # Only handle button clicks
+                pyautogui.click()
+        
+        # Monitor slider when it's selected
+        if self.drop_menu_selection == 0:
+            self.monitor_slider_position()
+
+    def announce_drop_menu_selection(self):
+        """Announce current drop menu selection"""
+        if self.drop_menu_selection == 0:
+            # Move to slider and announce percentage
+            pyautogui.moveTo(self.drop_menu_buttons[0][0], self.drop_menu_buttons[0][1])
+            current_percentage = self.get_slider_position()
+            self.slider_percentage = current_percentage  # Update stored position
+            self.speaker.speak(f"Slider {current_percentage} percent")
+        else:
+            # Move to button and announce name
+            button_names = ["", "Minimum", "Maximum", "Drop", "Close"]
+            pyautogui.moveTo(
+                self.drop_menu_buttons[self.drop_menu_selection][0],
+                self.drop_menu_buttons[self.drop_menu_selection][1]
+            )
+            self.speaker.speak(button_names[self.drop_menu_selection])
+
+    def handle_drop_menu_action(self):
+        """Handle space bar press in drop menu"""
+        if self.drop_menu_selection == 0:
+            # Toggle slider grab
+            self.slider_grabbed = not self.slider_grabbed
+            if self.slider_grabbed:
+                # Get current position immediately when grabbing
+                self.slider_percentage = self.get_slider_position()
+                self.speaker.speak("Grabbed")
+            else:
+                self.speaker.speak("Released")
+        else:
+            # Click button
+            pyautogui.click()
+
+    def handle_slider_movement(self):
+        """Handle slider movement when grabbed with minimal delay"""
+        if self.check_key_press('left') and self.slider_percentage > 0:
+            self.move_slider(self.slider_percentage - 1)
+        elif self.check_key_press('right') and self.slider_percentage < 100:
+            self.move_slider(self.slider_percentage + 1)
 
     def handle_space(self):
-        """Toggle drag state"""
-        if not monitor.inventory_open:  # Use the monitor's inventory state
+        """Toggle drag state - only works in bottom section"""
+        if not monitor.inventory_open or self.current_section != "bottom":
             return
         self.dragging = not self.dragging
         if self.dragging:
@@ -123,54 +396,102 @@ class InventoryHandler:
             pyautogui.mouseUp(button='left', _pause=False)
             self.speaker.speak("Released")
 
-    def should_handle_key(self, key):
-        """Check if we should handle a key press based on timing"""
-        current_time = time.time()
+    def check_key_press(self, key):
+        """Check for a single key press without repeat"""
         key_pressed = is_key_pressed(key)
         was_pressed = self.key_states[key]
-        last_press_time = self.key_press_times[key]
         
-        if key_pressed:
-            if not was_pressed:  # Initial press
-                self.key_states[key] = True
-                self.key_press_times[key] = current_time
-                return True
-            elif current_time - last_press_time > self.REPEAT_DELAY:
-                if (current_time - last_press_time - self.REPEAT_DELAY) % self.REPEAT_RATE < 0.016:
-                    return True
-        else:
+        if key_pressed and not was_pressed:
+            self.key_states[key] = True
+            return True
+        elif not key_pressed and was_pressed:
             self.key_states[key] = False
         
         return False
 
+    def check_item_changes(self):
+        """Check for changes in item type"""
+        if self.current_section not in ["ammo", "resources"]:
+            return None
+            
+        current_time = time.time()
+        
+        # Don't check for changes if we recently navigated
+        if current_time - self.last_navigation_time < 0.5:
+            return None
+            
+        # Only check every 0.5 seconds
+        if current_time - self.last_check_time < 0.5:
+            return None
+            
+        self.last_check_time = current_time
+        current_type = self.detect_item_type()
+        
+        if self.last_detected_type is not None and current_type != self.last_detected_type:
+            self.last_detected_type = current_type
+            return current_type
+            
+        self.last_detected_type = current_type
+        return None
+
     def monitor_inventory(self):
         """Monitor inventory state and handle key presses"""
         prev_inventory_state = False
+        prev_drop_menu_state = False
+        
+        # Initialize MSS in the monitoring thread
+        self.sct = mss()
         
         while not self.stop_monitoring.is_set():
             try:
-                # Use the monitor's inventory state
                 current_inventory_state = monitor.inventory_open
+                current_drop_menu_state = monitor.drop_menu_open
+                
+                # Handle drop menu state change
+                if current_drop_menu_state != prev_drop_menu_state:
+                    if current_drop_menu_state:
+                        self.in_drop_menu = True
+                        self.drop_menu_selection = 0
+                        self.slider_grabbed = False
+                        self.announce_drop_menu_selection()
+                    else:
+                        self.in_drop_menu = False
+                        self.slider_grabbed = False
                 
                 # Handle inventory state change
                 if current_inventory_state != prev_inventory_state:
                     if current_inventory_state:
+                        self.current_section = "bottom"
                         self.current_slot = 0
+                        self.last_detected_type = None
                         self.navigate_to_slot(0)
                     elif self.dragging:
                         pyautogui.mouseUp(button='left', _pause=False)
                         self.dragging = False
                 
-                # Handle key presses if inventory is open
-                if current_inventory_state:
-                    if self.should_handle_key('left'):
-                        self.handle_left_arrow()
-                    elif self.should_handle_key('right'):
-                        self.handle_right_arrow()
-                    elif self.should_handle_key('space'):
+                # Handle input based on current state
+                if current_drop_menu_state:
+                    self.handle_drop_menu_navigation()
+                elif current_inventory_state:
+                    # Regular inventory navigation
+                    if self.current_section in ["ammo", "resources"]:
+                        changed_type = self.check_item_changes()
+                        if changed_type:
+                            self.speaker.speak(changed_type)
+                    
+                    if self.check_key_press('left'):
+                        self.handle_horizontal_navigation('left')
+                    elif self.check_key_press('right'):
+                        self.handle_horizontal_navigation('right')
+                    elif self.check_key_press('up'):
+                        self.handle_vertical_navigation('up')
+                    elif self.check_key_press('down'):
+                        self.handle_vertical_navigation('down')
+                    elif self.check_key_press('space'):
                         self.handle_space()
                 
                 prev_inventory_state = current_inventory_state
+                prev_drop_menu_state = current_drop_menu_state
                 time.sleep(0.001)
                 
             except Exception as e:
@@ -190,7 +511,7 @@ class InventoryHandler:
             self.monitoring_thread.start()
 
     def stop(self):
-        """Stop all threads"""
+        """Stop all threads and cleanup"""
         self.stop_monitoring.set()
         if self.dragging:
             pyautogui.mouseUp(button='left', _pause=False)
@@ -198,6 +519,8 @@ class InventoryHandler:
             self.monitoring_thread.join(timeout=1.0)
         if self.movement_thread:
             self.movement_thread.join(timeout=1.0)
+        if self.sct:
+            self.sct.close()
 
 # Create a single instance
 inventory_handler = InventoryHandler()
