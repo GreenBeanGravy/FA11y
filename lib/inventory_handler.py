@@ -452,11 +452,12 @@ class InventoryHandler:
                     if current_drop_menu_state:
                         self.in_drop_menu = True
                         self.drop_menu_selection = 0
-                        self.slider_grabbed = False
+                        pyautogui.moveTo(self.drop_menu_buttons[0][0], self.drop_menu_buttons[0][1])
+                        time.sleep(0.1)
+                        pyautogui.click()
                         self.announce_drop_menu_selection()
                     else:
                         self.in_drop_menu = False
-                        self.slider_grabbed = False
                 
                 # Handle inventory state change
                 if current_inventory_state != prev_inventory_state:
