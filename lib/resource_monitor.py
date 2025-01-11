@@ -44,6 +44,8 @@ class ResourceMonitor:
         self.easyocr_ready = Event()
         self.easyocr_lock = Lock()
         self.reader = None
+        self.recently_removed_positions = []  # Track recently used positions
+        self.position_cooldown = 0.2  # 200ms cooldown
         self.initialize_easyocr()
         self.load_resource_templates()
 
@@ -197,7 +199,7 @@ class ResourceMonitor:
                             
                         resources_to_remove = []
                         for name, state in self.active_resources.items():
-                            if current_time - state.last_seen > 1.0:  # Reduced from 3.0 to 1.0 seconds
+                            if current_time - state.last_seen > 2.0:
                                 resources_to_remove.append(name)
                             else:
                                 template_data = self.resource_templates[name]
