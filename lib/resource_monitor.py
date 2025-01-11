@@ -29,6 +29,7 @@ class ResourceState:
     count: Optional[int] = None
     last_seen: float = 0.0
     confidence: float = 0.0
+    announcements: int = 0  # Track number of announcements made
 
 class ResourceMonitor:
     def __init__(self):
@@ -121,16 +122,23 @@ class ResourceMonitor:
             if screenshot.shape[2] == 4:
                 screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
 
-            lower_bound = np.array([254, 254, 254], dtype=np.uint8)
+            # Color mask for specific BGR range - same as material monitor
+            lower_bound = np.array([255, 226, 182], dtype=np.uint8)  # BGR format
             upper_bound = np.array([255, 255, 255], dtype=np.uint8)
-            mask = cv2.inRange(screenshot, lower_bound, upper_bound)
-            filtered = cv2.bitwise_and(screenshot, screenshot, mask=mask)
+            color_mask = cv2.inRange(screenshot, lower_bound, upper_bound)
+            filtered = cv2.bitwise_and(screenshot, screenshot, mask=color_mask)
             
+            # Convert to grayscale
             gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
-            _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+            
+            # Binary threshold
+            _, gray = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+            
+            # Resize for better OCR performance - same as material monitor
+            gray = cv2.resize(gray, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_LINEAR)
             
             with self.easyocr_lock:
-                results = self.reader.readtext(binary,
+                results = self.reader.readtext(gray,
                                             allowlist='0123456789',
                                             paragraph=False,
                                             min_size=10,
@@ -139,7 +147,11 @@ class ResourceMonitor:
             
             if results:
                 count_text = results[0][1]
-                return int(count_text) if count_text.isdigit() else None
+                if count_text.isdigit():
+                    count = int(count_text)
+                    # Only allow values up to 999
+                    if count <= 999:
+                        return count
         except:
             pass
         return None
@@ -185,7 +197,7 @@ class ResourceMonitor:
                             
                         resources_to_remove = []
                         for name, state in self.active_resources.items():
-                            if current_time - state.last_seen > 3.0:
+                            if current_time - state.last_seen > 1.0:  # Reduced from 3.0 to 1.0 seconds
                                 resources_to_remove.append(name)
                             else:
                                 template_data = self.resource_templates[name]
@@ -205,7 +217,12 @@ class ResourceMonitor:
                                 count_screenshot = np.array(sct.grab(ocr_area))
                                 current_count = self.detect_count(count_screenshot)
                                 
-                                if current_count is not None:
+                                if current_count is not None and current_count > state.count and state.announcements < 2:
+                                    self.speaker.speak(f"plus {current_count} {name.replace('_', ' ')}")
+                                    state.count = current_count
+                                    state.last_seen = current_time
+                                    state.announcements += 1
+                                elif current_count is not None:
                                     state.count = current_count
                                     state.last_seen = current_time
                         
