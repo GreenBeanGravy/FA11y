@@ -45,7 +45,7 @@ from lib.mouse import (
     right_mouse_up,
     mouse_scroll,
 )
-# Updated imports for the new GUI implementations
+
 from lib.guis.poi_selector_gui import POIData, select_poi_tk
 from lib.guis.gamemode_selector_gui import select_gamemode_tk
 from lib.guis.custom_poi_gui import create_custom_poi_gui
@@ -53,6 +53,7 @@ from lib.guis.config_gui import create_config_gui
 from lib.height_checker import start_height_checker
 from lib.background_checks import monitor
 from lib.material_monitor import material_monitor
+from lib.resource_monitor import resource_monitor
 from lib.minimap_direction import speak_minimap_direction, find_minimap_icon_direction
 from lib.exit_match import exit_match
 from lib.hotbar_detection import (
@@ -417,6 +418,7 @@ def main() -> None:
         threading.Thread(target=start_height_checker, daemon=True).start()
         monitor.start_monitoring()
         material_monitor.start_monitoring()
+        resource_monitor.start_monitoring()
 
 
         # Initialize hotbar detection
@@ -435,6 +437,7 @@ def main() -> None:
         stop_key_listener.set()
         monitor.stop_monitoring()
         material_monitor.stop_monitoring()
+        resource_monitor.stop_monitoring()
 
         # Clean up any remaining tkinter variables
         if 'tk' in sys.modules:
