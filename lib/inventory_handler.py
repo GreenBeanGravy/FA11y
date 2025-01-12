@@ -21,27 +21,6 @@ class InventoryHandler:
         self.movement_queue = queue.Queue()
         self.sct = None  # Will be initialized in the monitor thread
         
-        # Drop menu state
-        self.in_drop_menu = False
-        self.drop_menu_selection = 0  # 0: slider, 1-4: buttons
-        self.slider_grabbed = False
-        self.slider_percentage = 50  # Default position
-        self.last_slider_check = 0
-        
-        # Drop menu coordinates
-        self.drop_menu_buttons = [
-            (747, 532),   # Slider start (0)
-            (784, 594),   # Min button (1)
-            (1199, 594),  # Max button (2)
-            (782, 662),   # Drop button (3)
-            (931, 662)    # Close button (4)
-        ]
-        self.slider_range = {
-            'start': 747,
-            'end': 1233,
-            'y': 532
-        }
-        
         # Item change detection
         self.last_detected_type = None
         self.last_check_time = 0
@@ -133,40 +112,6 @@ class InventoryHandler:
         # Start threads
         self.start_monitoring()
         self.start_movement_handler()
-
-    def get_slider_position(self):
-        """Detect current slider position by finding black pixel using MSS for speed"""
-        try:
-            # Define capture region just for the slider bar
-            capture_region = {
-                'left': self.slider_range['start'],
-                'top': self.slider_range['y'] - 2,  # Small padding for detection
-                'width': self.slider_range['end'] - self.slider_range['start'],
-                'height': 4  # Small height for faster capture
-            }
-            
-            screenshot = np.array(self.sct.grab(capture_region))
-            # Find first black pixel from right to left
-            for x in range(screenshot.shape[1]-1, -1, -1):
-                if np.array_equal(screenshot[2, x][:3], [0, 0, 0]):  # Check center row
-                    return round((x / screenshot.shape[1]) * 100)
-            return 50  # Default to middle if no black pixel found
-        except Exception as e:
-            print(f"Error in slider detection: {e}")
-            return 50
-
-    def monitor_slider_position(self):
-        """Check if slider position has changed and announce if it has"""
-        current_time = time.time()
-        if current_time - self.last_slider_check < 0.1:  # Check every 0.1 seconds
-            return
-            
-        self.last_slider_check = current_time
-        current_position = self.get_slider_position()
-        
-        if current_position != self.slider_percentage:
-            self.slider_percentage = current_position
-            self.speaker.speak(f"{current_position}")
 
     def smooth_move_to(self, x, y):
         """Queue a smooth movement request"""
@@ -329,66 +274,6 @@ class InventoryHandler:
             
         self.navigate_to_slot(self.current_slot)
 
-    def handle_drop_menu_navigation(self):
-        """Handle navigation in drop menu"""
-        if self.check_key_press('up'):
-            self.drop_menu_selection = (self.drop_menu_selection - 1) % 5
-            self.announce_drop_menu_selection()
-        elif self.check_key_press('down'):
-            self.drop_menu_selection = (self.drop_menu_selection + 1) % 5
-            self.announce_drop_menu_selection()
-        elif self.check_key_press('space'):
-            if self.drop_menu_selection != 0:  # Only handle button clicks
-                pyautogui.click()
-        
-        # Monitor slider when it's selected
-        if self.drop_menu_selection == 0:
-            self.monitor_slider_position()
-
-    def announce_drop_menu_selection(self):
-        """Announce current drop menu selection and handle slider click"""
-        if self.drop_menu_selection == 0:
-            # Get slider position first
-            current_percentage = self.get_slider_position()
-            # Calculate exact pixel position
-            total_range = self.slider_range['end'] - self.slider_range['start']
-            target_x = self.slider_range['start'] + int((total_range * current_percentage) / 100)
-            # Move to exact position and click
-            pyautogui.moveTo(target_x, self.slider_range['y'])
-            pyautogui.click()
-            self.slider_percentage = current_percentage
-            self.speaker.speak(f"Slider {current_percentage} percent")
-        else:
-            # Move to button and announce name
-            button_names = ["", "Minimum", "Maximum", "Drop", "Close"]
-            pyautogui.moveTo(
-                self.drop_menu_buttons[self.drop_menu_selection][0],
-                self.drop_menu_buttons[self.drop_menu_selection][1]
-            )
-            self.speaker.speak(button_names[self.drop_menu_selection])
-
-    def handle_drop_menu_action(self):
-        """Handle space bar press in drop menu"""
-        if self.drop_menu_selection == 0:
-            # Toggle slider grab
-            self.slider_grabbed = not self.slider_grabbed
-            if self.slider_grabbed:
-                # Get current position immediately when grabbing
-                self.slider_percentage = self.get_slider_position()
-                self.speaker.speak("Grabbed")
-            else:
-                self.speaker.speak("Released")
-        else:
-            # Click button
-            pyautogui.click()
-
-    def handle_slider_movement(self):
-        """Handle slider movement when grabbed with minimal delay"""
-        if self.check_key_press('left') and self.slider_percentage > 0:
-            self.move_slider(self.slider_percentage - 1)
-        elif self.check_key_press('right') and self.slider_percentage < 100:
-            self.move_slider(self.slider_percentage + 1)
-
     def handle_space(self):
         """Toggle drag state - only works in bottom section"""
         if not monitor.inventory_open or self.current_section != "bottom":
@@ -442,7 +327,6 @@ class InventoryHandler:
     def monitor_inventory(self):
         """Monitor inventory state and handle key presses"""
         prev_inventory_state = False
-        prev_drop_menu_state = False
         
         # Initialize MSS in the monitoring thread
         self.sct = mss()
@@ -450,16 +334,6 @@ class InventoryHandler:
         while not self.stop_monitoring.is_set():
             try:
                 current_inventory_state = monitor.inventory_open
-                current_drop_menu_state = monitor.drop_menu_open
-                
-                # Handle drop menu state change
-                if current_drop_menu_state != prev_drop_menu_state:
-                    if current_drop_menu_state:
-                        self.in_drop_menu = True
-                        self.drop_menu_selection = 0
-                        self.announce_drop_menu_selection()  # This will also click
-                    else:
-                        self.in_drop_menu = False
                 
                 # Handle inventory state change
                 if current_inventory_state != prev_inventory_state:
@@ -473,9 +347,7 @@ class InventoryHandler:
                         self.dragging = False
                 
                 # Handle input based on current state
-                if current_drop_menu_state:
-                    self.handle_drop_menu_navigation()
-                elif current_inventory_state:
+                if current_inventory_state:
                     # Regular inventory navigation
                     if self.current_section in ["ammo", "resources"]:
                         changed_type = self.check_item_changes()
@@ -494,7 +366,6 @@ class InventoryHandler:
                         self.handle_space()
                 
                 prev_inventory_state = current_inventory_state
-                prev_drop_menu_state = current_drop_menu_state
                 time.sleep(0.001)
                 
             except Exception as e:

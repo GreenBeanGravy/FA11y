@@ -14,7 +14,6 @@ class BackgroundMonitor:
         self.map_open = False
         self.is_spectating = False
         self.inventory_open = False
-        self.drop_menu_open = False
         
         self.config = read_config()
         
@@ -22,7 +21,6 @@ class BackgroundMonitor:
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
         self.announce_spectating = get_config_boolean(self.config, 'AnnounceSpectatingStatus', True)
         self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
-        self.announce_drop_menu = get_config_boolean(self.config, 'AnnounceDropMenu', True)
 
     def reload_config(self):
         """Reload configuration values."""
@@ -30,7 +28,6 @@ class BackgroundMonitor:
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
         self.announce_spectating = get_config_boolean(self.config, 'AnnounceSpectatingStatus', True)
         self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
-        self.announce_drop_menu = get_config_boolean(self.config, 'AnnounceDropMenu', True)
 
     def check_map_status(self):
         """Check if the map is open/closed."""
@@ -91,46 +88,6 @@ class BackgroundMonitor:
         except Exception as e:
             print(f"Error checking inventory status: {e}")
 
-    def check_drop_menu_status(self):
-        """Check if drop items menu is open."""
-        if self.map_open or self.is_spectating:  # Don't check if map is open or spectating
-            return
-            
-        try:
-            # Dark border pixels
-            dark_pixels = [
-                (865, 653), (882, 653),  # Top
-                (882, 671), (866, 670)   # Bottom
-            ]
-            # White center pixels
-            white_pixels = [
-                (867, 662), (877, 662)   # Center
-            ]
-            
-            # Check for dark border (15, 13, 28)
-            dark_match = all(
-                pyautogui.pixel(x, y) == (15, 13, 28)
-                for x, y in dark_pixels
-            )
-            
-            # Check for white center
-            white_match = all(
-                pyautogui.pixel(x, y) == (255, 255, 255)
-                for x, y in white_pixels
-            )
-            
-            is_drop_menu = dark_match and white_match
-            
-            if is_drop_menu != self.drop_menu_open:
-                self.drop_menu_open = is_drop_menu
-                if self.announce_drop_menu:
-                    self.speaker.speak(
-                        "Drop menu opened" if is_drop_menu else "Drop menu closed"
-                    )
-                    
-        except Exception as e:
-            print(f"Error checking drop menu status: {e}")
-
     def monitor_loop(self):
         """Main monitoring loop."""
         while self.running:
@@ -140,8 +97,6 @@ class BackgroundMonitor:
                 self.check_spectating_status()
             if self.announce_inventory:
                 self.check_inventory_status()
-            if self.announce_drop_menu:
-                self.check_drop_menu_status()
             time.sleep(0.1)
 
     def start_monitoring(self):
