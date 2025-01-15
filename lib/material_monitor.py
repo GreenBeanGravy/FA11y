@@ -200,9 +200,6 @@ class MaterialMonitor:
                         
                 # Only consider material gone if not seen for 1.5 seconds
                 elif self.current_material and current_time - last_material_time > 1.5:
-                    if self.last_count:
-                        # Material disappeared, announce final total
-                        self.speaker.speak(f"plus {self.last_count} {self.current_material}")
                     self.current_material = None
                     self.last_count = None
                 
