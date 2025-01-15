@@ -4,9 +4,9 @@ from typing import List, Tuple, Union, Dict
 import configparser
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
-import os
 import requests
 import numpy as np
 
@@ -179,9 +179,15 @@ class POIData:
 
     def _fetch_and_process_pois(self) -> None:
         try:
-            print("Fetching POI data from API...")
+            #print("Fetching POI data from API...")
             response = requests.get('https://fortnite-api.com/v1/map', params={'language': 'en'})
             response.raise_for_status()
+            
+            # Print raw response for debugging
+            #print("\nRAW API Response:")
+            #print(json.dumps(response.json(), indent=2))
+            #print("\nProcessing data...")
+            
             self.api_data = response.json().get('data', {}).get('pois', [])
 
             for poi in self.api_data:
@@ -190,9 +196,11 @@ class POIData:
                 world_y = float(poi['location']['y'])
                 screen_x, screen_y = self.coordinate_system.world_to_screen(world_x, world_y)
                 
-                if name.isupper():
+                # Filter main POIs (including both patterns)
+                if re.match(r'Athena\.Location\.POI\.Generic\.(?:EE\.)?\d+', poi['id']):
                     self.main_pois.append((name, str(screen_x), str(screen_y)))
-                else:
+                # Filter landmarks (including gas stations)
+                elif re.match(r'Athena\.Location\.UnNamedPOI\.(Landmark|GasStation)\.\d+', poi['id']):
                     self.landmarks.append((name, str(screen_x), str(screen_y)))
 
             # Also store main POIs in the maps dictionary
@@ -204,6 +212,7 @@ class POIData:
             print(f"Error fetching POIs from API: {e}")
             self.main_pois = []
             self.landmarks = []
+
 # Constants
 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
 SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
