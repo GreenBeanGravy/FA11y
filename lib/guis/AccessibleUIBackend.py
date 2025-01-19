@@ -300,12 +300,15 @@ class AccessibleUIBackend:
 
     def on_key(self, event) -> Optional[str]:
         """Handle general key press events."""
+        # If capturing a keybind, ignore
         if self.capturing_keybind:
             return "break"
-        if event.keysym.lower() == 'r' and self.default_config:
+
+        # If pressing 'r' but currently editing, skip resetting
+        if event.keysym.lower() == 'r' and self.default_config and not self.currently_editing:
             current_widget = self.root.focus_get()
             current_tab = self.notebook.tab(self.notebook.select(), "text")
-            
+
             if isinstance(current_widget, ttk.Checkbutton):
                 key = current_widget.cget('text')
                 default_value_string = self.default_config.get(current_tab, key, fallback='')
@@ -386,7 +389,6 @@ class AccessibleUIBackend:
             try:
                 volume = float(new_value)
                 volume = max(0.0, min(volume, 1.0))  # Ensure volume is between 0.0 and 1.0
-                # Play the POI sound at this volume
                 spatial_poi = SpatialAudio('sounds/poi.ogg')
                 spatial_poi.play_audio(left_weight=1.0, right_weight=1.0, volume=volume)
             except Exception as e:

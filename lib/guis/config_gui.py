@@ -23,25 +23,31 @@ def create_config_gui(update_script_callback: Callable[[configparser.ConfigParse
 
     # Configuration mapping - just map everything directly to its appropriate tab
     section_tab_mapping: Dict[str, Dict[str, str]] = {
-        "Toggles": {},     # All toggle settings
-        "Values": {},      # All value settings
-        "Keybinds": {},   # All keybind settings
+        "Toggles": {},      # All toggle settings
+        "Values": {},       # All value settings
+        "Keybinds": {},     # All keybind settings
+        "VoiceCommands": {},# Voice command settings
     }
 
-    # Tab creation
+    # ----------------------------
+    # 1) CREATE TABS
+    # ----------------------------
     def create_tabs() -> None:
         """Create and initialize all tabs."""
         ui.add_tab("Toggles")
         ui.add_tab("Values")
         ui.add_tab("Keybinds")
+        ui.add_tab("VoiceCommands")
 
-    # Modified Configuration analysis
+    # ----------------------------
+    # 2) ANALYZE EXISTING CONFIG
+    # ----------------------------
     def analyze_config() -> None:
         """Analyze configuration to determine appropriate tab mappings."""
         for section in config.sections():
             if section == "POI":  # Skip POI section
                 continue
-                
+            
             for key in config[section]:
                 value_string = config[section][key]
                 value, _ = ui.extract_value_and_description(value_string)
@@ -53,7 +59,9 @@ def create_config_gui(update_script_callback: Callable[[configparser.ConfigParse
                     section_tab_mapping["Values"][key] = "Values"
                 elif section == "Keybinds":
                     section_tab_mapping["Keybinds"][key] = "Keybinds"
-                # Handle legacy format if needed
+                elif section == "VoiceCommands":
+                    section_tab_mapping["VoiceCommands"][key] = "VoiceCommands"
+                # Legacy format if needed
                 elif section == "SETTINGS":
                     if value.lower() in ['true', 'false']:
                         section_tab_mapping["Toggles"][key] = "Toggles"
@@ -62,10 +70,11 @@ def create_config_gui(update_script_callback: Callable[[configparser.ConfigParse
                 elif section == "SCRIPT KEYBINDS":
                     section_tab_mapping["Keybinds"][key] = "Keybinds"
 
-    # Widget creation functions
+    # ----------------------------
+    # 3) WIDGET-CREATION HELPERS
+    # ----------------------------
     def create_keybind_entry(tab_name: str, key: str, value_string: str) -> None:
         """Create a keybind entry widget."""
-        value, description = ui.extract_value_and_description(value_string)
         ui.add_keybind(tab_name, key, value_string)
 
     def create_checkbox(tab_name: str, key: str, value_string: str) -> None:
@@ -76,91 +85,136 @@ def create_config_gui(update_script_callback: Callable[[configparser.ConfigParse
         """Create a value entry widget."""
         ui.add_entry(tab_name, key, value_string)
 
+    # ----------------------------
+    # 4) MAKE WIDGETS
+    # ----------------------------
     def create_widgets() -> None:
-        """Create all widgets based on configuration."""
+        """Create all widgets based on the existing config."""
         for section in config.sections():
-            if section == "POI":  # Skip POI section
+            if section == "POI":  # Skip POI
                 continue
-                
+
             for key in config[section]:
                 value_string = config[section][key]
                 tab_name = None
 
-                # Determine tab based on section
-                if section == "Toggles" or (section == "SETTINGS" and value_string.lower().startswith('true') or value_string.lower().startswith('false')):
+                # Decide which tab
+                if section == "Toggles" or (
+                    section == "SETTINGS" and
+                    (value_string.lower().startswith('true') or value_string.lower().startswith('false'))
+                ):
                     tab_name = "Toggles"
                     create_checkbox(tab_name, key, value_string)
-                elif section == "Keybinds" or section == "SCRIPT KEYBINDS":
+
+                elif section in ["Keybinds", "SCRIPT KEYBINDS"]:
                     tab_name = "Keybinds"
                     create_keybind_entry(tab_name, key, value_string)
-                elif section == "Values" or section == "SETTINGS":
+
+                elif section in ["Values", "SETTINGS"]:
                     tab_name = "Values"
                     create_value_entry(tab_name, key, value_string)
 
-    # Modified save functionality
+                elif section == "VoiceCommands":
+                    # Just treat them like normal values
+                    tab_name = "VoiceCommands"
+                    create_value_entry(tab_name, key, value_string)
+
+    # ----------------------------
+    # 5) SAVE-AND-CLOSE LOGIC
+    # ----------------------------
     def save_and_close() -> None:
         """Save configuration, update the script, and close the GUI."""
         try:
-            # Ensure all sections exist
-            for section in ["Toggles", "Values", "Keybinds", "POI"]:
+            # Ensure all relevant sections exist
+            for section in ["Toggles", "Values", "Keybinds", "POI", "VoiceCommands"]:
                 if section not in ui.config.sections():
                     ui.config.add_section(section)
 
-            # Save POI section as is if it exists
+            # Preserve POI section if it exists
             if "POI" in config.sections():
                 for key in config["POI"]:
                     ui.config["POI"][key] = config["POI"][key]
 
-            # Save values back to their appropriate sections based on tab
-            for key, widget in ui.variables["Toggles"].items():
-                if isinstance(widget, tk.BooleanVar):
-                    description = ""
-                    for w in ui.widgets["Toggles"]:
-                        if isinstance(w, ttk.Checkbutton) and w.cget('text') == key:
-                            description = getattr(w, 'description', '')
+            # Save each tab's variables
+            for tab_name, variables in ui.variables.items():
+                for key, widget_var in variables.items():
+                    target_section = None
+                    if tab_name == "Toggles":
+                        target_section = "Toggles"
+                    elif tab_name == "Values":
+                        target_section = "Values"
+                    elif tab_name == "Keybinds":
+                        target_section = "Keybinds"
+                    elif tab_name == "VoiceCommands":
+                        target_section = "VoiceCommands"
+                    
+                    if not target_section:
+                        continue
+
+                    # Convert widget value
+                    if isinstance(widget_var, tk.BooleanVar):
+                        raw_val = 'true' if widget_var.get() else 'false'
+                    else:
+                        # If user empties the field, fallback to default (like the other code).
+                        val = widget_var.get()
+                        raw_val = val if val else default_config.get(
+                            target_section, key, fallback=""
+                        )
+
+                    # Try to keep the old description if it existed
+                    old_full = config.get(target_section, key, fallback=raw_val)
+                    old_value, old_desc = ui.extract_value_and_description(old_full)
+                    
+                    # Check if this widget had a "description" we stored
+                    # (like we do for checkboxes)
+                    new_desc = ""
+                    for w in ui.widgets[tab_name]:
+                        if (
+                            isinstance(w, ttk.Checkbutton) and w.cget('text') == key
+                        ) or (
+                            hasattr(w, 'master') and w.master.winfo_children() and
+                            w.master.winfo_children()[0].cget('text') == key
+                        ):
+                            new_desc = getattr(w, 'description', '')
                             break
-                    value = 'true' if widget.get() else 'false'
-                    ui.config["Toggles"][key] = f"{value} \"{description}\"" if description else value
 
-            for key, widget in ui.variables["Values"].items():
-                value = widget.get()
-                description = ""
-                for w in ui.widgets["Values"]:
-                    if hasattr(w, 'master') and w.master.winfo_children() and \
-                       w.master.winfo_children()[0].cget('text') == key:
-                        description = getattr(w, 'description', '')
-                        break
-                ui.config["Values"][key] = f"{value} \"{description}\"" if description else value
+                    # If there's already a description in config, prefer it unless empty
+                    if old_desc and old_desc.strip():
+                        final_desc = old_desc
+                    else:
+                        # If old_desc was empty, then we can store new_desc
+                        final_desc = new_desc
 
-            for key, widget in ui.variables["Keybinds"].items():
-                value = widget.get()
-                description = ""
-                for w in ui.widgets["Keybinds"]:
-                    if hasattr(w, 'master') and w.master.winfo_children() and \
-                       w.master.winfo_children()[0].cget('text') == key:
-                        description = getattr(w, 'description', '')
-                        break
-                ui.config["Keybinds"][key] = f"{value} \"{description}\"" if description else value
+                    # If there's STILL no desc, just store the raw value
+                    if final_desc.strip():
+                        ui.config[target_section][key] = f"{raw_val} \"{final_desc}\""
+                    else:
+                        ui.config[target_section][key] = raw_val
 
-            # Save configuration and update the script
+            # Actually write to file, call the update callback, speak success
             ui.save_config()
             update_script_callback(ui.config)
             ui.speak("Configuration saved and applied")
+
         except Exception as e:
             print(f"Error saving configuration: {e}")
             ui.speak("Error saving configuration")
         finally:
             ui.root.destroy()
 
-    # Window initialization
+    # ----------------------------
+    # 6) WINDOW INIT
+    # ----------------------------
     def initialize_window() -> None:
-        """Set up window properties."""
+        """Set up the window properties."""
         ui.root.resizable(False, False)
         ui.root.protocol("WM_DELETE_WINDOW", save_and_close)
-        # Override the default save_and_close method
+        # Override the default method
         ui.save_and_close = save_and_close
 
-    # Focus handling
+    # ----------------------------
+    # 7) FOCUS-HANDLING
+    # ----------------------------
     def focus_first_widget() -> None:
         """Focus the first widget and announce its state."""
         first_tab = ui.notebook.tabs()[0]
@@ -174,18 +228,18 @@ def create_config_gui(update_script_callback: Callable[[configparser.ConfigParse
             if widget_info:
                 ui.speak(widget_info)
 
-    # Create interface elements
+    # ----------------------------
+    # 8) GO
+    # ----------------------------
     create_tabs()
     analyze_config()
     create_widgets()
     initialize_window()
 
-    # Initialize focus with help message
-    ui.root.after(100, lambda: force_focus_window(
-        ui.root,
-        "Press H for help!",
-        focus_first_widget
-    ))
+    # After slight delay, force focus and read help
+    ui.root.after(
+        100,
+        lambda: force_focus_window(ui.root, "Press H for help!", focus_first_widget)
+    )
 
-    # Start the UI
     ui.run()
