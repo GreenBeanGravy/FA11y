@@ -31,6 +31,3 @@ librosa
 soundfile
 easyocr
 pyaudio
-selenium
-PyQt6
-webdriver-manager

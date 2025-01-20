@@ -17,7 +17,6 @@ CONFIG_FILE = 'config.txt'
 
 # Modified DEFAULT_CONFIG to use new section format
 DEFAULT_CONFIG = """[Toggles]
-EnableVoiceCommands = false "Toggles voice command functionality."
 SimplifySpeechOutput = false "Toggles simplifying speech for various FA11y announcements."
 MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
 ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
@@ -86,17 +85,6 @@ Detect Hotbar 2 = 2 "Announces details about the item the player is currently ho
 Detect Hotbar 3 = 3 "Announces details about the item the player is currently holding in slot 3."
 Detect Hotbar 4 = 4 "Announces details about the item the player is currently holding in slot 4."
 Detect Hotbar 5 = 5 "Announces details about the item the player is currently holding in slot 5."
-
-[VoiceCommands]
-TriggerWord = fortnite "The trigger word that activates voice command listening."
-NavigateCommand = take me to "The command to start navigation to a POI."
-LocationCommand = where am i "The command to announce current location."
-SwitchMapCommand = switch map to "The command to change the current map."
-GamemodeCommand = select gamemode "The command to select a gamemode."
-HealthCommand = health "The command to check health and shields."
-AmmoCommand = ammo "The command to check current ammo."
-DirectionCommand = direction "The command to check facing direction."
-LeaveCommand = leave match "The command to exit the current match."
 
 [POI]
 selected_poi = closest, 0, 0
@@ -196,11 +184,6 @@ def read_config() -> configparser.ConfigParser:
     config = configparser.ConfigParser(interpolation=None)
     config.optionxform = str
 
-    # Load default config first
-    default_config = configparser.ConfigParser(interpolation=None)
-    default_config.optionxform = str
-    default_config.read_string(DEFAULT_CONFIG)
-
     try:
         if os.path.exists(CONFIG_FILE):
             config.read(CONFIG_FILE)
@@ -214,17 +197,9 @@ def read_config() -> configparser.ConfigParser:
             print("Converting config to new format...")
             config = migrate_config_to_new_format(config)
             
-        # Initialize missing sections and values from default config
-        for section in default_config.sections():
-            if section not in config:
-                config.add_section(section)
-            for key, value in default_config[section].items():
-                if key not in config[section]:
-                    config[section][key] = value
-        
         config = update_config(config)
         
-        # Save the migrated/updated config
+        # Save the migrated config
         with open(CONFIG_FILE, 'w') as configfile:
             config.write(configfile)
             
@@ -232,7 +207,7 @@ def read_config() -> configparser.ConfigParser:
         print(f"Config file is corrupted or missing. Creating a new one with default values.")
         if os.path.exists(CONFIG_FILE):
             os.remove(CONFIG_FILE)
-        config = default_config
+        config.read_string(DEFAULT_CONFIG)
         with open(CONFIG_FILE, 'w') as configfile:
             config.write(configfile)
         print(f"Created new config file: {CONFIG_FILE}")
@@ -288,20 +263,10 @@ def update_config(config: configparser.ConfigParser) -> configparser.ConfigParse
 
                 new_section[key] = new_value
             else:
-                # For new keys, use the default value from DEFAULT_CONFIG
                 new_section[key] = value
                 updated = True
 
-        # Don't replace existing values in VoiceCommands section if they exist
-        if section == "VoiceCommands":
-            for key in new_section:
-                if key not in config[section]:
-                    config[section][key] = new_section[key]
-                # If the value is None or empty, use the default value
-                elif not config[section][key] or config[section][key].lower().startswith('none'):
-                    config[section][key] = new_section[key]
-        else:
-            config[section] = new_section
+        config[section] = new_section
 
     if updated:
         with open(CONFIG_FILE, 'w') as configfile:

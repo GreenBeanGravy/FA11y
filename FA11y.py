@@ -71,7 +71,6 @@ from lib.utilities import (
 )
 from lib.pathfinder import toggle_pathfinding
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
-from lib.voice_commands import voice_processor
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -282,16 +281,6 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
     config = new_config
     reload_config()
 
-    # Handle voice command toggling if enabled state changed
-    old_voice_enabled = get_config_boolean(config, 'EnableVoiceCommands', False)
-    new_voice_enabled = get_config_boolean(new_config, 'EnableVoiceCommands', False)
-    
-    if old_voice_enabled != new_voice_enabled:
-        if new_voice_enabled:
-            voice_processor.start()
-        else:
-            voice_processor.stop()
-
     # Restart key listener
     stop_key_listener.set()
     stop_key_listener.clear()
@@ -416,10 +405,6 @@ def main() -> None:
         # Initialize core systems
         reload_config()
 
-        # Initialize voice commands if enabled
-        if get_config_boolean(config, 'EnableVoiceCommands', False):
-            voice_processor.start()
-
         # Start key listener thread
         stop_key_listener.clear()
         key_listener_thread = threading.Thread(target=key_listener, daemon=True)
@@ -453,7 +438,6 @@ def main() -> None:
         monitor.stop_monitoring()
         material_monitor.stop_monitoring()
         resource_monitor.stop_monitoring()
-        voice_processor.stop()
 
         # Clean up any remaining tkinter variables
         if 'tk' in sys.modules:
