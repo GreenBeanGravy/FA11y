@@ -43,6 +43,9 @@ def install_required_modules():
     # Check for requests
     if not is_module_installed('requests'):
         modules.append('requests')
+
+    if not is_module_installed('packaging'):
+        modules.append('packaging')
     
     # Check for psutil
     if not is_module_installed('psutil'):
