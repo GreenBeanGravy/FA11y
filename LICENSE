@@ -1,37 +1,102 @@
-MIT License with Additional Non-Commercial Use Policy
+FA11y/Fortnite Access Custom Open Source Non-Commercial License
 
-MIT License
+Version 1.0, 2025
+Copyright (c) 2025 GreenBean
 
-Copyright (c) 2024 GreenBeanGravy
+1. Definitions
+   - "Software" refers to FA11y/Fortnite Access, including but not limited to its source code, binaries, documentation, assets, and any associated files.
+   - "Derivative Works" refers to any work based upon or derived from the Software, including but not limited to modifications, enhancements, adaptations, or any other form of alteration.
+   - "Commercial Use" means:
+     a) Any use in a commercial, corporate, or business environment
+     b) Any use that generates revenue directly or indirectly
+     c) Any use in connection with paid services or products
+     d) Any use that provides commercial advantage
+     e) Any monetization through advertising, sponsorships, or donations
+     f) Any use by commercial entities, even if not for profit
+   - "Source Code" means the human-readable form of the Software and Derivative Works.
+   - "You" refers to any individual or entity exercising permissions under this License.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+2. Grant of Rights
+Subject to the terms and conditions of this License, the Copyright holder hereby grants you a worldwide, royalty-free, non-exclusive license to:
+   a) Use, copy, and distribute the Software
+   b) Create, use, and distribute Derivative Works
+   c) Study and modify the Software
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+3. Conditions and Restrictions
+All rights granted under this License are subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   3.1 Attribution Requirements
+   - You must prominently display the following attribution notice in all copies and Derivative Works:
+     "Based on FA11y/Fortnite Access by GreenBean (https://github.com/GreenBeanGravy/FA11y)"
+   - The attribution must be visible in:
+     a) The Source Code
+     b) Documentation
+     c) User interface (if applicable)
+     d) Any public distributions
+   - You must clearly document all modifications made to the Software
+   - You may not use the name GreenBean or FA11y/Fortnite Access to endorse or promote Derivative Works without specific prior written permission
 
-Additional Non-Commercial Use Policy
+   3.2 Source Code Requirements
+   - The complete Source Code must be publicly available and freely accessible
+   - Source Code must be provided in one of the following ways:
+     a) Included with any distributed binaries
+     b) Available through a public repository
+     c) Provided upon request within 48 hours
+   - Build instructions and dependencies must be clearly documented
+   - You may not obfuscate or deliberately make the Source Code difficult to understand
 
-In addition to the terms of the MIT License above, the following policy applies to all usage of this software:
+   3.3 Non-Commercial Use Restrictions
+   The following uses are explicitly prohibited without written permission:
+   - Operating the Software as a paid service
+   - Including the Software in a commercial product
+   - Using the Software to provide commercial services
+   - Monetizing the Software through any means
+   - Using the Software in a business environment
+   - Accepting donations or sponsorships related to the Software
 
-1. Non-Commercial Use Only: This software and derivatives may not be used for commercial purposes without explicit written permission from the copyright holder. "Commercial purposes" means any activity intended for or directed toward commercial advantage or monetary compensation.
+4. Violation and Remedies
+   4.1 Any violation of this License immediately and automatically terminates your rights under this License.
+   
+   4.2 Remedies for violations include but are not limited to:
+   - Statutory damages for copyright infringement
+   - Injunctive relief
+   - Recovery of legal costs and attorney fees
+   - Disgorgement of any profits from unauthorized use
+   
+   4.3 Upon discovery of a violation, you must:
+   - Immediately cease all use of the Software
+   - Destroy all copies and Derivative Works
+   - Remove all public distributions
+   - Issue public correction notices as directed by the Copyright holder
 
-2. Attribution: Any use of this software must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+5. Dispute Resolution
+   5.1 Before initiating legal action, parties agree to:
+   - Provide written notice of alleged violations
+   - Allow 30 days for good-faith resolution attempts
+   - Participate in mediation if direct resolution fails
+   
+   5.2 If dispute resolution fails:
+   - Legal action may be initiated in any jurisdiction where violations occur
+   - The prevailing party shall be entitled to recover reasonable legal costs
+   - Multiple jurisdictions may be pursued simultaneously for violations
 
-3. No Warranty: The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement.
+6. Disclaimer of Warranty and Limitation of Liability
+   6.1 The Software is provided "AS IS", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement.
 
-4. Termination: Your rights under this policy will terminate automatically if you fail to comply with its terms. Upon termination, you must cease all use and distribution of the software.
+   6.2 In no event shall the Copyright holder be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the Software or the use or other dealings in the Software.
 
-By using, copying, modifying, or distributing the Software, you agree to be bound by the terms of both the MIT License and this Additional Non-Commercial Use Policy.
+7. International Applicability and Enforcement
+   7.1 This License is designed to be enforceable under:
+   - The Berne Convention
+   - International copyright treaties
+   - National copyright laws
+   
+   7.2 If any provision is unenforceable in a jurisdiction:
+   - The provision shall be modified to minimum extent necessary
+   - Remaining provisions remain in full effect
+   - Most restrictive interpretation shall apply
+
+8. Acceptance
+By using, copying, modifying, or distributing the Software, you accept and agree to be bound by the terms of this License. If you do not agree, you may not use the Software.
+
+End of Licence
