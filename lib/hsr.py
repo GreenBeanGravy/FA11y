@@ -39,5 +39,5 @@ def check_rarity():
 def check_health_shields():
     screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
     pixels = screenshot.load()
-    check_value(pixels, 384, 980, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
-    check_value(pixels, 384, 950, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
+    check_value(pixels, 423, 1024, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
+    check_value(pixels, 423, 984, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
