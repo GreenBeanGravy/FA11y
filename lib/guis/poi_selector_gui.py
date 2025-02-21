@@ -138,80 +138,113 @@ class POIData:
 
     def __init__(self):
         if not POIData._initialized:
-            self.maps: Dict[str, MapData] = {}
+            self.maps = {}
             self.current_map = "main"  # Default map
-            self.main_pois: List[Tuple[str, str, str]] = []  # Keep these attributes
-            self.landmarks: List[Tuple[str, str, str]] = []  # Keep these attributes
+            self.main_pois = []  # Initialize empty lists
+            self.landmarks = []
             self.coordinate_system = CoordinateSystem()
+            
+            # Initialize maps dictionary first
             self._load_all_maps()
-            self._fetch_and_process_pois()  # For main map
+            
+            # Then fetch and process POIs
+            try:
+                self._fetch_and_process_pois()
+            except Exception as e:
+                print(f"Error initializing POI data: {e}")
+                # Ensure we have at least empty data structures
+                self.main_pois = []
+                self.landmarks = []
+                if "main" not in self.maps:
+                    self.maps["main"] = MapData("Main Map", [], "maps/main.png")
+            
             POIData._initialized = True
             
     def _load_all_maps(self):
-        # Load main map first
-        self.maps["main"] = MapData("Main Map", [], "maps/main.png")
-        
-        # Find all map POI files in maps directory
-        maps_dir = "maps"
-        if os.path.exists(maps_dir):
-            for filename in os.listdir(maps_dir):
-                if filename.startswith("map_") and filename.endswith("_pois.txt"):
-                    map_name = filename[4:-9]  # Remove 'map_' and '_pois.txt'
-                    if map_name != "main":
-                        pois = self._load_map_pois(os.path.join(maps_dir, filename))
-                        display_name = map_name.replace('_', ' ')
-                        self.maps[map_name] = MapData(
-                            name=display_name.title(),
-                            pois=pois,
-                            image_file=f"maps/{map_name}.png"
-                        )
+        try:
+            # Load main map first
+            self.maps["main"] = MapData("Main Map", [], "maps/main.png")
+            
+            # Find all map POI files in maps directory
+            maps_dir = "maps"
+            if os.path.exists(maps_dir):
+                for filename in os.listdir(maps_dir):
+                    if filename.startswith("map_") and filename.endswith("_pois.txt"):
+                        map_name = filename[4:-9]  # Remove 'map_' and '_pois.txt'
+                        if map_name != "main":
+                            pois = self._load_map_pois(os.path.join(maps_dir, filename))
+                            display_name = map_name.replace('_', ' ')
+                            self.maps[map_name] = MapData(
+                                name=display_name.title(),
+                                pois=pois,
+                                image_file=f"maps/{map_name}.png"
+                            )
+        except Exception as e:
+            print(f"Error loading maps: {e}")
+            # Ensure main map exists even if loading fails
+            if "main" not in self.maps:
+                self.maps["main"] = MapData("Main Map", [], "maps/main.png")
 
     def _load_map_pois(self, filename: str) -> List[Tuple[str, str, str]]:
         pois = []
         try:
             with open(filename, 'r') as f:
                 for line in f.readlines():
-                    name, x, y = line.strip().split(',')
-                    pois.append((name.strip(), x.strip(), y.strip()))
+                    if line.strip():  # Skip empty lines
+                        parts = line.strip().split(',')
+                        if len(parts) >= 3:  # Ensure we have at least name, x, y
+                            name, x, y = parts[:3]
+                            pois.append((name.strip(), x.strip(), y.strip()))
         except Exception as e:
             print(f"Error loading POIs from {filename}: {e}")
         return pois
 
     def _fetch_and_process_pois(self) -> None:
         try:
-            #print("Fetching POI data from API...")
             response = requests.get('https://fortnite-api.com/v1/map', params={'language': 'en'})
             response.raise_for_status()
             
-            # Print raw response for debugging
-            #print("\nRAW API Response:")
-            #print(json.dumps(response.json(), indent=2))
-            #print("\nProcessing data...")
+            api_data = response.json().get('data', {}).get('pois', [])
             
-            self.api_data = response.json().get('data', {}).get('pois', [])
+            # Clear existing POIs before processing new ones
+            self.main_pois = []
+            self.landmarks = []
 
-            for poi in self.api_data:
+            for poi in api_data:
+                if not poi.get('name'):  # Skip POIs without names
+                    continue
+                    
                 name = poi['name']
-                world_x = float(poi['location']['x'])
-                world_y = float(poi['location']['y'])
+                location = poi.get('location', {})
+                if not location or 'x' not in location or 'y' not in location:
+                    continue
+                    
+                world_x = float(location['x'])
+                world_y = float(location['y'])
                 screen_x, screen_y = self.coordinate_system.world_to_screen(world_x, world_y)
                 
+                poi_id = poi.get('id', '')
+                
                 # Filter main POIs (including both patterns)
-                if re.match(r'Athena\.Location\.POI\.Generic\.(?:EE\.)?\d+', poi['id']):
+                if re.match(r'Athena\.Location\.POI\.Generic\.(?:EE\.)?\d+', poi_id):
                     self.main_pois.append((name, str(screen_x), str(screen_y)))
                 # Filter landmarks (including gas stations)
-                elif re.match(r'Athena\.Location\.UnNamedPOI\.(Landmark|GasStation)\.\d+', poi['id']):
+                elif re.match(r'Athena\.Location\.UnNamedPOI\.(Landmark|GasStation)\.\d+', poi_id):
                     self.landmarks.append((name, str(screen_x), str(screen_y)))
 
-            # Also store main POIs in the maps dictionary
-            self.maps["main"].pois = self.main_pois
+            # Update main map POIs
+            if "main" in self.maps:
+                self.maps["main"].pois = self.main_pois
 
             print(f"Successfully processed {len(self.main_pois)} main POIs and {len(self.landmarks)} landmarks")
 
-        except requests.RequestException as e:
+        except Exception as e:
             print(f"Error fetching POIs from API: {e}")
+            # Ensure we have empty lists if the fetch fails
             self.main_pois = []
             self.landmarks = []
+            if "main" in self.maps:
+                self.maps["main"].pois = []
 
 # Constants
 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
