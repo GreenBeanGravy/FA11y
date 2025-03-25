@@ -22,6 +22,13 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 AUTO_UPDATE_UPDATER = True
 MAX_RESTARTS = 3
 
+# Files to ignore during updates (will not be replaced)
+IGNORED_FILES = [
+    'config.txt',
+    'CUSTOM_POI.txt',
+    'FAVORITE_POIS.txt',
+]
+
 def print_info(message):
     """Prints information to the console."""
     print(message)
@@ -201,6 +208,26 @@ def file_needs_update(local_path, github_content):
     with open(local_path, 'rb') as file:
         return file.read() != github_content
 
+def is_sound_file(file_path):
+    """
+    Checks if a file is in the sounds folder and is a sound file.
+    """
+    return file_path.startswith('sounds/') and file_path.lower().endswith(('.ogg', '.wav', '.mp3'))
+
+def should_skip_file(file_path):
+    """
+    Determines if a file should be skipped during update.
+    """
+    # Skip files in the ignored list
+    if os.path.basename(file_path) in IGNORED_FILES:
+        return True
+    
+    # Special handling for sound files - only add if not exist
+    if is_sound_file(file_path) and os.path.exists(file_path):
+        return True
+        
+    return False
+
 def update_script(repo, script_name):
     """
     Updates the script from a GitHub repository if needed.
@@ -220,6 +247,7 @@ def check_and_update_file(repo, file_path):
     """
     Checks if a file needs to be updated from the GitHub repository.
     """
+    # Handle readme.md specially
     if file_path.lower() == 'readme.md':
         readme_content = download_file(repo, file_path)
         if readme_content and file_needs_update('README.txt', readme_content):
@@ -227,6 +255,11 @@ def check_and_update_file(repo, file_path):
                 file.write(readme_content)
             print_info("Updated README.txt")
             return True
+        return False
+
+    # Check if file should be skipped
+    if should_skip_file(file_path):
+        print_info(f"Skipping file: {file_path}")
         return False
 
     # Adjust the filter to ensure all relevant files are considered
@@ -260,7 +293,15 @@ def update_folder(repo, folder, branch='main'):
             local_files = set(os.listdir(folder))
             files_to_remove = local_files - remote_files
             
+            # Don't remove custom sounds 
+            if folder == 'sounds':
+                files_to_remove = set()
+            
             for file in files_to_remove:
+                # Skip ignored files
+                if file in IGNORED_FILES:
+                    continue
+                    
                 os.remove(os.path.join(folder, file))
                 print_info(f"Removed file from {folder} folder: {file}")
             
@@ -493,7 +534,34 @@ def main():
 
     icons_updated = update_folder("GreenBeanGravy/FA11y", "icons")
     images_updated = update_folder("GreenBeanGravy/FA11y", "images")
-    fa11y_updates = updates_available or icons_updated or images_updated
+    
+    # Special handling for sounds folder - only add missing files
+    sounds_updated = False
+    if 'sounds' not in os.listdir():
+        os.makedirs('sounds', exist_ok=True)
+        sounds_updated = True
+    
+    # Check if we need to update the sounds folder by adding missing files
+    url = f"https://api.github.com/repos/GreenBeanGravy/FA11y/contents/sounds?ref=main"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        remote_sound_files = [file['name'] for file in response.json() if file['type'] == 'file']
+        existing_sounds = os.listdir('sounds') if os.path.exists('sounds') else []
+        
+        # Only download sounds that don't exist locally
+        for sound_file in remote_sound_files:
+            if sound_file not in existing_sounds:
+                download_file_to_path(
+                    f"https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/sounds/{sound_file}",
+                    os.path.join('sounds', sound_file)
+                )
+                print_info(f"Added missing sound file: {sound_file}")
+                sounds_updated = True
+    except requests.RequestException as e:
+        print_info(f"Failed to check sounds directory: {e}")
+    
+    fa11y_updates = updates_available or icons_updated or images_updated or sounds_updated
 
     if fa11y_updates:
         print_info("Updates processed.")

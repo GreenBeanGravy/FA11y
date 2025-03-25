@@ -46,16 +46,13 @@ from lib.mouse import (
     mouse_scroll,
 )
 
-from lib.guis.poi_selector_gui import POIData, select_poi_tk
-from lib.guis.gamemode_selector_gui import select_gamemode_tk
-from lib.guis.custom_poi_gui import create_custom_poi_gui
-from lib.guis.config_gui import create_config_gui
+from lib.guis.poi_selector_gui import POIData, launch_poi_selector
+from lib.exit_match import exit_match
 from lib.height_checker import start_height_checker
 from lib.background_checks import monitor
 from lib.material_monitor import material_monitor
 from lib.resource_monitor import resource_monitor
 from lib.minimap_direction import speak_minimap_direction, find_minimap_icon_direction
-from lib.exit_match import exit_match
 from lib.hotbar_detection import (
     initialize_hotbar_detection,
     detect_hotbar_item,
@@ -68,6 +65,7 @@ from lib.utilities import (
     get_config_value,
     get_config_boolean,
     read_config,
+    Config,
 )
 from lib.pathfinder import toggle_pathfinding
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
@@ -194,8 +192,8 @@ def reload_config() -> None:
         'announce direction faced': speak_minimap_direction,
         'check health shields': check_health_shields,
         'check rarity': check_rarity,
-        'open p o i selector': lambda: select_poi_tk(poi_data_instance),
-        'open gamemode selector': select_gamemode_tk,
+        'open p o i selector': open_poi_selector,
+        'open gamemode selector': open_gamemode_selector,
         'open configuration menu': open_config_gui,
         'exit match': exit_match,
         'create custom p o i': handle_custom_poi_gui,
@@ -290,12 +288,64 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
 def open_config_gui() -> None:
     """Open the configuration GUI."""
     config_gui_open.set()
-    create_config_gui(update_script_config)
+    from lib.guis.config_gui import launch_config_gui
+    
+    # Create a Config instance for the UI
+    config_instance = Config()
+    
+    # Define the update callback
+    def update_callback(updated_config):
+        # Update the global config with the new one
+        global config
+        config = updated_config
+        
+        # Save the config to disk
+        with open('config.txt', 'w') as f:
+            config.write(f)
+            
+        # Reload configuration
+        reload_config()
+        print("Configuration updated and saved to disk")
+    
+    # Launch the config GUI
+    launch_config_gui(config_instance, update_callback)
     config_gui_open.clear()
 
-def handle_custom_poi_gui():
-    use_ppi = check_for_pixel()
-    create_custom_poi_gui(use_ppi)
+def open_poi_selector() -> None:
+    """Open the POI selector GUI."""
+    from lib.guis.poi_selector_gui import launch_poi_selector
+    
+    # Initialize POI data if not already done
+    global poi_data_instance
+    if poi_data_instance is None:
+        poi_data_instance = POIData()
+    
+    # Launch the POI selector
+    launch_poi_selector(poi_data_instance)
+
+def handle_custom_poi_gui(use_ppi=False) -> None:
+    """Handle custom POI GUI creation"""
+    from lib.guis.custom_poi_gui import launch_custom_poi_creator
+    
+    # Create a player position detector adapter
+    class PlayerDetector:
+        def get_player_position(self, use_ppi):
+            if use_ppi:
+                from lib.ppi import find_player_position
+                return find_player_position()
+            else:
+                from lib.player_location import find_player_icon_location
+                return find_player_icon_location()
+    
+    # Launch custom POI creator
+    launch_custom_poi_creator(use_ppi, PlayerDetector())
+
+def open_gamemode_selector() -> None:
+    """Open the gamemode selector GUI."""
+    from lib.guis.gamemode_gui import launch_gamemode_selector
+    
+    # Launch gamemode selector
+    launch_gamemode_selector()
 
 def run_updater() -> bool:
     """Run the updater script."""

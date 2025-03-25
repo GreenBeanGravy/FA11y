@@ -432,3 +432,134 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
         ctypes.windll.user32.SetCursorPos(center_x, center_y)
     except Exception as e:
         print(f"Failed to move cursor to window center: {e}")
+
+# New additions for supporting the updated UI system
+
+def resolve_path(relative_path):
+    """
+    Resolve a relative path to an absolute path.
+    
+    Args:
+        relative_path: Relative path to resolve
+        
+    Returns:
+        str: Absolute path
+    """
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # lib directory
+    root_dir = os.path.dirname(script_dir)  # root directory (where FA11y.py is)
+    return os.path.join(root_dir, relative_path)
+
+class Config:
+    """
+    Config adapter class that bridges between FA11y's existing config system
+    and what the new UI components expect.
+    """
+    def __init__(self, config_file='config.txt'):
+        """
+        Initialize with a ConfigParser instance or create a new one.
+        
+        Args:
+            config_file: Path to config file
+        """
+        self.config_file = config_file
+        self.config = read_config()  # Use existing read_config function
+        
+    def get_value(self, key, section=None, fallback=None):
+        """
+        Get a value from the configuration.
+        
+        Args:
+            key: Configuration key
+            section: Optional section name (will search all sections if None)
+            fallback: Default value if not found
+            
+        Returns:
+            The configuration value
+        """
+        if section:
+            if section in self.config.sections() and key in self.config[section]:
+                value_string = self.config[section][key]
+                # Extract just the value part (before any description in quotes)
+                if '"' in value_string:
+                    return value_string.split('"')[0].strip()
+                return value_string
+            return fallback
+        else:
+            return get_config_value(self.config, key, fallback)[0]
+    
+    def get_boolean(self, key, section=None, fallback=False):
+        """Get a boolean value from configuration."""
+        if section:
+            value = self.get_value(key, section, str(fallback))
+            return value.lower() in ('true', 'yes', 'on', '1')
+        else:
+            return get_config_boolean(self.config, key, fallback)
+    
+    def get_int(self, key, section=None, fallback=0):
+        """Get an integer value from configuration."""
+        if section:
+            value = self.get_value(key, section, fallback)
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return fallback
+        else:
+            return get_config_int(self.config, key, fallback)
+    
+    def get_float(self, key, section=None, fallback=0.0):
+        """Get a float value from configuration."""
+        if section:
+            value = self.get_value(key, section, fallback)
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return fallback
+        else:
+            return get_config_float(self.config, key, fallback)
+    
+    def set_value(self, key, value, section):
+        """
+        Set a configuration value.
+        
+        Args:
+            key: Configuration key
+            value: Value to set
+            section: Section name
+        """
+        if section not in self.config.sections():
+            self.config.add_section(section)
+            
+        # Preserve any existing description
+        current = self.config[section].get(key, "")
+        description = ""
+        if current and '"' in current:
+            description = current.split('"', 1)[1].strip()
+            description = f' "{description}"'
+            
+        self.config[section][key] = f"{value}{description}"
+    
+    def set_poi(self, name, x, y):
+        """
+        Set the selected POI.
+        
+        Args:
+            name: POI name
+            x: X coordinate
+            y: Y coordinate
+        """
+        self.set_value('selected_poi', f"{name}, {x}, {y}", 'POI')
+    
+    def set_current_map(self, map_name):
+        """
+        Set the current map.
+        
+        Args:
+            map_name: Map name
+        """
+        self.set_value('current_map', map_name, 'POI')
+    
+    def save(self):
+        """Save configuration to file."""
+        with open(self.config_file, 'w') as f:
+            self.config.write(f)
