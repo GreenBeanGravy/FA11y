@@ -22,7 +22,7 @@ MouseKeys = true "Toggles the keybinds used to look around, left click, and righ
 ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
 AnnounceWeaponAttachments = true "Toggles the announcements of weapon attachments when equipping weapons."
 AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weapons."
-AutoUpdates = true "Toggles automatic updates of FA11y."
+AutoUpdates = false "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
@@ -434,21 +434,6 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
         print(f"Failed to move cursor to window center: {e}")
 
 # New additions for supporting the updated UI system
-
-def resolve_path(relative_path):
-    """
-    Resolve a relative path to an absolute path.
-    
-    Args:
-        relative_path: Relative path to resolve
-        
-    Returns:
-        str: Absolute path
-    """
-    import os
-    script_dir = os.path.dirname(os.path.abspath(__file__))  # lib directory
-    root_dir = os.path.dirname(script_dir)  # root directory (where FA11y.py is)
-    return os.path.join(root_dir, relative_path)
 
 class Config:
     """

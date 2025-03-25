@@ -70,9 +70,35 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
     # Get current map from config
     config = configparser.ConfigParser()
     config.read('CONFIG.txt')
-    current_map = config.get('POI', 'current_map', fallback='main')
-    if current_map != 'main' and current_map + '_' in poi_data.maps:
-        current_map = current_map + '_'
+    current_map_value = config.get('POI', 'current_map', fallback='main')
+    
+    # Convert the config map name to the correct key in poi_data.maps
+    current_map = current_map_value
+    if current_map != 'main':
+        # Try different map name formats
+        map_formats = [
+            current_map,                    # Direct match
+            f"map_{current_map}",           # map_X format
+            f"map_{current_map}_pois"       # map_X_pois format
+        ]
+        
+        for format in map_formats:
+            if format in poi_data.maps:
+                current_map = format
+                break
+        else:
+            # For backward compatibility with space-separated names (like "o g")
+            for map_key in poi_data.maps.keys():
+                if map_key.startswith('map_') and map_key.endswith('_pois'):
+                    # Extract the middle portion and replace underscores with spaces
+                    middle = map_key[4:-5].replace('_', ' ')
+                    if middle == current_map:
+                        current_map = map_key
+                        break
+            else:
+                # If no match found, default to main
+                print(f"Warning: Map '{current_map}' not found. Using 'main' instead.")
+                current_map = 'main'
     
     if isinstance(selected_poi, tuple) and len(selected_poi) == 1:
         selected_poi = selected_poi[0]
@@ -122,6 +148,7 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
     
     print(f"Error: POI '{selected_poi}' not found in map data")
     return selected_poi, None
+
 def perform_poi_actions(poi_data, center_mass_screen, speak_info=True, use_ppi=False):
     poi_name, coordinates = poi_data
     print(f"Performing actions for POI: {poi_name}, Coordinates: {coordinates}")
