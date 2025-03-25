@@ -44,6 +44,7 @@ class POIData:
         self.current_map = 'main'
         
         self.load_pois()
+        self.get_current_map()
     
     def load_pois(self):
         """Load POIs from files"""
@@ -252,17 +253,8 @@ class POIGUI(AccessibleUI):
         self.poi_data = poi_data
         self.config_file = config_file
         
-        # Load current map from config
-        config = configparser.ConfigParser()
-        config.read(CONFIG_FILE)
-        self.current_map = config.get('POI', 'current_map', fallback='main')
-        
-        # Convert clean map name back to file format if needed
-        if self.current_map != 'main' and f"{self.current_map}_" in self.poi_data.maps:
-            self.current_map = f"{self.current_map}_"
-        
-        if self.current_map not in self.poi_data.maps:
-            self.current_map = 'main'
+        # Use the current map already determined by poi_data
+        self.current_map = poi_data.current_map
         
         # Create mutable reference for current map and POI set
         self.current_map_ref = [self.current_map]
