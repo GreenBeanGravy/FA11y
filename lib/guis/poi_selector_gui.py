@@ -525,7 +525,19 @@ class POIGUI(AccessibleUI):
             if 'POI' not in config.sections():
                 config.add_section('POI')
             config.set('POI', 'selected_poi', f"{actual_name}, 0, 0")
-            config.set('POI', 'current_map', self.current_map_ref[0].replace('_', ''))
+            
+            # Use the same map formatting logic as update_config_file
+            current_map = self.current_map_ref[0]
+            if current_map == 'main':
+                config.set('POI', 'current_map', 'main')
+            elif current_map.startswith('map_') and current_map.endswith('_pois'):
+                # Extract the middle part, preserving underscores
+                map_id = current_map[4:-5]
+                config.set('POI', 'current_map', map_id)
+            else:
+                # Fallback if the format is unexpected
+                config.set('POI', 'current_map', current_map)
+                
             with open(self.config_file, 'w') as f:
                 config.write(f)
             
