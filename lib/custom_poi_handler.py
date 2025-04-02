@@ -1,8 +1,15 @@
+"""
+Custom POI handler for FA11y
+Provides functions for managing custom points of interest with map-specific support
+"""
 from typing import Optional, Tuple, List, Dict
-import configparser
 import os
+import logging
 
-def parse_custom_poi_line(line: str) -> Optional[Tuple[str, int, int]]:
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+def parse_custom_poi_line(line: str) -> Optional[Tuple[str, int, int, str]]:
     """
     Parse a line from CUSTOM_POI.txt safely.
     
@@ -10,12 +17,12 @@ def parse_custom_poi_line(line: str) -> Optional[Tuple[str, int, int]]:
         line: Raw line from CUSTOM_POI.txt
         
     Returns:
-        Tuple of (poi_name, x, y) or None if invalid
+        Tuple of (poi_name, x, y, map_name) or None if invalid
     """
     try:
         # Remove whitespace and split
         parts = [p.strip() for p in line.strip().split(',')]
-        if len(parts) != 3:
+        if len(parts) < 3:
             return None
             
         # Extract name and coordinates
@@ -23,15 +30,21 @@ def parse_custom_poi_line(line: str) -> Optional[Tuple[str, int, int]]:
         x = int(float(parts[1]))
         y = int(float(parts[2]))
         
-        return (poi_name, x, y)
+        # Extract map name if available (backward compatibility)
+        map_name = parts[3] if len(parts) > 3 else "main"
+        
+        return (poi_name, x, y, map_name)
     except (ValueError, IndexError):
-        print(f"Warning: Invalid custom POI line: {line}")
+        logger.warning(f"Warning: Invalid custom POI line: {line}")
         return None
 
-def load_custom_pois() -> List[Tuple[str, int, int]]:
+def load_custom_pois(map_name: str = None) -> List[Tuple[str, str, str]]:
     """
-    Load and validate all custom POIs from file.
+    Load and validate custom POIs from file, optionally filtering by map.
     
+    Args:
+        map_name: Optional map name to filter POIs
+        
     Returns:
         List of valid (name, x, y) POI tuples
     """
@@ -45,13 +58,17 @@ def load_custom_pois() -> List[Tuple[str, int, int]]:
             for line in f:
                 poi_data = parse_custom_poi_line(line)
                 if poi_data:
-                    custom_pois.append(poi_data)
+                    name, x, y, poi_map = poi_data
+                    
+                    # If map_name is provided, filter by that map
+                    if map_name is None or poi_map == map_name:
+                        custom_pois.append((name, str(x), str(y)))
     except Exception as e:
-        print(f"Error loading custom POIs: {e}")
+        logger.error(f"Error loading custom POIs: {e}")
         
     return custom_pois
 
-def save_custom_poi(poi_name: str, x: int, y: int) -> bool:
+def save_custom_poi(poi_name: str, x: int, y: int, map_name: str = "main") -> bool:
     """
     Save a new custom POI to file.
     
@@ -59,16 +76,17 @@ def save_custom_poi(poi_name: str, x: int, y: int) -> bool:
         poi_name: Name of the POI
         x: X coordinate
         y: Y coordinate
+        map_name: Map name this POI belongs to
         
     Returns:
         True if saved successfully, False otherwise
     """
     try:
         with open('CUSTOM_POI.txt', 'a', encoding='utf-8') as f:
-            f.write(f"{poi_name},{x},{y}\n")
+            f.write(f"{poi_name},{x},{y},{map_name}\n")
         return True
     except Exception as e:
-        print(f"Error saving custom POI: {e}")
+        logger.error(f"Error saving custom POI: {e}")
         return False
 
 def handle_custom_poi_selection(selected_poi: str, use_ppi: bool = False) -> Tuple[Optional[str], Optional[Tuple[int, int]]]:
@@ -82,8 +100,19 @@ def handle_custom_poi_selection(selected_poi: str, use_ppi: bool = False) -> Tup
     Returns:
         Tuple of (poi_name, (x, y)) or (None, None) if not found
     """
-    # Load all custom POIs
-    custom_pois = load_custom_pois()
+    # Load all custom POIs (no map filtering for direct selection)
+    custom_pois = []
+    
+    if os.path.exists('CUSTOM_POI.txt'):
+        try:
+            with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
+                for line in f:
+                    poi_data = parse_custom_poi_line(line)
+                    if poi_data:
+                        name, x, y, _ = poi_data  # Map name not needed for selection
+                        custom_pois.append((name, x, y))
+        except Exception as e:
+            logger.error(f"Error loading custom POIs: {e}")
     
     # Match selected POI name
     selected_poi = selected_poi.lower()
@@ -93,23 +122,24 @@ def handle_custom_poi_selection(selected_poi: str, use_ppi: bool = False) -> Tup
             
     return (None, None)
 
-def create_custom_poi(current_position: Optional[Tuple[int, int]], poi_name: str) -> bool:
+def create_custom_poi(current_position: Optional[Tuple[int, int]], poi_name: str, map_name: str = "main") -> bool:
     """
     Create a new custom POI at the current position.
     
     Args:
         current_position: Current coordinates (x, y)
         poi_name: Name for the new POI
+        map_name: Map name this POI belongs to
         
     Returns:
         True if POI was created successfully, False otherwise
     """
     if not current_position:
-        print("Error: Could not determine current position")
+        logger.error("Error: Could not determine current position")
         return False
         
     x, y = current_position
-    return save_custom_poi(poi_name, x, y)
+    return save_custom_poi(poi_name, x, y, map_name)
 
 # Update the POI handling in icon.py to use these functions:
 def update_poi_handler(selected_poi: str, use_ppi: bool = False) -> Tuple[Optional[str], Optional[Tuple[int, int]]]:

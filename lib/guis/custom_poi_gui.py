@@ -1,4 +1,5 @@
 """
+
 Custom POI creation GUI for FA11y
 Provides interface for creating custom points of interest
 """
@@ -10,7 +11,7 @@ from typing import Optional, Tuple, Callable
 
 from lib.guis.base_ui import AccessibleUI
 from lib.guis.poi_selector_gui import POIData
-from lib.utilities import force_focus_window
+from lib.utilities import force_focus_window, read_config
 import pyautogui
 
 # Initialize logger
@@ -30,6 +31,10 @@ class CustomPOIGUI(AccessibleUI):
         
         self.use_ppi = use_ppi
         self.player_detector = player_detector
+        
+        # Get current map from config file
+        config = read_config()
+        self.current_map = config.get('POI', 'current_map', fallback='main')
         
         # Get initial position - we already checked in the launcher, so this should succeed
         self.coordinates = self.get_current_position()
@@ -88,6 +93,18 @@ class CustomPOIGUI(AccessibleUI):
         
         self.widgets["Custom POI"].append(entry)
         self.variables["Custom POI"]["POI Name"] = var
+        
+        # Add map name display
+        map_frame = ttk.Frame(self.tabs["Custom POI"])
+        map_frame.pack(fill='x', padx=5, pady=5)
+        
+        map_label = ttk.Label(map_frame, text="Current Map:")
+        map_label.pack(side='left')
+        
+        # Format map name for display - capitalize and replace underscores
+        display_map = self.current_map.replace('_', ' ').title()
+        map_value = ttk.Label(map_frame, text=display_map)
+        map_value.pack(side='right')
     
     def create_coordinate_display(self) -> None:
         """Create the coordinate display field"""
@@ -138,20 +155,22 @@ class CustomPOIGUI(AccessibleUI):
             self.speak("Please enter a name for the POI")
             return
 
-        if self.create_custom_poi(self.coordinates, poi_name):
-            self.speak(f"Custom POI {poi_name} saved")
+        # Include the current map when saving
+        if self.create_custom_poi(self.coordinates, poi_name, self.current_map):
+            self.speak(f"Custom POI {poi_name} saved for {self.current_map} map")
             self.close()
             # Refocus the game window
             pyautogui.click()
         else:
             self.speak("Error saving custom POI")
     
-    def create_custom_poi(self, coordinates: Tuple[int, int], name: str) -> bool:
+    def create_custom_poi(self, coordinates: Tuple[int, int], name: str, map_name: str) -> bool:
         """Create a custom POI file
         
         Args:
             coordinates: (x, y) coordinates
             name: POI name
+            map_name: Map name this POI belongs to
             
         Returns:
             bool: True if successful, False otherwise
@@ -162,9 +181,10 @@ class CustomPOIGUI(AccessibleUI):
             
         x, y = coordinates
         try:
+            # Save with map name included
             with open('CUSTOM_POI.txt', 'a', encoding='utf-8') as f:
-                f.write(f"{name},{x},{y}\n")
-            logger.info(f"Created custom POI: {name} at {x},{y}")
+                f.write(f"{name},{x},{y},{map_name}\n")
+            logger.info(f"Created custom POI: {name} at {x},{y} for map {map_name}")
             return True
         except Exception as e:
             logger.error(f"Error saving custom POI: {e}")

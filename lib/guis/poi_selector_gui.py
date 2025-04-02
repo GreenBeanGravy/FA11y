@@ -1,4 +1,5 @@
 """
+
 POI selector GUI for FA11y
 Provides interface for selecting points of interest for navigation
 """
@@ -17,6 +18,7 @@ from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 from lib.guis.base_ui import AccessibleUI
 from lib.utilities import force_focus_window
 from lib.player_location import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
+from lib.custom_poi_handler import load_custom_pois  # Import the updated function
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -151,7 +153,7 @@ class FavoritePOI:
 class FavoritesManager:
     """Manages favorite POIs"""
     
-    def __init__(self, filename: str = "fav_pois.txt"):
+    def __init__(self, filename: str = "FAVORITE_POIS.txt"):
         """Initialize the favorites manager
         
         Args:
@@ -318,18 +320,23 @@ class POIGUI(AccessibleUI):
         SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
         CLOSEST_LANDMARK = ("Closest Landmark", "0", "0")
         
+        # Get map-specific custom POIs using the current map
+        custom_pois = load_custom_pois(self.current_map_ref[0])
+        
         if self.current_map_ref[0] == "main":
             return [
                 ("Main P O I's", SPECIAL_POIS + sorted(self.poi_data.main_pois, key=self.poi_sort_key)),
                 ("Landmarks", [CLOSEST_LANDMARK] + sorted(self.poi_data.landmarks, key=self.poi_sort_key)),
                 ("Game Objects", GAME_OBJECTS),
-                ("Custom P O I's", self.load_custom_pois()),
+                ("Custom P O I's", sorted(custom_pois, key=self.poi_sort_key)),
                 ("Favorites", self.favorites_manager.get_favorites_as_tuples())
             ]
         else:
+            # For other maps, show their specific custom POIs
             current_map_name = self.poi_data.maps[self.current_map_ref[0]].name
             return [
                 (f"{current_map_name} P O I's", SPECIAL_POIS + sorted(self.poi_data.maps[self.current_map_ref[0]].pois, key=self.poi_sort_key)),
+                ("Custom P O I's", sorted(custom_pois, key=self.poi_sort_key)),
                 ("Favorites", self.favorites_manager.get_favorites_as_tuples())
             ]
     
@@ -357,25 +364,6 @@ class POIGUI(AccessibleUI):
         self.speak(f"Switched to {self.poi_data.maps[self.current_map_ref[0]].name}")
         return "break"
     
-    def load_custom_pois(self) -> List[Tuple[str, str, str]]:
-        """Load custom POIs from file
-        
-        Returns:
-            list: List of POI tuples (name, x, y)
-        """
-        custom_pois = []
-        if os.path.exists('CUSTOM_POI.txt'):
-            try:
-                with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
-                    for line in f:
-                        parts = line.strip().split(',')
-                        if len(parts) == 3:
-                            name, x, y = parts
-                            custom_pois.append((name, x, y))
-            except Exception as e:
-                logger.error(f"Error loading custom POIs: {e}")
-        return sorted(custom_pois, key=self.poi_sort_key)
-    
     def should_speak_position(self, poi_set_index: int, poi: Tuple[str, str, str]) -> bool:
         """Determine if position should be spoken for a POI
         
@@ -387,7 +375,7 @@ class POIGUI(AccessibleUI):
             bool: True if position should be spoken, False otherwise
         """
         # Don't speak positions for game objects
-        if poi_set_index == 2:
+        if poi_set_index == 2 and self.current_map_ref[0] == "main":
             return False
         
         # Don't speak positions for special POIs
@@ -453,7 +441,7 @@ class POIGUI(AccessibleUI):
 
         # Handle empty POI set
         if not pois_to_use:
-            no_poi_message = "No custom POIs set" if index == 3 else "No POIs available"
+            no_poi_message = f"No {set_name.lower()} available"
             button = ttk.Button(self.tabs["P O I's"], 
                               text=no_poi_message,
                               command=lambda: None)
@@ -467,7 +455,17 @@ class POIGUI(AccessibleUI):
         frame = ttk.Frame(self.tabs["P O I's"])
         frame.pack(expand=True, fill='both')
 
-        if index in [1, 3, 4]:  # Landmarks, Custom POIs, or Favorites
+        # Determine which layout to use
+        using_grid_layout = False
+        
+        # For main map, use grid layout for landmarks, custom POIs, and favorites
+        if self.current_map_ref[0] == "main":
+            using_grid_layout = index in [1, 3, 4]
+        # For other maps, use grid layout for custom POIs and favorites
+        else:
+            using_grid_layout = index in [1, 2]
+
+        if using_grid_layout:
             # Create grid layout for these types
             buttons_per_row = 10
             for i, poi in enumerate(pois_to_use):
@@ -580,12 +578,13 @@ class POIGUI(AccessibleUI):
                     # Update button text
                     focused.configure(text=f"⭐ {poi_text}" if is_added else poi_text)
                     
-                    # Update favorites list
-                    self.poi_sets[4] = ("Favorites", self.favorites_manager.get_favorites_as_tuples())
+                    # Update favorites list index based on current map
+                    favorites_index = 4 if self.current_map_ref[0] == "main" else 2
+                    self.poi_sets[favorites_index] = ("Favorites", self.favorites_manager.get_favorites_as_tuples())
                     
                     # Refresh favorites tab if currently viewing it
-                    if self.current_poi_set[0] == 4:
-                        self.set_poi_buttons(4)
+                    if self.current_poi_set[0] == favorites_index:
+                        self.set_poi_buttons(favorites_index)
                     
                     # Announce action
                     action = "added to" if is_added else "removed from"
@@ -603,7 +602,10 @@ class POIGUI(AccessibleUI):
         Returns:
             str: "break" to prevent default handling
         """
-        if self.current_poi_set[0] == 4:  # Only when in favorites tab
+        # Determine favorites index based on current map
+        favorites_index = 4 if self.current_map_ref[0] == "main" else 2
+        
+        if self.current_poi_set[0] == favorites_index:  # Only when in favorites tab
             self.show_remove_all_confirmation()
         return "break"
     
@@ -616,11 +618,14 @@ class POIGUI(AccessibleUI):
         )
         if confirmation:
             self.favorites_manager.remove_all_favorites()
-            self.poi_sets[4] = ("Favorites", [])
+            
+            # Update favorites list index based on current map
+            favorites_index = 4 if self.current_map_ref[0] == "main" else 2
+            self.poi_sets[favorites_index] = ("Favorites", [])
             
             # Refresh favorites tab if currently viewing it
-            if self.current_poi_set[0] == 4:
-                self.set_poi_buttons(4)
+            if self.current_poi_set[0] == favorites_index:
+                self.set_poi_buttons(favorites_index)
                 
             self.speak("All favorites removed")
         else:
@@ -692,19 +697,16 @@ class POIGUI(AccessibleUI):
             )
             
             # Check custom POIs if not found in main list
-            if not poi_entry and os.path.exists('CUSTOM_POI.txt'):
-                try:
-                    with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
-                        for line in f:
-                            parts = line.strip().split(',')
-                            if len(parts) == 3 and parts[0].lower() == selected_poi_name.lower():
-                                poi_entry = tuple(parts)
-                                break
-                except Exception as e:
-                    logger.error(f"Error reading custom POIs: {e}")
+            if not poi_entry:
+                # Use map-specific custom POI loading
+                custom_pois = load_custom_pois(current_map)
+                poi_entry = next(
+                    (poi for poi in custom_pois if poi[0].lower() == selected_poi_name.lower()),
+                    None
+                )
     
             # Check game objects if still not found
-            if not poi_entry:
+            if not poi_entry and current_map == "main":
                 from lib.object_finder import OBJECT_CONFIGS
                 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
                 
