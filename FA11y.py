@@ -6,6 +6,7 @@ import time
 import pyautogui
 import subprocess
 import win32com.client
+import requests
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
@@ -347,10 +348,115 @@ def open_gamemode_selector() -> None:
     # Launch gamemode selector
     launch_gamemode_selector()
 
+def handle_update_with_changelog(repo_owner: str, repo_name: str) -> None:
+    """
+    Handle update notification with changelog display option.
+    
+    Args:
+        repo_owner: Owner of the GitHub repository
+        repo_name: Name of the GitHub repository
+    """
+    repo = f"{repo_owner}/{repo_name}"
+    local_changelog_path = 'CHANGELOG.txt'
+    
+    # Check if local changelog exists
+    local_changelog_exists = os.path.exists(local_changelog_path)
+    
+    # Get the remote changelog
+    url = f"https://raw.githubusercontent.com/{repo}/main/CHANGELOG.txt"
+    remote_changelog = None
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        remote_changelog = response.text
+    except requests.RequestException as e:
+        print(f"Failed to fetch remote changelog: {e}")
+        speaker.speak("FA11y has been updated! Closing in 5 seconds...")
+        print("FA11y has been updated! Closing in 5 seconds...")
+        time.sleep(5)
+        return
+    
+    # Compare contents if local exists
+    changelog_updated = True
+    if local_changelog_exists:
+        try:
+            with open(local_changelog_path, 'r', encoding='utf-8') as f:
+                local_changelog = f.read()
+            changelog_updated = remote_changelog != local_changelog
+        except Exception as e:
+            print(f"Error reading local changelog: {e}")
+    
+    # Save remote changelog
+    try:
+        with open(local_changelog_path, 'w', encoding='utf-8') as f:
+            f.write(remote_changelog)
+    except Exception as e:
+        print(f"Error saving changelog: {e}")
+    
+    # Notify user about update
+    if changelog_updated:
+        # Use a simple console prompt
+        speaker.speak("FA11y has been updated! Open changelog? Press Y for yes, or any other key for no.")
+        print("FA11y has been updated! Open changelog? (Y/N)")
+        
+        # Wait for user input
+        try:
+            # Wait for a single keypress
+            import msvcrt
+            key = msvcrt.getch().decode('utf-8', errors='ignore').lower()
+            
+            if key == 'y':
+                # Open changelog
+                try:
+                    if sys.platform == 'win32':
+                        os.startfile(local_changelog_path)
+                    elif sys.platform == 'darwin':
+                        subprocess.call(['open', local_changelog_path])
+                    else:
+                        subprocess.call(['xdg-open', local_changelog_path])
+                except Exception as e:
+                    print(f"Failed to open changelog: {e}")
+                    speaker.speak("Failed to open changelog. Closing in 5 seconds...")
+                    print("Failed to open changelog. Closing in 5 seconds...")
+                    time.sleep(5)
+                    return
+            else:
+                speaker.speak("Closing in 5 seconds...")
+                print("Closing in 5 seconds...")
+        except:
+            # If msvcrt fails, fallback to input method
+            print("Press Y and Enter to open changelog, or just Enter to close")
+            response = input().strip().lower()
+            if response == 'y':
+                try:
+                    if sys.platform == 'win32':
+                        os.startfile(local_changelog_path)
+                    elif sys.platform == 'darwin':
+                        subprocess.call(['open', local_changelog_path])
+                    else:
+                        subprocess.call(['xdg-open', local_changelog_path])
+                except Exception as e:
+                    print(f"Failed to open changelog: {e}")
+            
+        # Wait 5 seconds before closing
+        time.sleep(5)
+    else:
+        # No changelog update
+        speaker.speak("FA11y has been updated! Closing in 5 seconds...")
+        print("FA11y has been updated! Closing in 5 seconds...")
+        time.sleep(5)
+
 def run_updater() -> bool:
     """Run the updater script."""
     result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
-    return result.returncode == 1
+    update_performed = result.returncode == 1
+    
+    if update_performed:
+        repo_owner = "GreenBeanGravy"
+        repo_name = "FA11y"
+        handle_update_with_changelog(repo_owner, repo_name)
+        
+    return update_performed
 
 def get_version(repo: str) -> str:
     """Get version from GitHub repository."""

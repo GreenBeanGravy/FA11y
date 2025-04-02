@@ -1,0 +1,3 @@
+4/2/2025 #1:
+- FA11y can now download and display a changelog of updates
+- Fixed the "FortniteManager.py" script as it broke after UI backend changes
