@@ -1,5 +1,4 @@
 """
-
 POI selector GUI for FA11y
 Provides interface for selecting points of interest for navigation
 """
@@ -18,7 +17,7 @@ from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 from lib.guis.base_ui import AccessibleUI
 from lib.utilities import force_focus_window
 from lib.player_location import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
-from lib.custom_poi_handler import load_custom_pois  # Import the updated function
+from lib.custom_poi_handler import load_custom_pois
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -26,6 +25,56 @@ logger = logging.getLogger(__name__)
 # Constants
 CONFIG_FILE = 'config.txt'
 POI_TYPE = Union[Tuple[str, str, str], str]
+
+class CoordinateSystem:
+    """Handles coordinate transformation between world and screen coordinates"""
+    def __init__(self, poi_file="pois.txt"):
+        self.poi_file = poi_file
+        self.REFERENCE_PAIRS = self._load_reference_pairs()
+        self.transform_matrix = self._calculate_transformation_matrix()
+
+    def _load_reference_pairs(self) -> dict:
+        """
+        Load POI reference pairs from the pois.txt file.
+        Expected format (one POI per line):
+        name|screen_x,screen_y|world_x,world_y
+        """
+        reference_pairs = {}
+        try:
+            with open(self.poi_file, 'r') as f:
+                for line in f:
+                    # Skip empty lines and comments
+                    if not line.strip() or line.strip().startswith('#'):
+                        continue
+                    
+                    # Parse the POI data
+                    parts = line.strip().split('|')
+                    if len(parts) == 3:
+                        name = parts[0].strip()
+                        screen_x, screen_y = map(int, parts[1].strip().split(','))
+                        world_x, world_y = map(float, parts[2].strip().split(','))
+                        reference_pairs[(world_x, world_y)] = (screen_x, screen_y)
+        except FileNotFoundError:
+            print(f"Warning: {self.poi_file} not found. Using empty reference pairs.")
+        except Exception as e:
+            print(f"Error loading POI data: {e}")
+        
+        return reference_pairs
+
+    def _calculate_transformation_matrix(self) -> np.ndarray:
+        if not self.REFERENCE_PAIRS:
+            raise ValueError("No reference pairs available to calculate transformation matrix")
+            
+        world_coords = np.array([(x, y) for x, y in self.REFERENCE_PAIRS.keys()])
+        screen_coords = np.array([coord for coord in self.REFERENCE_PAIRS.values()])
+        world_coords_homogeneous = np.column_stack([world_coords, np.ones(len(world_coords))])
+        transform_matrix, _, _, _ = np.linalg.lstsq(world_coords_homogeneous, screen_coords, rcond=None)
+        return transform_matrix
+
+    def world_to_screen(self, world_x: float, world_y: float) -> Tuple[int, int]:
+        world_coord = np.array([world_x, world_y, 1])
+        screen_coord = np.dot(world_coord, self.transform_matrix)
+        return (int(round(screen_coord[0])), int(round(screen_coord[1])))
 
 class MapData:
     """Map data container"""
@@ -35,32 +84,98 @@ class MapData:
 
 class POIData:
     """
-    Adapter class to provide POI data in the format expected by the new UI.
-    This bridges the gap between FA11y's POI handling and what the new UI expects.
+    POI data manager that combines local files and API data
     """
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(POIData, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self):
         """Initialize with data from FA11y's expected locations"""
-        self.main_pois = []
-        self.landmarks = []
-        self.maps = {}
-        self.current_map = 'main'
-        
-        self.load_pois()
-        self.get_current_map()
+        if not POIData._initialized:
+            self.main_pois = []
+            self.landmarks = []
+            self.maps = {}
+            self.current_map = 'main'
+            self.coordinate_system = CoordinateSystem()
+            
+            self._load_all_maps()
+            self._fetch_and_process_pois()  # Load from API
+            POIData._initialized = True
     
-    def load_pois(self):
-        """Load POIs from files"""
-        # Load main POIs from pois.txt
-        self.load_main_pois()
+    def _load_all_maps(self):
+        """Load all map configurations"""
+        # Initialize main map
+        self.maps["main"] = MapData("Main Map", [])
         
-        # Load map-specific POIs
-        self.load_map_pois()
-        
-        # Add main map to the maps dictionary
-        self.maps['main'] = MapData('Main Map', self.main_pois)
+        # Find all map POI files in maps directory
+        maps_dir = "maps"
+        if os.path.exists(maps_dir):
+            for filename in os.listdir(maps_dir):
+                if filename.startswith("map_") and filename.endswith("_pois.txt"):
+                    map_name = filename[4:-9]  # Remove 'map_' and '_pois.txt'
+                    if map_name != "main":
+                        pois = self._load_map_pois(os.path.join(maps_dir, filename))
+                        display_name = map_name.replace('_', ' ')
+                        self.maps[map_name] = MapData(
+                            name=display_name.title(),
+                            pois=pois
+                        )
     
-    def load_main_pois(self):
-        """Load main POIs from pois.txt"""
+    def _load_map_pois(self, filename: str) -> List[Tuple[str, str, str]]:
+        """Load POIs from a map-specific file"""
+        pois = []
+        try:
+            with open(filename, 'r') as f:
+                for line in f.readlines():
+                    name, x, y = line.strip().split(',')
+                    pois.append((name.strip(), x.strip(), y.strip()))
+        except Exception as e:
+            print(f"Error loading POIs from {filename}: {e}")
+        return pois
+    
+    def _fetch_and_process_pois(self) -> None:
+        """Fetch POIs from the Fortnite API and process them"""
+        try:
+            print("Fetching POI data from API...")
+            response = requests.get('https://fortnite-api.com/v1/map', params={'language': 'en'})
+            response.raise_for_status()
+            
+            self.api_data = response.json().get('data', {}).get('pois', [])
+
+            # Clear existing POIs to avoid duplicates
+            self.main_pois = []
+            self.landmarks = []
+
+            for poi in self.api_data:
+                name = poi['name']
+                world_x = float(poi['location']['x'])
+                world_y = float(poi['location']['y'])
+                screen_x, screen_y = self.coordinate_system.world_to_screen(world_x, world_y)
+                
+                # Filter main POIs (including both patterns)
+                if re.match(r'Athena\.Location\.POI\.Generic\.(?:EE\.)?\d+', poi['id']):
+                    self.main_pois.append((name, str(screen_x), str(screen_y)))
+                # Filter landmarks (including gas stations)
+                elif re.match(r'Athena\.Location\.UnNamedPOI\.(Landmark|GasStation)\.\d+', poi['id']):
+                    self.landmarks.append((name, str(screen_x), str(screen_y)))
+
+            # Also store main POIs in the maps dictionary
+            self.maps["main"].pois = self.main_pois
+
+            print(f"Successfully processed {len(self.main_pois)} main POIs and {len(self.landmarks)} landmarks")
+
+        except requests.RequestException as e:
+            print(f"Error fetching POIs from API: {e}")
+            # Fallback to local files if API request fails
+            self._load_local_pois()
+    
+    def _load_local_pois(self):
+        """Fallback method to load POIs from local files if API fails"""
         try:
             with open('pois.txt', 'r', encoding='utf-8') as f:
                 for line in f:
@@ -68,79 +183,23 @@ class POIData:
                     if len(parts) == 3:
                         name = parts[0]
                         coords = parts[1].split(',')
-                        game_coords = parts[2].split(',')
-                        if len(coords) == 2 and len(game_coords) == 2:
-                            # Convert coordinates
+                        if len(coords) == 2:
                             x, y = coords[0], coords[1]
                             self.main_pois.append((name, x, y))
         except FileNotFoundError:
-            print("pois.txt not found")
+            print("pois.txt not found for fallback")
         except Exception as e:
-            print(f"Error loading main POIs: {e}")
-    
-    def load_map_pois(self):
-        """Load map-specific POIs"""
-        try:
-            import os
-            maps_dir = 'maps'
-            if os.path.exists(maps_dir):
-                for filename in os.listdir(maps_dir):
-                    if filename.endswith('.txt') and filename.startswith('map_'):
-                        # Keep the original filename as the key (without .txt)
-                        map_key = filename[:-4]  # Remove .txt suffix
-                        
-                        # Create a display name by removing 'map_' and '_pois', and formatting
-                        display_name = map_key[4:].replace('_pois', '')
-                        display_name = display_name.replace('_', ' ').title()
-                        
-                        map_pois = []
-                        
-                        with open(os.path.join(maps_dir, filename), 'r', encoding='utf-8') as f:
-                            for line in f:
-                                parts = line.strip().split(',')
-                                if len(parts) == 3:
-                                    name, x, y = parts[0], parts[1], parts[2]
-                                    map_pois.append((name, x, y))
-                        
-                        # Create map data object
-                        self.maps[map_key] = MapData(display_name, map_pois)
-        except Exception as e:
-            print(f"Error loading map POIs: {e}")
+            print(f"Error loading main POIs from file: {e}")
     
     def get_current_map(self):
         """Get current map from config"""
         try:
-            import configparser
             config = configparser.ConfigParser()
             config.read('config.txt')
-            map_value = config.get('POI', 'current_map', fallback='main')
-            
-            # If it's not 'main', check if it matches any map key
-            if map_value != 'main':
-                # First try with direct match
-                if map_value in self.maps:
-                    self.current_map = map_value
-                # Then try with map_X format
-                elif f"map_{map_value}" in self.maps:
-                    self.current_map = f"map_{map_value}"
-                # Finally, try with map_X_pois format
-                elif f"map_{map_value}_pois" in self.maps:
-                    self.current_map = f"map_{map_value}_pois"
-                # For backward compatibility with space-separated names (like "o g")
-                else:
-                    for map_key in self.maps.keys():
-                        if map_key.startswith('map_') and map_key.endswith('_pois'):
-                            # Extract the middle portion and replace underscores with spaces
-                            middle = map_key[4:-5].replace('_', ' ')
-                            if middle == map_value:
-                                self.current_map = map_key
-                                break
+            return config.get('POI', 'current_map', fallback='main')
         except Exception as e:
             print(f"Error getting current map: {e}")
-    
-    def get_map_names(self):
-        """Get list of available map names"""
-        return list(self.maps.keys())
+            return 'main'
 
 @dataclass
 class FavoritePOI:
@@ -256,7 +315,9 @@ class POIGUI(AccessibleUI):
         self.config_file = config_file
         
         # Use the current map already determined by poi_data
-        self.current_map = poi_data.current_map
+        config = configparser.ConfigParser()
+        config.read(CONFIG_FILE)
+        self.current_map = config.get('POI', 'current_map', fallback='main')
         
         # Create mutable reference for current map and POI set
         self.current_map_ref = [self.current_map]
@@ -782,13 +843,17 @@ class POIGUI(AccessibleUI):
             return "position unknown"
 
 
-def launch_poi_selector(poi_data) -> None:
+def launch_poi_selector(poi_data = None) -> None:
     """Launch the POI selector GUI
     
     Args:
-        poi_data: POI data manager
+        poi_data: POI data manager (optional)
     """
     try:
+        # Initialize POI data if not provided
+        if poi_data is None:
+            poi_data = POIData()
+            
         gui = POIGUI(poi_data)
         gui.run()
     except Exception as e:
