@@ -1,3 +1,6 @@
+4/15/2025 #1:
+- Added missing items and the new Reload Slurp Rush map to the POI selector
+
 4/4/2025 #1:
 - The loading of landmarks and main POIs from the API was mistakenly reverted. This has been fixed.
 
