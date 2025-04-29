@@ -6,11 +6,9 @@ import threading
 import pyautogui
 import ctypes
 from lib.spatial_audio import SpatialAudio
-from lib.ppi import find_player_position
 from lib.utilities import get_config_int, get_config_float, get_config_boolean, read_config
 from accessible_output2.outputs.auto import Auto
-from lib.player_location import ROI_START_ORIG, ROI_END_ORIG
-from lib.minimap_direction import find_minimap_icon_direction
+from lib.player_position import find_player_position, find_minimap_icon_direction, ROI_START_ORIG, ROI_END_ORIG
 from lib.icon import auto_turn_towards_poi, find_closest_poi
 from lib.guis.poi_selector_gui import POIData
 

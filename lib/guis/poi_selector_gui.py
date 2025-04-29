@@ -16,7 +16,7 @@ from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 
 from lib.guis.base_ui import AccessibleUI
 from lib.utilities import force_focus_window
-from lib.player_location import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
+from lib.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
 from lib.custom_poi_handler import load_custom_pois
 
 # Initialize logger

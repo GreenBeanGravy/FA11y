@@ -53,7 +53,7 @@ from lib.height_checker import start_height_checker
 from lib.background_checks import monitor
 from lib.material_monitor import material_monitor
 from lib.resource_monitor import resource_monitor
-from lib.minimap_direction import speak_minimap_direction, find_minimap_icon_direction
+from lib.player_position import announce_current_direction as speak_minimap_direction
 from lib.hotbar_detection import (
     initialize_hotbar_detection,
     detect_hotbar_item,
@@ -331,12 +331,8 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
     # Create a player position detector adapter
     class PlayerDetector:
         def get_player_position(self, use_ppi):
-            if use_ppi:
-                from lib.ppi import find_player_position
-                return find_player_position()
-            else:
-                from lib.player_location import find_player_icon_location
-                return find_player_icon_location()
+            from lib.player_position import find_player_position, find_player_icon_location
+            return find_player_position() if use_ppi else find_player_icon_location()
     
     # Launch custom POI creator
     launch_custom_poi_creator(use_ppi, PlayerDetector())

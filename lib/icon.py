@@ -8,22 +8,17 @@ from accessible_output2.outputs.auto import Auto
 from lib.storm import start_storm_detection
 from lib.object_finder import OBJECT_CONFIGS, find_closest_object
 from lib.guis.poi_selector_gui import POIData
-from lib.minimap_direction import find_minimap_icon_direction
-from lib.mouse import smooth_move_mouse
-from lib.spatial_audio import SpatialAudio
-from lib.player_location import (
-    find_player_icon_location,
-    find_player_icon_location_with_direction,
-    get_player_position_description,
+from lib.player_position import (
+    get_player_info,
+    find_minimap_icon_direction,
     calculate_poi_info,
     generate_poi_message,
+    get_player_position_description,
     ROI_START_ORIG,
-    ROI_END_ORIG,
-    SCALE_FACTOR,
-    MIN_AREA,
-    MAX_AREA
+    ROI_END_ORIG
 )
-from lib.ppi import find_player_position, get_player_position_description
+from lib.spatial_audio import SpatialAudio
+from lib.mouse import smooth_move_mouse
 from lib.utilities import get_config_boolean, get_config_float
 from lib.custom_poi_handler import update_poi_handler
 
@@ -168,15 +163,11 @@ def perform_poi_actions(poi_data, center_mass_screen, speak_info=True, use_ppi=F
         speaker.speak(f"Error: Invalid POI location for {poi_name}")
 
 def process_screenshot(selected_coordinates, poi_name, center_mass_screen, use_ppi=False):
-    if use_ppi:
-        location = find_player_position()
-        _, angle = find_minimap_icon_direction()
-    else:
-        location, angle = find_player_icon_location_with_direction()
+    player_location, player_angle = get_player_info(use_ppi)
     
-    if location is not None:
-        poi_info = calculate_poi_info(location, angle, selected_coordinates)
-        message = generate_poi_message(poi_name, angle, poi_info)
+    if player_location is not None:
+        poi_info = calculate_poi_info(player_location, player_angle, selected_coordinates)
+        message = generate_poi_message(poi_name, player_angle, poi_info)
         print(message)
         speaker.speak(message)
     else:
@@ -198,7 +189,7 @@ def play_spatial_poi_sound(player_position, player_angle, poi_location):
         # Calculate relative angle from player's facing direction
         relative_angle = (poi_angle - player_angle + 180) % 360 - 180
         
-        # Calculate left/right weights based on relative angle
+        # Calculate stereo panning based on relative angle
         pan = np.clip(relative_angle / 90, -1, 1)
         left_weight = np.clip((1 - pan) / 2, 0, 1)
         right_weight = np.clip((1 + pan) / 2, 0, 1)
@@ -218,20 +209,6 @@ def play_spatial_poi_sound(player_position, player_angle, poi_location):
             right_weight=right_weight,
             volume=volume
         )
-
-def get_player_info(use_ppi):
-    """Get player location and angle using either PPI or normal icon detection."""
-    if use_ppi:
-        player_location = find_player_position()
-        if player_location is None:
-            return None, None
-        _, player_angle = find_minimap_icon_direction()
-        return player_location, player_angle
-    else:
-        player_info = find_player_icon_location_with_direction()
-        if player_info is None:
-            return None, None
-        return player_info
 
 def start_icon_detection(use_ppi=False):
     """Start icon detection with universal spatial sound support."""
