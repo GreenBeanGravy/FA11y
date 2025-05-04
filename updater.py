@@ -154,7 +154,7 @@ def install_required_modules_and_whls():
     print_info("Modules installed.")
 
     if not os.path.exists('whls'):
-        download_folder("GreenBeanGravy/FA11y", "main", "whls")
+        download_folder("GreenBeanGravy/FA11y", "dev", "whls")
 
 def create_mock_imp():
     """
@@ -172,7 +172,7 @@ def create_mock_imp():
     sys.modules['imp'] = MockImp()
 
 @lru_cache(maxsize=None)
-def get_repo_files(repo, branch='main'):
+def get_repo_files(repo, branch='dev'):
     """
     Gets the list of files in a GitHub repository branch.
     """
@@ -190,7 +190,7 @@ def download_file(repo, file_path):
     """
     Downloads a single file from a GitHub repository.
     """
-    url = f"https://raw.githubusercontent.com/{repo}/main/{file_path}"
+    url = f"https://raw.githubusercontent.com/{repo}/dev/{file_path}"
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -279,7 +279,7 @@ def check_and_update_file(repo, file_path):
     print_info(f"Updated file: {file_path}")
     return True
 
-def update_folder(repo, folder, branch='main'):
+def update_folder(repo, folder, branch='dev'):
     """
     Updates a folder from a GitHub repository.
     """
@@ -366,7 +366,7 @@ def install_requirements():
     # Download requirements.txt if it doesn't exist
     if not os.path.exists(requirements_file):
         print_info(f"{requirements_file} not found. Downloading from GitHub...")
-        url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/requirements.txt"
+        url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/dev/requirements.txt"
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -442,7 +442,7 @@ def get_version(repo):
     """
     Fetches the version file from a GitHub repository.
     """
-    url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
+    url = f"https://raw.githubusercontent.com/{repo}/dev/VERSION"
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -542,7 +542,7 @@ def main():
         sounds_updated = True
     
     # Check if we need to update the sounds folder by adding missing files
-    url = f"https://api.github.com/repos/GreenBeanGravy/FA11y/contents/sounds?ref=main"
+    url = f"https://api.github.com/repos/GreenBeanGravy/FA11y/contents/sounds?ref=dev"
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -553,7 +553,7 @@ def main():
         for sound_file in remote_sound_files:
             if sound_file not in existing_sounds:
                 download_file_to_path(
-                    f"https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main/sounds/{sound_file}",
+                    f"https://raw.githubusercontent.com/GreenBeanGravy/FA11y/dev/sounds/{sound_file}",
                     os.path.join('sounds', sound_file)
                 )
                 print_info(f"Added missing sound file: {sound_file}")
