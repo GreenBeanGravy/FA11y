@@ -37,6 +37,8 @@ from lib.icon import start_icon_detection
 from lib.hsr import (
     check_health_shields,
     check_rarity,
+    detect_slot_rarity,
+    process_hotbar_result
 )
 from lib.mouse import (
     smooth_move_mouse,
@@ -58,6 +60,9 @@ from lib.hotbar_detection import (
     initialize_hotbar_detection,
     detect_hotbar_item,
     announce_ammo_manually,
+    check_slot,
+    SLOT_COORDS,
+    CONFIDENCE_THRESHOLD
 )
 from lib.inventory_handler import inventory_handler
 from lib.utilities import (
@@ -92,6 +97,29 @@ stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
+
+def detect_item_with_rarity_fallback(slot_index):
+    """
+    Detect item in hotbar slot with fallback to rarity check if no item is recognized.
+    
+    This implements a two-step process:
+    1. Try normal hotbar detection first
+    2. If that fails (no item recognized), fall back to rarity detection
+    """
+    # First, check the slot directly (similar to what detect_hotbar_item does)
+    item_name, confidence = check_slot(SLOT_COORDS[slot_index])
+    
+    # Process the result to extract rarity if item was detected
+    if confidence > CONFIDENCE_THRESHOLD:
+        # Item was recognized - process it to extract and store rarity (but don't speak it)
+        process_hotbar_result(slot_index, item_name, confidence)
+        
+        # Call the normal hotbar detection to handle the announcement
+        detect_hotbar_item(slot_index)
+    else:
+        # No item recognized - try to detect rarity as a fallback
+        # This will speak the rarity if detected
+        detect_slot_rarity(slot_index)
 
 def handle_movement(action: str, reset_sensitivity: bool) -> None:
     """Handle all movement-related actions."""
@@ -192,7 +220,7 @@ def reload_config() -> None:
     action_handlers.update({
         'announce direction faced': speak_minimap_direction,
         'check health shields': check_health_shields,
-        'check rarity': check_rarity,
+        'check rarity': check_rarity,  # This now announces the last detected rarity
         'open p o i selector': open_poi_selector,
         'open gamemode selector': open_gamemode_selector,
         'open configuration menu': open_config_gui,
@@ -204,7 +232,9 @@ def reload_config() -> None:
     })
 
     for i in range(1, 6):
-        action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
+        slot_idx = i-1
+        # Modified to use new combined detection for both item and rarity
+        action_handlers[f'detect hotbar {i}'] = lambda slot=slot_idx: detect_item_with_rarity_fallback(slot)
 
 def toggle_keybinds() -> None:
     """Toggle keybinds on/off."""
@@ -571,7 +601,6 @@ def main() -> None:
         monitor.start_monitoring()
         material_monitor.start_monitoring()
         resource_monitor.start_monitoring()
-
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
