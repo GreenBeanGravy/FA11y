@@ -33,7 +33,6 @@ if sys.version_info >= (3, 12):
     sys.modules['imp'] = MockImp()
 
 from accessible_output2.outputs.auto import Auto
-from lib.icon import start_icon_detection
 from lib.hsr import (
     check_health_shields,
     check_rarity,
@@ -53,7 +52,7 @@ from lib.height_checker import start_height_checker
 from lib.background_checks import monitor
 from lib.material_monitor import material_monitor
 from lib.resource_monitor import resource_monitor
-from lib.player_position import announce_current_direction as speak_minimap_direction
+from lib.player_position import announce_current_direction as speak_minimap_direction, start_icon_detection
 from lib.hotbar_detection import (
     initialize_hotbar_detection,
     detect_hotbar_item,
