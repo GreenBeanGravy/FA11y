@@ -4,6 +4,9 @@ import queue
 import pyautogui
 from mss import mss
 import numpy as np
+import os
+import pickle
+import difflib
 from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config
 from lib.input_handler import is_key_pressed, VK_KEYS
@@ -25,6 +28,38 @@ class InventoryHandler:
         self.last_detected_type = None
         self.last_check_time = 0
         self.last_navigation_time = 0
+        
+        # OCR detection
+        self.ocr_cooldown = 0.5  # Increased cooldown to prevent multiple triggers
+        self.ocr_lock = threading.Lock()  # Lock to prevent concurrent OCR
+        self.easyocr_available = False
+        self.easyocr_ready = threading.Event()
+        self.easyocr_lock = threading.Lock()
+        self.reader = None
+        self.ocr_thread = None
+        self.last_announced_item = None
+        self.last_announcement_time = 0
+        self.announcement_cooldown = 1.0  # 1 second cooldown between announcements
+        
+        # Rarity colors
+        self.rarity_colors = {
+            'Common': (116, 122, 128), 
+            'Uncommon': (0, 128, 5), 
+            'Rare': (0, 88, 191),
+            'Epic': (118, 45, 211), 
+            'Legendary': (191, 79, 0), 
+            'Mythic': (191, 147, 35),
+            'Exotic': (118, 191, 255),
+        }
+        self.rarity_tolerance = 15  # Increased tolerance for better matching
+        
+        # Item names cache - only cache names, not rarity
+        self.item_names = []
+        self.slot_name_cache = {}  # Cache only names, not rarity
+        self.load_item_names()
+        
+        # Initialize OCR in background
+        self.initialize_easyocr()
         
         # Mouse movement parameters
         self.MOVEMENT_DURATION = 0.07
@@ -109,9 +144,125 @@ class InventoryHandler:
             ]
         }
         
+        # Common OCR misreads dictionary
+        self.ocr_corrections = {
+            "bust an": "burst ar",
+            "bust a": "burst ar",
+            "bunt ar": "burst ar",
+            "bust ap": "burst smg",
+            "burst arp": "burst smg",
+            "bust sag": "burst smg",
+            "ares": "ares'",
+            "modular": "warforged",
+            "wapforged": "warforged",
+            "assaut": "assault",
+            "assaul": "assault",
+            "at": "ar"
+        }
+        
         # Start threads
         self.start_monitoring()
         self.start_movement_handler()
+
+    def load_item_names(self):
+        """Load item names from the cache file used by hotbar.py"""
+        try:
+            images_folder = "images"
+            cache_file = os.path.join(images_folder, "image_cache.pkl")
+            
+            if os.path.exists(cache_file):
+                with open(cache_file, 'rb') as f:
+                    cache_data = pickle.load(f)
+                
+                # Extract name without extensions and strip rarity prefixes
+                rarity_prefixes = ["Common ", "Uncommon ", "Rare ", "Epic ", "Legendary ", "Mythic ", "Exotic "]
+                for image_name in cache_data.keys():
+                    name_without_ext = os.path.splitext(image_name)[0]
+                    
+                    # Store both the full name and clean name (without rarity prefix)
+                    clean_name = name_without_ext
+                    for prefix in rarity_prefixes:
+                        if name_without_ext.startswith(prefix):
+                            clean_name = name_without_ext[len(prefix):]
+                            break
+                    
+                    self.item_names.append((name_without_ext, clean_name))
+                
+                print(f"Loaded {len(self.item_names)} item names from cache")
+            else:
+                print(f"Cache file not found at {cache_file}")
+        except Exception as e:
+            print(f"Error loading item names: {e}")
+
+    def find_closest_match(self, ocr_text):
+        """Find the closest matching item name to the OCR text"""
+        if not self.item_names or not ocr_text:
+            return ocr_text
+            
+        # Clean OCR text
+        ocr_text = ocr_text.lower()
+        
+        # Apply common OCR corrections
+        for misread, correction in self.ocr_corrections.items():
+            if misread in ocr_text:
+                ocr_text = ocr_text.replace(misread, correction)
+        
+        best_match = None
+        highest_ratio = 0
+        best_clean_name = None
+        
+        # Find best matching clean name (without rarity prefix)
+        for full_name, clean_name in self.item_names:
+            # Calculate similarity ratios against the clean name
+            ratio = difflib.SequenceMatcher(None, ocr_text, clean_name.lower()).ratio()
+            
+            if ratio > highest_ratio and ratio > 0.4:  # Lower threshold to catch more matches
+                highest_ratio = ratio
+                best_match = full_name
+                best_clean_name = clean_name
+        
+        if best_clean_name:
+            print(f"Matched OCR: '{ocr_text}' to '{best_clean_name}' (from '{best_match}') with ratio {highest_ratio:.2f}")
+            return best_clean_name  # Return the clean name without rarity
+        
+        return ocr_text
+
+    def detect_rarity(self, x, y):
+        """Detect item rarity based on a single point with increased tolerance."""
+        try:
+            # Check pixel 5 to the left of the white pixel
+            rarity_pixel_x = x - 5
+            rarity_pixel_color = pyautogui.pixel(rarity_pixel_x, y)
+            
+            # Compare with known rarity colors
+            for rarity, color in self.rarity_colors.items():
+                # Check if within tolerance
+                if all(abs(a - b) <= self.rarity_tolerance for a, b in zip(rarity_pixel_color, color)):
+                    return rarity
+            
+            return ""  # No matching rarity found
+        except Exception as e:
+            print(f"Error detecting rarity: {e}")
+            return ""
+
+    def initialize_easyocr(self):
+        """Initialize EasyOCR in a background thread."""
+        def load_easyocr():
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore')
+                try:
+                    import easyocr
+                    with self.easyocr_lock:
+                        self.reader = easyocr.Reader(['en'])
+                        self.easyocr_available = True
+                except Exception as e:
+                    print(f"EasyOCR initialization failed: {e}")
+                    self.easyocr_available = False
+                finally:
+                    self.easyocr_ready.set()
+
+        threading.Thread(target=load_easyocr, daemon=True).start()
 
     def smooth_move_to(self, x, y):
         """Queue a smooth movement request"""
@@ -154,6 +305,121 @@ class InventoryHandler:
             
             pyautogui.moveTo(current_x, current_y, _pause=False)
             time.sleep(self.MOVEMENT_DURATION / self.MOVEMENT_STEPS)
+
+    def check_pixel_color(self, x, y, target_color):
+        """Check if the pixel at the given location matches the target color."""
+        try:
+            pixel_color = pyautogui.pixel(x, y)
+            return pixel_color == target_color
+        except Exception as e:
+            print(f"Error checking pixel color: {e}")
+            return False
+
+    def perform_ocr_for_slot(self, slot_index):
+        """Perform OCR for a specific slot."""
+        if not self.easyocr_available or not self.easyocr_ready.is_set():
+            return
+            
+        # Use a lock to prevent concurrent OCR operations
+        if not self.ocr_lock.acquire(blocking=False):
+            return
+            
+        try:
+            # Define the OCR area based on known UI layout
+            ocr_area = {
+                'left': 1195, 
+                'top': 610, 
+                'width': 561, 
+                'height': 100
+            }
+            
+            # Check if we've already OCRed this slot name (but always check rarity)
+            cached_name = self.slot_name_cache.get(slot_index)
+            
+            # If we have the name cached, skip OCR and just check rarity
+            if cached_name:
+                self.check_rarity_and_announce(cached_name, slot_index)
+            else:
+                # Start OCR in separate thread
+                self.ocr_thread = threading.Thread(
+                    target=self.ocr_worker, 
+                    args=(ocr_area, slot_index),
+                    daemon=True
+                )
+                self.ocr_thread.start()
+            
+        finally:
+            self.ocr_lock.release()
+    
+    def check_rarity_and_announce(self, item_name, slot_index):
+        """Check rarity and announce the full item name."""
+        # Check for rarity by checking the white pixel positions
+        rarity = ""
+        rarity_check_locations = [(1210, 684), (1210, 657)]
+        for x, y in rarity_check_locations:
+            if self.check_pixel_color(x, y, (255, 255, 255)):
+                rarity = self.detect_rarity(x, y)
+                if rarity:
+                    break
+        
+        # Combine rarity with item name
+        full_item_name = f"{rarity} {item_name}" if rarity else item_name
+        
+        # Check if we should announce this item
+        if self.should_announce(full_item_name):
+            self.speaker.speak(full_item_name)
+            print(f"Slot {slot_index+1}: {full_item_name}")
+    
+    def ocr_worker(self, ocr_area, slot_index):
+        """Worker thread for OCR processing."""
+        try:
+            with mss() as sct:
+                screenshot = np.array(sct.grab(ocr_area))
+            
+            # Process the image for better OCR results
+            import cv2
+            if screenshot.shape[2] == 4:  # BGRA format
+                screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+                
+            # Convert to grayscale
+            gray = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+            
+            # Apply thresholding to isolate text
+            _, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
+            
+            # Perform OCR
+            with self.easyocr_lock:
+                results = self.reader.readtext(binary, detail=0)
+            
+            if results:
+                # Combine all detected text and convert to lowercase
+                ocr_text = ' '.join(results).lower()
+                
+                # Find the closest match in known item names
+                matched_item = self.find_closest_match(ocr_text)
+                
+                # Cache only the item name
+                self.slot_name_cache[slot_index] = matched_item
+                
+                # Get fresh rarity and announce
+                self.check_rarity_and_announce(matched_item, slot_index)
+                
+        except Exception as e:
+            print(f"Error in OCR worker: {e}")
+    
+    def should_announce(self, item_name):
+        """Check if we should announce this item based on cooldown."""
+        current_time = time.time()
+        
+        # Don't repeat the same announcement
+        if item_name == self.last_announced_item:
+            if current_time - self.last_announcement_time < self.announcement_cooldown:
+                return False
+        
+        # Update tracking state
+        self.last_announced_item = item_name
+        self.last_announcement_time = current_time
+        return True
 
     def detect_item_type(self):
         """Detect the type of item in the current slot based on pixel colors"""
@@ -204,10 +470,15 @@ class InventoryHandler:
 
     def navigate_to_slot(self, slot_index):
         """Move to a specific inventory slot"""
+        self.last_navigation_time = time.time()
+        
         if self.current_section == "bottom":
             slots = self.bottom_slots
             self.smooth_move_to(slots[slot_index][0], slots[slot_index][1])
             self.speaker.speak(f"Slot {slot_index + 1}")
+            
+            # After a small delay, perform OCR for the slot
+            threading.Timer(0.2, self.perform_ocr_for_slot, args=[slot_index]).start()
         else:  # ammo or resources section
             time.sleep(0.01)  # Wait for UI to update
             item_type = self.detect_item_type()
@@ -215,7 +486,6 @@ class InventoryHandler:
             # Update last known type and reset check timer
             self.last_detected_type = item_type
             self.last_check_time = time.time()
-            self.last_navigation_time = time.time()
 
     def handle_vertical_navigation(self, direction):
         """Handle up/down navigation between sections with wrapping"""
@@ -233,6 +503,9 @@ class InventoryHandler:
         new_section = sections[new_index]
         self.current_section = new_section
         self.current_slot = 0
+        
+        # Clear name cache when changing sections
+        self.slot_name_cache.clear()
         
         # Announce section name and initial item
         if new_section == "bottom":
@@ -338,9 +611,12 @@ class InventoryHandler:
                 # Handle inventory state change
                 if current_inventory_state != prev_inventory_state:
                     if current_inventory_state:
+                        # Clear slot cache when opening inventory
+                        self.slot_name_cache.clear()
                         self.current_section = "bottom"
                         self.current_slot = 0
                         self.last_detected_type = None
+                        self.last_announced_item = None
                         self.navigate_to_slot(0)
                     elif self.dragging:
                         pyautogui.mouseUp(button='left', _pause=False)

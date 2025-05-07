@@ -81,7 +81,7 @@ class BackgroundMonitor:
             edges = cv2.Canny(gray, 100, 200)
             
             result = cv2.matchTemplate(edges, self.escape_template, cv2.TM_CCOEFF_NORMED)
-            threshold = 0.45
+            threshold = 0.5
             
             return np.max(result) >= threshold
         except Exception as e:
