@@ -324,8 +324,16 @@ def open_poi_selector() -> None:
     launch_poi_selector(poi_data_instance)
 
 def handle_custom_poi_gui(use_ppi=False) -> None:
-    """Handle custom POI GUI creation"""
+    """Handle custom POI GUI creation with map-specific support"""
     from lib.guis.custom_poi_gui import launch_custom_poi_creator
+    
+    # Get current map from config
+    config = configparser.ConfigParser()
+    config.read('config.txt')
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Use PPI if map is open (check_for_pixel detects this)
+    use_ppi = check_for_pixel()
     
     # Create a player position detector adapter
     class PlayerDetector:
@@ -333,8 +341,8 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
             from lib.player_position import find_player_position, find_player_icon_location
             return find_player_position() if use_ppi else find_player_icon_location()
     
-    # Launch custom POI creator
-    launch_custom_poi_creator(use_ppi, PlayerDetector())
+    # Launch custom POI creator with current map
+    launch_custom_poi_creator(use_ppi, PlayerDetector(), current_map)
 
 def open_gamemode_selector() -> None:
     """Open the gamemode selector GUI."""
