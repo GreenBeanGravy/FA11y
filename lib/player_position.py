@@ -755,6 +755,20 @@ def handle_poi_selection(selected_poi, center_mass_screen, use_ppi=False):
         else:
             print("Could not determine player location for finding closest POI")
             return "Closest", None
+    elif poi_name == 'closest landmark':
+        print("Finding closest landmark")
+        if center_mass_screen:
+            if current_map == "main":
+                landmarks_to_check = [(poi[0], int(float(poi[1])), int(float(poi[2]))) 
+                                   for poi in poi_data.landmarks]
+                return find_closest_poi(center_mass_screen, landmarks_to_check)
+            else:
+                # For non-main maps, there might not be separate landmarks
+                print("Landmarks are only available on the main map")
+                return "Closest Landmark", None
+        else:
+            print("Could not determine player location for finding closest landmark")
+            return "Closest Landmark", None
     else:
         # Check current map's POIs first
         if current_map == "main":
