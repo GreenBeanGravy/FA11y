@@ -574,7 +574,7 @@ def check_unknown_item_rarity(slot_index):
         last_detected_item = None
         
         # Announce "Rarity Unknown Item"
-        speaker.speak(f"{detected_rarity} Unknown Item")
+        # speaker.speak(f"{detected_rarity} Unknown Item")
         
         # Announce ammo if enabled
         config = configparser.ConfigParser()
