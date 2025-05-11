@@ -12,7 +12,8 @@ import time
 
 from lib.guis.base_ui import AccessibleUI
 from lib.spatial_audio import SpatialAudio
-from lib.utilities import force_focus_window, DEFAULT_CONFIG
+from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string
+from lib.input_handler import VK_KEYS # Import VK_KEYS for validation
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -22,60 +23,54 @@ class ConfigGUI(AccessibleUI):
 
     def __init__(self, config, 
                  update_callback: Callable,
-                 default_config = None):
+                 default_config_str = None): 
         """Initialize the configuration GUI
         
         Args:
-            config: Current configuration
-            update_callback: Callback function to update main configuration
-            default_config: Optional default configuration for reset functionality
+            config: Current configuration (Config object from utilities.py)
+            update_callback: Callback function to update main configuration (expects ConfigParser)
+            default_config_str: Optional default configuration string for reset functionality
         """
         super().__init__(title="FA11y Configuration")
         
-        self.config = config
+        self.config = config 
         self.update_callback = update_callback
-        self.default_config = default_config
+        self.default_config_str = default_config_str if default_config_str else DEFAULT_CONFIG
         
-        # Section to tab mapping for configuration organization
         self.section_tab_mapping = {
-            "Toggles": {},     # All toggle settings
-            "Values": {},      # All value settings
-            "Keybinds": {},    # All keybind settings
+            "Toggles": {},
+            "Values": {},
+            "Keybinds": {},
         }
         
-        # Key binding tracking for conflict detection
-        self.key_to_action = {}  # Maps keys to their actions
-        self.action_to_key = {}  # Maps actions to their keys
+        self.key_to_action: Dict[str, str] = {}
+        self.action_to_key: Dict[str, str] = {}
         
-        # Performance optimization
         self.last_keybind_time = 0
-        self.keybind_cooldown = 0.2  # seconds
+        self.keybind_cooldown = 0.2
+
+        self.capturing_keybind_for_widget: Optional[ttk.Entry] = None
+        self.original_keybind_value: str = ""
+        self.key_binding_id = None 
         
-        # Setup and run the UI
         self.setup()
     
     def setup(self) -> None:
         """Set up the configuration GUI"""
-        # Create tabs
         self.create_tabs()
-        
-        # Analyze configuration to determine appropriate tab mappings
         self.analyze_config()
-        
-        # Create widgets for each section
         self.create_widgets()
         
-        # Add 'R' key binding for reset functionality
-        self.root.bind_all('<r>', self.on_key)
-        self.root.bind_all('<R>', self.on_key)
+        # Key bindings are inherited from AccessibleUI (Up, Down, Enter, Escape, Tab, Shift-Tab)
+        # Add 'R' key binding for reset functionality specifically for this GUI
+        self.root.bind_all('<r>', self.on_r_key) # Use a more specific name
+        self.root.bind_all('<R>', self.on_r_key) 
         
-        # Override the default close behavior
         self.root.protocol("WM_DELETE_WINDOW", self.save_and_close)
         
-        # Focus the first widget with help info
         self.root.after(100, lambda: force_focus_window(
             self.root,
-            "Press R to reset to defaults",
+            "Press R to reset the focused setting to its default value. Press Escape to save and close, or cancel current edit/keybind capture.",
             self.focus_first_widget
         ))
     
@@ -87,25 +82,22 @@ class ConfigGUI(AccessibleUI):
     
     def analyze_config(self) -> None:
         """Analyze configuration to determine appropriate tab mappings"""
-        # Build key binding maps
         self.build_key_binding_maps()
         
         for section in self.config.config.sections():
-            if section == "POI":  # Skip POI section
+            if section == "POI": 
                 continue
                 
             for key in self.config.config[section]:
                 value_string = self.config.config[section][key]
                 value, _ = self.extract_value_and_description(value_string)
 
-                # Map items based on their section
                 if section == "Toggles":
                     self.section_tab_mapping["Toggles"][key] = "Toggles"
                 elif section == "Values":
                     self.section_tab_mapping["Values"][key] = "Values"
                 elif section == "Keybinds":
                     self.section_tab_mapping["Keybinds"][key] = "Keybinds"
-                # Handle legacy format if needed
                 elif section == "SETTINGS":
                     if value.lower() in ['true', 'false']:
                         self.section_tab_mapping["Toggles"][key] = "Toggles"
@@ -116,581 +108,469 @@ class ConfigGUI(AccessibleUI):
     
     def build_key_binding_maps(self) -> None:
         """Build maps of keys to actions and actions to keys for conflict detection"""
-        self.key_to_action = {}
-        self.action_to_key = {}
+        self.key_to_action.clear()
+        self.action_to_key.clear()
         
-        if "Keybinds" in self.config.config.sections():
+        if self.config.config.has_section("Keybinds"):
             for action in self.config.config["Keybinds"]:
                 value_string = self.config.config["Keybinds"][action]
                 key, _ = self.extract_value_and_description(value_string)
                 
-                if key:
-                    key = key.lower()
-                    self.key_to_action[key] = action
-                    self.action_to_key[action] = key
+                if key and key.strip(): 
+                    key_lower = key.lower()
+                    self.key_to_action[key_lower] = action
+                    self.action_to_key[action] = key_lower 
     
     def create_widgets(self) -> None:
         """Create widgets for each configuration section"""
         for section in self.config.config.sections():
-            if section == "POI":  # Skip POI section
+            if section == "POI": 
                 continue
                 
             for key in self.config.config[section]:
                 value_string = self.config.config[section][key]
                 
-                # Determine tab based on section
-                if section == "Toggles" or (section == "SETTINGS" and 
-                                         (value_string.lower().startswith('true') or 
-                                          value_string.lower().startswith('false'))):
+                if section == "Toggles":
                     self.create_checkbox("Toggles", key, value_string)
-                elif section == "Keybinds" or section == "SCRIPT KEYBINDS":
+                elif section == "Keybinds":
                     self.create_keybind_entry("Keybinds", key, value_string)
-                elif section == "Values" or section == "SETTINGS":
+                elif section == "Values":
                     self.create_value_entry("Values", key, value_string)
+                elif section == "SETTINGS":
+                     val_part, _ = self.extract_value_and_description(value_string)
+                     if val_part.lower() in ['true', 'false']:
+                         self.create_checkbox("Toggles", key, value_string)
+                     else:
+                         self.create_value_entry("Values", key, value_string)
+                elif section == "SCRIPT KEYBINDS":
+                    self.create_keybind_entry("Keybinds", key, value_string)
+
     
     def create_checkbox(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a checkbox for a boolean setting
-        
-        Args:
-            tab_name: Tab to add the checkbox to
-            key: Setting key
-            value_string: Value string from config
-        """
+        """Create a checkbox for a boolean setting"""
         value, description = self.extract_value_and_description(value_string)
         bool_value = value.lower() == 'true'
         self.add_checkbox(tab_name, key, bool_value, description)
     
     def create_value_entry(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a text entry field for a value setting
-        
-        Args:
-            tab_name: Tab to add the entry to
-            key: Setting key
-            value_string: Value string from config
-        """
+        """Create a text entry field for a value setting"""
         value, description = self.extract_value_and_description(value_string)
         self.add_entry(tab_name, key, value, description)
     
     def create_keybind_entry(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a keybind entry field
-        
-        Args:
-            tab_name: Tab to add the entry to
-            key: Setting key
-            value_string: Value string from config
-        """
+        """Create a keybind entry field"""
         value, description = self.extract_value_and_description(value_string)
-        entry = self.add_keybind(tab_name, key, value, description)
+        self.add_keybind(tab_name, key, value, description) 
     
     def extract_value_and_description(self, value_string: str) -> tuple:
-        """Extract value and description from a config string
-        
-        Args:
-            value_string: Raw config value string
-            
-        Returns:
-            tuple: (value, description)
-        """
+        """Extract value and description from a config string"""
         value_string = value_string.strip()
         if '"' in value_string:
             quote_pos = value_string.find('"')
             value = value_string[:quote_pos].strip()
-            description = value_string[quote_pos+1:].rstrip('"')
+            description = value_string[quote_pos+1:] 
+            if description.endswith('"'):
+                description = description[:-1]
             return value, description
         return value_string, ""
     
-    def on_key(self, event) -> Optional[str]:
-        """Handle key press events
+    def on_r_key(self, event) -> Optional[str]: # Renamed from on_key to be specific
+        """Handle R key press events for resetting to default."""
+        if self.capturing_keybind_for_widget or self.currently_editing:
+             self.speak("Cannot reset while editing or capturing keybind.")
+             return "break"
+
+        current_widget = self.root.focus_get()
+        current_tab_name = self.notebook.tab(self.notebook.select(), "text")
         
-        Args:
-            event: Key event
-            
-        Returns:
-            str or None: "break" to prevent default handling or None
-        """
-        if event.keysym.lower() == 'r':
-            current_widget = self.root.focus_get()
-            current_tab = self.notebook.tab(self.notebook.select(), "text")
-            
-            if isinstance(current_widget, ttk.Checkbutton):
-                key = current_widget.cget('text')
-                self.reset_to_default(current_tab, key, current_widget)
-                return "break"
-            elif isinstance(current_widget, ttk.Entry):
-                key = current_widget.master.winfo_children()[0].cget('text')
-                
-                # Handle keybind entry reset
-                if current_tab == "Keybinds":
-                    self.reset_keybind_to_default(key, current_widget)
-                else:
-                    # Regular value entry reset
-                    self.reset_to_default(current_tab, key, current_widget)
-                return "break"
-        return None
+        setting_key = None
+        if isinstance(current_widget, ttk.Checkbutton):
+            setting_key = current_widget.cget('text')
+        elif isinstance(current_widget, ttk.Entry) or isinstance(current_widget, ttk.Combobox):
+            if hasattr(current_widget, 'master') and current_widget.master.winfo_children():
+                label_widget = current_widget.master.winfo_children()[0]
+                if isinstance(label_widget, ttk.Label):
+                    setting_key = label_widget.cget('text')
+        
+        if setting_key:
+            self.reset_to_default(current_tab_name, setting_key, current_widget)
+            return "break"
+        return None # Allow propagation if not handled
     
     def reset_to_default(self, tab_name: str, key: str, widget: Any) -> None:
-        """Reset any setting to its default value
-        
-        Args:
-            tab_name: Tab name
-            key: Setting key
-            widget: Widget to update
-        """
-        # Parse DEFAULT_CONFIG string directly to get default values
-        default_config = configparser.ConfigParser(interpolation=None)
-        default_config.optionxform = str  # Preserve case sensitivity
-        default_config.read_string(DEFAULT_CONFIG)
-        
-        # Get default value
-        default_value_string = ""
-        for section in default_config.sections():
-            if section.lower() == tab_name.lower():
-                if key in default_config[section]:
-                    default_value_string = default_config[section][key]
-                    break
+        """Reset any setting to its default value"""
+        default_full_value = get_default_config_value_string(tab_name, key)
                     
-        if not default_value_string:
+        if not default_full_value:
             self.speak(f"No default value found for {key}")
             return
             
-        default_value, _ = self.extract_value_and_description(default_value_string)
+        default_value_part, _ = self.extract_value_and_description(default_full_value)
         
-        # Update widget based on type
         if isinstance(widget, ttk.Checkbutton):
-            bool_value = default_value.lower() == 'true'
-            var = self.variables[tab_name][key]
+            bool_value = default_value_part.lower() == 'true'
+            var = self.variables[tab_name][key] 
             var.set(bool_value)
         elif isinstance(widget, ttk.Entry):
-            widget.config(state='normal')
-            widget.delete(0, tk.END)
-            widget.insert(0, default_value)
-            widget.config(state='readonly')
-            var = self.variables[tab_name][key]
-            var.set(default_value)
-            
-            # Play POI sound for volume settings
-            if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
-                self.play_poi_sound_at_volume(key, default_value)
+            if tab_name == "Keybinds":
+                action_being_reset = key 
+                current_bound_key_var = self.variables[tab_name].get(action_being_reset)
+                current_bound_key = current_bound_key_var.get().lower() if current_bound_key_var else ""
                 
-        self.speak(f"{key} reset to default value: {default_value}")
-    
-    def reset_keybind_to_default(self, action: str, widget: ttk.Entry) -> None:
-        """Reset a keybind to its default value, handling conflicts
-        
-        Args:
-            action: Action name
-            widget: Entry widget
-        """
-        # Get the current key bound to this action
-        current_key = self.variables["Keybinds"][action].get().lower() if action in self.variables["Keybinds"] else ""
-        
-        # Get the default key for this action
-        default_value = self.get_default_keybind(action)
-        
-        # Check for conflicts with the default key
-        if default_value and default_value.lower() in self.key_to_action:
-            conflicting_action = self.key_to_action[default_value.lower()]
-            
-            # Only handle conflict if it's not the same action
-            if conflicting_action != action:
-                # Update key mappings
-                self.key_to_action.pop(default_value.lower(), None)
-                self.action_to_key.pop(conflicting_action, None)
+                if current_bound_key and self.key_to_action.get(current_bound_key) == action_being_reset:
+                    self.key_to_action.pop(current_bound_key, None)
                 
-                # Update the conflicting action's entry if it exists
-                self.update_conflicting_keybind(conflicting_action, "", f"Key {default_value} taken by {action}")
+                new_default_key_lower = default_value_part.lower()
+                if new_default_key_lower and new_default_key_lower in self.key_to_action:
+                    conflicting_action = self.key_to_action[new_default_key_lower]
+                    if conflicting_action != action_being_reset: 
+                        self.key_to_action.pop(new_default_key_lower, None) 
+                        self.action_to_key.pop(conflicting_action, None)
+                        self.update_conflicting_keybind_widget(conflicting_action, "", f"Key {new_default_key_lower} now used by {action_being_reset}")
                 
-        # Update the entry and variable
-        widget.config(state='normal')
-        widget.delete(0, tk.END)
-        widget.insert(0, default_value)
-        widget.config(state='readonly')
-        
-        # Update action-key mappings
-        if current_key and self.key_to_action.get(current_key) == action:
-            self.key_to_action.pop(current_key, None)
-        if default_value:
-            self.key_to_action[default_value.lower()] = action
-            self.action_to_key[action] = default_value.lower()
-        
-        # Update variables
-        self.variables["Keybinds"][action].set(default_value)
-        
-        # Speak feedback
-        if not default_value:
-            self.speak(f"Keybind for {action} reset to default: blank (disabled)")
-        else:
-            self.speak(f"Keybind for {action} reset to default: {default_value}")
-    
-    def update_conflicting_keybind(self, action: str, new_key: str, message: str) -> None:
-        """Update a keybind after a conflict is detected
-        
-        Args:
-            action: Action name to update
-            new_key: New key to assign (empty string to clear)
-            message: Message to speak
-        """
-        # Find the widget for this action
-        for widget in self.widgets["Keybinds"]:
-            if (isinstance(widget, ttk.Entry) and 
-                hasattr(widget, 'master') and 
-                widget.master.winfo_children() and 
-                widget.master.winfo_children()[0].cget('text') == action):
-                
-                # Update the widget
                 widget.config(state='normal')
                 widget.delete(0, tk.END)
-                widget.insert(0, new_key)
+                widget.insert(0, default_value_part)
                 widget.config(state='readonly')
+                if current_bound_key_var: 
+                    current_bound_key_var.set(default_value_part)
+
+                self.action_to_key[action_being_reset] = new_default_key_lower
+                if new_default_key_lower: 
+                    self.key_to_action[new_default_key_lower] = action_being_reset
+
+            else: 
+                widget.config(state='normal')
+                widget.delete(0, tk.END)
+                widget.insert(0, default_value_part)
+                widget.config(state='readonly')
+                self.variables[tab_name][key].set(default_value_part) 
                 
-                # Update the variable
-                self.variables["Keybinds"][action].set(new_key)
+                if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
+                    self.play_poi_sound_at_volume(key, default_value_part)
+
+        elif isinstance(widget, ttk.Combobox):
+             var = self.variables[tab_name][key] 
+             var.set(default_value_part)
                 
-                # Speak feedback
-                self.speak(message)
-                break
+        self.speak(f"{key} reset to default value: {default_value_part if default_value_part else 'blank'}")
+
+    def update_conflicting_keybind_widget(self, action_to_clear: str, new_key_value: str, speak_message: str) -> None:
+        """Updates the widget for an action whose keybind was taken."""
+        for widget_in_tab in self.widgets.get("Keybinds", []):
+            if isinstance(widget_in_tab, ttk.Entry):
+                label_widget = widget_in_tab.master.winfo_children()[0]
+                if isinstance(label_widget, ttk.Label) and label_widget.cget('text') == action_to_clear:
+                    widget_in_tab.config(state='normal')
+                    widget_in_tab.delete(0, tk.END)
+                    widget_in_tab.insert(0, new_key_value)
+                    widget_in_tab.config(state='readonly')
+                    if action_to_clear in self.variables["Keybinds"]:
+                        self.variables["Keybinds"][action_to_clear].set(new_key_value)
+                    break
     
     def finish_editing(self, widget: ttk.Entry) -> None:
-        """Complete editing of a text entry widget
+        """Complete editing of a text entry widget"""
+        # Call super.finish_editing if it exists and does something useful,
+        # otherwise, replicate its logic here or ensure this method covers it.
+        # For now, assume AccessibleUI.finish_editing is correctly implemented.
+        # If AccessibleUI.finish_editing also resets self.currently_editing, this is fine.
         
-        Args:
-            widget: Entry widget being edited
-        """
-        super().finish_editing(widget)
+        # Check if the widget still exists, as it might have been destroyed
+        if not widget.winfo_exists():
+            self.currently_editing = None # Ensure state is cleared
+            return
+
+        self.currently_editing = None # Moved from AccessibleUI for clarity here
+        widget.config(state='readonly')
+        new_value = widget.get()
+        key_label_widget = widget.master.winfo_children()[0]
+        key = key_label_widget.cget('text')
         
-        # Play POI sound at the volume set for specific keys
-        key = widget.master.winfo_children()[0].cget('text')
+        current_tab = self.notebook.tab(self.notebook.select(), "text")
+        if key in self.variables[current_tab]: # Ensure key exists in variables
+            self.variables[current_tab][key].set(new_value)
+            self.speak(f"{key} set to {new_value}")
+        else:
+            self.speak(f"Value for {key} updated to {new_value} but not linked to a variable.")
+
+
         if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
-            new_value = widget.get()
             self.play_poi_sound_at_volume(key, new_value)
     
     def play_poi_sound_at_volume(self, key: str, value_str: str) -> None:
-        """Play POI sound at the specified volume
-        
-        Args:
-            key: Setting key
-            value_str: Volume value as string
-        """
+        """Play POI sound at the specified volume"""
         try:
             volume = float(value_str)
-            volume = max(0.0, min(volume, 1.0))  # Ensure volume is between 0.0 and 1.0
+            volume = max(0.0, min(volume, 1.0))  
             
-            # Create a sound path that works with FA11y's directory structure
-            sound_path = 'sounds/poi.ogg'
-            
-            # Play the POI sound at this volume
-            spatial_poi = SpatialAudio(sound_path)
-            spatial_poi.play_audio(left_weight=1.0, right_weight=1.0, volume=volume)
+            sound_path = os.path.join('sounds', 'poi.ogg') 
+            if not os.path.exists(sound_path):
+                logger.warning(f"POI sound file not found: {sound_path}")
+                return
+
+            spatial_poi_player = SpatialAudio(sound_path) 
+            spatial_poi_player.play_audio(left_weight=1.0, right_weight=1.0, volume=volume)
+        except ValueError:
+            logger.error(f"Invalid volume value '{value_str}' for {key}")
         except Exception as e:
             logger.error(f"Error playing POI sound: {e}")
     
     def focus_first_widget(self) -> None:
         """Focus the first widget in the current tab"""
-        current_tab = self.notebook.tab(self.notebook.select(), "text")
+        current_tab_name = self.notebook.tab(self.notebook.select(), "text")
         
-        if self.widgets[current_tab]:
-            first_widget = self.widgets[current_tab][0]
+        if self.widgets.get(current_tab_name):
+            first_widget = self.widgets[current_tab_name][0]
             first_widget.focus_set()
-            self.speak(f"{current_tab} tab.")
-            widget_info = self.get_widget_info(first_widget)
+            self.speak(f"{current_tab_name} tab.") 
+            widget_info = self.get_widget_info(first_widget) 
             if widget_info:
                 self.speak(widget_info)
     
     def save_and_close(self) -> None:
         """Save configuration and close the GUI"""
         try:
-            # Ensure all sections exist in the underlying ConfigParser
-            for section in ["Toggles", "Values", "Keybinds", "POI"]:
-                if section not in self.config.config.sections():
-                    self.config.config.add_section(section)
+            config_parser_instance = self.config.config 
 
-            # Save POI section as is if it exists in original config
-            if "POI" in self.config.config.sections():
-                for key in self.config.config["POI"]:
-                    self.config.config["POI"][key] = self.config.config["POI"][key]
+            for section_name in ["Toggles", "Values", "Keybinds", "POI"]:
+                if not config_parser_instance.has_section(section_name):
+                    config_parser_instance.add_section(section_name)
 
-            # Save variables to configuration sections
-            for tab in ["Toggles", "Values", "Keybinds"]:
-                for key, var in self.variables[tab].items():
+            for tab_name in self.tabs.keys(): 
+                if tab_name not in self.variables: continue 
+
+                for setting_key, tk_var in self.variables[tab_name].items():
                     description = ""
-                    
-                    # Find widget with this key to get its description
-                    for widget in self.widgets[tab]:
-                        if isinstance(widget, ttk.Checkbutton) and widget.cget('text') == key:
-                            description = getattr(widget, 'description', '')
-                            break
-                        elif hasattr(widget, 'master') and widget.master.winfo_children() and \
-                             widget.master.winfo_children()[0].cget('text') == key:
-                            description = getattr(widget, 'description', '')
-                            break
-                    
-                    # Format value based on type
-                    if isinstance(var, tk.BooleanVar):
-                        value = 'true' if var.get() else 'false'
-                    else:
-                        value = var.get()
+                    for widget_candidate in self.widgets[tab_name]:
+                        widget_label = ""
+                        if isinstance(widget_candidate, ttk.Checkbutton):
+                            widget_label = widget_candidate.cget('text')
+                        elif hasattr(widget_candidate, 'master') and widget_candidate.master.winfo_children():
+                            label_widget = widget_candidate.master.winfo_children()[0]
+                            if isinstance(label_widget, ttk.Label):
+                                widget_label = label_widget.cget('text')
                         
-                        # Additional validation for keybinds - allow blank values
-                        if tab == "Keybinds" and value.strip() and not self.is_valid_key(value):
-                            # Replace invalid key with default
-                            value = self.get_default_keybind(key)
-                            logger.warning(f"Replaced invalid key '{var.get()}' with default '{value}' for {key}")
+                        if widget_label == setting_key:
+                            description = getattr(widget_candidate, 'description', '')
+                            break
                     
-                    # Save to config with description if available
-                    self.config.config[tab][key] = f"{value} \"{description}\"" if description else value
+                    if isinstance(tk_var, tk.BooleanVar):
+                        value_to_save = 'true' if tk_var.get() else 'false'
+                    else: 
+                        value_to_save = tk_var.get()
+                        if tab_name == "Keybinds" and value_to_save.strip() and not self.is_valid_key(value_to_save):
+                            self.speak(f"Warning: Invalid key '{value_to_save}' for {setting_key}. Saving as blank.")
+                            value_to_save = "" 
+                    
+                    value_string_to_save = f"{value_to_save} \"{description}\"" if description else str(value_to_save)
+                    config_parser_instance.set(tab_name, setting_key, value_string_to_save)
 
-            # Update script configuration using the update_callback
-            # Pass the underlying ConfigParser instead of Config object
-            self.update_callback(self.config.config)
-            self.speak("Configuration saved and applied")
+            self.update_callback(config_parser_instance) 
+            self.speak("Configuration saved and applied.")
         except Exception as e:
             logger.error(f"Error saving configuration: {e}")
-            self.speak("Error saving configuration")
+            self.speak("Error saving configuration.")
         finally:
-            self.root.destroy()
+            if self.root and self.root.winfo_exists():
+                self.root.destroy()
     
+    # This method overrides the one in AccessibleUI
     def on_escape(self, event) -> str:
-        """Handle Escape key press
-        
-        Args:
-            event: Key event
-            
-        Returns:
-            str: "break" to prevent default handling
-        """
+        """Handle Escape key press globally for the ConfigGUI window."""
+        if self.capturing_keybind_for_widget:
+            self._cancel_keybind_capture()
+        elif self.currently_editing:
+            self._cancel_value_edit()
+        else:
+            self.save_and_close()
+        return "break" # Always break to prevent default Tkinter Escape behavior
+
+    def _cancel_keybind_capture(self):
+        """Helper to cancel ongoing keybind capture."""
+        if self.capturing_keybind_for_widget:
+            widget = self.capturing_keybind_for_widget
+            widget.delete(0, tk.END)
+            widget.insert(0, self.original_keybind_value)
+            widget.config(state='readonly')
+            self.speak("Keybind capture cancelled.")
+            if self.key_binding_id:
+                self.root.unbind('<Key>', self.key_binding_id)
+                self.key_binding_id = None
+            self.capturing_keybind_for_widget = None
+            self.original_keybind_value = ""
+            widget.focus_set()
+            self.speak(self.get_widget_info(widget))
+
+
+    def _cancel_value_edit(self):
+        """Helper to cancel ongoing value editing."""
         if self.currently_editing:
             widget = self.currently_editing
             widget.config(state='readonly')
+            setting_key_label = widget.master.winfo_children()[0].cget('text')
+            current_tab = self.notebook.tab(self.notebook.select(), "text")
+            self.variables[current_tab][setting_key_label].set(self.previous_value)
             widget.delete(0, tk.END)
             widget.insert(0, self.previous_value)
             self.currently_editing = None
             self.speak("Cancelled editing, value restored to previous.")
-        else:
-            # Save configuration before closing
-            self.save_and_close()
-            
-        return "break"
+            widget.focus_set()
+            self.speak(self.get_widget_info(widget))
+
     
     def capture_keybind(self, widget: ttk.Entry) -> None:
-        """Start capturing a new keybind
-        
-        Args:
-            widget: Entry widget for keybind
-        """
-        # Check for cooldown to prevent lag in GUI
+        """Start capturing a new keybind"""
         current_time = time.time()
         if current_time - self.last_keybind_time < self.keybind_cooldown:
-            self.speak("Please wait a moment before capturing another keybind")
+            self.speak("Please wait a moment before capturing another keybind.")
             return
             
         self.last_keybind_time = current_time
-            
-        widget.config(state='normal')
+        
+        self.capturing_keybind_for_widget = widget 
+        self.original_keybind_value = widget.get() 
+
+        widget.config(state='normal') 
         widget.delete(0, tk.END)
         self.speak("Press any key to set the keybind. Press Escape to cancel. Press Enter to disable.")
         
-        # Map of Tkinter key names to expected input system key names
-        key_name_mapping = {
-            "Control_L": "lctrl",
-            "Control_R": "rctrl",
-            "Shift_L": "lshift", 
-            "Shift_R": "rshift",
-            "Alt_L": "lalt",
-            "Alt_R": "ralt"
-        }
+        key_name_mapping = {"Control_L": "lctrl", "Control_R": "rctrl",
+                            "Shift_L": "lshift", "Shift_R": "rshift",
+                            "Alt_L": "lalt", "Alt_R": "ralt",
+                            "KP_0": "num 0", "KP_1": "num 1", "KP_2": "num 2", "KP_3": "num 3",
+                            "KP_4": "num 4", "KP_5": "num 5", "KP_6": "num 6", "KP_7": "num 7",
+                            "KP_8": "num 8", "KP_9": "num 9", "KP_Decimal": "num period",
+                            "KP_Add": "num +", "KP_Subtract": "num -",
+                            "KP_Multiply": "num *", "KP_Divide": "num /",
+                            "bracketleft": "bracketleft", "bracketright": "bracketright",
+                            "apostrophe": "apostrophe", "grave": "grave",
+                            "backslash": "backslash", "semicolon": "semicolon",
+                            "period": "period", "comma": "comma", "minus": "minus", "equal": "equals", 
+                            "slash": "slash", "BackSpace": "backspace", "Caps_Lock": "capslock",
+                            "Delete": "delete", "End": "end", 
+                            "Execute": "enter", 
+                            "F1":"f1", "F2":"f2", "F3":"f3", "F4":"f4", "F5":"f5", "F6":"f6",
+                            "F7":"f7", "F8":"f8", "F9":"f9", "F10":"f10", "F11":"f11", "F12":"f12",
+                            "Home":"home", "Insert":"insert", "Num_Lock":"numlock",
+                            "Pause":"pause", "Print":"printscreen", "Scroll_Lock":"scrolllock",
+                            "space":"space", "Tab":"tab", "Up":"up", "Down":"down", "Left":"left", "Right":"right",
+                            "Return":"enter" 
+                           }
         
-        # Get the action this keybind is for
-        action = widget.master.winfo_children()[0].cget('text')
-        old_key = self.variables["Keybinds"][action].get().lower() if action in self.variables["Keybinds"] else ""
+        action_label_widget = widget.master.winfo_children()[0] 
+        action_name = action_label_widget.cget('text')
         
-        # Remove old key from mapping if it's currently mapped to this action
-        if old_key and self.key_to_action.get(old_key) == action:
-            self.key_to_action.pop(old_key, None)
-        
-        # Store the key handler
-        def capture_key(event):
-            # Skip tab keys
-            if event.keysym.lower() in ['tab']:
+        old_key_for_action = self.action_to_key.get(action_name, "")
+
+        def _capture_key_event_handler(event):
+            key_sym = event.keysym
+
+            # CRITICAL CHANGE: Do NOT process Escape in this temporary handler.
+            # The global on_escape will catch it and see self.capturing_keybind_for_widget.
+            if key_sym.lower() == 'escape':
+                # Do nothing here, let the global on_escape handle it.
+                # We might need to return something that doesn't break propagation,
+                # or rely on the fact that on_escape is bound with bind_all.
+                # For safety, we can unbind here and let on_escape do its job.
+                if self.key_binding_id:
+                    self.root.unbind('<Key>', self.key_binding_id)
+                    self.key_binding_id = None
+                # self.capturing_keybind_for_widget will still be set for on_escape.
+                return # Don't return "break"
+
+            final_key_str = key_sym 
+            if key_sym in key_name_mapping:
+                final_key_str = key_name_mapping[key_sym]
+            elif len(key_sym) == 1 and key_sym.isalnum(): 
+                final_key_str = key_sym.lower()
+            
+            if final_key_str.lower() == 'tab': 
                 return "break"
                 
-            # Handle escape key for cancelling
-            if event.keysym.lower() == 'escape':
+            if final_key_str.lower() == 'enter': 
+                final_key_str = "" 
+                self.speak(f"Keybind for {action_name} disabled (blank).")
+            
+            if final_key_str and not self.is_valid_key(final_key_str):
+                self.speak(f"Key '{final_key_str}' is not a valid FA11y key. Restoring original.")
                 widget.delete(0, tk.END)
-                widget.insert(0, old_key or "")
+                widget.insert(0, self.original_keybind_value) 
                 widget.config(state='readonly')
-                self.speak("Keybind capture cancelled")
-                self.root.unbind('<Key>', self.key_binding_id)
+                if self.key_binding_id:
+                    self.root.unbind('<Key>', self.key_binding_id)
+                    self.key_binding_id = None
+                self.capturing_keybind_for_widget = None 
                 return "break"
-                
-            # For return key, allow setting blank keybind
-            if event.keysym.lower() == 'return':
-                # Set empty keybind (treated as disabled)
-                widget.delete(0, tk.END)
-                current_tab = self.notebook.tab(self.notebook.select(), "text")
-                key_name = widget.master.winfo_children()[0].cget('text')
-                self.variables[current_tab][key_name].set("")
-                widget.config(state='readonly')
-                self.speak(f"Keybind for {key_name} disabled (blank)")
-                self.root.unbind('<Key>', self.key_binding_id)
-                return "break"
-                
-            # Use the key
-            key = event.keysym
-            
-            # Map special keys to their input system names
-            if key in key_name_mapping:
-                key = key_name_mapping[key]
-            
-            # Check if this key is valid in the input system
-            valid_key = self.is_valid_key(key)
-            
-            # Handle invalid keys
-            if not valid_key:
-                self.speak(f"Key {key} is not valid. Cancelling keybind capture.")
-                widget.delete(0, tk.END)
-                widget.insert(0, old_key or "")
-                widget.config(state='readonly')
-                self.root.unbind('<Key>', self.key_binding_id)
-                return "break"
-                
-            # Check for conflicts
-            key_lower = key.lower()
-            conflicting_action = None
-            
-            if key_lower in self.key_to_action:
-                conflicting_action = self.key_to_action[key_lower]
-                
-                # No conflict if binding to same action
-                if conflicting_action == action:
-                    conflicting_action = None
-            
-            # Update entry with new key
+
             widget.delete(0, tk.END)
-            widget.insert(0, key)
+            widget.insert(0, final_key_str) 
             
-            # Update variable
-            current_tab = self.notebook.tab(self.notebook.select(), "text")
-            key_name = widget.master.winfo_children()[0].cget('text')
-            self.variables[current_tab][key_name].set(key)
+            self.variables["Keybinds"][action_name].set(final_key_str)
             
-            # Handle conflict if found
-            if conflicting_action:
-                # Remove the old binding from the conflicting action
-                self.action_to_key.pop(conflicting_action, None)
-                
-                # Update the conflicting action's entry
-                self.update_conflicting_keybind(
-                    conflicting_action, "", 
-                    f"Key {key} now bound to {action}"
-                )
-                
-                # Speak warning about conflict - only speak one message
-                self.speak(f"Warning: Key {key} was already bound to {conflicting_action}. Removed that binding.")
-            else:
-                # Speak confirmation
-                self.speak(f"Keybind for {key_name} set to {key}")
+            new_key_lower = final_key_str.lower()
+
+            if old_key_for_action and self.key_to_action.get(old_key_for_action) == action_name:
+                self.key_to_action.pop(old_key_for_action, None)
+            self.action_to_key.pop(action_name, None)
+
+
+            if new_key_lower and new_key_lower in self.key_to_action:
+                conflicting_action = self.key_to_action[new_key_lower]
+                if conflicting_action != action_name: 
+                    self.speak(f"Warning: Key {new_key_lower} was bound to {conflicting_action}. That binding is now cleared.")
+                    self.action_to_key.pop(conflicting_action, None) 
+                    self.update_conflicting_keybind_widget(conflicting_action, "", "") 
+
+            if new_key_lower: 
+                self.key_to_action[new_key_lower] = action_name
+            self.action_to_key[action_name] = new_key_lower
             
-            # Update key mappings AFTER resolving conflicts
-            self.action_to_key[action] = key_lower
-            self.key_to_action[key_lower] = action
+            if final_key_str: 
+                self.speak(f"Keybind for {action_name} set to {final_key_str}.")
             
-            # Switch back to readonly
             widget.config(state='readonly')
-            
-            # Remove the binding
-            self.root.unbind('<Key>', self.key_binding_id)
-            
+            if self.key_binding_id:
+                self.root.unbind('<Key>', self.key_binding_id)
+                self.key_binding_id = None
+            self.capturing_keybind_for_widget = None 
             return "break"
             
-        # Add the binding
-        self.key_binding_id = self.root.bind('<Key>', capture_key)
+        if self.key_binding_id: 
+            self.root.unbind('<Key>', self.key_binding_id)
+        self.key_binding_id = self.root.bind('<Key>', _capture_key_event_handler)
+
     
     def is_valid_key(self, key: str) -> bool:
-        """Check if a key is valid for the input system
-        
-        Args:
-            key: Key name to check
-            
-        Returns:
-            bool: True if valid, False otherwise
-        """
-        if not key or not key.strip():  # Empty/blank keys are valid (treated as disabled)
+        """Check if a key is valid for the input system."""
+        if not key or not key.strip():  
             return True
             
-        # This should match the keys in VK_KEYS dict in input.py
-        valid_keys = {
-            'num 0', 'num 1', 'num 2', 'num 3', 'num 4', 'num 5', 'num 6', 'num 7', 'num 8', 'num 9',
-            'num period', 'num .', 'num +', 'num -', 'num *', 'num /',
-            'lctrl', 'rctrl', 'lshift', 'rshift', 'lalt', 'ralt',
-            'middle mouse',
-            'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
-            'tab', 'capslock', 'space', 'backspace', 'enter', 'esc',
-            'insert', 'delete', 'home', 'end', 'pageup', 'pagedown',
-            'up', 'down', 'left', 'right',
-            'printscreen', 'scrolllock', 'pause', 'numlock',
-            'bracketleft', 'bracketright', 'apostrophe', 'grave', 'backslash', 'semicolon', 'period'
-        }
+        key_lower = key.lower()
         
-        # Also allow single letter/number keys
-        if len(key) == 1 and key.isalnum():
+        if key_lower in VK_KEYS:
+            return True
+        
+        if len(key_lower) == 1 and key_lower.isalnum():
             return True
             
-        return key.lower() in valid_keys
+        return False
     
     def get_default_keybind(self, action: str) -> str:
-        """Get the default keybind for an action
-        
-        Args:
-            action: Action name
-            
-        Returns:
-            str: Default keybind
-        """
-        # Parse DEFAULT_CONFIG string directly to get default values
-        default_config = configparser.ConfigParser(interpolation=None)
-        default_config.optionxform = str  # Preserve case sensitivity
-        default_config.read_string(DEFAULT_CONFIG)
-        
-        try:
-            if "Keybinds" in default_config.sections():
-                if action in default_config["Keybinds"]:
-                    value_string = default_config["Keybinds"][action]
-                    value, _ = self.extract_value_and_description(value_string)
-                    return value
-        except Exception as e:
-            logger.error(f"Error getting default keybind: {e}")
-            
-        # If not found or error, use reasonable fallbacks for common actions
-        fallbacks = {
-            "Toggle Keybinds": "f8",
-            "Fire": "lctrl",
-            "Target": "rctrl",
-            "Turn Left": "num 1",
-            "Turn Right": "num 3",
-            "Secondary Turn Left": "num 4",
-            "Secondary Turn Right": "num 6",
-            "Look Up": "num 8",
-            "Look Down": "num 2",
-            "Turn Around": "num 0",
-            "Recenter": "num 5",
-            "Scroll Up": "num 7",
-            "Scroll Down": "num 9"
-        }
-        return fallbacks.get(action, "")
+        """Get the default keybind for an action"""
+        default_full_value = get_default_config_value_string("Keybinds", action)
+        if default_full_value:
+            default_key_part, _ = self.extract_value_and_description(default_full_value)
+            return default_key_part
+        return "" 
 
 
-def launch_config_gui(config, 
-                     update_callback: Callable,
-                     default_config = None) -> None:
-    """Launch the configuration GUI
-    
-    Args:
-        config: Current configuration (Config object)
-        update_callback: Callback function to update main configuration
-        default_config: Optional default configuration for reset functionality
-    """
+def launch_config_gui(config_obj: 'Config', 
+                     update_callback: Callable[[configparser.ConfigParser], None], 
+                     default_config_str: Optional[str] = None) -> None:
+    """Launch the configuration GUI"""
     try:
-        gui = ConfigGUI(config, update_callback, default_config)
+        gui = ConfigGUI(config_obj, update_callback, default_config_str)
         gui.run()
     except Exception as e:
         logger.error(f"Error launching configuration GUI: {e}")

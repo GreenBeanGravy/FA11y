@@ -4,7 +4,7 @@ import ctypes
 import configparser
 from typing import Dict, Tuple, Optional, Any, Union
 
-import pywintypes
+import pywintypes 
 import win32gui
 import win32con
 import win32com.client
@@ -15,7 +15,6 @@ from accessible_output2.outputs.auto import Auto
 speaker = Auto()
 CONFIG_FILE = 'config.txt'
 
-# Modified DEFAULT_CONFIG to use new section format
 DEFAULT_CONFIG = """[Toggles]
 SimplifySpeechOutput = false "Toggles simplifying speech for various FA11y announcements."
 MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
@@ -90,242 +89,270 @@ Detect Hotbar 5 = 5 "Announces details about the item the player is currently ho
 selected_poi = closest, 0, 0
 current_map = main"""
 
-# Mapping for where settings should go in new format
-SETTINGS_MAPPING = {
-    'MouseKeys': 'Toggles',
-    'ResetSensitivity': 'Toggles',
-    'AnnounceWeaponAttachments': 'Toggles',
-    'AnnounceAmmo': 'Toggles',
-    'AutoUpdates': 'Toggles',
-    'CreateDesktopShortcut': 'Toggles',
-    'AutoTurn': 'Toggles',
-    'PerformFacingCheck': 'Toggles',
-    # All other settings go to Values by default
-}
+def _create_config_parser_with_case_preserved() -> configparser.ConfigParser:
+    """Helper to create a ConfigParser instance with case preservation."""
+    parser = configparser.ConfigParser(interpolation=None)
+    parser.optionxform = str  # Preserve case for keys
+    return parser
 
 def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any = None) -> Tuple[str, str]:
     """Get a configuration value from any section.
-    
     Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found
-        
+        config: The configuration parser object (case-sensitive keys expected).
+        key: The key to look for (case-sensitive).
     Returns:
         tuple: (value, description)
     """
-    for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS']:
-        if section in config and key in config[section]:
-            value = config[section][key]
+    for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS', 'POI']: 
+        if config.has_section(section) and config.has_option(section, key): 
+            value = config.get(section, key) 
             parts = value.split('"')
-            if len(parts) > 1:
+            if len(parts) > 1: 
                 return parts[0].strip(), parts[1]
-            return parts[0].strip(), ""
-    return fallback, ""
+            return parts[0].strip(), "" 
+    return str(fallback) if fallback is not None else "", ""
+
 
 def get_config_section_for_key(key: str, value: str) -> str:
     """Determine which section a key should be in based on its value and mapping.
-    
     Args:
-        key: The configuration key
-        value: The value associated with the key
-        
-    Returns:
-        str: The appropriate section name
+        key: The configuration key (case-sensitive).
     """
-    if key in SETTINGS_MAPPING:
-        return SETTINGS_MAPPING[key]
-    if value.lower() in ['true', 'false']:
+    toggles_keys = [
+        'SimplifySpeechOutput', 'MouseKeys', 'ResetSensitivity', 
+        'AnnounceWeaponAttachments', 'AnnounceAmmo', 'AutoUpdates', 
+        'CreateDesktopShortcut', 'AutoTurn', 'PerformFacingCheck', 
+        'PlayPOISound', 'AnnounceMapStatus', 'AnnounceSpectatingStatus', 
+        'AnnounceInventoryStatus'
+    ]
+    if key in toggles_keys:
         return 'Toggles'
+    
+    default_parser = _create_config_parser_with_case_preserved()
+    default_parser.read_string(DEFAULT_CONFIG)
+    if default_parser.has_option('Keybinds', key): 
+        return 'Keybinds'
+
+    if value.lower() in ['true', 'false'] and key not in toggles_keys: 
+        return 'Toggles'
+        
     return 'Values'
 
+
 def migrate_config_to_new_format(config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """Migrate an old format config to the new format.
-    
+    """Migrate an old format config to the new format, preserving case.
     Args:
-        config: The old configuration parser object
-        
-    Returns:
-        ConfigParser: The new format configuration
+        config: The old configuration parser object (ensure optionxform=str was set on it).
     """
-    new_config = configparser.ConfigParser(interpolation=None)
-    new_config.optionxform = str
-    
-    # Initialize new sections
-    new_config.add_section('Toggles')
-    new_config.add_section('Values')
-    new_config.add_section('Keybinds')
-    
-    # Migrate settings
-    if 'SETTINGS' in config:
-        for key, value in config['SETTINGS'].items():
-            target_section = get_config_section_for_key(key, value.split('"')[0].strip())
-            new_config[target_section][key] = value
+    new_config = _create_config_parser_with_case_preserved()
             
-    # Migrate keybinds
-    if 'SCRIPT KEYBINDS' in config:
-        for key, value in config['SCRIPT KEYBINDS'].items():
-            new_config['Keybinds'][key] = value
+    for section_name in ['Toggles', 'Values', 'Keybinds', 'POI']:
+        if not new_config.has_section(section_name):
+            new_config.add_section(section_name)
             
-    # Preserve POI section
-    if 'POI' in config:
-        new_config.add_section('POI')
-        for key, value in config['POI'].items():
-            new_config['POI'][key] = value
+    if config.has_section('SETTINGS'):
+        for key, value_with_desc in config.items('SETTINGS'): 
+            value_part = value_with_desc.split('"')[0].strip() 
+            target_section = get_config_section_for_key(key, value_part)
+            new_config.set(target_section, key, value_with_desc) 
+            
+    if config.has_section('SCRIPT KEYBINDS'):
+        for key, value_with_desc in config.items('SCRIPT KEYBINDS'):
+            new_config.set('Keybinds', key, value_with_desc)
+            
+    if config.has_section('POI'):
+        for key, value in config.items('POI'):
+            new_config.set('POI', key, value) 
             
     return new_config
 
+
 def read_config() -> configparser.ConfigParser:
-    """Read and parse the configuration file, converting to new format if needed.
-    
-    Returns:
-        ConfigParser: The configuration parser object
-    """
-    config = configparser.ConfigParser(interpolation=None)
-    config.optionxform = str
+    """Read and parse the configuration file, preserving case and handling migration/defaults."""
+    config = _create_config_parser_with_case_preserved()
 
     try:
         if os.path.exists(CONFIG_FILE):
-            config.read(CONFIG_FILE)
-            if not config.sections():
-                raise configparser.MissingSectionHeaderError(CONFIG_FILE, 1, "File contains no section headers.")
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                config.read_file(f) 
+            if not config.sections(): 
+                raise configparser.Error("File contains no section headers or is empty.")
         else:
-            raise FileNotFoundError
+            raise FileNotFoundError(f"{CONFIG_FILE} not found.")
 
-        # Check if config needs migration
-        if 'SETTINGS' in config.sections() or 'SCRIPT KEYBINDS' in config.sections():
-            print("Converting config to new format...")
-            config = migrate_config_to_new_format(config)
-            
-        config = update_config(config)
+        is_old_format = config.has_section('SETTINGS') or config.has_section('SCRIPT KEYBINDS')
         
-        # Save the migrated config
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
+        if is_old_format:
+            print("Old config format detected. Migrating to new format...")
+            migrated_config = migrate_config_to_new_format(config)
+            config = migrated_config 
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                config.write(configfile)
+            print("Config migrated and saved. Now ensuring all default values are present.")
+        
+        config = update_config(config) 
             
-    except (configparser.MissingSectionHeaderError, FileNotFoundError):
-        print(f"Config file is corrupted or missing. Creating a new one with default values.")
+    except (configparser.Error, FileNotFoundError) as e: 
+        print(f"Config file error: {e}. Creating a new one with default values.")
         if os.path.exists(CONFIG_FILE):
-            os.remove(CONFIG_FILE)
+            try:
+                os.remove(CONFIG_FILE) 
+            except OSError as oe:
+                print(f"Could not remove existing config file: {oe}")
+
+        config = _create_config_parser_with_case_preserved()
         config.read_string(DEFAULT_CONFIG)
-        with open(CONFIG_FILE, 'w') as configfile:
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
             config.write(configfile)
         print(f"Created new config file: {CONFIG_FILE}")
 
     return config
 
-def update_config(config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """Update the configuration file with default values if necessary.
-    
-    Args:
-        config: The configuration parser object
-        
-    Returns:
-        ConfigParser: The updated configuration
+def update_config(current_config: configparser.ConfigParser) -> configparser.ConfigParser:
+    """Update the current_config with default values if necessary, preserving case,
+       and clean up duplicates. Writes to file if changes are made.
     """
-    default_config = configparser.ConfigParser(interpolation=None)
-    default_config.optionxform = str
-    default_config.read_string(DEFAULT_CONFIG)
+    default_config_parser = _create_config_parser_with_case_preserved()
+    default_config_parser.read_string(DEFAULT_CONFIG)
 
-    updated = False
+    config_changed = False
 
-    # Ensure all sections exist
-    for section in default_config.sections():
-        if not config.has_section(section):
-            config.add_section(section)
-            updated = True
-
-    # Update all sections
-    for section in default_config.sections():
-        if section == 'POI':
-            continue  # Skip POI section as it's user-specific
-            
-        new_section = {}
-        existing_keys = {k.lower(): (k, config[section][k]) for k in config[section]}
-
-        for key, value in default_config.items(section):
-            lower_key = key.lower()
-            default_value, default_description = get_config_value(default_config, key)
-
-            if lower_key in existing_keys:
-                original_key, existing_value = existing_keys[lower_key]
-                existing_value, existing_description = get_config_value(config, original_key)
-
-                if original_key != key:
-                    updated = True
-
-                new_value = f"{existing_value}"
-                if existing_description:
-                    new_value += f' "{existing_description}"'
-                elif default_description:
-                    new_value += f' "{default_description}"'
-                    updated = True
-
-                new_section[key] = new_value
+    # Phase 1: Ensure all default sections and keys are present
+    for section in default_config_parser.sections():
+        if not current_config.has_section(section):
+            current_config.add_section(section)
+            config_changed = True
+        
+        for key, default_full_value in default_config_parser.items(section):
+            if not current_config.has_option(section, key):
+                current_config.set(section, key, default_full_value)
+                config_changed = True
             else:
-                new_section[key] = value
-                updated = True
+                # Ensure description consistency
+                current_val_str = current_config.get(section, key)
+                has_current_desc = '"' in current_val_str
+                has_default_desc = '"' in default_full_value
+                if not has_current_desc and has_default_desc:
+                    current_value_part_only = current_val_str.strip()
+                    _, default_desc_only = default_full_value.split('"', 1)
+                    if default_desc_only.endswith('"'):
+                        default_desc_only = default_desc_only[:-1]
+                    current_config.set(section, key, f'{current_value_part_only} "{default_desc_only}"')
+                    config_changed = True
 
-        config[section] = new_section
+    # Phase 2: Clean up duplicates
+    for section in current_config.sections():
+        if section == "POI": # POI section might have user-defined keys, skip advanced cleanup
+            continue
 
-    if updated:
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-        print(f"Updated config file: {CONFIG_FILE}")
+        options_in_section = current_config.options(section)
+        keys_to_remove = []
+        
+        # Group options by their lowercase version to find case duplicates
+        options_by_lower = {}
+        for opt in options_in_section:
+            lower_opt = opt.lower()
+            if lower_opt not in options_by_lower:
+                options_by_lower[lower_opt] = []
+            options_by_lower[lower_opt].append(opt)
 
-    return config
+        for lower_key, cased_keys in options_by_lower.items():
+            if len(cased_keys) > 1: # Found case duplicates
+                # print(f"Found duplicates for '{lower_key}' in section '{section}': {cased_keys}")
+                config_changed = True
+                canonical_key_from_default = None
+                
+                # Find the canonical (correctly cased) key from DEFAULT_CONFIG
+                if default_config_parser.has_section(section):
+                    for default_opt_key in default_config_parser.options(section):
+                        if default_opt_key.lower() == lower_key:
+                            canonical_key_from_default = default_opt_key
+                            break
+                
+                if canonical_key_from_default and canonical_key_from_default in cased_keys:
+                    # The correctly cased key from default exists. Keep this one.
+                    # Remove all other cased versions.
+                    for k_to_check in cased_keys:
+                        if k_to_check != canonical_key_from_default:
+                            keys_to_remove.append(k_to_check)
+                else:
+                    # No canonical key from default among the duplicates, or default doesn't have this key.
+                    # This case implies either all are user-added (unlikely for Toggles/Values/Keybinds)
+                    # or something is off.
+                    # Strategy: if there's a version that differs from the default config value, prioritize that.
+                    # Otherwise, just keep one (e.g., the first one alphabetically, or last one found).
+                    
+                    default_value_for_key = None
+                    if canonical_key_from_default and default_config_parser.has_option(section, canonical_key_from_default):
+                         default_value_for_key = default_config_parser.get(section, canonical_key_from_default)
+
+                    kept_key = None
+                    if default_value_for_key:
+                        for k_in_dups in cased_keys:
+                            if current_config.get(section, k_in_dups) != default_value_for_key:
+                                kept_key = k_in_dups # Prioritize user-modified value
+                                break
+                    
+                    if not kept_key: # If no user-modified one or no default, keep the first one found
+                        kept_key = sorted(cased_keys)[0] 
+
+                    for k_to_remove_dup in cased_keys:
+                        if k_to_remove_dup != kept_key:
+                            keys_to_remove.append(k_to_remove_dup)
+        
+        for k_rem in keys_to_remove:
+            current_config.remove_option(section, k_rem)
+            print(f"Removed duplicate/incorrectly cased key '{k_rem}' from section '[{section}]'")
+
+
+    if config_changed:
+        try:
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+                current_config.write(configfile)
+            print(f"Config file '{CONFIG_FILE}' was updated.")
+        except IOError as e:
+            print(f"Error writing updated config file: {e}")
+            
+    return current_config
+
+
+def get_default_config_value_string(section_name: str, key_name: str) -> Optional[str]:
+    """
+    Gets the full default value string (value + description) for a specific key from DEFAULT_CONFIG.
+    Key and section names are case-sensitive as they appear in DEFAULT_CONFIG.
+    """
+    default_config_parser = _create_config_parser_with_case_preserved()
+    default_config_parser.read_string(DEFAULT_CONFIG)
+    if default_config_parser.has_option(section_name, key_name):
+        return default_config_parser.get(section_name, key_name) 
+    print(f"Warning: Default value for [{section_name}] {key_name} not found in DEFAULT_CONFIG.")
+    return None
+
 
 def get_config_int(config: configparser.ConfigParser, key: str, fallback: Optional[int] = None) -> Optional[int]:
-    """Get an integer configuration value from any section.
-    
-    Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found or invalid
-        
-    Returns:
-        int or None: The integer value or fallback
-    """
-    value, _ = get_config_value(config, key, fallback)
+    """Get an integer configuration value from any section (case-sensitive key)."""
+    value, _ = get_config_value(config, key, str(fallback) if fallback is not None else None)
     try:
         return int(value)
     except (ValueError, TypeError):
         return fallback
 
 def get_config_float(config: configparser.ConfigParser, key: str, fallback: Optional[float] = None) -> Optional[float]:
-    """Get a float configuration value from any section.
-    
-    Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found or invalid
-        
-    Returns:
-        float or None: The float value or fallback
-    """
-    value, _ = get_config_value(config, key, fallback)
+    """Get a float configuration value from any section (case-sensitive key)."""
+    value, _ = get_config_value(config, key, str(fallback) if fallback is not None else None)
     try:
         return float(value)
     except (ValueError, TypeError):
         return fallback
 
 def get_config_boolean(config: configparser.ConfigParser, key: str, fallback: bool = False) -> bool:
-    """Get a boolean configuration value from any section.
-    
-    Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found or invalid
-        
-    Returns:
-        bool: The boolean value or fallback
-    """
+    """Get a boolean configuration value from any section (case-sensitive key)."""
     value, _ = get_config_value(config, key, str(fallback))
     return value.lower() in ('true', 'yes', 'on', '1')
 
 def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: Optional[Union[callable, Any]] = None) -> None:
     """Force focus on a given window, with optional speech and widget focus.
-
+       This is the more aggressive version.
     Args:
         window: The window to focus
         speak_text: Text to speak after focusing
@@ -336,69 +363,89 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
     window.update()
     window.lift()
 
-    hwnd = win32gui.GetParent(window.winfo_id())
+    hwnd = None
+    try:
+        hwnd = win32gui.GetParent(window.winfo_id())
+        if hwnd == 0: 
+            hwnd = window.winfo_id()
+    except Exception as e:
+        print(f"Error getting HWND via GetParent/winfo_id: {e}")
+        window.focus_force()
+        if speak_text: speaker.speak(speak_text)
+        if focus_widget:
+            if callable(focus_widget): window.after(100, focus_widget)
+            else: window.after(100, focus_widget.focus_set)
+        return
 
-    # Ensure window is not minimized
+    if hwnd == 0: 
+        print("Could not obtain a valid window handle (HWND). Using Tkinter focus_force.")
+        window.focus_force()
+        if speak_text: speaker.speak(speak_text)
+        if focus_widget:
+            if callable(focus_widget): window.after(100, focus_widget)
+            else: window.after(100, focus_widget.focus_set)
+        return
+
     win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-
     shell = win32com.client.Dispatch("WScript.Shell")
-
-    # Release mouse capture from other windows
     ctypes.windll.user32.ReleaseCapture()
 
-    # Try to allow the process to set the foreground window
     try:
-        ctypes.windll.user32.AllowSetForegroundWindow(ctypes.windll.kernel32.GetCurrentProcessId())
+        ctypes.windll.user32.AllowSetForegroundWindow(win32api.GetCurrentProcessId())
     except Exception as e:
         print(f"AllowSetForegroundWindow failed: {e}")
 
-    # Initialize foreground_thread_id to None
     foreground_thread_id = None
+    current_thread_id = win32api.GetCurrentThreadId()
 
-    # Attach input threads
     try:
-        current_thread_id = win32api.GetCurrentThreadId()
         foreground_window = win32gui.GetForegroundWindow()
-        if foreground_window != hwnd:
-            foreground_thread_id = win32process.GetWindowThreadProcessId(foreground_window)[0]
-            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, True)
+        if foreground_window != 0 and foreground_window != hwnd:
+            fg_tid, fg_pid = win32process.GetWindowThreadProcessId(foreground_window)
+            foreground_thread_id = fg_tid
+            if foreground_thread_id != 0 and current_thread_id != 0 and foreground_thread_id != current_thread_id:
+                 win32process.AttachThreadInput(foreground_thread_id, current_thread_id, True)
     except Exception as e:
         print(f"AttachThreadInput failed: {e}")
 
-    # Try multiple methods to bring the window to the foreground
-    for _ in range(15):
+    for _ in range(15): 
         try:
             win32gui.SetForegroundWindow(hwnd)
             win32gui.BringWindowToTop(hwnd)
-            win32gui.SetFocus(hwnd)
-            win32gui.SetActiveWindow(hwnd)
+            win32gui.SetFocus(hwnd) 
 
             if win32gui.GetForegroundWindow() == hwnd:
                 break
 
-            # Alternative methods
-            shell.SendKeys('%')
+            shell.SendKeys('%') 
+            time.sleep(0.05) 
             ctypes.windll.user32.SetForegroundWindow(hwnd)
             ctypes.windll.user32.BringWindowToTop(hwnd)
             ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
-            ctypes.windll.user32.SetFocus(hwnd)
-            ctypes.windll.user32.SetActiveWindow(hwnd)
 
             if win32gui.GetForegroundWindow() == hwnd:
                 break
-        except pywintypes.error:
+        except pywintypes.error as pye:
+            if pye.winerror == 1400: 
+                print("Cannot focus invalid window handle (1400).")
+                break
+            elif pye.winerror == 5: 
+                print("Focus access denied (5).")
+            pass 
+        except Exception:
             pass
-
-        time.sleep(0.1)
+        time.sleep(0.1) 
     else:
-        print("Failed to set window focus after multiple attempts")
+        print("Failed to set window focus after multiple attempts using primary methods.")
 
-    # Detach input threads
     try:
-        if foreground_thread_id is not None:
-            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, False)
+        if foreground_thread_id is not None and foreground_thread_id != 0 and current_thread_id != 0 and foreground_thread_id != current_thread_id:
+            win32process.AttachThreadInput(foreground_thread_id, current_thread_id, False)
     except Exception as e:
         print(f"DetachThreadInput failed: {e}")
+
+    window.focus_force()
+    window.attributes('-topmost', False) 
 
     if speak_text:
         speaker.speak(speak_text)
@@ -409,22 +456,20 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
         else:
             window.after(100, focus_widget.focus_set)
 
-    # Final check and fallback using SetWindowPos
     if win32gui.GetForegroundWindow() != hwnd:
         try:
             current_pos = win32gui.GetWindowRect(hwnd)
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST,
                                 current_pos[0], current_pos[1],
                                 current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                win32con.SWP_SHOWWINDOW)
+                                win32con.SWP_SHOWWINDOW | win32con.SWP_NOACTIVATE) 
             win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST,
                                 current_pos[0], current_pos[1],
                                 current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                win32con.SWP_SHOWWINDOW)
+                                win32con.SWP_SHOWWINDOW | win32con.SWP_NOACTIVATE)
+            win32gui.SetForegroundWindow(hwnd) 
         except Exception as e:
             print(f"Failed to force focus using SetWindowPos: {e}")
-
-    # Attempt to move mouse cursor to the center of the window
     try:
         rect = win32gui.GetWindowRect(hwnd)
         center_x = (rect[0] + rect[2]) // 2
@@ -433,118 +478,80 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
     except Exception as e:
         print(f"Failed to move cursor to window center: {e}")
 
-# New additions for supporting the updated UI system
 
 class Config:
     """
     Config adapter class that bridges between FA11y's existing config system
     and what the new UI components expect.
     """
-    def __init__(self, config_file='config.txt'):
-        """
-        Initialize with a ConfigParser instance or create a new one.
-        
-        Args:
-            config_file: Path to config file
-        """
+    def __init__(self, config_file=CONFIG_FILE): 
         self.config_file = config_file
-        self.config = read_config()  # Use existing read_config function
+        self.config = read_config()  
         
     def get_value(self, key, section=None, fallback=None):
-        """
-        Get a value from the configuration.
-        
-        Args:
-            key: Configuration key
-            section: Optional section name (will search all sections if None)
-            fallback: Default value if not found
-            
-        Returns:
-            The configuration value
-        """
+        """Get a value from the configuration (case-sensitive key)."""
         if section:
-            if section in self.config.sections() and key in self.config[section]:
-                value_string = self.config[section][key]
-                # Extract just the value part (before any description in quotes)
+            if self.config.has_section(section) and self.config.has_option(section, key):
+                value_string = self.config.get(section, key) 
                 if '"' in value_string:
                     return value_string.split('"')[0].strip()
-                return value_string
-            return fallback
+                return value_string.strip()
+            return str(fallback) if fallback is not None else ""
         else:
-            return get_config_value(self.config, key, fallback)[0]
+            for sec_name in ['Toggles', 'Values', 'Keybinds', 'POI']: 
+                 if self.config.has_section(sec_name) and self.config.has_option(sec_name, key):
+                    value_string = self.config.get(sec_name, key)
+                    if '"' in value_string:
+                        return value_string.split('"')[0].strip()
+                    return value_string.strip()
+            return str(fallback) if fallback is not None else ""
     
     def get_boolean(self, key, section=None, fallback=False):
-        """Get a boolean value from configuration."""
-        if section:
-            value = self.get_value(key, section, str(fallback))
-            return value.lower() in ('true', 'yes', 'on', '1')
-        else:
-            return get_config_boolean(self.config, key, fallback)
+        value_str = self.get_value(key, section, str(fallback))
+        return value_str.lower() in ('true', 'yes', 'on', '1')
     
     def get_int(self, key, section=None, fallback=0):
-        """Get an integer value from configuration."""
-        if section:
-            value = self.get_value(key, section, fallback)
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return fallback
-        else:
-            return get_config_int(self.config, key, fallback)
+        value_str = self.get_value(key, section, str(fallback))
+        try:
+            return int(value_str)
+        except (ValueError, TypeError):
+            return fallback if isinstance(fallback, int) else 0
     
     def get_float(self, key, section=None, fallback=0.0):
-        """Get a float value from configuration."""
-        if section:
-            value = self.get_value(key, section, fallback)
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return fallback
-        else:
-            return get_config_float(self.config, key, fallback)
+        value_str = self.get_value(key, section, str(fallback))
+        try:
+            return float(value_str)
+        except (ValueError, TypeError):
+            return fallback if isinstance(fallback, float) else 0.0
     
     def set_value(self, key, value, section):
-        """
-        Set a configuration value.
-        
-        Args:
-            key: Configuration key
-            value: Value to set
-            section: Section name
-        """
-        if section not in self.config.sections():
+        """Set a configuration value, preserving existing description (case-sensitive key)."""
+        if not self.config.has_section(section):
             self.config.add_section(section)
             
-        # Preserve any existing description
-        current = self.config[section].get(key, "")
+        current_full_value = ""
+        if self.config.has_option(section, key):
+             current_full_value = self.config.get(section, key)
+        
         description = ""
-        if current and '"' in current:
-            description = current.split('"', 1)[1].strip()
-            description = f' "{description}"'
+        if '"' in current_full_value:
+            description = current_full_value.split('"', 1)[1] 
+            if description.endswith('"'):
+                description = description[:-1] 
+            description = f' "{description}"' 
             
-        self.config[section][key] = f"{value}{description}"
+        self.config.set(section, key, f"{str(value)}{description}") 
     
     def set_poi(self, name, x, y):
-        """
-        Set the selected POI.
-        
-        Args:
-            name: POI name
-            x: X coordinate
-            y: Y coordinate
-        """
         self.set_value('selected_poi', f"{name}, {x}, {y}", 'POI')
     
     def set_current_map(self, map_name):
-        """
-        Set the current map.
-        
-        Args:
-            map_name: Map name
-        """
         self.set_value('current_map', map_name, 'POI')
     
     def save(self):
         """Save configuration to file."""
-        with open(self.config_file, 'w') as f:
-            self.config.write(f)
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                self.config.write(f)
+        except IOError as e:
+            print(f"Error saving config file {self.config_file}: {e}")

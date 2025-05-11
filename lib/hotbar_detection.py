@@ -368,7 +368,12 @@ def load_attachment_images():
     global attachment_images
     for attachment_type in ["Scope", "Magazine", "Underbarrel", "Barrel"]:
         folder_path = os.path.join(ATTACHMENTS_FOLDER, attachment_type)
-        attachment_images[attachment_type] = load_images(folder_path, is_attachment=True)
+        if os.path.exists(folder_path):
+            attachment_images[attachment_type] = load_images(folder_path, is_attachment=True)
+        else:
+            print(f"Warning: Attachment folder not found: {folder_path}")
+            attachment_images[attachment_type] = {}
+
 
 def pixel_based_matching(screenshot, template, threshold=30):
     """
@@ -415,7 +420,8 @@ def check_slot(coord):
         screenshot = cv2.cvtColor(np.array(sct.grab(coord)), cv2.COLOR_RGBA2RGB)
     return max(((name, pixel_based_matching(screenshot, ref_img)) 
                 for name, ref_img in reference_images.items()), 
-               key=lambda x: x[1])
+               key=lambda x: x[1], default=(None, 0))
+
 
 def detect_rarity_for_slot(slot_coord):
     """
@@ -427,21 +433,25 @@ def detect_rarity_for_slot(slot_coord):
     Returns:
         str: Detected rarity or None if not detected
     """
-    global last_detected_rarity
+    # No need to use last_detected_rarity here, this function is for detection.
     try:
         with mss() as sct:
-            slot_img = np.array(sct.grab(slot_coord))
-            slot_img = cv2.cvtColor(slot_img, cv2.COLOR_BGRA2BGR)
+            slot_img_rgba = np.array(sct.grab(slot_coord))
+            if slot_img_rgba.shape[2] == 4: # Check if image has alpha channel
+                slot_img = cv2.cvtColor(slot_img_rgba, cv2.COLOR_BGRA2BGR)
+            else:
+                slot_img = slot_img_rgba # Assuming it's already BGR
             
             color_rarity = detect_rarity_by_color(slot_img)
             if color_rarity:
-                last_detected_rarity = color_rarity
+                # Do not set last_detected_rarity here, let the caller handle it.
                 return color_rarity
                 
     except Exception as e:
         print(f"Error in rarity detection: {e}")
     
     return None
+
 
 def detect_hotbar_item(slot_index):
     """
@@ -450,14 +460,16 @@ def detect_hotbar_item(slot_index):
     Args:
         slot_index (int): Index of the slot to check (0-4)
     """
-    global current_detection_thread, timer_thread, stop_event, timer_stop_event
+    global current_detection_thread, timer_thread, stop_event, timer_stop_event, last_detected_rarity, last_detected_item, last_detected_slot
     
     # Initialize the item rarity map if needed
-    initialize_item_rarity_map()
+    if not rarity_map_initialized:
+        initialize_item_rarity_map() # Ensure this is called if not already
     
     # Stop any ongoing detection
     if current_detection_thread and current_detection_thread.is_alive():
         stop_event.set()
+        # current_detection_thread.join() # Wait for it to actually stop if necessary
     
     if timer_thread and timer_thread.is_alive():
         timer_stop_event.set()
@@ -466,6 +478,11 @@ def detect_hotbar_item(slot_index):
     # Reset stop events
     stop_event.clear()
     timer_stop_event.clear()
+    
+    # Reset last detected info before new detection
+    last_detected_rarity = None
+    last_detected_item = None
+    last_detected_slot = slot_index # Set slot being checked
     
     # Start new detection thread
     current_detection_thread = Thread(target=detect_hotbar_item_thread, args=(slot_index,))
@@ -481,8 +498,7 @@ def detect_hotbar_item_thread(slot_index):
     global timer_thread, last_detected_rarity, last_detected_slot, last_detected_item
     
     # Load configuration
-    config = configparser.ConfigParser()
-    config.read('config.txt')
+    config = read_config() # Use read_config from utilities
     announce_attachments_enabled = get_config_boolean(config, 'AnnounceWeaponAttachments', True)
     announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
 
@@ -494,7 +510,6 @@ def detect_hotbar_item_thread(slot_index):
         speaker.speak(best_match_name)
         
         # Update last detected information
-        last_detected_slot = slot_index
         last_detected_item = best_match_name
         
         # Update rarity from item name if available
@@ -502,9 +517,9 @@ def detect_hotbar_item_thread(slot_index):
             last_detected_rarity = item_rarity_map[best_match_name]
         else:
             # Try to extract rarity from name
-            for rarity in rarity_colors.keys():
-                if best_match_name.startswith(rarity):
-                    last_detected_rarity = rarity
+            for rarity_key in rarity_colors.keys(): # Use rarity_colors keys for consistency
+                if best_match_name.startswith(rarity_key):
+                    last_detected_rarity = rarity_key
                     break
         
         # Announce ammo if enabled
@@ -534,7 +549,6 @@ def check_secondary_slot(slot_index):
         speaker.speak(best_match_name)
         
         # Update last detected information
-        last_detected_slot = slot_index
         last_detected_item = best_match_name
         
         # Update rarity from item name if available
@@ -542,13 +556,12 @@ def check_secondary_slot(slot_index):
             last_detected_rarity = item_rarity_map[best_match_name]
         else:
             # Try to extract rarity from name
-            for rarity in rarity_colors.keys():
-                if best_match_name.startswith(rarity):
-                    last_detected_rarity = rarity
+            for rarity_key in rarity_colors.keys():
+                if best_match_name.startswith(rarity_key):
+                    last_detected_rarity = rarity_key
                     break
         
-        config = configparser.ConfigParser()
-        config.read('config.txt')
+        config = read_config()
         announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
         if easyocr_available and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
@@ -559,36 +572,38 @@ def check_secondary_slot(slot_index):
         timer_thread.start()
 
 def check_unknown_item_rarity(slot_index):
-    """Check rarity for an unrecognized item."""
+    """Check rarity for an unrecognized item. Does not speak."""
     global last_detected_rarity, last_detected_slot, last_detected_item, timer_thread
     
     if stop_event.is_set():
         return
     
     # Detect rarity from primary slot
-    detected_rarity = detect_rarity_for_slot(SLOT_COORDS[slot_index])
+    detected_rarity_value = detect_rarity_for_slot(SLOT_COORDS[slot_index])
     
-    if detected_rarity:
-        last_detected_rarity = detected_rarity
-        last_detected_slot = slot_index
-        last_detected_item = None
+    if detected_rarity_value:
+        last_detected_rarity = detected_rarity_value
+        last_detected_item = None # Item name is unknown
+        # Do not speak here. Rarity is stored.
         
-        # Announce "Rarity Unknown Item"
-        # speaker.speak(f"{detected_rarity} Unknown Item")
-        
-        # Announce ammo if enabled
-        config = configparser.ConfigParser()
-        config.read('config.txt')
+        # Announce ammo if enabled, as it might be a known item type without a specific image match
+        config = read_config()
         announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
         if easyocr_available and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
     else:
-        # If we couldn't detect a rarity, just announce "Unknown Item"
-        speaker.speak("Unknown Item")
-        last_detected_slot = slot_index
-        last_detected_item = None
+        # If we couldn't detect a rarity, clear last_detected_rarity
         last_detected_rarity = None
+        last_detected_item = None
+        # Do not speak "Unknown Item" here.
+        # If ammo should still be announced for completely unknown items (no name, no rarity):
+        config = read_config()
+        announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
+        if easyocr_available and announce_ammo_enabled:
+            timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo)) # Potentially announce ammo if that's desired even for fully unknown
+            timer_thread.start()
+
 
 def announce_ammo():
     """Announce current and reserve ammo counts or consumable counts with simplified speech if enabled."""
@@ -612,14 +627,18 @@ def announce_ammo():
         else:
             speaker.speak(f"with {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
     else:
-        print("OCR failed to detect any values.")
+        # Only print if not simplifying speech, to avoid console spam for no detection
+        if not simplify:
+            print("OCR failed to detect any values for ammo/consumables.")
+
 
 def announce_ammo_manually():
     """Manually announce ammo counts or consumable counts with simplified speech if enabled."""
     config = read_config()
     simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
     
-    sct = mss()
+    sct = mss() # mss() should be within a 'with' statement or closed manually.
+                # For a one-off function like this, direct use is okay but less ideal than context manager.
     current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
     
     if consumable_count is not None:
@@ -635,6 +654,7 @@ def announce_ammo_manually():
     else:
         speaker.speak("No ammo")
 
+
 def announce_attachments():
     """Announce detected weapon attachments."""
     if stop_event.is_set():
@@ -644,12 +664,13 @@ def announce_attachments():
     if detected_attachments:
         attachment_list = [f"a {detected_attachments[at_type]}" for at_type in ["Scope", "Magazine", "Underbarrel", "Barrel"] if at_type in detected_attachments]
         if attachment_list:
-            attachment_message = "with " + ", ".join(attachment_list[:-1])
-            if len(attachment_list) > 1:
-                attachment_message += f", and {attachment_list[-1]}"
+            attachment_message = "with "
+            if len(attachment_list) == 1:
+                attachment_message += attachment_list[0]
             else:
-                attachment_message += attachment_list[-1]
+                attachment_message += ", ".join(attachment_list[:-1]) + f", and {attachment_list[-1]}"
             speaker.speak(attachment_message)
+
 
 def is_white(pixel):
     """Check if a pixel is white (used for divider detection)."""
@@ -696,9 +717,17 @@ def detect_ammo(sct):
     if not easyocr_available:
         return None, None, None
     
-    screenshot = np.array(sct.grab({'left': 1200, 'top': 900, 'width': 800, 'height': 200}))
-    screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGBA2BGR)
-    
+    # Ensure sct.grab is within the try-except block or handle its potential errors
+    try:
+        screenshot_rgba = np.array(sct.grab({'left': 1200, 'top': 900, 'width': 800, 'height': 200}))
+        if screenshot_rgba.shape[2] == 4:
+            screenshot = cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2BGR)
+        else:
+            screenshot = screenshot_rgba
+    except Exception as e:
+        print(f"Error grabbing screenshot for ammo detection: {e}")
+        return None, None, None
+
     divider_pos = detect_divider(screenshot)
     
     if divider_pos:
@@ -710,9 +739,24 @@ def detect_ammo(sct):
         reserve_ammo_area = {'left': divider_x + 1200 + 7, 'top': AMMO_Y_COORDS['reserve'][0], 
                              'width': 40, 'height': AMMO_Y_COORDS['reserve'][1] - AMMO_Y_COORDS['reserve'][0]}
         
-        current_ammo_screenshot = np.array(sct.grab(current_ammo_area))
-        reserve_ammo_screenshot = np.array(sct.grab(reserve_ammo_area))
-        
+        try:
+            current_ammo_screenshot_rgba = np.array(sct.grab(current_ammo_area))
+            reserve_ammo_screenshot_rgba = np.array(sct.grab(reserve_ammo_area))
+
+            if current_ammo_screenshot_rgba.shape[2] == 4:
+                 current_ammo_screenshot = cv2.cvtColor(current_ammo_screenshot_rgba, cv2.COLOR_BGRA2BGR)
+            else:
+                 current_ammo_screenshot = current_ammo_screenshot_rgba
+            
+            if reserve_ammo_screenshot_rgba.shape[2] == 4:
+                reserve_ammo_screenshot = cv2.cvtColor(reserve_ammo_screenshot_rgba, cv2.COLOR_BGRA2BGR)
+            else:
+                reserve_ammo_screenshot = reserve_ammo_screenshot_rgba
+
+        except Exception as e:
+            print(f"Error grabbing ammo area screenshots: {e}")
+            return None, None, None
+            
         current_ammo = detect_ammo_count(current_ammo_screenshot)
         reserve_ammo = detect_ammo_count(reserve_ammo_screenshot)
         
@@ -723,13 +767,22 @@ def detect_ammo(sct):
                           'width': CONSUMABLE_COUNT_AREA[2] - CONSUMABLE_COUNT_AREA[0],
                           'height': CONSUMABLE_COUNT_AREA[3] - CONSUMABLE_COUNT_AREA[1]}
         
-        consumable_screenshot = np.array(sct.grab(consumable_area))
+        try:
+            consumable_screenshot_rgba = np.array(sct.grab(consumable_area))
+            if consumable_screenshot_rgba.shape[2] == 4:
+                consumable_screenshot = cv2.cvtColor(consumable_screenshot_rgba, cv2.COLOR_BGRA2BGR)
+            else:
+                consumable_screenshot = consumable_screenshot_rgba
+        except Exception as e:
+            print(f"Error grabbing consumable area screenshot: {e}")
+            return None, None, None
+
         consumable_count = detect_consumable_count(consumable_screenshot)
         
         if consumable_count is not None:
             return None, None, consumable_count
         
-        print("Failed to detect ammo divider or consumable count.")
+        # print("Failed to detect ammo divider or consumable count.") # Avoid spamming console
         return None, None, None
 
 def detect_consumable_count(consumable_screenshot):
@@ -754,8 +807,8 @@ def detect_consumable_count(consumable_screenshot):
     try:
         gray = cv2.cvtColor(consumable_screenshot, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
-        if np.mean(binary) > 127:
-            binary = cv2.bitwise_not(binary)
+        if np.mean(binary) > 127: # Check if image is mostly white (text is dark)
+            binary = cv2.bitwise_not(binary) # Invert if text is dark on light
         binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
         
         with easyocr_lock:
@@ -764,7 +817,7 @@ def detect_consumable_count(consumable_screenshot):
         if results:
             count_text = results[0][1]
             count = int(count_text) if count_text.isdigit() else None
-            return count if count and count <= 999 else None
+            return count if count is not None and count <= 999 else None # Added check for None
     except Exception as e:
         print(f"Error in consumable count detection: {e}")
     return None
@@ -791,8 +844,8 @@ def detect_ammo_count(ammo_screenshot):
     try:
         gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
-        if np.mean(binary) > 127:
-            binary = cv2.bitwise_not(binary)
+        if np.mean(binary) > 127: # Check if image is mostly white (text is dark)
+             binary = cv2.bitwise_not(binary) # Invert if text is dark on light
         binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
         
         with easyocr_lock:
@@ -815,25 +868,38 @@ def detect_attachments(sct):
     Returns:
         dict: Dictionary of detected attachments by type
     """
-    screenshot = np.array(sct.grab({'left': ATTACHMENT_DETECTION_AREA[0], 'top': ATTACHMENT_DETECTION_AREA[1], 
-                                    'width': ATTACHMENT_DETECTION_AREA[2] - ATTACHMENT_DETECTION_AREA[0], 
-                                    'height': ATTACHMENT_DETECTION_AREA[3] - ATTACHMENT_DETECTION_AREA[1]}))
-    
+    try:
+        screenshot_rgba = np.array(sct.grab({'left': ATTACHMENT_DETECTION_AREA[0], 'top': ATTACHMENT_DETECTION_AREA[1], 
+                                        'width': ATTACHMENT_DETECTION_AREA[2] - ATTACHMENT_DETECTION_AREA[0], 
+                                        'height': ATTACHMENT_DETECTION_AREA[3] - ATTACHMENT_DETECTION_AREA[1]}))
+        if screenshot_rgba.shape[2] == 4:
+            screenshot = cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2BGR)
+        else:
+            screenshot = screenshot_rgba
+    except Exception as e:
+        print(f"Error grabbing attachment area screenshot: {e}")
+        return {}
+
     _, binary_screenshot = cv2.threshold(cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY), 254, 255, cv2.THRESH_BINARY)
     
     detected_attachments = {}
     
     for attachment_type in ["Scope", "Magazine", "Underbarrel", "Barrel"]:
+        if attachment_type not in attachment_images or not attachment_images[attachment_type]:
+            continue # Skip if no templates for this type
+        
+        # Use a default for max() if the generator is empty
         best_match, best_score = max(
             ((name, cv2.matchTemplate(binary_screenshot, template, cv2.TM_CCOEFF_NORMED).max())
              for name, template in attachment_images[attachment_type].items()),
-            key=lambda x: x[1]
+            key=lambda x: x[1], default=(None, 0.0) 
         )
         
         if best_score > CONFIDENCE_THRESHOLD:
             detected_attachments[attachment_type] = best_match
     
     return detected_attachments
+
 
 def initialize_hotbar_detection():
     """
@@ -861,10 +927,9 @@ def get_last_detected_rarity():
     Get the rarity of the last detected item.
     
     Returns:
-        str: Rarity of the last detected item, or "Unknown" if not detected
+        str: Rarity of the last detected item, or "Unknown" if not detected or None.
     """
     global last_detected_rarity
     
-    if last_detected_rarity:
-        return last_detected_rarity
-    return "Unknown"
+    return last_detected_rarity if last_detected_rarity is not None else "Unknown"
+

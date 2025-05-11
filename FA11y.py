@@ -52,7 +52,7 @@ from lib.height_checker import start_height_checker
 from lib.background_checks import monitor
 from lib.material_monitor import material_monitor
 from lib.resource_monitor import resource_monitor
-from lib.player_position import announce_current_direction as speak_minimap_direction, start_icon_detection
+from lib.player_position import announce_current_direction as speak_minimap_direction, start_icon_detection, check_for_pixel
 from lib.hotbar_detection import (
     initialize_hotbar_detection,
     detect_hotbar_item,
@@ -66,6 +66,8 @@ from lib.utilities import (
     get_config_boolean,
     read_config,
     Config,
+    get_default_config_value_string, # Added for resetting invalid keys
+    DEFAULT_CONFIG # Added for parsing default values
 )
 from lib.pathfinder import toggle_pathfinding
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
@@ -155,15 +157,71 @@ def handle_scroll(action: str) -> None:
 def reload_config() -> None:
     """Reload configuration and update action handlers."""
     global config, action_handlers, key_bindings, poi_data_instance
-    config = read_config()
+    config = read_config() # This returns a ConfigParser instance
 
     # Initialize POI data if not already done
     if poi_data_instance is None:
         print("Initializing POI data...")
         poi_data_instance = POIData()
 
-    key_bindings = {key.lower(): get_config_value(config, key)[0].lower()
-                    for key in config['Keybinds'] if get_config_value(config, key)[0]}
+    # Validate keybinds and reset if necessary
+    config_updated = False
+    temp_key_bindings_from_config = {key.lower(): get_config_value(config, key)[0].lower()
+                                     for key in config['Keybinds'] if get_config_value(config, key)[0]}
+
+    validated_key_bindings = {}
+    for action, key_str in temp_key_bindings_from_config.items():
+        if not key_str: # Allow empty keybinds (disabled)
+            validated_key_bindings[action] = key_str
+            continue
+
+        key_lower = key_str.lower()
+        valid_key = False
+        if key_lower in VK_KEYS:
+            valid_key = True
+        else:
+            try:
+                # Check if it's a single character A-Z, 0-9, or other direct ASCII map
+                vk_code = ord(key_str.upper()) # This will raise error for multi-char strings not in VK_KEYS
+                # Further check if vk_code is in a reasonable range for characters if needed
+                if 'a' <= key_lower <= 'z' or '0' <= key_lower <= '9':
+                     valid_key = True
+                # Add other characters if they are directly mapped and not in VK_KEYS, e.g. ',', '.', '/'
+                # For simplicity, this part might need refinement based on what `is_key_pressed` supports beyond VK_KEYS
+                elif key_lower in [',', '.', '/', '\'', ';', '[', ']', '\\', '`', '-','=']: # common punctuation
+                    valid_key = True
+
+
+            except (TypeError, ValueError):
+                valid_key = False
+        
+        if valid_key:
+            validated_key_bindings[action] = key_str
+        else:
+            speaker.speak(f"Unrecognized key '{key_str}' for action '{action}'. Resetting to default.")
+            print(f"Warning: Unrecognized key '{key_str}' for action '{action}'. Resetting to default.")
+            
+            default_value_string = get_default_config_value_string('Keybinds', action)
+            if default_value_string is not None:
+                config['Keybinds'][action] = default_value_string
+                # Extract just the key part for validated_key_bindings
+                default_key_part = default_value_string.split('"')[0].strip()
+                validated_key_bindings[action] = default_key_part.lower()
+            else:
+                # Fallback: disable keybind if no default found (should not happen with complete DEFAULT_CONFIG)
+                config['Keybinds'][action] = f" \"{get_config_value(config, action)[1]}\"" # Keep description
+                validated_key_bindings[action] = ""
+            config_updated = True
+
+    if config_updated:
+        with open('config.txt', 'w') as f:
+            config.write(f)
+        print("Configuration updated with default values for invalid keys.")
+        # Re-read the config to ensure internal state is consistent if needed,
+        # or directly use the modified `config` object.
+        # For simplicity, we'll use the `config` object that was just modified.
+
+    key_bindings = validated_key_bindings
 
     mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
     reset_sensitivity = get_config_boolean(config, 'ResetSensitivity', False)
@@ -215,20 +273,26 @@ def toggle_keybinds() -> None:
 
 def key_listener() -> None:
     """Listen for and handle key presses."""
-    global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open, keybinds_enabled
+    global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open, keybinds_enabled, config
     while not stop_key_listener.is_set():
-        if not config_gui_open.is_set():
+        if not config_gui_open.is_set(): # Check if config GUI is not open
             numlock_on = is_numlock_on()
+            # Ensure config is not None before accessing it
+            if config is None:
+                time.sleep(0.1) # Wait for config to load
+                continue
+
             mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
 
-            for action, key in key_bindings.items():
-                if not key:
+            for action, key_str in key_bindings.items(): # Iterate over validated key_bindings
+                if not key_str: # Skip empty (disabled) keybinds
                     continue
 
-                key_pressed = is_key_pressed(key)
-                action_lower = action.lower()
+                key_pressed = is_key_pressed(key_str) # Use key_str from validated_key_bindings
+                action_lower = action.lower() # action is already lower from key_bindings population
 
                 if action_lower not in action_handlers:
+                    # This should not happen if key_bindings is derived from config sections correctly
                     continue
 
                 if not keybinds_enabled and action_lower != 'toggle keybinds':
@@ -244,21 +308,25 @@ def key_listener() -> None:
 
                 if action_lower in ['fire', 'target'] and not numlock_on:
                     continue
-
-                if key_pressed != key_state.get(key, False):
-                    key_state[key] = key_pressed
+                
+                # Check if the key state has changed
+                if key_pressed != key_state.get(key_str, False):
+                    key_state[key_str] = key_pressed
                     if key_pressed:
-                        print(f"Detected key press for action: {action_lower}")
+                        # print(f"Detected key press for action: {action_lower} (Key: {key_str})")
                         action_handler = action_handlers.get(action_lower)
                         if action_handler:
-                            action_handler()
-                            print(f"Action '{action_lower}' activated.")
+                            try:
+                                action_handler()
+                                # print(f"Action '{action_lower}' activated.")
+                            except Exception as e:
+                                print(f"Error executing action {action_lower}: {e}")
                     else:
-                        print(f"{action_lower} button released.")
+                        # print(f"{action_lower} button released. (Key: {key_str})")
                         if action_lower in ['fire', 'target']:
                             (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
-
-        time.sleep(0.001)
+        
+        time.sleep(0.001) # Minimal sleep to reduce CPU usage
 
 def create_desktop_shortcut() -> None:
     """Create a desktop shortcut for FA11y."""
@@ -276,11 +344,14 @@ def create_desktop_shortcut() -> None:
 def update_script_config(new_config: configparser.ConfigParser) -> None:
     """Update script configuration and restart key listener."""
     global config, key_listener_thread, stop_key_listener
-    config = new_config
+    config = new_config # new_config is a ConfigParser instance
     reload_config()
 
     # Restart key listener
-    stop_key_listener.set()
+    if key_listener_thread and key_listener_thread.is_alive():
+        stop_key_listener.set()
+        key_listener_thread.join() # Wait for the old thread to finish
+    
     stop_key_listener.clear()
     key_listener_thread = threading.Thread(target=key_listener, daemon=True)
     key_listener_thread.start()
@@ -290,25 +361,27 @@ def open_config_gui() -> None:
     config_gui_open.set()
     from lib.guis.config_gui import launch_config_gui
     
-    # Create a Config instance for the UI
-    config_instance = Config()
-    
+    # Create a Config instance for the UI, using the global ConfigParser
+    global config
+    config_instance = Config() # This will read 'config.txt' again
+    config_instance.config = config # Ensure it uses the current global config object
+
     # Define the update callback
-    def update_callback(updated_config):
-        # Update the global config with the new one
+    def update_callback(updated_config_parser): # Expects a ConfigParser object
+        # Update the global config (ConfigParser instance) with the new one
         global config
-        config = updated_config
+        config = updated_config_parser
         
         # Save the config to disk
         with open('config.txt', 'w') as f:
             config.write(f)
             
-        # Reload configuration
-        reload_config()
+        # Reload configuration in FA11y
+        reload_config() # This will re-read from file and update key_bindings etc.
         print("Configuration updated and saved to disk")
     
     # Launch the config GUI
-    launch_config_gui(config_instance, update_callback)
+    launch_config_gui(config_instance, update_callback) # Pass the Config object
     config_gui_open.clear()
 
 def open_poi_selector() -> None:
@@ -328,8 +401,7 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
     from lib.guis.custom_poi_gui import launch_custom_poi_creator
     
     # Get current map from config
-    config = configparser.ConfigParser()
-    config.read('config.txt')
+    global config # Use the global config (ConfigParser instance)
     current_map = config.get('POI', 'current_map', fallback='main')
     
     # Use PPI if map is open (check_for_pixel detects this)
@@ -337,9 +409,9 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
     
     # Create a player position detector adapter
     class PlayerDetector:
-        def get_player_position(self, use_ppi):
-            from lib.player_position import find_player_position, find_player_icon_location
-            return find_player_position() if use_ppi else find_player_icon_location()
+        def get_player_position(self, use_ppi_flag): # Renamed to avoid conflict
+            from lib.player_position import find_player_position as find_map_player_pos, find_player_icon_location
+            return find_map_player_pos() if use_ppi_flag else find_player_icon_location()
     
     # Launch custom POI creator with current map
     launch_custom_poi_creator(use_ppi, PlayerDetector(), current_map)
@@ -529,11 +601,6 @@ def get_legendary_username() -> str:
         print(f"Failed to run 'legendary status': {str(e)}")
         return None
 
-def check_for_pixel():
-    """Check if the pixel at a specific location is white or (60, 61, 80)."""
-    return pyautogui.pixelMatchesColor(1877, 50, (255, 255, 255)) or \
-           pyautogui.pixelMatchesColor(1877, 50, (60, 61, 80))
-
 def main() -> None:
     """Main entry point for FA11y."""
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
@@ -550,19 +617,21 @@ def main() -> None:
             speaker.speak("You are not logged into Legendary.")
 
         # Initialize configuration
-        config = read_config()
+        # config = read_config() # reload_config will call this.
 
-        # Check for updates if enabled
-        if get_config_boolean(config, 'AutoUpdates', True):
+        # Check for updates if enabled - config needs to be loaded first
+        temp_config_for_update_check = read_config()
+        if get_config_boolean(temp_config_for_update_check, 'AutoUpdates', True):
             if run_updater():
                 sys.exit(0)
 
-        # Create desktop shortcut if enabled
-        if get_config_boolean(config, 'CreateDesktopShortcut', True):
+        # Create desktop shortcut if enabled - config needs to be loaded first
+        temp_config_for_shortcut_check = read_config() # Re-read in case updater modified it (though unlikely)
+        if get_config_boolean(temp_config_for_shortcut_check, 'CreateDesktopShortcut', True):
             create_desktop_shortcut()
 
         # Initialize core systems
-        reload_config()
+        reload_config() # This sets the global `config` and validates keybinds
 
         # Start key listener thread
         stop_key_listener.clear()
@@ -594,6 +663,9 @@ def main() -> None:
     finally:
         # Clean up operations
         stop_key_listener.set()
+        if key_listener_thread is not None:
+            key_listener_thread.join(timeout=1.0)
+
         monitor.stop_monitoring()
         material_monitor.stop_monitoring()
         resource_monitor.stop_monitoring()
