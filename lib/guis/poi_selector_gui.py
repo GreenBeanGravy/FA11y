@@ -6,7 +6,6 @@ import os
 import logging
 import tkinter as tk
 from tkinter import ttk, messagebox
-import configparser
 import json
 import re
 import requests
@@ -15,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 
 from lib.guis.base_ui import AccessibleUI
-from lib.utilities import force_focus_window
+from lib.utilities import force_focus_window, read_config, Config
 from lib.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
 from lib.custom_poi_handler import load_custom_pois
 
@@ -194,8 +193,7 @@ class POIData:
     def get_current_map(self):
         """Get current map from config"""
         try:
-            config = configparser.ConfigParser()
-            config.read('config.txt')
+            config = read_config()
             return config.get('POI', 'current_map', fallback='main')
         except Exception as e:
             print(f"Error getting current map: {e}")
@@ -315,8 +313,7 @@ class POIGUI(AccessibleUI):
         self.config_file = config_file
         
         # Use the current map already determined by poi_data
-        config = configparser.ConfigParser()
-        config.read(CONFIG_FILE)
+        config = read_config()
         self.current_map = config.get('POI', 'current_map', fallback='main')
         
         # Create mutable reference for current map and POI set
@@ -579,26 +576,11 @@ class POIGUI(AccessibleUI):
             }
             actual_name = special_poi_map.get(poi.lower(), poi)
             
-            config = configparser.ConfigParser()
-            config.read(self.config_file)
-            if 'POI' not in config.sections():
-                config.add_section('POI')
-            config.set('POI', 'selected_poi', f"{actual_name}, 0, 0")
-            
-            # Use the same map formatting logic as update_config_file
-            current_map = self.current_map_ref[0]
-            if current_map == 'main':
-                config.set('POI', 'current_map', 'main')
-            elif current_map.startswith('map_') and current_map.endswith('_pois'):
-                # Extract the middle part, preserving underscores
-                map_id = current_map[4:-5]
-                config.set('POI', 'current_map', map_id)
-            else:
-                # Fallback if the format is unexpected
-                config.set('POI', 'current_map', current_map)
-                
-            with open(self.config_file, 'w') as f:
-                config.write(f)
+            # Use the config adapter from lib.utilities to ensure case is preserved
+            config_adapter = Config()
+            config_adapter.set_poi(actual_name, "0", "0")
+            config_adapter.set_current_map(self.current_map_ref[0])
+            config_adapter.save()
             
             self.speak(f"{actual_name} selected")
             self.close()
@@ -723,28 +705,24 @@ class POIGUI(AccessibleUI):
             selected_poi_name: Selected POI name
         """
         try:
-            config = configparser.ConfigParser()
-            config.read(self.config_file)
+            # Use the Config class from lib.utilities to ensure case preservation
+            config_adapter = Config()
             
             logger.info(f"Updating configuration for POI: {selected_poi_name}")
             
-            # Ensure POI section exists
-            if 'POI' not in config.sections():
-                config.add_section('POI')
-                
             # Update current map in config with the correct format
             current_map = self.current_map_ref[0]
             
             # Store the map identifier in a format that can be correctly resolved later
             if current_map == 'main':
-                config.set('POI', 'current_map', 'main')
+                config_adapter.set_current_map('main')
             elif current_map.startswith('map_') and current_map.endswith('_pois'):
                 # Extract the middle part, preserving underscores
                 map_id = current_map[4:-5]
-                config.set('POI', 'current_map', map_id)
+                config_adapter.set_current_map(map_id)
             else:
                 # Fallback if the format is unexpected
-                config.set('POI', 'current_map', current_map)
+                config_adapter.set_current_map(current_map)
             
             # Check current map's POIs
             if current_map == "main":
@@ -779,12 +757,11 @@ class POIGUI(AccessibleUI):
     
             # Save the POI entry
             if poi_entry:
-                config.set('POI', 'selected_poi', f"{poi_entry[0]}, {poi_entry[1]}, {poi_entry[2]}")
+                config_adapter.set_poi(poi_entry[0], poi_entry[1], poi_entry[2])
             else:
-                config.set('POI', 'selected_poi', "none, 0, 0")
-                
-            with open(self.config_file, 'w') as f:
-                config.write(f)
+                config_adapter.set_poi("none", "0", "0")
+            
+            config_adapter.save()
                 
         except Exception as e:
             logger.error(f"Error updating configuration: {e}")
