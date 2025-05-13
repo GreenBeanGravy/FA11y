@@ -132,6 +132,62 @@ def reorganize_config(config: configparser.ConfigParser) -> configparser.ConfigP
     
     return reorganized_config
 
+def configs_have_different_values(config1: configparser.ConfigParser, config2: configparser.ConfigParser) -> bool:
+    """
+    Compare two config parsers for value differences.
+    Returns True if any actual values differ (ignoring organization and whitespace).
+    """
+    # Check all sections in config1
+    for section in config1.sections():
+        if not config2.has_section(section):
+            return True  # Section missing in config2
+        
+        # Check all options in this section of config1
+        for option in config1.options(section):
+            if not config2.has_option(section, option):
+                return True  # Option missing in config2
+            
+            # Extract just the value part (before any description in quotes)
+            value1 = config1.get(section, option).split('"')[0].strip()
+            value2 = config2.get(section, option).split('"')[0].strip()
+            
+            if value1 != value2:
+                return True  # Values differ
+    
+    # Check for sections in config2 that aren't in config1
+    for section in config2.sections():
+        if not config1.has_section(section):
+            return True  # Section in config2 that's not in config1
+        
+        # Check for options in config2's section that aren't in config1
+        for option in config2.options(section):
+            if not config1.has_option(section, option):
+                return True  # Option in config2 that's not in config1
+    
+    # If we get here, the configs have equivalent values
+    return False
+
+def configs_differ_structurally(config1: configparser.ConfigParser, config2: configparser.ConfigParser) -> bool:
+    """
+    Check if configs differ in structure (sections and options).
+    This ignores the values and only checks the organization.
+    """
+    # Check if sections are different
+    sections1 = set(config1.sections())
+    sections2 = set(config2.sections())
+    if sections1 != sections2:
+        return True
+    
+    # Check if options in each section are different
+    for section in sections1:
+        options1 = set(config1.options(section))
+        options2 = set(config2.options(section))
+        if options1 != options2:
+            return True
+    
+    # Otherwise, they have the same structure
+    return False
+
 def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any = None) -> Tuple[str, str]:
     """Get a config value from any section with its description"""
     for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS', 'POI']: 
@@ -237,18 +293,22 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
     default_config_parser = _create_config_parser_with_case_preserved()
     default_config_parser.read_string(DEFAULT_CONFIG)
 
-    config_changed = False
+    # Track different types of changes
+    values_changed = False  # Actual values (settings) changed
+    structure_changed = False  # Organization/structure changed
 
     # Ensure all default sections and keys are present
     for section in default_config_parser.sections():
         if not current_config.has_section(section):
             current_config.add_section(section)
-            config_changed = True
+            structure_changed = True
+            values_changed = True  # New section with values
         
         for key, default_full_value in default_config_parser.items(section):
             if not current_config.has_option(section, key):
                 current_config.set(section, key, default_full_value)
-                config_changed = True
+                structure_changed = True
+                values_changed = True  # New value added
             else:
                 # Ensure description consistency
                 current_val_str = current_config.get(section, key)
@@ -260,7 +320,7 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
                     if default_desc_only.endswith('"'):
                         default_desc_only = default_desc_only[:-1]
                     current_config.set(section, key, f'{current_value_part_only} "{default_desc_only}"')
-                    config_changed = True
+                    structure_changed = True  # Description added/changed
 
     # Clean up duplicates
     for section in current_config.sections():
@@ -280,7 +340,7 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
 
         for lower_key, cased_keys in options_by_lower.items():
             if len(cased_keys) > 1:  # Found duplicates
-                config_changed = True
+                structure_changed = True
                 canonical_key_from_default = None
                 
                 # Find canonical key from default config
@@ -319,21 +379,29 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
         for k_rem in keys_to_remove:
             current_config.remove_option(section, k_rem)
             print(f"Removed duplicate key '{k_rem}' from section '[{section}]'")
+            values_changed = True  # Consider removing duplicates a value change
 
-    # Reorganize the config according to default order
+    # Always reorganize the config according to default order
     reorganized_config = reorganize_config(current_config)
     
-    # Always consider the config changed if it was reorganized
-    if str(reorganized_config) != str(current_config):
-        config_changed = True
-        current_config = reorganized_config
+    # Check if only the structure is different but not the actual values
+    if not values_changed and not configs_have_different_values(reorganized_config, current_config):
+        # Only the structure differs - use the reorganized version but don't report it as changed
+        should_report_update = False
+    else:
+        # Either values changed or reorganized version has different values
+        should_report_update = True
+    
+    # Always use the reorganized config
+    current_config = reorganized_config
 
-    # Save updated config if changed
-    if config_changed:
+    # Save if we have any changes (structural or values)
+    if values_changed or structure_changed:
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
                 current_config.write(configfile)
-            print(f"Config file '{CONFIG_FILE}' was updated.")
+            if should_report_update:
+                print(f"Config file '{CONFIG_FILE}' was updated.")
         except IOError as e:
             print(f"Error writing updated config file: {e}")
             
