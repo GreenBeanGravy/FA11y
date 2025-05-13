@@ -2,7 +2,7 @@ import os
 import time
 import ctypes
 import configparser
-from typing import Dict, Tuple, Optional, Any, Union
+from typing import Dict, Tuple, Optional, Any, Union, List
 
 import pywintypes 
 import win32gui
@@ -94,6 +94,44 @@ def _create_config_parser_with_case_preserved() -> configparser.ConfigParser:
     parser.optionxform = str  # Preserve case for keys
     return parser
 
+def get_default_config_order() -> Dict[str, List[str]]:
+    """Get the order of sections and keys in the default config"""
+    default_config_parser = _create_config_parser_with_case_preserved()
+    default_config_parser.read_string(DEFAULT_CONFIG)
+    
+    order = {}
+    for section in default_config_parser.sections():
+        order[section] = list(default_config_parser.options(section))
+    
+    return order
+
+def reorganize_config(config: configparser.ConfigParser) -> configparser.ConfigParser:
+    """Reorganize config according to the default order"""
+    default_order = get_default_config_order()
+    reorganized_config = _create_config_parser_with_case_preserved()
+    
+    # First add all sections in the default order
+    for section in default_order:
+        if not reorganized_config.has_section(section):
+            reorganized_config.add_section(section)
+        
+        # Add keys in default order, preserving values from current config
+        for key in default_order[section]:
+            if config.has_section(section) and config.has_option(section, key):
+                reorganized_config.set(section, key, config.get(section, key))
+    
+    # Add any sections/keys not in default config
+    for section in config.sections():
+        if section not in default_order:
+            if not reorganized_config.has_section(section):
+                reorganized_config.add_section(section)
+        
+        for key, value in config.items(section):
+            if not reorganized_config.has_option(section, key):
+                reorganized_config.set(section, key, value)
+    
+    return reorganized_config
+
 def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any = None) -> Tuple[str, str]:
     """Get a config value from any section with its description"""
     for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS', 'POI']: 
@@ -148,6 +186,9 @@ def migrate_config_to_new_format(config: configparser.ConfigParser) -> configpar
         for key, value in config.items('POI'):
             new_config.set('POI', key, value) 
             
+    # Reorganize the config according to default order
+    new_config = reorganize_config(new_config)
+    
     return new_config
 
 def read_config() -> configparser.ConfigParser:
@@ -278,6 +319,14 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
         for k_rem in keys_to_remove:
             current_config.remove_option(section, k_rem)
             print(f"Removed duplicate key '{k_rem}' from section '[{section}]'")
+
+    # Reorganize the config according to default order
+    reorganized_config = reorganize_config(current_config)
+    
+    # Always consider the config changed if it was reorganized
+    if str(reorganized_config) != str(current_config):
+        config_changed = True
+        current_config = reorganized_config
 
     # Save updated config if changed
     if config_changed:
@@ -523,6 +572,8 @@ class Config:
     
     def save(self):
         """Save configuration to file"""
+        # Reorganize before saving
+        self.config = reorganize_config(self.config)
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 self.config.write(f)
