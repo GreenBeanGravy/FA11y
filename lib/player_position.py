@@ -667,37 +667,111 @@ def process_screenshot(selected_coordinates, poi_name, player_location, use_ppi=
     else:
         method = "PPI" if use_ppi else "player icon"
 
-def play_spatial_poi_sound(player_position, player_angle, poi_location):
-    """Play spatial POI sound based on relative position"""
-    if player_position and poi_location and player_angle is not None:
-        poi_vector = np.array(poi_location) - np.array(player_position)
-        distance = np.linalg.norm(poi_vector) * 2.65
-        
-        poi_angle_rad = np.arctan2(-poi_vector[1], poi_vector[0])
-        poi_angle_deg = (90 - np.degrees(poi_angle_rad)) % 360
-        
-        relative_angle = (poi_angle_deg - player_angle + 180) % 360 - 180
-        
-        pan = np.clip(relative_angle / 90, -1, 1)
-        left_weight = np.clip((1 - pan) / 2, 0, 1)
-        right_weight = np.clip((1 + pan) / 2, 0, 1)
-        
-        config = read_config()
-        min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05)
-        max_volume = get_config_float(config, 'MaximumPOIVolume', 1.0)
-        ping_volume_max_distance = get_config_float(config, 'PingVolumeMaxDistance', 100.0)
+# Initialize a global reference to track the active sound updater
+active_sound_updater = None
 
-        distance_for_volume_calc = max(1.0, ping_volume_max_distance)
-        
-        volume_factor = 1.0 - min(distance / distance_for_volume_calc, 1.0)
-        final_volume = min_volume + (max_volume - min_volume) * volume_factor
-        final_volume = np.clip(final_volume, min_volume, max_volume)
+def play_spatial_poi_sound(player_location, player_angle, poi_location):
+    """Play POI sound with real-time spatial audio updates as player turns."""
+    global config, active_sound_updater
+    
+    # Stop any currently active sound updater
+    if active_sound_updater:
+        active_sound_updater.stop()
+        active_sound_updater = None
+    
+    if not player_location or not poi_location or player_angle is None:
+        print("Missing position or angle data for spatial POI sound")
+        return None
+    
+    config = read_config()
+    play_poi_sound_enabled = get_config_boolean(config, 'PlayPOISound', True)
+    if not play_poi_sound_enabled or not os.path.exists('sounds/poi.ogg'):
+        print("POI sound is disabled or file not found.")
+        return None
+    
+    # Calculate initial spatial parameters
+    poi_vector = np.array(poi_location) - np.array(player_location)
+    distance = np.linalg.norm(poi_vector) * 2.65
+    poi_angle = (90 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
+    
+    # Get volume configuration
+    min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05)
+    max_volume = get_config_float(config, 'MaximumPOIVolume', 1.0)
+    ping_volume_max_distance = get_config_float(config, 'PingVolumeMaxDistance', 100.0)
+    
+    # Calculate volume based on distance
+    distance_for_volume_calc = max(1.0, ping_volume_max_distance)
+    volume_factor = 1.0 - min(distance / distance_for_volume_calc, 1.0)
+    final_volume = min_volume + (max_volume - min_volume) * volume_factor
+    final_volume = np.clip(final_volume, min_volume, max_volume)
+    
+    # Calculate initial stereo weights based on relative angle
+    initial_relative_angle = (poi_angle - player_angle + 180) % 360 - 180
+    initial_pan = np.clip(initial_relative_angle / 90, -1, 1)
+    left_weight = np.clip((1 - initial_pan) / 2, 0, 1)
+    right_weight = np.clip((1 + initial_pan) / 2, 0, 1)
+    
+    # Start playing the sound with initial parameters
+    spatial_poi.play_audio(
+        left_weight=left_weight,
+        right_weight=right_weight,
+        volume=final_volume
+    )
+    
+    # Create a new sound updater and store globally (without repeating global declaration)
+    active_sound_updater = POISoundUpdater(player_location, poi_location, final_volume)
+    return active_sound_updater
 
-        spatial_poi.play_audio(
-            left_weight=left_weight,
-            right_weight=right_weight,
-            volume=final_volume
-        )
+class POISoundUpdater:
+    """Handles real-time updates for POI spatial sound as player turns."""
+    
+    def __init__(self, player_location, poi_location, volume):
+        """Initialize with fixed positions and volume."""
+        self.player_location = player_location
+        self.poi_location = poi_location
+        self.volume = volume
+        self.poi_vector = np.array(poi_location) - np.array(player_location)
+        self.poi_angle = (90 - np.degrees(np.arctan2(-self.poi_vector[1], self.poi_vector[0]))) % 360
+        self.stop_event = threading.Event()
+        self.update_thread = None
+        self.start_updates()
+    
+    def start_updates(self):
+        """Start the thread that updates panning based on player rotation."""
+        self.update_thread = threading.Thread(target=self._update_loop)
+        self.update_thread.daemon = True
+        self.update_thread.start()
+    
+    def _update_loop(self):
+        """Continuously update panning based on player's current angle."""
+        update_interval = 0.1  # Update every 100ms
+        
+        while not self.stop_event.is_set() and spatial_poi.is_playing:
+            try:
+                # Get current player direction
+                _, current_player_angle = find_minimap_icon_direction()
+                
+                if current_player_angle is not None:
+                    # Calculate relative angle and new panning values
+                    relative_angle = (self.poi_angle - current_player_angle + 180) % 360 - 180
+                    pan = np.clip(relative_angle / 90, -1, 1)
+                    left_weight = np.clip((1 - pan) / 2, 0, 1)
+                    right_weight = np.clip((1 + pan) / 2, 0, 1)
+                    
+                    # Update the spatial audio panning
+                    spatial_poi.update_panning(left_weight, right_weight)
+            
+            except Exception as e:
+                print(f"Error updating POI sound panning: {e}")
+            
+            # Wait before the next update
+            time.sleep(update_interval)
+    
+    def stop(self):
+        """Stop the update thread."""
+        self.stop_event.set()
+        if self.update_thread and self.update_thread.is_alive():
+            self.update_thread.join(timeout=0.5)
 
 def start_icon_detection(use_ppi=False):
     """Start icon detection with universal spatial sound support"""
@@ -709,7 +783,7 @@ def start_icon_detection(use_ppi=False):
     icon_detection_cycle(selected_poi_name_from_config, use_ppi, play_poi_sound_enabled)
 
 def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True):
-    """Modified icon detection cycle with universal spatial audio support"""
+    """Modified icon detection cycle with real-time spatial audio updates."""
     if selected_poi_name.lower() == 'none':
         speaker.speak("No POI selected. Please select a POI first.")
         return
@@ -728,6 +802,7 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
         speaker.speak(f"{poi_name_resolved} location not available.")
         return
 
+    # Play spatial sound if enabled
     if play_poi_sound_enabled and player_location is not None and player_angle is not None:
         play_spatial_poi_sound(player_location, player_angle, poi_coords_resolved)
 
