@@ -13,7 +13,7 @@ import time
 from lib.guis.base_ui import AccessibleUI
 from lib.spatial_audio import SpatialAudio
 from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string
-from lib.input_handler import VK_KEYS # Import VK_KEYS for validation
+from lib.input_handler import VK_KEYS
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -61,16 +61,16 @@ class ConfigGUI(AccessibleUI):
         self.analyze_config()
         self.create_widgets()
         
-        # Key bindings are inherited from AccessibleUI (Up, Down, Enter, Escape, Tab, Shift-Tab)
-        # Add 'R' key binding for reset functionality specifically for this GUI
-        self.root.bind_all('<r>', self.on_r_key) # Use a more specific name
+        # Bind keys for configuration actions
+        self.root.bind_all('<r>', self.on_r_key)
         self.root.bind_all('<R>', self.on_r_key) 
+        self.root.bind_all('<Delete>', self.on_delete_key)
         
         self.root.protocol("WM_DELETE_WINDOW", self.save_and_close)
         
         self.root.after(100, lambda: force_focus_window(
             self.root,
-            "Press R to reset the focused setting to its default value. Press Escape to save and close, or cancel current edit/keybind capture.",
+            "Press R to reset the focused setting to its default value. Press Delete to unbind a keybind when focused. Press Escape to save and close, or cancel current edit/keybind capture.",
             self.focus_first_widget
         ))
     
@@ -174,8 +174,52 @@ class ConfigGUI(AccessibleUI):
             return value, description
         return value_string, ""
     
-    def on_r_key(self, event) -> Optional[str]: # Renamed from on_key to be specific
-        """Handle R key press events for resetting to default."""
+    def on_delete_key(self, event) -> Optional[str]:
+        """Handle Delete key press to unbind keybinds"""
+        if self.capturing_keybind_for_widget or self.currently_editing:
+            self.speak("Cannot unbind while editing or capturing keybind.")
+            return "break"
+
+        current_widget = self.root.focus_get()
+        current_tab_name = self.notebook.tab(self.notebook.select(), "text")
+        
+        # Only process in Keybinds tab with entry widget focused
+        if current_tab_name != "Keybinds" or not isinstance(current_widget, ttk.Entry):
+            return None
+            
+        # Get action name from label widget
+        if hasattr(current_widget, 'master') and current_widget.master.winfo_children():
+            label_widget = current_widget.master.winfo_children()[0]
+            if isinstance(label_widget, ttk.Label):
+                action_name = label_widget.cget('text')
+                self.unbind_keybind(action_name, current_widget)
+                return "break"
+                
+        return None
+
+    def unbind_keybind(self, action_name: str, widget: ttk.Entry) -> None:
+        """Unbind a keybind by setting it to an empty string"""
+        current_key = widget.get().lower()
+        
+        # Remove from mappings
+        if current_key and current_key in self.key_to_action:
+            self.key_to_action.pop(current_key, None)
+        
+        if action_name in self.action_to_key:
+            self.action_to_key.pop(action_name, None)
+            
+        # Update widget and variable
+        widget.config(state='normal')
+        widget.delete(0, tk.END)
+        widget.config(state='readonly')
+        
+        if action_name in self.variables["Keybinds"]:
+            self.variables["Keybinds"][action_name].set("")
+            
+        self.speak(f"Keybind for {action_name} unbinded.")
+    
+    def on_r_key(self, event) -> Optional[str]:
+        """Handle R key press events for resetting to default"""
         if self.capturing_keybind_for_widget or self.currently_editing:
              self.speak("Cannot reset while editing or capturing keybind.")
              return "break"
@@ -195,7 +239,7 @@ class ConfigGUI(AccessibleUI):
         if setting_key:
             self.reset_to_default(current_tab_name, setting_key, current_widget)
             return "break"
-        return None # Allow propagation if not handled
+        return None
     
     def reset_to_default(self, tab_name: str, key: str, widget: Any) -> None:
         """Reset any setting to its default value"""
@@ -256,7 +300,7 @@ class ConfigGUI(AccessibleUI):
         self.speak(f"{key} reset to default value: {default_value_part if default_value_part else 'blank'}")
 
     def update_conflicting_keybind_widget(self, action_to_clear: str, new_key_value: str, speak_message: str) -> None:
-        """Updates the widget for an action whose keybind was taken."""
+        """Updates the widget for an action whose keybind was taken"""
         for widget_in_tab in self.widgets.get("Keybinds", []):
             if isinstance(widget_in_tab, ttk.Entry):
                 label_widget = widget_in_tab.master.winfo_children()[0]
@@ -271,29 +315,22 @@ class ConfigGUI(AccessibleUI):
     
     def finish_editing(self, widget: ttk.Entry) -> None:
         """Complete editing of a text entry widget"""
-        # Call super.finish_editing if it exists and does something useful,
-        # otherwise, replicate its logic here or ensure this method covers it.
-        # For now, assume AccessibleUI.finish_editing is correctly implemented.
-        # If AccessibleUI.finish_editing also resets self.currently_editing, this is fine.
-        
-        # Check if the widget still exists, as it might have been destroyed
         if not widget.winfo_exists():
-            self.currently_editing = None # Ensure state is cleared
+            self.currently_editing = None
             return
 
-        self.currently_editing = None # Moved from AccessibleUI for clarity here
+        self.currently_editing = None
         widget.config(state='readonly')
         new_value = widget.get()
         key_label_widget = widget.master.winfo_children()[0]
         key = key_label_widget.cget('text')
         
         current_tab = self.notebook.tab(self.notebook.select(), "text")
-        if key in self.variables[current_tab]: # Ensure key exists in variables
+        if key in self.variables[current_tab]:
             self.variables[current_tab][key].set(new_value)
             self.speak(f"{key} set to {new_value}")
         else:
             self.speak(f"Value for {key} updated to {new_value} but not linked to a variable.")
-
 
         if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
             self.play_poi_sound_at_volume(key, new_value)
@@ -375,19 +412,18 @@ class ConfigGUI(AccessibleUI):
             if self.root and self.root.winfo_exists():
                 self.root.destroy()
     
-    # This method overrides the one in AccessibleUI
     def on_escape(self, event) -> str:
-        """Handle Escape key press globally for the ConfigGUI window."""
+        """Handle Escape key press globally for the ConfigGUI window"""
         if self.capturing_keybind_for_widget:
             self._cancel_keybind_capture()
         elif self.currently_editing:
             self._cancel_value_edit()
         else:
             self.save_and_close()
-        return "break" # Always break to prevent default Tkinter Escape behavior
+        return "break"
 
     def _cancel_keybind_capture(self):
-        """Helper to cancel ongoing keybind capture."""
+        """Cancel ongoing keybind capture"""
         if self.capturing_keybind_for_widget:
             widget = self.capturing_keybind_for_widget
             widget.delete(0, tk.END)
@@ -402,9 +438,8 @@ class ConfigGUI(AccessibleUI):
             widget.focus_set()
             self.speak(self.get_widget_info(widget))
 
-
     def _cancel_value_edit(self):
-        """Helper to cancel ongoing value editing."""
+        """Cancel ongoing value editing"""
         if self.currently_editing:
             widget = self.currently_editing
             widget.config(state='readonly')
@@ -417,7 +452,6 @@ class ConfigGUI(AccessibleUI):
             self.speak("Cancelled editing, value restored to previous.")
             widget.focus_set()
             self.speak(self.get_widget_info(widget))
-
     
     def capture_keybind(self, widget: ttk.Entry) -> None:
         """Start capturing a new keybind"""
@@ -433,7 +467,7 @@ class ConfigGUI(AccessibleUI):
 
         widget.config(state='normal') 
         widget.delete(0, tk.END)
-        self.speak("Press any key to set the keybind. Press Escape to cancel. Press Enter to disable.")
+        self.speak("Press any key to set the keybind. Press Escape to cancel.")
         
         key_name_mapping = {"Control_L": "lctrl", "Control_R": "rctrl",
                             "Shift_L": "lshift", "Shift_R": "rshift",
@@ -455,8 +489,7 @@ class ConfigGUI(AccessibleUI):
                             "Home":"home", "Insert":"insert", "Num_Lock":"numlock",
                             "Pause":"pause", "Print":"printscreen", "Scroll_Lock":"scrolllock",
                             "space":"space", "Tab":"tab", "Up":"up", "Down":"down", "Left":"left", "Right":"right",
-                            "Return":"enter" 
-                           }
+                            "Return":"enter"}
         
         action_label_widget = widget.master.winfo_children()[0] 
         action_name = action_label_widget.cget('text')
@@ -466,18 +499,12 @@ class ConfigGUI(AccessibleUI):
         def _capture_key_event_handler(event):
             key_sym = event.keysym
 
-            # CRITICAL CHANGE: Do NOT process Escape in this temporary handler.
-            # The global on_escape will catch it and see self.capturing_keybind_for_widget.
+            # Let the global on_escape handle escape key
             if key_sym.lower() == 'escape':
-                # Do nothing here, let the global on_escape handle it.
-                # We might need to return something that doesn't break propagation,
-                # or rely on the fact that on_escape is bound with bind_all.
-                # For safety, we can unbind here and let on_escape do its job.
                 if self.key_binding_id:
                     self.root.unbind('<Key>', self.key_binding_id)
                     self.key_binding_id = None
-                # self.capturing_keybind_for_widget will still be set for on_escape.
-                return # Don't return "break"
+                return 
 
             final_key_str = key_sym 
             if key_sym in key_name_mapping:
@@ -487,10 +514,6 @@ class ConfigGUI(AccessibleUI):
             
             if final_key_str.lower() == 'tab': 
                 return "break"
-                
-            if final_key_str.lower() == 'enter': 
-                final_key_str = "" 
-                self.speak(f"Keybind for {action_name} disabled (blank).")
             
             if final_key_str and not self.is_valid_key(final_key_str):
                 self.speak(f"Key '{final_key_str}' is not a valid FA11y key. Restoring original.")
@@ -513,7 +536,6 @@ class ConfigGUI(AccessibleUI):
             if old_key_for_action and self.key_to_action.get(old_key_for_action) == action_name:
                 self.key_to_action.pop(old_key_for_action, None)
             self.action_to_key.pop(action_name, None)
-
 
             if new_key_lower and new_key_lower in self.key_to_action:
                 conflicting_action = self.key_to_action[new_key_lower]
@@ -539,10 +561,9 @@ class ConfigGUI(AccessibleUI):
         if self.key_binding_id: 
             self.root.unbind('<Key>', self.key_binding_id)
         self.key_binding_id = self.root.bind('<Key>', _capture_key_event_handler)
-
     
     def is_valid_key(self, key: str) -> bool:
-        """Check if a key is valid for the input system."""
+        """Check if a key is valid for the input system"""
         if not key or not key.strip():  
             return True
             
