@@ -72,7 +72,6 @@ from lib.utilities import (
     get_default_config_value_string,
     DEFAULT_CONFIG
 )
-from lib.pathfinder import toggle_pathfinding
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
 
 # Initialize pygame mixer and load sounds
@@ -248,8 +247,10 @@ def reload_config() -> None:
         'exit match': exit_match,
         'create custom p o i': handle_custom_poi_gui,
         'announce ammo': announce_ammo_manually,
-        'toggle pathfinding': toggle_pathfinding,
         'toggle keybinds': toggle_keybinds,
+        'cycle map': cycle_map,
+        'cycle poi': cycle_poi,
+        'toggle closest poi': toggle_closest_poi,
     })
 
     for i in range(1, 6):
@@ -394,6 +395,164 @@ def open_gamemode_selector() -> None:
     """Open the gamemode selector GUI."""
     from lib.guis.gamemode_gui import launch_gamemode_selector
     launch_gamemode_selector()
+
+def cycle_map():
+    """Cycle to the next/previous map."""
+    global config, poi_data_instance
+    
+    # Check if shift is being held for reverse cycling
+    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
+    
+    if poi_data_instance is None:
+        print("POI data not initialized")
+        speaker.speak("POI data not initialized")
+        return
+
+    # Get the current map from config
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Get a sorted list of all available maps (without duplicating 'main')
+    all_maps = sorted(poi_data_instance.maps.keys())
+    
+    # Find the index of the current map
+    try:
+        current_index = all_maps.index(current_map)
+    except ValueError:
+        current_index = 0
+    
+    # Calculate the new index with wrapping
+    if reverse:
+        new_index = (current_index - 1) % len(all_maps)
+    else:
+        new_index = (current_index + 1) % len(all_maps)
+    
+    # Get the new map name
+    new_map = all_maps[new_index]
+    
+    # Update the config
+    config['POI']['current_map'] = new_map
+    # Reset selected POI to 'closest'
+    config['POI']['selected_poi'] = "closest, 0, 0"
+    
+    # Save the config
+    with open('config.txt', 'w') as f:
+        config.write(f)
+    
+    # Get display name for announcement
+    try:
+        display_name = poi_data_instance.maps[new_map].name
+    except (KeyError, AttributeError):
+        display_name = new_map.replace('_', ' ').title()
+        
+    speaker.speak(f"{display_name} map selected")
+    print(f"{new_map} selected")
+
+def cycle_poi():
+    """Cycle to the next/previous POI in the current map."""
+    global config, poi_data_instance
+    
+    # Check if shift is being held for reverse cycling
+    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
+    
+    if poi_data_instance is None:
+        print("POI data not initialized")
+        speaker.speak("POI data not initialized")
+        return
+
+    # Get the current map from config
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Get the current selected POI
+    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+    selected_poi_parts = selected_poi_str.split(',')
+    selected_poi_name = selected_poi_parts[0].strip().lower()
+    
+    # Get the list of POIs for the current map
+    poi_list = []
+    if current_map == 'main':
+        poi_list = [poi[0].lower() for poi in poi_data_instance.main_pois]
+        # Landmarks are excluded from cycling for main map
+    elif current_map in poi_data_instance.maps:
+        poi_list = [poi[0].lower() for poi in poi_data_instance.maps[current_map].pois]
+    
+    # Add special POIs
+    poi_list = ["closest", "closest landmark"] + sorted(poi_list)
+    if current_map != 'main':
+        # Remove 'closest landmark' if not on main map
+        if "closest landmark" in poi_list:
+            poi_list.remove("closest landmark")
+    
+    # Find the index of the current POI
+    try:
+        current_index = poi_list.index(selected_poi_name)
+    except ValueError:
+        current_index = 0
+    
+    # Calculate the new index with wrapping
+    if reverse:
+        new_index = (current_index - 1) % len(poi_list)
+    else:
+        new_index = (current_index + 1) % len(poi_list)
+    
+    # Get the new POI name
+    new_poi = poi_list[new_index]
+    
+    # Update the config
+    config['POI']['selected_poi'] = f"{new_poi}, 0, 0"
+    
+    # Save the config
+    with open('config.txt', 'w') as f:
+        config.write(f)
+    
+    speaker.speak(f"{new_poi.replace('_', ' ')} POI selected")
+    print(f"{new_poi} POI selected")
+
+def toggle_closest_poi():
+    """Toggle between 'closest' and 'closest landmark' POIs."""
+    global config
+    
+    # Check if shift is being held for reverse toggle
+    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
+    
+    # Get the current map from config
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Get the current selected POI
+    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+    selected_poi_parts = selected_poi_str.split(',')
+    selected_poi_name = selected_poi_parts[0].strip().lower()
+    
+    # If not on main map, just set to 'closest'
+    if current_map != 'main':
+        config['POI']['selected_poi'] = "closest, 0, 0"
+        with open('config.txt', 'w') as f:
+            config.write(f)
+        speaker.speak("Closest POI selected")
+        print("Closest POI selected")
+        return
+    
+    # If on main map, toggle between 'closest' and 'closest landmark'
+    new_poi = None
+    if not reverse:
+        if selected_poi_name.lower() == 'closest':
+            new_poi = "closest landmark"
+        else:
+            new_poi = "closest"
+    else:
+        if selected_poi_name.lower() == 'closest landmark':
+            new_poi = "closest"
+        else:
+            new_poi = "closest landmark"
+    
+    # Update the config
+    config['POI']['selected_poi'] = f"{new_poi}, 0, 0"
+    
+    # Save the config
+    with open('config.txt', 'w') as f:
+        config.write(f)
+    
+    speaker.speak(f" {new_poi.replace('_', ' ')} POI selected")
+    print(f"{new_poi} POI selected")
 
 def handle_update_with_changelog(repo_owner: str, repo_name: str) -> None:
     """Handle update notification with changelog display option."""
