@@ -68,7 +68,6 @@ Turn Around = num 0 "Turns the player camera around 180 degrees by moving the mo
 Recenter = num 5 "Recenters the player camera using many configurable sensitivity values."
 Scroll Up = num 7 "Scrolls up on the current mouse position using the ScrollSensitivity sensitivity."
 Scroll Down = num 9 "Scrolls down on the current mouse position using the ScrollSensitivity sensitivity."
-Ping Last POI = o "Pings the last selected POI on the fullscreen map."
 Toggle Pathfinding = p "Toggles pathfinding for the current selected POI or position."
 Start Navigation = grave "Starts the player navigation process based on the players selected P O I, Game Object, or location."
 Check Health Shields = h "Announces the players Health and Shield values."

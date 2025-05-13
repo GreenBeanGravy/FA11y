@@ -54,8 +54,7 @@ from lib.resource_monitor import resource_monitor
 from lib.player_position import (
     announce_current_direction as speak_minimap_direction, 
     start_icon_detection, 
-    check_for_pixel,
-    ping_last_selected_poi
+    check_for_pixel
 )
 from lib.hotbar_detection import (
     initialize_hotbar_detection,
@@ -251,7 +250,6 @@ def reload_config() -> None:
         'announce ammo': announce_ammo_manually,
         'toggle pathfinding': toggle_pathfinding,
         'toggle keybinds': toggle_keybinds,
-        'ping last poi': ping_last_selected_poi
     })
 
     for i in range(1, 6):
