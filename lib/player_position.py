@@ -37,9 +37,6 @@ MINIMAP_END = (1766, 184)     # Minimap bottom-right coordinates
 MINIMAP_MIN_AREA = 800        # Minimum minimap icon area
 MINIMAP_MAX_AREA = 1100       # Maximum minimap icon area
 
-# PPI (Player Position Information) constants
-PPI_CAPTURE_REGION = {"top": 20, "left": 1600, "width": 300, "height": 300}
-
 # Width and height of the detection region
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
 
@@ -127,6 +124,11 @@ def find_player_icon_location_with_direction():
     
     return None, None
 
+def find_player_position():
+    """Find player position using the minimap icon instead of the fullscreen map"""
+    # Simply delegate to find_player_icon_location which detects the player's white triangle icon
+    return find_player_icon_location()
+
 def find_minimap_icon_direction():
     """Find the player's facing direction from the minimap icon"""
     try:
@@ -181,6 +183,9 @@ def speak_minimap_direction():
         message = "Unable to determine direction from minimap"
         print(message)
         speaker.speak(message)
+
+# Create alias for backward compatibility with existing imports
+announce_current_direction = speak_minimap_direction
 
 def get_angle_and_direction(vector):
     """Convert a vector to angle and cardinal direction"""
@@ -295,7 +300,7 @@ def generate_poi_message(poi_name, player_angle, poi_info):
     distance, poi_angle, cardinal_direction, relative_direction = poi_info
     
     if distance is None:
-        return f"Pinged {poi_name}, player position unknown."
+        return f"Player position unknown."
 
     if simplify:
         if player_angle is None:
@@ -324,113 +329,6 @@ def generate_poi_message(poi_name, player_angle, poi_info):
             message += f"You are facing {player_cardinal} at {player_angle:.0f} degrees."
         
         return message
-
-class MapManager:
-    """Manages map data and matching for position detection"""
-    
-    def __init__(self):
-        self.current_map = None
-        self.current_image = None
-        self.current_keypoints = None
-        self.current_descriptors = None
-        
-        self.sift = cv2.SIFT_create()
-        self.bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
-        self.sct_lock = threading.Lock()
-    
-    def switch_map(self, map_name: str) -> bool:
-        """Switch to a different map"""
-        if self.current_map == map_name:
-            return True
-        
-        map_file = f"maps/{map_name}.png"
-        if not os.path.exists(map_file):
-            print(f"Error: Map file {map_file} not found")
-            return False
-        
-        self.current_map = map_name
-        self.current_image = cv2.imread(map_file, cv2.IMREAD_GRAYSCALE)
-        self.current_keypoints, self.current_descriptors = self.sift.detectAndCompute(
-            self.current_image, None
-        )
-        return True
-
-map_manager = MapManager()
-
-def capture_map_screen():
-    """Capture the map area of the screen"""
-    with map_manager.sct_lock:
-        with mss() as sct:
-            screenshot_rgba = np.array(sct.grab(PPI_CAPTURE_REGION))
-    return cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2GRAY)
-
-def find_best_match(captured_area):
-    """Find the best match between captured area and current map"""
-    kp1, des1 = map_manager.sift.detectAndCompute(captured_area, None)
-    
-    if des1 is None or len(des1) == 0:
-        return None
-    if map_manager.current_descriptors is None or len(map_manager.current_descriptors) == 0:
-        return None
-    
-    matches = map_manager.bf.knnMatch(des1, map_manager.current_descriptors, k=2)
-    
-    good_matches = []
-    for match_pair in matches:
-        if len(match_pair) == 2:
-            m, n = match_pair
-            if m.distance < 0.75 * n.distance:
-                good_matches.append(m)
-    
-    MIN_MATCHES = 10
-    if len(good_matches) > MIN_MATCHES:
-        src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([map_manager.current_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        
-        if M is None:
-            return None
-            
-        if not np.all(np.isfinite(M)):
-            return None
-            
-        try:
-            h, w = captured_area.shape
-            pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
-            transformed_pts = cv2.perspectiveTransform(pts, M)
-            
-            if np.all(np.isfinite(transformed_pts)):
-                return transformed_pts
-            else:
-                return None
-                
-        except cv2.error as e:
-            return None
-    else:
-        return None
-
-def find_player_position():
-    """Find player position using the map"""
-    config = read_config()
-    current_map_id = config.get('POI', 'current_map', fallback='main')
-    
-    map_filename_to_load = current_map_id if current_map_id == 'main' else f"map_{current_map_id}"
-
-    if not map_manager.switch_map(map_filename_to_load):
-        return None
-    
-    captured_area = capture_map_screen()
-    matched_region = find_best_match(captured_area)
-    
-    if matched_region is not None:
-        center = np.mean(matched_region, axis=0).reshape(-1)
-        
-        x = int(center[0] * (WIDTH / map_manager.current_image.shape[1]) + ROI_START_ORIG[0])
-        y = int(center[1] * (HEIGHT / map_manager.current_image.shape[0]) + ROI_START_ORIG[1])
-        
-        return (x, y)
-    return None
 
 def get_storm_screenshot():
     """Get screenshot for storm detection"""
@@ -529,6 +427,73 @@ def load_config():
         return parts[0].strip(), parts[1].strip(), parts[2].strip()
     return 'none', '0', '0'
 
+def ping_stored_poi(x, y):
+    """Ping a POI at the given coordinates"""
+    try:
+        pyautogui.moveTo(int(x), int(y), duration=0.1)
+        pyautogui.rightClick(_pause=False)
+        time.sleep(0.05)
+        pyautogui.click(_pause=False)
+        return True
+    except Exception as e:
+        print(f"Error pinging POI at {x}, {y}: {e}")
+        return False
+
+def ping_last_selected_poi():
+    """Ping the last selected POI from config without navigation"""
+    # Check if map is already open
+    map_was_open = monitor.map_open
+    map_opened_by_script = False
+    
+    poi_name, poi_x, poi_y = load_config()
+    
+    if poi_name.lower() == 'none':
+        speaker.speak("No POI selected. Please select a POI first.")
+        return False
+    
+    try:
+        # Try to convert coordinates to integers
+        x = int(float(poi_x))
+        y = int(float(poi_y))
+        
+        # Open map if not already open
+        if not map_was_open:
+            pyautogui.press('m')
+            time.sleep(0.1)
+            map_opened_by_script = True
+        
+        # Ping the POI
+        success = ping_stored_poi(x, y)
+        
+        # Close map if we opened it
+        if map_opened_by_script:
+            pyautogui.press('escape')
+            time.sleep(0.05)
+        
+        if success:
+            speaker.speak(f"Pinged {poi_name}")
+        else:
+            speaker.speak(f"Failed to ping {poi_name}")
+        
+        return success
+    except (ValueError, TypeError):
+        # Ensure map is closed if we opened it
+        if map_opened_by_script:
+            pyautogui.press('escape')
+            time.sleep(0.05)
+        
+        speaker.speak(f"Invalid coordinates for {poi_name}")
+        return False
+    except Exception as e:
+        # Ensure map is closed if we opened it
+        if map_opened_by_script:
+            pyautogui.press('escape')
+            time.sleep(0.05)
+        
+        print(f"Error pinging POI: {e}")
+        speaker.speak(f"Error pinging {poi_name}")
+        return False
+
 def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_ppi=False):
     """Handle POI selection process"""
     from lib.guis.poi_selector_gui import POIData
@@ -552,7 +517,9 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
     poi_name_lower = selected_poi_name_from_config.lower()
 
     if poi_name_lower == 'safe zone':
+        # For safe zone, we need to temporarily open the map if it's not already open
         map_was_opened_by_script = False
+        
         if not monitor.map_open:
             pyautogui.press('m')
             time.sleep(0.1)
@@ -628,13 +595,25 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
         # If not found in primary lists, check game objects
         for obj_name_cfg, _, _ in GAME_OBJECTS:
             if obj_name_cfg.lower() == poi_name_lower:
+                # For game objects, we may need to temporarily open the map
+                map_was_opened_by_script = False
+                if not monitor.map_open:
+                    pyautogui.press('m')
+                    time.sleep(0.1)
+                    map_was_opened_by_script = True
+
                 icon_path_tuple = OBJECT_CONFIGS.get(poi_name_lower.replace(' ', '_'))
+                obj_location = None
+                
                 if icon_path_tuple:
                     icon_path, threshold = icon_path_tuple
                     obj_location = find_closest_object(icon_path, threshold)
-                    if obj_location:
-                        return obj_name_cfg, obj_location
-                return obj_name_cfg, None
+                
+                if map_was_opened_by_script:
+                    pyautogui.press('escape')
+                    time.sleep(0.05)
+                    
+                return obj_name_cfg, obj_location
 
     return selected_poi_name_from_config, None
 
@@ -657,7 +636,9 @@ def perform_poi_actions(poi_data_tuple, center_mass_screen, speak_info=True, use
 
 def process_screenshot(selected_coordinates, poi_name, player_location, use_ppi=False):
     """Process screenshot for POI information"""
-    _, player_angle = get_player_info(use_ppi)
+    _, player_angle = find_player_icon_location_with_direction()
+    if player_angle is None:
+        direction_str, player_angle = find_minimap_icon_direction()
                                              
     if player_location is not None:
         poi_info = calculate_poi_info(player_location, player_angle, selected_coordinates)
@@ -665,7 +646,7 @@ def process_screenshot(selected_coordinates, poi_name, player_location, use_ppi=
         print(message)
         speaker.speak(message)
     else:
-        method = "PPI" if use_ppi else "player icon"
+        speaker.speak(f"Could not find player position to navigate to {poi_name}")
 
 def play_spatial_poi_sound(player_position, player_angle, poi_location):
     """Play spatial POI sound based on relative position"""
@@ -700,65 +681,120 @@ def play_spatial_poi_sound(player_position, player_angle, poi_location):
         )
 
 def start_icon_detection(use_ppi=False):
-    """Start icon detection with universal spatial sound support"""
+    """Start icon detection with minimap-based detection"""
     config = read_config()
     selected_poi_name_from_config = config.get('POI', 'selected_poi', fallback='none,0,0').split(',')[0].strip()
     
     play_poi_sound_enabled = get_config_boolean(config, 'PlayPOISound', True)
     
-    icon_detection_cycle(selected_poi_name_from_config, use_ppi, play_poi_sound_enabled)
+    icon_detection_cycle(selected_poi_name_from_config, play_poi_sound_enabled)
 
-def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True):
-    """Modified icon detection cycle with universal spatial audio support"""
+def icon_detection_cycle(selected_poi_name, play_poi_sound_enabled=True):
+    """Icon detection cycle with minimap-based detection only"""
     if selected_poi_name.lower() == 'none':
         speaker.speak("No POI selected. Please select a POI first.")
         return
 
-    player_location, player_angle = get_player_info(use_ppi)
+    # Get player position using minimap (never using fullscreen map)
+    player_location, player_angle = find_player_icon_location_with_direction()
     if player_location is None:
-        method = "PPI" if use_ppi else "icon detection"
-        speaker.speak(f"Could not find player position using {method}")
-        play_poi_sound_enabled = False
-
-    poi_data_tuple = handle_poi_selection(selected_poi_name, player_location, use_ppi)
+        speaker.speak("Could not find player position using minimap icon detection")
+        
+        # Try using minimap direction as fallback
+        _, player_angle = find_minimap_icon_direction()
+        
+        if player_angle is None:
+            play_poi_sound_enabled = False
+    
+    # Check if map is already open
+    map_was_open = monitor.map_open
+    map_opened_by_script = False
+    poi_data_tuple = None
+    
+    try:
+        # Different flows based on whether the map is open or not
+        if map_was_open:
+            # If map is already open: Find selection, close map, find player position
+            poi_data_tuple = handle_poi_selection(selected_poi_name, player_location)
+            
+            # Close the map that was already open
+            pyautogui.press('escape')
+            time.sleep(0.1)
+            
+            # Re-get player position after closing map
+            player_location, player_angle = find_player_icon_location_with_direction()
+            if player_location is None:
+                _, player_angle = find_minimap_icon_direction()
+        else:
+            # Check if this is a POI that requires the map for selection
+            requires_map = selected_poi_name.lower() in ['safe zone'] or \
+                          any(obj[0].lower() == selected_poi_name.lower() for obj in GAME_OBJECTS)
+            
+            if requires_map:
+                # For POIs requiring map: Get player position, open map for selection, close map
+                if player_location is None:
+                    speaker.speak(f"Cannot locate player to navigate to {selected_poi_name}")
+                    return
+                
+                # Open map to find selection
+                pyautogui.press('m')
+                time.sleep(0.1)
+                map_opened_by_script = True
+                
+                # Find the POI on the map
+                poi_data_tuple = handle_poi_selection(selected_poi_name, player_location)
+                
+                # Close the map
+                pyautogui.press('escape')
+                time.sleep(0.1)
+            else:
+                # For normal POIs: Simply find the selection without opening map
+                poi_data_tuple = handle_poi_selection(selected_poi_name, player_location)
+    except Exception as e:
+        print(f"Error in POI selection: {e}")
+        # Ensure map is closed if opened by script
+        if map_opened_by_script and monitor.map_open:
+            pyautogui.press('escape')
+            time.sleep(0.1)
+        speaker.speak(f"Error finding {selected_poi_name}")
+        return
+    
+    # Ensure map is closed if opened by script
+    if map_opened_by_script and monitor.map_open:
+        pyautogui.press('escape')
+        time.sleep(0.1)
+    
+    if not poi_data_tuple:
+        speaker.speak(f"Could not locate {selected_poi_name}")
+        return
     
     poi_name_resolved, poi_coords_resolved = poi_data_tuple
-
+    
     if poi_coords_resolved is None:
         speaker.speak(f"{poi_name_resolved} location not available.")
         return
-
+    
+    # Play the spatial sound if enabled and we have player position and angle
     if play_poi_sound_enabled and player_location is not None and player_angle is not None:
         play_spatial_poi_sound(player_location, player_angle, poi_coords_resolved)
-
-    if not use_ppi:
-        pyautogui.moveTo(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
-        pyautogui.rightClick(_pause=False)
-        time.sleep(0.05)
-        pyautogui.click(_pause=False)
-
-    perform_poi_actions(poi_data_tuple, player_location, speak_info=False, use_ppi=use_ppi)
     
+    # Process POI actions (navigation instructions)
+    perform_poi_actions(poi_data_tuple, player_location, speak_info=True)
+    
+    # Auto-turn if enabled
     config = read_config()
     auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
     auto_turn_success = False
     
-    if auto_turn_enabled:
-        if not use_ppi:
-            pyautogui.press('escape')
-            time.sleep(0.1)
-        if player_location is not None:
-            auto_turn_success = auto_turn_towards_poi(player_location, poi_coords_resolved, poi_name_resolved)
-        else:
-            speaker.speak("Cannot auto-turn, player location unknown.")
+    if auto_turn_enabled and player_location is not None:
+        auto_turn_success = auto_turn_towards_poi(player_location, poi_coords_resolved, poi_name_resolved)
     
-    _, latest_player_angle = get_player_info(use_ppi)
-                                                    
-    final_direction_source, final_angle_for_speech = find_minimap_icon_direction()
-    if final_angle_for_speech is None:
-        final_angle_for_speech = latest_player_angle if latest_player_angle is not None else player_angle
-
-    speak_auto_turn_result(poi_name_resolved, player_location, final_angle_for_speech, poi_coords_resolved, auto_turn_enabled, auto_turn_success)
+    # Get final player direction for speech
+    _, final_player_angle = find_player_icon_location_with_direction()
+    if final_player_angle is None:
+        _, final_player_angle = find_minimap_icon_direction()
+    
+    speak_auto_turn_result(poi_name_resolved, player_location, final_player_angle, poi_coords_resolved, auto_turn_enabled, auto_turn_success)
 
 def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location, auto_turn_enabled, success):
     """Speak auto-turn result"""
@@ -819,58 +855,18 @@ def auto_turn_towards_poi(player_location, poi_location, poi_name):
 
     return False
 
-def get_current_coordinates():
-    """Get the player's current coordinates"""
-    return find_player_icon_location()
-
-def get_current_position_and_direction():
-    """Get the player's current position and direction"""
-    return find_player_icon_location_with_direction()
-
-def get_current_position_from_map():
-    """Get the player's current position using the map"""
-    return find_player_position()
-
-def get_current_direction():
-    """Get the player's current direction from the minimap"""
-    return find_minimap_icon_direction()
-
-def announce_current_direction():
-    """Announce the player's current direction"""
-    speak_minimap_direction()
-
-def describe_player_position(poi_name=None, poi_location=None):
-    """Describe the player's current position"""
-    location, angle = get_current_position_and_direction()
-    return get_player_position_description(location, poi_name, poi_location, angle)
-
 def get_player_info(use_ppi=False):
-    """Get player location and angle using either PPI or normal icon detection"""
-    player_location = None
-    player_angle = None
-
-    if use_ppi:
-        player_location = find_player_position()
-        if player_location is not None:
-            _, player_angle = find_minimap_icon_direction()
-    else:
-        player_location, player_angle = find_player_icon_location_with_direction()
+    """Get player location and angle using minimap detection"""
+    # Always use find_player_icon_location_with_direction() regardless of use_ppi parameter
+    player_location, player_angle = find_player_icon_location_with_direction()
     
+    # If we couldn't get the angle, try to get it from the minimap
     if player_angle is None:
         _, player_angle_fallback = find_minimap_icon_direction()
         if player_angle_fallback is not None:
             player_angle = player_angle_fallback
             
     return player_location, player_angle
-
-def get_position_with_fallback():
-    """Get player position using all available methods with fallback"""
-    position = find_player_icon_location()
-    
-    if position is None:
-        position = find_player_position()
-        
-    return position
 
 def check_for_pixel():
     """Check if the pixel at a specific location is white or (60, 61, 80)"""

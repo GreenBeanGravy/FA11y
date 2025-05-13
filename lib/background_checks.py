@@ -20,14 +20,12 @@ class BackgroundMonitor:
         
         # Public status flags that can be accessed by other modules
         self.map_open = False
-        self.is_spectating = False
         self.inventory_open = False
         
         self.config = read_config()
         
         # Config flags
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
-        self.announce_spectating = get_config_boolean(self.config, 'AnnounceSpectatingStatus', True)
         self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
         
         # Load escape key template
@@ -52,7 +50,6 @@ class BackgroundMonitor:
         """Reload configuration values."""
         self.config = read_config()
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
-        self.announce_spectating = get_config_boolean(self.config, 'AnnounceSpectatingStatus', True)
         self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
 
     def load_escape_template(self):
@@ -102,31 +99,9 @@ class BackgroundMonitor:
         except Exception as e:
             print(f"Error checking map status: {e}")
 
-    def check_spectating_status(self):
-        """Check if player is spectating."""
-        if self.map_open:  # Don't check if map is open
-            return
-            
-        try:
-            pixels = [(888, 20), (903, 20), (921, 20), (937, 20)]
-            all_white = all(
-                pyautogui.pixel(x, y) == (255, 255, 255)
-                for x, y in pixels
-            )
-            
-            if all_white != self.is_spectating:
-                self.is_spectating = all_white
-                if self.announce_spectating:
-                    self.speaker.speak(
-                        "Now spectating" if all_white else "Stopped spectating"
-                    )
-                    
-        except Exception as e:
-            print(f"Error checking spectating status: {e}")
-
     def check_inventory_status(self):
         """Check if inventory is open/closed using template matching."""
-        if self.map_open or self.is_spectating:  # Don't check if map is open or spectating
+        if self.map_open:  # Don't check if map is open
             return
             
         try:
@@ -151,8 +126,6 @@ class BackgroundMonitor:
             try:
                 if self.announce_map:
                     self.check_map_status()
-                if self.announce_spectating:
-                    self.check_spectating_status()
                 if self.announce_inventory:
                     self.check_inventory_status()
                 time.sleep(0.1)
