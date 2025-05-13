@@ -415,8 +415,24 @@ def find_player_position():
     config = read_config()
     current_map_id = config.get('POI', 'current_map', fallback='main')
     
-    map_filename_to_load = current_map_id if current_map_id == 'main' else f"map_{current_map_id}"
-
+    # Fixed code: Properly extract the actual map name for image loading
+    if current_map_id == 'main':
+        map_filename_to_load = 'main'
+    else:
+        # Check if the map_id starts with "map_" prefix and contains "_pois"
+        if current_map_id.startswith("map_") and "_pois" in current_map_id:
+            # Extract the actual map name between "map_" and "_pois"
+            map_name_parts = current_map_id.split("_pois")
+            base_name = map_name_parts[0]
+            if base_name.startswith("map_"):
+                base_name = base_name[4:]  # Remove "map_" prefix
+            map_filename_to_load = base_name
+        else:
+            # For backwards compatibility, support non-prefixed map IDs
+            map_filename_to_load = current_map_id
+    
+    print(f"Loading map file: maps/{map_filename_to_load}.png")
+    
     if not map_manager.switch_map(map_filename_to_load):
         return None
     
