@@ -10,7 +10,7 @@ from lib.input_handler import is_numlock_on
 INPUT_MOUSE, MOUSEEVENTF_MOVE, MOUSEEVENTF_WHEEL = 0, 0x0001, 0x0800
 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
 MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP = 0x0008, 0x0010
-MOUSEEVENTF_MOVE_NOCOALESCE = 0x2000  # New flag for MICKEY movement
+MOUSEEVENTF_MOVE_NOCOALESCE = 0x2000
 
 # Structures for input simulation
 class MOUSEINPUT(ctypes.Structure):
@@ -31,8 +31,15 @@ send_input = ctypes.windll.user32.SendInput
 # Global configuration
 config = read_config()
 
+# Mouse movement synchronization
+_movement_lock = threading.Lock()
+_current_movement_thread = None
+
 def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, step_speed: int = None, second_dy: int = None, recenter_delay: float = None):
+    global _current_movement_thread
+    
     print(f"Smooth moving mouse by dx: {dx}, dy: {dy} MICKEYS, step_delay: {step_delay}, steps: {steps}, step_speed: {step_speed}, second_dy: {second_dy}")
+    
     if steps is None:
         steps = get_config_int(config, 'TurnSteps', 5)
     if step_speed is None:
@@ -42,52 +49,71 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float, steps: int = None, st
     step_speed_seconds = step_speed / 1000.0
     
     def move():
-        step_dx, step_dy = dx // steps, dy // steps
-        for i in range(steps):
-            start_time = time.time()
+        with _movement_lock:
+            step_dx, step_dy = dx // steps, dy // steps
             
-            x = INPUT(type=INPUT_MOUSE, 
-                      ii=MOUSEINPUT(dx=step_dx, dy=step_dy, 
-                                    mouseData=0, 
-                                    dwFlags=MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE, 
-                                    time=0, 
-                                    dwExtraInfo=None))
-            send_input(1, ctypes.byref(x), ctypes.sizeof(x))
-            
-            # Use step_delay for normal movements, step_speed for recentering
-            if step_speed > 0:
-                elapsed_time = time.time() - start_time
-                remaining_time = max(0, step_speed_seconds - elapsed_time)
-                time.sleep(remaining_time)
-            else:
-                time.sleep(step_delay)  # step_delay is already in seconds from caller
-            
-            print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
-
-        if second_dy is not None and recenter_delay is not None:
-            time.sleep(recenter_delay)  # recenter_delay is already in seconds from caller
-            step_dy = second_dy // steps
             for i in range(steps):
-                start_time = time.time()
+                start_time = time.perf_counter()
                 
                 x = INPUT(type=INPUT_MOUSE, 
-                          ii=MOUSEINPUT(dx=0, dy=step_dy, 
+                          ii=MOUSEINPUT(dx=step_dx, dy=step_dy, 
                                         mouseData=0, 
                                         dwFlags=MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE, 
                                         time=0, 
                                         dwExtraInfo=None))
                 send_input(1, ctypes.byref(x), ctypes.sizeof(x))
                 
+                # Use step_delay for normal movements, step_speed for recentering
                 if step_speed > 0:
-                    elapsed_time = time.time() - start_time
+                    elapsed_time = time.perf_counter() - start_time
                     remaining_time = max(0, step_speed_seconds - elapsed_time)
-                    time.sleep(remaining_time)
+                    if remaining_time > 0:
+                        time.sleep(remaining_time)
                 else:
-                    time.sleep(step_delay)  # step_delay is already in seconds from caller
+                    if step_delay > 0:
+                        elapsed_time = time.perf_counter() - start_time
+                        remaining_time = max(0, step_delay - elapsed_time)
+                        if remaining_time > 0:
+                            time.sleep(remaining_time)
                 
-                print(f"Step {i+1} (second movement): Moved by dx: 0, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
+                print(f"Step {i+1}: Moved by dx: {step_dx}, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
 
-    threading.Thread(target=move).start()
+            if second_dy is not None and recenter_delay is not None:
+                if recenter_delay > 0:
+                    time.sleep(recenter_delay)
+                    
+                step_dy = second_dy // steps
+                for i in range(steps):
+                    start_time = time.perf_counter()
+                    
+                    x = INPUT(type=INPUT_MOUSE, 
+                              ii=MOUSEINPUT(dx=0, dy=step_dy, 
+                                            mouseData=0, 
+                                            dwFlags=MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCE, 
+                                            time=0, 
+                                            dwExtraInfo=None))
+                    send_input(1, ctypes.byref(x), ctypes.sizeof(x))
+                    
+                    if step_speed > 0:
+                        elapsed_time = time.perf_counter() - start_time
+                        remaining_time = max(0, step_speed_seconds - elapsed_time)
+                        if remaining_time > 0:
+                            time.sleep(remaining_time)
+                    else:
+                        if step_delay > 0:
+                            elapsed_time = time.perf_counter() - start_time
+                            remaining_time = max(0, step_delay - elapsed_time)
+                            if remaining_time > 0:
+                                time.sleep(remaining_time)
+                    
+                    print(f"Step {i+1} (second movement): Moved by dx: 0, dy: {step_dy} MICKEYS, duration: {step_speed_seconds:.3f}s")
+
+    # Wait for any existing movement to complete before starting new one
+    if _current_movement_thread and _current_movement_thread.is_alive():
+        _current_movement_thread.join(timeout=0.1)
+    
+    _current_movement_thread = threading.Thread(target=move, daemon=True)
+    _current_movement_thread.start()
 
 def mouse_scroll(amount: int):
     print(f"Scrolling mouse by amount: {amount}")

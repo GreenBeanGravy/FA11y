@@ -15,8 +15,9 @@ class BackgroundMonitor:
         self.running = False
         self.thread = None
         
-        # Thread-local storage for MSS
+        # Thread-local storage for MSS - use a lock to ensure thread safety
         self.thread_local = threading.local()
+        self.mss_lock = threading.Lock()
         
         # Public status flags that can be accessed by other modules
         self.map_open = False
@@ -41,10 +42,26 @@ class BackgroundMonitor:
         }
 
     def get_mss(self):
-        """Get thread-local MSS instance."""
-        if not hasattr(self.thread_local, 'mss'):
-            self.thread_local.mss = mss()
-        return self.thread_local.mss
+        """Get thread-local MSS instance with proper error handling."""
+        with self.mss_lock:
+            if not hasattr(self.thread_local, 'mss'):
+                try:
+                    self.thread_local.mss = mss()
+                except Exception as e:
+                    print(f"Error creating MSS instance: {e}")
+                    return None
+            return self.thread_local.mss
+
+    def cleanup_mss(self):
+        """Clean up MSS instance for current thread."""
+        with self.mss_lock:
+            if hasattr(self.thread_local, 'mss'):
+                try:
+                    self.thread_local.mss.close()
+                except Exception as e:
+                    print(f"Error closing MSS instance: {e}")
+                finally:
+                    delattr(self.thread_local, 'mss')
 
     def reload_config(self):
         """Reload configuration values."""
@@ -105,8 +122,11 @@ class BackgroundMonitor:
             return
             
         try:
-            sct = self.get_mss()
-            screenshot = np.array(sct.grab(self.inventory_region))
+            mss_instance = self.get_mss()
+            if mss_instance is None:
+                return
+                
+            screenshot = np.array(mss_instance.grab(self.inventory_region))
             is_escape_visible = self.detect_escape_key(screenshot)
             
             if is_escape_visible != self.inventory_open:
@@ -118,20 +138,28 @@ class BackgroundMonitor:
                     
         except Exception as e:
             print(f"Error checking inventory status: {e}")
+            # Try to recover by cleaning up MSS instance
+            self.cleanup_mss()
             time.sleep(0.5)  # Add a small delay on error
 
     def monitor_loop(self):
         """Main monitoring loop."""
-        while self.running:
-            try:
-                if self.announce_map:
-                    self.check_map_status()
-                if self.announce_inventory:
-                    self.check_inventory_status()
-                time.sleep(0.1)
-            except Exception as e:
-                print(f"Error in monitor loop: {e}")
-                time.sleep(0.5)  # Add a small delay on error
+        try:
+            while self.running:
+                try:
+                    if self.announce_map:
+                        self.check_map_status()
+                    if self.announce_inventory:
+                        self.check_inventory_status()
+                    time.sleep(0.1)
+                except Exception as e:
+                    print(f"Error in monitor loop iteration: {e}")
+                    time.sleep(0.5)  # Add a small delay on error
+        except Exception as e:
+            print(f"Fatal error in monitor loop: {e}")
+        finally:
+            # Ensure cleanup on exit
+            self.cleanup_mss()
 
     def start_monitoring(self):
         """Start the background monitoring thread."""
@@ -150,8 +178,7 @@ class BackgroundMonitor:
             self.thread.join(timeout=1.0)
             
         # Clean up MSS instances
-        if hasattr(self.thread_local, 'mss'):
-            self.thread_local.mss.close()
+        self.cleanup_mss()
 
 # Create a single instance
 monitor = BackgroundMonitor()

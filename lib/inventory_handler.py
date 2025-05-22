@@ -12,6 +12,7 @@ from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config
 from lib.input_handler import is_key_pressed
 from lib.background_checks import monitor
+from lib.ocr_manager import get_ocr_manager
 
 class InventoryHandler:
     def __init__(self):
@@ -35,11 +36,8 @@ class InventoryHandler:
         self.movement_queue = queue.Queue()
         self.state_lock = threading.Lock()
         
-        # OCR setup
-        self.ocr_available = False
-        self.ocr_ready = threading.Event()
-        self.ocr_lock = threading.Lock()
-        self.reader = None
+        # Get OCR manager instance
+        self.ocr_manager = get_ocr_manager()
         
         # Mouse movement parameters
         self.MOVEMENT_DURATION = 0.04
@@ -127,9 +125,6 @@ class InventoryHandler:
             "at": "ar"
         }
         
-        # Start OCR initialization in background
-        self.initialize_ocr()
-        
         # Start threads
         self.start_monitoring()
         self.start_movement_handler()
@@ -158,24 +153,6 @@ class InventoryHandler:
                     self.item_names.append((name_without_ext, clean_name))
         except Exception:
             pass
-
-    def initialize_ocr(self):
-        """Initialize OCR engine in a background thread"""
-        def load_ocr():
-            import warnings
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore')
-                try:
-                    import easyocr
-                    with self.ocr_lock:
-                        self.reader = easyocr.Reader(['en'])
-                        self.ocr_available = True
-                except Exception:
-                    self.ocr_available = False
-                finally:
-                    self.ocr_ready.set()
-
-        threading.Thread(target=load_ocr, daemon=True).start()
 
     def start_monitoring(self):
         """Start the inventory monitoring thread"""
@@ -254,7 +231,7 @@ class InventoryHandler:
     def check_pixel_color(self, x, y, target_color, tolerance=2):
         """Check if pixel at location matches target color within tolerance"""
         try:
-            pixel_color = pyautogui.pixel(x, y)
+            pixel_color = pyautougui.pixel(x, y)
             if isinstance(target_color, tuple) and len(target_color) == 3:
                 return all(abs(a - b) <= tolerance for a, b in zip(pixel_color, target_color))
             return pixel_color == target_color
@@ -470,7 +447,7 @@ class InventoryHandler:
                 return
         
         # Only proceed if OCR is available
-        if not self.ocr_ready.is_set() or not self.ocr_available:
+        if not self.ocr_manager.is_ready():
             return
             
         # Actual OCR implementation
@@ -487,7 +464,7 @@ class InventoryHandler:
                 return
         
         # Only proceed if OCR is available
-        if not self.ocr_ready.is_set() or not self.ocr_available:
+        if not self.ocr_manager.is_ready():
             return
             
         # Actual OCR implementation
@@ -530,8 +507,7 @@ class InventoryHandler:
                 _, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
                 
                 # Perform OCR
-                with self.ocr_lock:
-                    results = self.reader.readtext(binary, detail=0)
+                results = self.ocr_manager.read_text(binary, detail=0)
                 
                 if results:
                     # Combine detected text
@@ -622,7 +598,7 @@ class InventoryHandler:
 
     def detect_item_count(self, item_name):
         """Detect item count using OCR"""
-        if not self.ocr_available or not self.ocr_ready.is_set():
+        if not self.ocr_manager.is_ready():
             return None
             
         if item_name not in self.count_regions:
@@ -668,11 +644,10 @@ class InventoryHandler:
                     processed = cv2.resize(processed, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
                     
                     # Run OCR
-                    with self.ocr_lock:
-                        results = self.reader.readtext(processed, detail=0, 
-                                                    allowlist='0123456789',
-                                                    paragraph=False,
-                                                    height_ths=1.2)
+                    results = self.ocr_manager.read_numbers(processed, detail=0, 
+                                                allowlist='0123456789',
+                                                paragraph=False,
+                                                height_ths=1.2)
                     
                     if results:
                         # Join all detected digits

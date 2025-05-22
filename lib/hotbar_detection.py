@@ -4,7 +4,7 @@ import os
 import time
 from mss import mss
 from accessible_output2.outputs.auto import Auto
-from threading import Thread, Event
+from threading import Thread, Event, Lock
 import configparser
 from lib.utilities import read_config, get_config_boolean
 import zlib
@@ -12,7 +12,7 @@ import pickle
 from pathlib import Path
 from threading import Thread, Event, Lock
 from queue import Queue
-
+from lib.ocr_manager import get_ocr_manager
 
 # Screen coordinates for weapon slots (left, top, right, bottom)
 SLOT_COORDS = [
@@ -123,38 +123,8 @@ timer_thread = None
 stop_event = Event()
 timer_stop_event = Event()
 
-# OCR related globals
-easyocr_available = False  # Flag for OCR availability
-easyocr_ready = Event()  # Event to signal when EasyOCR is ready
-easyocr_lock = Lock()  # Lock for thread-safe access to OCR reader
-reader = None  # Global OCR reader instance
-
-def initialize_easyocr():
-    """Initialize EasyOCR in a background thread."""
-    global reader, easyocr_available
-
-    def load_easyocr():
-        global reader, easyocr_available
-        import warnings
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore')
-            try:
-                import easyocr
-                with easyocr_lock:
-                    reader = easyocr.Reader(['en'], recognizer='number')
-                    easyocr_available = True
-                # print("EasyOCR successfully initialized")
-            except Exception as e:
-                print(f"EasyOCR initialization failed: {e}")
-                easyocr_available = False
-            finally:
-                easyocr_ready.set()
-
-    # Start loading EasyOCR in background
-    Thread(target=load_easyocr, daemon=True).start()
-    # print("EasyOCR loading started in background")
-
-initialize_easyocr()
+# Get OCR manager instance
+ocr_manager = get_ocr_manager()
 
 def initialize_item_rarity_map():
     """Initialize the mapping from item names to rarities."""
@@ -374,7 +344,6 @@ def load_attachment_images():
             print(f"Warning: Attachment folder not found: {folder_path}")
             attachment_images[attachment_type] = {}
 
-
 def pixel_based_matching(screenshot, template, threshold=30):
     """
     Compare screenshot with template using pixel-based matching.
@@ -422,7 +391,6 @@ def check_slot(coord):
                 for name, ref_img in reference_images.items()), 
                key=lambda x: x[1], default=(None, 0))
 
-
 def detect_rarity_for_slot(slot_coord):
     """
     Detect rarity for a specific slot.
@@ -433,7 +401,6 @@ def detect_rarity_for_slot(slot_coord):
     Returns:
         str: Detected rarity or None if not detected
     """
-    # No need to use last_detected_rarity here, this function is for detection.
     try:
         with mss() as sct:
             slot_img_rgba = np.array(sct.grab(slot_coord))
@@ -444,14 +411,12 @@ def detect_rarity_for_slot(slot_coord):
             
             color_rarity = detect_rarity_by_color(slot_img)
             if color_rarity:
-                # Do not set last_detected_rarity here, let the caller handle it.
                 return color_rarity
                 
     except Exception as e:
         print(f"Error in rarity detection: {e}")
     
     return None
-
 
 def detect_hotbar_item(slot_index):
     """
@@ -464,12 +429,11 @@ def detect_hotbar_item(slot_index):
     
     # Initialize the item rarity map if needed
     if not rarity_map_initialized:
-        initialize_item_rarity_map() # Ensure this is called if not already
+        initialize_item_rarity_map()
     
     # Stop any ongoing detection
     if current_detection_thread and current_detection_thread.is_alive():
         stop_event.set()
-        # current_detection_thread.join() # Wait for it to actually stop if necessary
     
     if timer_thread and timer_thread.is_alive():
         timer_stop_event.set()
@@ -482,7 +446,7 @@ def detect_hotbar_item(slot_index):
     # Reset last detected info before new detection
     last_detected_rarity = None
     last_detected_item = None
-    last_detected_slot = slot_index # Set slot being checked
+    last_detected_slot = slot_index
     
     # Start new detection thread
     current_detection_thread = Thread(target=detect_hotbar_item_thread, args=(slot_index,))
@@ -498,7 +462,7 @@ def detect_hotbar_item_thread(slot_index):
     global timer_thread, last_detected_rarity, last_detected_slot, last_detected_item
     
     # Load configuration
-    config = read_config() # Use read_config from utilities
+    config = read_config()
     announce_attachments_enabled = get_config_boolean(config, 'AnnounceWeaponAttachments', True)
     announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
 
@@ -517,13 +481,13 @@ def detect_hotbar_item_thread(slot_index):
             last_detected_rarity = item_rarity_map[best_match_name]
         else:
             # Try to extract rarity from name
-            for rarity_key in rarity_colors.keys(): # Use rarity_colors keys for consistency
+            for rarity_key in rarity_colors.keys():
                 if best_match_name.startswith(rarity_key):
                     last_detected_rarity = rarity_key
                     break
         
         # Announce ammo if enabled
-        if easyocr_available and announce_ammo_enabled:
+        if ocr_manager.is_ready() and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
         
@@ -563,7 +527,7 @@ def check_secondary_slot(slot_index):
         
         config = read_config()
         announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
-        if easyocr_available and announce_ammo_enabled:
+        if ocr_manager.is_ready() and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
     else:
@@ -583,31 +547,28 @@ def check_unknown_item_rarity(slot_index):
     
     if detected_rarity_value:
         last_detected_rarity = detected_rarity_value
-        last_detected_item = None # Item name is unknown
-        # Do not speak here. Rarity is stored.
+        last_detected_item = None
         
         # Announce ammo if enabled, as it might be a known item type without a specific image match
         config = read_config()
         announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
-        if easyocr_available and announce_ammo_enabled:
+        if ocr_manager.is_ready() and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
     else:
         # If we couldn't detect a rarity, clear last_detected_rarity
         last_detected_rarity = None
         last_detected_item = None
-        # Do not speak "Unknown Item" here.
         # If ammo should still be announced for completely unknown items (no name, no rarity):
         config = read_config()
         announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
-        if easyocr_available and announce_ammo_enabled:
-            timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo)) # Potentially announce ammo if that's desired even for fully unknown
+        if ocr_manager.is_ready() and announce_ammo_enabled:
+            timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
-
 
 def announce_ammo():
     """Announce current and reserve ammo counts or consumable counts with simplified speech if enabled."""
-    if stop_event.is_set() or not easyocr_available:
+    if stop_event.is_set() or not ocr_manager.is_ready():
         return
         
     config = read_config()
@@ -631,14 +592,12 @@ def announce_ammo():
         if not simplify:
             print("OCR failed to detect any values for ammo/consumables.")
 
-
 def announce_ammo_manually():
     """Manually announce ammo counts or consumable counts with simplified speech if enabled."""
     config = read_config()
     simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
     
-    sct = mss() # mss() should be within a 'with' statement or closed manually.
-                # For a one-off function like this, direct use is okay but less ideal than context manager.
+    sct = mss()
     current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
     
     if consumable_count is not None:
@@ -653,7 +612,6 @@ def announce_ammo_manually():
             speaker.speak(f"You have {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
     else:
         speaker.speak("No ammo")
-
 
 def announce_attachments():
     """Announce detected weapon attachments."""
@@ -670,7 +628,6 @@ def announce_attachments():
             else:
                 attachment_message += ", ".join(attachment_list[:-1]) + f", and {attachment_list[-1]}"
             speaker.speak(attachment_message)
-
 
 def is_white(pixel):
     """Check if a pixel is white (used for divider detection)."""
@@ -714,10 +671,9 @@ def detect_ammo(sct):
     Returns:
         tuple: (current_ammo, reserve_ammo, consumable_count)
     """
-    if not easyocr_available:
+    if not ocr_manager.is_ready():
         return None, None, None
     
-    # Ensure sct.grab is within the try-except block or handle its potential errors
     try:
         screenshot_rgba = np.array(sct.grab({'left': 1200, 'top': 900, 'width': 800, 'height': 200}))
         if screenshot_rgba.shape[2] == 4:
@@ -782,7 +738,6 @@ def detect_ammo(sct):
         if consumable_count is not None:
             return None, None, consumable_count
         
-        # print("Failed to detect ammo divider or consumable count.") # Avoid spamming console
         return None, None, None
 
 def detect_consumable_count(consumable_screenshot):
@@ -795,29 +750,22 @@ def detect_consumable_count(consumable_screenshot):
     Returns:
         int: Detected consumable count or None if detection fails
     """
-    global reader, easyocr_available
-    
-    # Wait for a short time for EasyOCR to be ready
-    if not easyocr_ready.wait(timeout=0.1):  # 100ms timeout
-        return None
-        
-    if not easyocr_available:
+    if not ocr_manager.is_ready():
         return None
 
     try:
         gray = cv2.cvtColor(consumable_screenshot, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
-        if np.mean(binary) > 127: # Check if image is mostly white (text is dark)
-            binary = cv2.bitwise_not(binary) # Invert if text is dark on light
+        if np.mean(binary) > 127:
+            binary = cv2.bitwise_not(binary)
         binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
         
-        with easyocr_lock:
-            results = reader.readtext(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
+        results = ocr_manager.read_numbers(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
         
         if results:
             count_text = results[0][1]
             count = int(count_text) if count_text.isdigit() else None
-            return count if count is not None and count <= 999 else None # Added check for None
+            return count if count is not None and count <= 999 else None
     except Exception as e:
         print(f"Error in consumable count detection: {e}")
     return None
@@ -832,24 +780,17 @@ def detect_ammo_count(ammo_screenshot):
     Returns:
         int: Detected ammo count or None if detection fails
     """
-    global reader, easyocr_available
-    
-    # Wait for a short time for EasyOCR to be ready
-    if not easyocr_ready.wait(timeout=0.1):  # 100ms timeout
-        return None
-        
-    if not easyocr_available:
+    if not ocr_manager.is_ready():
         return None
 
     try:
         gray = cv2.cvtColor(ammo_screenshot, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
-        if np.mean(binary) > 127: # Check if image is mostly white (text is dark)
-             binary = cv2.bitwise_not(binary) # Invert if text is dark on light
+        if np.mean(binary) > 127:
+             binary = cv2.bitwise_not(binary)
         binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
         
-        with easyocr_lock:
-            results = reader.readtext(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
+        results = ocr_manager.read_numbers(binary, allowlist='0123456789', paragraph=False, min_size=10, text_threshold=0.5)
         
         if results:
             ammo_text = results[0][1]
@@ -886,9 +827,8 @@ def detect_attachments(sct):
     
     for attachment_type in ["Scope", "Magazine", "Underbarrel", "Barrel"]:
         if attachment_type not in attachment_images or not attachment_images[attachment_type]:
-            continue # Skip if no templates for this type
+            continue
         
-        # Use a default for max() if the generator is empty
         best_match, best_score = max(
             ((name, cv2.matchTemplate(binary_screenshot, template, cv2.TM_CCOEFF_NORMED).max())
              for name, template in attachment_images[attachment_type].items()),
@@ -899,7 +839,6 @@ def detect_attachments(sct):
             detected_attachments[attachment_type] = best_match
     
     return detected_attachments
-
 
 def initialize_hotbar_detection():
     """
@@ -912,7 +851,7 @@ def initialize_hotbar_detection():
         load_reference_images()
         load_attachment_images()
         initialize_item_rarity_map()
-        initialize_rarity_colors()  # Initialize rarity colors
+        initialize_rarity_colors()
         return True
     except FileNotFoundError as e:
         print(f"Error: {e}")
@@ -932,4 +871,3 @@ def get_last_detected_rarity():
     global last_detected_rarity
     
     return last_detected_rarity if last_detected_rarity is not None else "Unknown"
-
