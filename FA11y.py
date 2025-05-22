@@ -7,6 +7,9 @@ import pyautogui
 import subprocess
 import win32com.client
 import requests
+import json
+import numpy as np
+from typing import List, Tuple, Optional, Dict, Any, Union
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
@@ -54,7 +57,11 @@ from lib.resource_monitor import resource_monitor
 from lib.player_position import (
     announce_current_direction as speak_minimap_direction, 
     start_icon_detection, 
-    check_for_pixel
+    check_for_pixel,
+    ROI_START_ORIG,
+    ROI_END_ORIG,
+    get_quadrant,
+    get_position_in_quadrant
 )
 from lib.hotbar_detection import (
     initialize_hotbar_detection,
@@ -73,6 +80,7 @@ from lib.utilities import (
     DEFAULT_CONFIG
 )
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
+from lib.custom_poi_handler import load_custom_pois
 
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
@@ -93,6 +101,21 @@ stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
+
+# POI category definitions
+POI_CATEGORY_SPECIAL = "special"
+POI_CATEGORY_REGULAR = "regular"
+POI_CATEGORY_LANDMARK = "landmark"
+POI_CATEGORY_FAVORITE = "favorite"
+POI_CATEGORY_CUSTOM = "custom"
+
+# Special POI names
+SPECIAL_POI_CLOSEST = "closest"
+SPECIAL_POI_SAFEZONE = "safe zone"
+SPECIAL_POI_CLOSEST_LANDMARK = "closest landmark"
+
+# Global variable to track current POI category
+current_poi_category = POI_CATEGORY_SPECIAL
 
 def handle_movement(action: str, reset_sensitivity: bool) -> None:
     """Handle all movement-related actions."""
@@ -156,13 +179,19 @@ def handle_scroll(action: str) -> None:
 
 def reload_config() -> None:
     """Reload configuration and update action handlers."""
-    global config, action_handlers, key_bindings, poi_data_instance
+    global config, action_handlers, key_bindings, poi_data_instance, current_poi_category
     config = read_config()
 
     # Initialize POI data if not already done
     if poi_data_instance is None:
         print("Initializing POI data...")
         poi_data_instance = POIData()
+
+    # Initialize or update current_poi_category based on selected POI
+    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+    selected_poi_parts = selected_poi_str.split(',')
+    selected_poi_name = selected_poi_parts[0].strip()
+    current_poi_category = get_poi_category(selected_poi_name)
 
     # Validate keybinds and reset if necessary
     config_updated = False
@@ -250,7 +279,7 @@ def reload_config() -> None:
         'toggle keybinds': toggle_keybinds,
         'cycle map': cycle_map,
         'cycle poi': cycle_poi,
-        'toggle closest poi': toggle_closest_poi,
+        'cycle poi category': cycle_poi_category,
     })
 
     for i in range(1, 6):
@@ -369,11 +398,37 @@ def open_poi_selector() -> None:
     """Open the POI selector GUI."""
     from lib.guis.poi_selector_gui import launch_poi_selector
     
-    global poi_data_instance
+    global poi_data_instance, current_poi_category
     if poi_data_instance is None:
         poi_data_instance = POIData()
     
+    # Save current configuration state
+    previous_config = read_config()
+    previous_poi = previous_config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+    previous_map = previous_config.get('POI', 'current_map', fallback='main')
+    
+    # Launch the POI selector GUI
     launch_poi_selector(poi_data_instance)
+    
+    # Read updated configuration after GUI closes
+    updated_config = read_config()
+    updated_poi = updated_config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+    updated_map = updated_config.get('POI', 'current_map', fallback='main')
+    
+    # If the configuration changed, update our internal state
+    if previous_poi != updated_poi or previous_map != updated_map:
+        # Get the selected POI name
+        selected_poi_parts = updated_poi.split(',')
+        selected_poi_name = selected_poi_parts[0].strip()
+        
+        # Update the current_poi_category based on the selected POI
+        updated_category = get_poi_category(selected_poi_name)
+        current_poi_category = updated_category
+        
+        print(f"POI selection updated from GUI: {selected_poi_name} (Category: {updated_category})")
+    
+    # Refresh configuration in case anything else changed
+    config = updated_config
 
 def handle_custom_poi_gui(use_ppi=False) -> None:
     """Handle custom POI GUI creation with map-specific support"""
@@ -396,9 +451,375 @@ def open_gamemode_selector() -> None:
     from lib.guis.gamemode_gui import launch_gamemode_selector
     launch_gamemode_selector()
 
+def get_poi_category(poi_name: str) -> str:
+    """
+    Determine which category a POI belongs to.
+    
+    Args:
+        poi_name: Name of the POI
+        
+    Returns:
+        str: Category identifier
+    """
+    global poi_data_instance, config
+    
+    # Get the current map
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Check special POIs first
+    if poi_name.lower() == SPECIAL_POI_CLOSEST.lower():
+        return POI_CATEGORY_SPECIAL
+    
+    if poi_name.lower() == SPECIAL_POI_SAFEZONE.lower():
+        return POI_CATEGORY_SPECIAL
+    
+    if poi_name.lower() == SPECIAL_POI_CLOSEST_LANDMARK.lower() and current_map == 'main':
+        return POI_CATEGORY_SPECIAL
+    
+    # Check favorites
+    favorites_file = 'FAVORITE_POIS.txt'
+    if os.path.exists(favorites_file):
+        try:
+            with open(favorites_file, 'r') as f:
+                favorites_data = json.load(f)
+                if any(f['name'].lower() == poi_name.lower() for f in favorites_data):
+                    return POI_CATEGORY_FAVORITE
+        except (json.JSONDecodeError, FileNotFoundError):
+            pass
+    
+    # Check custom POIs
+    custom_pois = load_custom_pois(current_map)
+    if any(poi[0].lower() == poi_name.lower() for poi in custom_pois):
+        return POI_CATEGORY_CUSTOM
+    
+    # Check landmarks (main map only)
+    if current_map == 'main':
+        if any(poi[0].lower() == poi_name.lower() for poi in poi_data_instance.landmarks):
+            return POI_CATEGORY_LANDMARK
+    
+    # Default to regular
+    return POI_CATEGORY_REGULAR
+
+def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
+    """
+    Get all POIs in a specific category.
+    
+    Args:
+        category: POI category
+        
+    Returns:
+        list: List of POI tuples (name, x, y)
+    """
+    global poi_data_instance, config
+    
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Special POIs
+    if category == POI_CATEGORY_SPECIAL:
+        special_pois = [(SPECIAL_POI_CLOSEST, "0", "0"), (SPECIAL_POI_SAFEZONE, "0", "0")]
+        if current_map == 'main':
+            special_pois.append((SPECIAL_POI_CLOSEST_LANDMARK, "0", "0"))
+        return special_pois
+    
+    # Favorites
+    if category == POI_CATEGORY_FAVORITE:
+        favorites_file = 'FAVORITE_POIS.txt'
+        if os.path.exists(favorites_file):
+            try:
+                with open(favorites_file, 'r') as f:
+                    favorites_data = json.load(f)
+                    return [(f['name'], f['x'], f['y']) for f in favorites_data]
+            except (json.JSONDecodeError, FileNotFoundError):
+                return []
+        return []
+    
+    # Custom POIs
+    if category == POI_CATEGORY_CUSTOM:
+        return load_custom_pois(current_map)
+    
+    # Landmarks (main map only)
+    if category == POI_CATEGORY_LANDMARK and current_map == 'main':
+        return poi_data_instance.landmarks
+    
+    # Regular POIs
+    if category == POI_CATEGORY_REGULAR:
+        if current_map == 'main':
+            return poi_data_instance.main_pois
+        elif current_map in poi_data_instance.maps:
+            return poi_data_instance.maps[current_map].pois
+    
+    return []
+
+def sort_pois_by_position(pois: List[Tuple[str, str, str]]) -> List[Tuple[str, str, str]]:
+    """
+    Sort POIs by their position on the map.
+    
+    Args:
+        pois: List of POI tuples
+        
+    Returns:
+        list: Sorted list of POI tuples
+    """
+    def poi_sort_key(poi: Tuple[str, str, str]) -> Tuple[int, int, int, int]:
+        name, x_str, y_str = poi
+        try:
+            x = int(float(x_str)) - ROI_START_ORIG[0]
+            y = int(float(y_str)) - ROI_START_ORIG[1]
+            width, height = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
+            
+            quadrant = get_quadrant(x, y, width, height)
+            position = get_position_in_quadrant(x, y, width // 2, height // 2)
+            
+            position_values = {
+                "top-left": 0, "top": 1, "top-right": 2,
+                "left": 3, "center": 4, "right": 5,
+                "bottom-left": 6, "bottom": 7, "bottom-right": 8
+            }
+            
+            return (quadrant, position_values.get(position, 9), y, x)
+        except (ValueError, TypeError):
+            # If coordinates can't be parsed, sort alphabetically by name
+            return (9, 9, 9, 9)
+    
+    if not pois:
+        return []
+    
+    # Don't sort special POIs
+    if pois[0][0].lower() in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
+        return pois
+    
+    return sorted(pois, key=poi_sort_key)
+
+def get_poi_position_description(poi: Tuple[str, str, str]) -> str:
+    """
+    Generate a concise description of a POI's position using quadrant format.
+    
+    Args:
+        poi: Tuple containing (name, x, y) coordinates
+        
+    Returns:
+        str: Description in format "position of quadrant"
+    """
+    try:
+        name, x_str, y_str = poi
+        x = int(float(x_str))
+        y = int(float(y_str))
+        
+        # Calculate relative position in region of interest
+        x_rel = x - ROI_START_ORIG[0]
+        y_rel = y - ROI_START_ORIG[1]
+        width = ROI_END_ORIG[0] - ROI_START_ORIG[0]
+        height = ROI_END_ORIG[1] - ROI_START_ORIG[1]
+        
+        # Get quadrant (0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right)
+        quadrant = get_quadrant(x_rel, y_rel, width, height)
+        
+        # Get position within quadrant
+        quadrant_width = width // 2
+        quadrant_height = height // 2
+        x_in_quad = x_rel % quadrant_width
+        y_in_quad = y_rel % quadrant_height
+        
+        position = get_position_in_quadrant(x_in_quad, y_in_quad, quadrant_width, quadrant_height)
+        
+        # Map quadrant index to name
+        quadrant_names = ["top left", "top right", "bottom left", "bottom right"]
+        quadrant_name = quadrant_names[quadrant]
+        
+        # Return concise description
+        if position == "center":
+            return f"center of {quadrant_name} quadrant"
+        else:
+            return f"{position} of {quadrant_name} quadrant"
+    except (ValueError, TypeError, IndexError):
+        return "position unknown"
+
+def get_poi_categories(include_empty: bool = False) -> List[str]:
+    """
+    Get available POI categories for the current map.
+    
+    Args:
+        include_empty: Whether to include empty categories
+        
+    Returns:
+        list: Available category identifiers
+    """
+    global config
+    
+    categories = [POI_CATEGORY_SPECIAL, POI_CATEGORY_REGULAR]
+    current_map = config.get('POI', 'current_map', fallback='main')
+    
+    # Add landmarks for main map
+    if current_map == 'main':
+        categories.append(POI_CATEGORY_LANDMARK)
+    
+    # Add favorites if any exist
+    favorites = get_pois_by_category(POI_CATEGORY_FAVORITE)
+    if include_empty or favorites:
+        categories.append(POI_CATEGORY_FAVORITE)
+    
+    # Add custom POIs if any exist
+    custom_pois = get_pois_by_category(POI_CATEGORY_CUSTOM)
+    if include_empty or custom_pois:
+        categories.append(POI_CATEGORY_CUSTOM)
+    
+    return categories
+
+def cycle_poi_category() -> None:
+    """Cycle between POI categories."""
+    global config, poi_data_instance, current_poi_category
+    
+    # Always re-read the config to ensure we have the latest state
+    config = read_config()
+    
+    # Check if shift is being held for reverse cycling
+    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
+    
+    # Validate POI data is initialized
+    if poi_data_instance is None:
+        print("POI data not initialized")
+        speaker.speak("POI data not initialized")
+        return
+    
+    # Get all available categories
+    categories = get_poi_categories()
+    if not categories:
+        speaker.speak("No POI categories available")
+        return
+    
+    # Find current category index
+    try:
+        current_index = categories.index(current_poi_category)
+    except ValueError:
+        # If current category not found, default to first category
+        current_index = 0
+    
+    # Calculate new index with wrapping
+    if reverse:
+        new_index = (current_index - 1) % len(categories)
+    else:
+        new_index = (current_index + 1) % len(categories)
+    
+    # Get new category
+    new_category = categories[new_index]
+    
+    # Update global category tracker
+    current_poi_category = new_category
+    
+    # Get POIs in the new category
+    category_pois = get_pois_by_category(new_category)
+    
+    # Sort POIs by position
+    sorted_pois = sort_pois_by_position(category_pois)
+    
+    # If category has POIs, select the first one
+    if sorted_pois:
+        first_poi = sorted_pois[0]
+        config['POI']['selected_poi'] = f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}"
+        
+        # Save the config
+        with open('config.txt', 'w') as f:
+            config.write(f)
+        
+        # Get category display name
+        category_display_names = {
+            POI_CATEGORY_SPECIAL: "Special",
+            POI_CATEGORY_REGULAR: "Regular",
+            POI_CATEGORY_LANDMARK: "Landmark",
+            POI_CATEGORY_FAVORITE: "Favorite",
+            POI_CATEGORY_CUSTOM: "Custom"
+        }
+        display_name = category_display_names.get(new_category, new_category.title())
+        
+        # Get position description if not a special POI
+        position_desc = ""
+        if first_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
+            position_desc = get_poi_position_description(first_poi)
+            if position_desc:
+                position_desc = f", {position_desc}"
+        
+        # Announce selection
+        speaker.speak(f"{display_name} POIs: {first_poi[0]}{position_desc}")
+        print(f"Selected {first_poi[0]} from {display_name} POIs")
+    else:
+        speaker.speak(f"No POIs available in the selected category")
+        print(f"No POIs available in the selected category")
+
+def cycle_poi() -> None:
+    """Cycle through POIs in the current category."""
+    global config, poi_data_instance, current_poi_category
+    
+    # Always re-read the config to ensure we have the latest state
+    config = read_config()
+    
+    # Check if shift is being held for reverse cycling
+    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
+    
+    if poi_data_instance is None:
+        print("POI data not initialized")
+        speaker.speak("POI data not initialized")
+        return
+    
+    # Get POIs in the current category
+    category_pois = get_pois_by_category(current_poi_category)
+    
+    # If no POIs in the category, notify user
+    if not category_pois:
+        speaker.speak("No POIs available in the current category")
+        return
+    
+    # Sort POIs by position
+    sorted_pois = sort_pois_by_position(category_pois)
+    
+    # Get current selected POI directly from config
+    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+    selected_poi_parts = selected_poi_str.split(',')
+    selected_poi_name = selected_poi_parts[0].strip()
+    
+    # Find index of current POI
+    current_index = -1
+    for i, poi in enumerate(sorted_pois):
+        if poi[0].lower() == selected_poi_name.lower():
+            current_index = i
+            break
+    
+    # If not found, default to first POI
+    if current_index == -1:
+        current_index = 0
+    
+    # Calculate new index with wrapping
+    if reverse:
+        new_index = (current_index - 1) % len(sorted_pois)
+    else:
+        new_index = (current_index + 1) % len(sorted_pois)
+    
+    # Get new POI
+    new_poi = sorted_pois[new_index]
+    
+    # Update config
+    config['POI']['selected_poi'] = f"{new_poi[0]}, {new_poi[1]}, {new_poi[2]}"
+    
+    # Save config
+    with open('config.txt', 'w') as f:
+        config.write(f)
+    
+    # Get position description if not a special POI
+    position_desc = ""
+    if new_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
+        position_desc = get_poi_position_description(new_poi)
+        if position_desc:
+            position_desc = f", {position_desc}"
+    
+    # Announce selection
+    speaker.speak(f"{new_poi[0]}{position_desc}")
+    print(f"{new_poi[0]} selected")
+
 def cycle_map():
     """Cycle to the next/previous map."""
-    global config, poi_data_instance
+    global config, poi_data_instance, current_poi_category
+    
+    # Always re-read the config to ensure we have the latest state
+    config = read_config()
     
     # Check if shift is being held for reverse cycling
     reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
@@ -431,8 +852,26 @@ def cycle_map():
     
     # Update the config
     config['POI']['current_map'] = new_map
-    # Reset selected POI to 'closest'
-    config['POI']['selected_poi'] = "closest, 0, 0"
+    
+    # Remember current category - don't change it when switching maps
+    previous_category = current_poi_category
+    
+    # Try to get POIs in the current category for the new map
+    category_pois = get_pois_by_category(previous_category)
+    
+    # If no POIs in the current category on the new map, fall back to special category
+    if not category_pois:
+        current_poi_category = POI_CATEGORY_SPECIAL
+        category_pois = get_pois_by_category(POI_CATEGORY_SPECIAL)
+    
+    # Reset selected POI to first one in the category
+    if category_pois:
+        sorted_pois = sort_pois_by_position(category_pois)
+        first_poi = sorted_pois[0]
+        config['POI']['selected_poi'] = f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}"
+    else:
+        # If no POIs found at all, reset to closest
+        config['POI']['selected_poi'] = "closest, 0, 0"
     
     # Save the config
     with open('config.txt', 'w') as f:
@@ -446,113 +885,6 @@ def cycle_map():
         
     speaker.speak(f"{display_name} map selected")
     print(f"{new_map} selected")
-
-def cycle_poi():
-    """Cycle to the next/previous POI in the current map."""
-    global config, poi_data_instance
-    
-    # Check if shift is being held for reverse cycling
-    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
-    
-    if poi_data_instance is None:
-        print("POI data not initialized")
-        speaker.speak("POI data not initialized")
-        return
-
-    # Get the current map from config
-    current_map = config.get('POI', 'current_map', fallback='main')
-    
-    # Get the current selected POI
-    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
-    selected_poi_parts = selected_poi_str.split(',')
-    selected_poi_name = selected_poi_parts[0].strip().lower()
-    
-    # Get the list of POIs for the current map
-    poi_list = []
-    if current_map == 'main':
-        poi_list = [poi[0].lower() for poi in poi_data_instance.main_pois]
-        # Landmarks are excluded from cycling for main map
-    elif current_map in poi_data_instance.maps:
-        poi_list = [poi[0].lower() for poi in poi_data_instance.maps[current_map].pois]
-    
-    # Add special POIs
-    poi_list = ["closest", "closest landmark"] + sorted(poi_list)
-    if current_map != 'main':
-        # Remove 'closest landmark' if not on main map
-        if "closest landmark" in poi_list:
-            poi_list.remove("closest landmark")
-    
-    # Find the index of the current POI
-    try:
-        current_index = poi_list.index(selected_poi_name)
-    except ValueError:
-        current_index = 0
-    
-    # Calculate the new index with wrapping
-    if reverse:
-        new_index = (current_index - 1) % len(poi_list)
-    else:
-        new_index = (current_index + 1) % len(poi_list)
-    
-    # Get the new POI name
-    new_poi = poi_list[new_index]
-    
-    # Update the config
-    config['POI']['selected_poi'] = f"{new_poi}, 0, 0"
-    
-    # Save the config
-    with open('config.txt', 'w') as f:
-        config.write(f)
-    
-    speaker.speak(f"{new_poi.replace('_', ' ')} POI selected")
-    print(f"{new_poi} POI selected")
-
-def toggle_closest_poi():
-    """Toggle between 'closest' and 'closest landmark' POIs."""
-    global config
-    
-    # Check if shift is being held for reverse toggle
-    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
-    
-    # Get the current map from config
-    current_map = config.get('POI', 'current_map', fallback='main')
-    
-    # Get the current selected POI
-    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
-    selected_poi_parts = selected_poi_str.split(',')
-    selected_poi_name = selected_poi_parts[0].strip().lower()
-    
-    # If not on main map, just set to 'closest'
-    if current_map != 'main':
-        config['POI']['selected_poi'] = "closest, 0, 0"
-        with open('config.txt', 'w') as f:
-            config.write(f)
-        speaker.speak("Closest POI selected")
-        print("Closest POI selected")
-        return
-    
-    # If on main map, toggle between 'closest' and 'closest landmark'
-    new_poi = None
-    if not reverse:
-        if selected_poi_name.lower() == 'closest':
-            new_poi = "closest landmark"
-        else:
-            new_poi = "closest"
-    else:
-        if selected_poi_name.lower() == 'closest landmark':
-            new_poi = "closest"
-        else:
-            new_poi = "closest landmark"
-    
-    # Update the config
-    config['POI']['selected_poi'] = f"{new_poi}, 0, 0"
-    
-    # Save the config
-    with open('config.txt', 'w') as f:
-        config.write(f)
-    
-    speaker.speak(f" {new_poi.replace('_', ' ')} POI selected")
-    print(f"{new_poi} POI selected")
 
 def handle_update_with_changelog(repo_owner: str, repo_name: str) -> None:
     """Handle update notification with changelog display option."""
