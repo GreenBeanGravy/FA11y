@@ -32,3 +32,4 @@ librosa
 soundfile
 easyocr
 pyaudio
+pythonnet
