@@ -11,6 +11,7 @@ from typing import List, Tuple, Optional, Callable, Dict
 
 from lib.guis.base_ui import AccessibleUI
 from lib.utilities import force_focus_window
+from lib.mouse import move_and_click
 import pyautogui
 
 # Initialize logger
@@ -186,17 +187,6 @@ class GamemodeGUI(AccessibleUI):
         # Bind enter key to submit
         search_window.bind('<Return>', on_search_submit)
     
-    def smooth_move_and_click(self, x: int, y: int, duration: float = 0.04) -> None:
-        """Move to a position and click smoothly
-        
-        Args:
-            x: X coordinate
-            y: Y coordinate
-            duration: Movement duration
-        """
-        pyautogui.moveTo(x, y, duration=duration)
-        pyautogui.click()
-    
     def select_gamemode(self, gamemode: Tuple[str, str, List[str]]) -> bool:
         """Select a gamemode by automating UI interactions
         
@@ -208,11 +198,11 @@ class GamemodeGUI(AccessibleUI):
         """
         try:
             # Click game selector
-            self.smooth_move_and_click(109, 67)
+            move_and_click(109, 67, duration=0.04)
             time.sleep(0.5)
             
             # Click search box
-            self.smooth_move_and_click(1280, 200)
+            move_and_click(1280, 200, duration=0.04)
             time.sleep(0.1)
             
             # Clear search box and enter gamemode text
@@ -229,9 +219,9 @@ class GamemodeGUI(AccessibleUI):
             time.sleep(0.1)
 
             # Click to select
-            self.smooth_move_and_click(257, 527)
+            move_and_click(257, 527, duration=0.04)
             time.sleep(0.7)
-            self.smooth_move_and_click(285, 910)
+            move_and_click(285, 910, duration=0.04)
             time.sleep(0.5)
             
             # Press 'b' twice to exit menus

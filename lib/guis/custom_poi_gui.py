@@ -11,7 +11,7 @@ from typing import Optional, Tuple, Callable
 from lib.guis.base_ui import AccessibleUI
 from lib.guis.poi_selector_gui import POIData
 from lib.utilities import force_focus_window, read_config
-import pyautogui
+from lib.mouse import left_click
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -159,7 +159,7 @@ class CustomPOIGUI(AccessibleUI):
             self.speak(f"Custom POI {poi_name} saved for {self.current_map} map")
             self.close()
             # Refocus the game window
-            pyautogui.click()
+            left_click()
         else:
             self.speak("Error saving custom POI")
     

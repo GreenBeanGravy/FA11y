@@ -1,7 +1,6 @@
 import threading
 import time
 import queue
-import pyautogui
 from mss import mss
 import numpy as np
 import os
@@ -13,6 +12,7 @@ from lib.utilities import read_config
 from lib.input_handler import is_key_pressed
 from lib.background_checks import monitor
 from lib.ocr_manager import get_ocr_manager
+from lib.mouse import get_mouse_position, hold_mouse_button, release_mouse_button, move_to_absolute
 
 class InventoryHandler:
     def __init__(self):
@@ -170,7 +170,7 @@ class InventoryHandler:
         """Stop all threads and cleanup"""
         self.stop_monitoring.set()
         if self.dragging:
-            pyautogui.mouseUp(button='left', _pause=False)
+            release_mouse_button('left')
         
         self.cancel_all_ocr_timers()
         
@@ -200,11 +200,11 @@ class InventoryHandler:
 
     def _execute_movement(self, target_x, target_y):
         """Execute a smooth mouse movement to the target coordinates"""
-        start_x, start_y = pyautogui.position()
+        start_x, start_y = get_mouse_position()
         
         # Optimize if already close to target
         if abs(start_x - target_x) < 5 and abs(start_y - target_y) < 5:
-            pyautogui.moveTo(target_x, target_y, _pause=False)
+            move_to_absolute(target_x, target_y)
             return
 
         def ease_out_cubic(t):
@@ -221,7 +221,7 @@ class InventoryHandler:
             current_x = int(start_x + (target_x - start_x) * eased_t)
             current_y = int(start_y + (target_y - start_y) * eased_t)
             
-            pyautogui.moveTo(current_x, current_y, _pause=False)
+            move_to_absolute(current_x, current_y)
             time.sleep(self.MOVEMENT_DURATION / self.MOVEMENT_STEPS)
 
     def smooth_move_to(self, x, y):
@@ -231,7 +231,8 @@ class InventoryHandler:
     def check_pixel_color(self, x, y, target_color, tolerance=2):
         """Check if pixel at location matches target color within tolerance"""
         try:
-            pixel_color = pyautougui.pixel(x, y)
+            import pyautogui
+            pixel_color = pyautogui.pixel(x, y)
             if isinstance(target_color, tuple) and len(target_color) == 3:
                 return all(abs(a - b) <= tolerance for a, b in zip(pixel_color, target_color))
             return pixel_color == target_color
@@ -273,7 +274,7 @@ class InventoryHandler:
                         self.navigate_to_slot(0)
                     elif self.dragging:
                         # Release mouse if inventory closed while dragging
-                        pyautogui.mouseUp(button='left', _pause=False)
+                        release_mouse_button('left')
                         self.dragging = False
                 
                 # Handle input for open inventory
@@ -360,10 +361,10 @@ class InventoryHandler:
         
         self.dragging = not self.dragging
         if self.dragging:
-            pyautogui.mouseDown(button='left', _pause=False)
+            hold_mouse_button('left')
             self.speaker.speak("Dragging")
         else:
-            pyautogui.mouseUp(button='left', _pause=False)
+            release_mouse_button('left')
             self.speaker.speak("Released")
 
     def navigate_to_slot(self, slot_index):
@@ -571,6 +572,7 @@ class InventoryHandler:
                 if self.check_pixel_color(x, y, (255, 255, 255)):
                     # Check pixel 5 to the left for rarity color
                     rarity_pixel_x = x - 5
+                    import pyautogui
                     rarity_pixel_color = pyautogui.pixel(rarity_pixel_x, y)
                     
                     # Compare with known rarity colors
