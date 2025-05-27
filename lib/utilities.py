@@ -558,13 +558,12 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
         except Exception as e:
             print(f"Failed to force focus using SetWindowPos: {e}")
             
-    # Move cursor to window center using mouse.py
+    # Move cursor to window center
     try:
-        from lib.mouse import move_to_absolute
         rect = win32gui.GetWindowRect(hwnd)
         center_x = (rect[0] + rect[2]) // 2
         center_y = (rect[1] + rect[3]) // 2
-        move_to_absolute(center_x, center_y)
+        ctypes.windll.user32.SetCursorPos(center_x, center_y)
     except Exception as e:
         print(f"Failed to move cursor to window center: {e}")
 

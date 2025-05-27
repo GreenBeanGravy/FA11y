@@ -2,7 +2,7 @@ import ctypes
 import time
 import threading
 import os
-from typing import Tuple, Optional
+from typing import Tuple
 import configparser
 from lib.utilities import get_config_int, get_config_float, get_config_value, get_config_boolean, read_config
 from lib.input_handler import is_numlock_on
@@ -154,17 +154,6 @@ def send_faker_mouse_move(dx, dy):
     except:
         return False
 
-def get_mouse_position() -> Tuple[int, int]:
-    """Get current mouse position"""
-    user32 = ctypes.windll.user32
-    pt = ctypes.wintypes.POINT()
-    user32.GetCursorPos(ctypes.byref(pt))
-    return (pt.x, pt.y)
-
-def _set_cursor_pos(x: int, y: int):
-    """Set cursor position using Windows API"""
-    ctypes.windll.user32.SetCursorPos(x, y)
-
 def smooth_move_mouse(dx: int, dy: int, step_delay: float = 0.01, steps: int = None, step_speed: int = None, second_dy: int = None, recenter_delay: float = None):
     """
     Move mouse smoothly with steps. Tries FakerInput first, falls back to standard input.
@@ -285,120 +274,57 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float = 0.01, steps: int = N
     _current_movement_thread = threading.Thread(target=move, daemon=True)
     _current_movement_thread.start()
 
-def move_to_absolute(x: int, y: int, duration: float = 0.0):
-    """Move mouse to absolute coordinates instantly or with duration"""
-    if duration <= 0:
-        _set_cursor_pos(x, y)
-    else:
-        smooth_move_to_absolute(x, y, duration)
-
-def smooth_move_to_absolute(x: int, y: int, duration: float = 0.1, easing_function=None):
-    """Move mouse smoothly to absolute coordinates over a duration"""
-    start_x, start_y = get_mouse_position()
-    dx = x - start_x
-    dy = y - start_y
-    
-    if dx == 0 and dy == 0:
-        return
-    
-    # Default easing function (ease out cubic)
-    if easing_function is None:
-        easing_function = lambda t: 1 - pow(1 - t, 3)
-    
-    steps = max(10, int(duration * 100))  # At least 10 steps, more for longer durations
-    step_delay = duration / steps
-    
-    def move():
-        with _movement_lock:
-            for i in range(steps + 1):
-                t = i / steps
-                eased_t = easing_function(t)
-                
-                current_x = int(start_x + dx * eased_t)
-                current_y = int(start_y + dy * eased_t)
-                
-                _set_cursor_pos(current_x, current_y)
-                
-                if i < steps and step_delay > 0:
-                    time.sleep(step_delay)
-    
-    # Wait for any existing movement to complete before starting new one
-    global _current_movement_thread
-    if _current_movement_thread and _current_movement_thread.is_alive():
-        _current_movement_thread.join(timeout=0.1)
-    
-    _current_movement_thread = threading.Thread(target=move, daemon=True)
-    _current_movement_thread.start()
-
 def mouse_scroll(amount: int):
     """Scroll mouse wheel"""
     x = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=amount, dwFlags=MOUSEEVENTF_WHEEL, time=0, dwExtraInfo=None))
     send_input(1, ctypes.byref(x), ctypes.sizeof(x))
 
-def _mouse_click_internal(down_flag: int, up_flag: int = None):
+def _mouse_click(down_flag: int, up_flag: int):
     """Internal mouse click implementation"""
-    if up_flag is None:
-        # Single action (either down or up)
-        action = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=down_flag, time=0, dwExtraInfo=None))
-        send_input(1, ctypes.byref(action), ctypes.sizeof(action))
-    else:
-        # Complete click (down then up)
-        down = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=down_flag, time=0, dwExtraInfo=None))
-        up = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=up_flag, time=0, dwExtraInfo=None))
-        send_input(1, ctypes.byref(down), ctypes.sizeof(down))
-        send_input(1, ctypes.byref(up), ctypes.sizeof(up))
+    down = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=down_flag, time=0, dwExtraInfo=None))
+    up = INPUT(type=INPUT_MOUSE, ii=MOUSEINPUT(dx=0, dy=0, mouseData=0, dwFlags=up_flag, time=0, dwExtraInfo=None))
+    send_input(1, ctypes.byref(down), ctypes.sizeof(down))
+    send_input(1, ctypes.byref(up), ctypes.sizeof(up))
 
-# Mouse button control functions
-def left_mouse_down():
-    """Press and hold left mouse button"""
-    _mouse_click_internal(MOUSEEVENTF_LEFTDOWN)
+# Mouse control functions
+left_mouse_down = lambda: _mouse_click(MOUSEEVENTF_LEFTDOWN, 0)
+left_mouse_up = lambda: _mouse_click(0, MOUSEEVENTF_LEFTUP)
+right_mouse_down = lambda: _mouse_click(MOUSEEVENTF_RIGHTDOWN, 0)
+right_mouse_up = lambda: _mouse_click(0, MOUSEEVENTF_RIGHTUP)
 
-def left_mouse_up():
-    """Release left mouse button"""
-    _mouse_click_internal(MOUSEEVENTF_LEFTUP)
+# Additional mouse functions to maintain compatibility
+def move_mouse_relative(dx, dy):
+    """Move mouse relative to current position using smooth_move_mouse"""
+    return smooth_move_mouse(dx, dy, step_delay=0.01, steps=1)
 
-def right_mouse_down():
-    """Press and hold right mouse button"""
-    _mouse_click_internal(MOUSEEVENTF_RIGHTDOWN)
+def get_mouse_position():
+    """Get current mouse position"""
+    user32 = ctypes.windll.user32
+    pt = ctypes.wintypes.POINT()
+    user32.GetCursorPos(ctypes.byref(pt))
+    return (pt.x, pt.y)
 
-def right_mouse_up():
-    """Release right mouse button"""
-    _mouse_click_internal(MOUSEEVENTF_RIGHTUP)
-
-def click_mouse(button: str = 'left'):
-    """Click mouse button (complete press and release)"""
+def click_mouse(button='left'):
+    """Click mouse button"""
     if button == 'left':
-        _mouse_click_internal(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)
+        _mouse_click(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)
     elif button == 'right':
-        _mouse_click_internal(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP)
+        _mouse_click(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP)
 
-def hold_mouse_button(button: str = 'left'):
+def hold_mouse_button(button='left'):
     """Hold down mouse button"""
     if button == 'left':
-        left_mouse_down()
+        _mouse_click(MOUSEEVENTF_LEFTDOWN, 0)
     elif button == 'right':
-        right_mouse_down()
+        _mouse_click(MOUSEEVENTF_RIGHTDOWN, 0)
 
-def release_mouse_button(button: str = 'left'):
+def release_mouse_button(button='left'):
     """Release mouse button"""
     if button == 'left':
-        left_mouse_up()
+        _mouse_click(0, MOUSEEVENTF_LEFTUP)
     elif button == 'right':
-        right_mouse_up()
+        _mouse_click(0, MOUSEEVENTF_RIGHTUP)
 
-def move_and_click(x: int, y: int, button: str = 'left', duration: float = 0.04):
-    """Move to coordinates and click"""
-    move_to_absolute(x, y, duration)
-    if duration > 0:
-        # Wait for movement to complete
-        time.sleep(duration + 0.01)
-    click_mouse(button)
-
-def move_and_right_click(x: int, y: int, duration: float = 0.04):
-    """Move to coordinates and right click"""
-    move_and_click(x, y, 'right', duration)
-
-# Alias functions for compatibility
+# Alias functions
 left_click = lambda: click_mouse('left')
 right_click = lambda: click_mouse('right')
-move_mouse_relative = lambda dx, dy: smooth_move_mouse(dx, dy, step_delay=0.01, steps=1)

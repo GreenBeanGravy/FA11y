@@ -3,6 +3,7 @@ Unified player position, direction, navigation, and storm detection module for F
 """
 import cv2
 import numpy as np
+import pyautogui
 import time
 import threading
 import os
@@ -11,7 +12,7 @@ from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config, get_config_boolean, get_config_float
 from lib.object_finder import OBJECT_CONFIGS, find_closest_object
 from lib.spatial_audio import SpatialAudio
-from lib.mouse import move_to_absolute, right_click, left_click
+from lib.mouse import smooth_move_mouse
 from lib.custom_poi_handler import update_poi_handler
 from lib.background_checks import monitor
 
@@ -20,6 +21,8 @@ speaker = Auto()
 
 # Initialize spatial audio for POI sound
 spatial_poi = SpatialAudio('sounds/poi.ogg')
+
+pyautogui.FAILSAFE = False
 
 # Core constants for screen regions
 ROI_START_ORIG = (524, 84)    # Top-left of detection region
@@ -82,8 +85,6 @@ def find_player_icon_location():
 def find_player_icon_location_with_direction():
     """Find both player location and direction"""
     try:
-        # Import pyautogui only when needed for screenshot
-        import pyautogui
         screenshot_rgba = np.array(pyautogui.screenshot(region=(
             ROI_START_ORIG[0],
             ROI_START_ORIG[1],
@@ -129,7 +130,6 @@ def find_player_icon_location_with_direction():
 def find_minimap_icon_direction():
     """Find the player's facing direction from the minimap icon"""
     try:
-        import pyautogui
         screenshot_rgba = np.array(pyautogui.screenshot(region=(
             MINIMAP_START[0],
             MINIMAP_START[1],
@@ -450,8 +450,7 @@ def find_player_position():
 
 def get_storm_screenshot():
     """Get screenshot for storm detection"""
-    move_to_absolute(1900, 1000, duration=0.1)
-    import pyautogui
+    pyautogui.moveTo(1900, 1000, duration=0.1, tween=pyautogui.easeInOutQuad)
     screenshot_rgba = np.array(pyautogui.screenshot())
     return cv2.cvtColor(screenshot_rgba, cv2.COLOR_RGBA2RGB)
 
@@ -491,7 +490,6 @@ def process_storm_contour(roi_color_bgr, contour, area):
     center_mass_screen_y = (cY // SCALE_FACTOR) + STORM_ROI_START[1]
     center_mass_screen = (center_mass_screen_x, center_mass_screen_y)
 
-    import pyautogui
     screen_width, screen_height = pyautogui.size()
     screen_center_x, screen_center_y = screen_width // 2, screen_height // 2
 
@@ -572,7 +570,6 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
     if poi_name_lower == 'safe zone':
         map_was_opened_by_script = False
         if not monitor.map_open:
-            import pyautogui
             pyautogui.press('m')
             time.sleep(0.1)
             map_was_opened_by_script = True
@@ -580,7 +577,6 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
         storm_location = start_storm_detection()
 
         if map_was_opened_by_script:
-            import pyautogui
             pyautogui.press('escape')
             time.sleep(0.05)
 
@@ -827,10 +823,10 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
         play_spatial_poi_sound(player_location, player_angle, poi_coords_resolved)
 
     if not use_ppi:
-        move_to_absolute(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
-        right_click()
+        pyautogui.moveTo(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
+        pyautogui.rightClick(_pause=False)
         time.sleep(0.05)
-        left_click()
+        pyautogui.click(_pause=False)
 
     perform_poi_actions(poi_data_tuple, player_location, speak_info=False, use_ppi=use_ppi)
     
@@ -840,7 +836,6 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
     
     if auto_turn_enabled:
         if not use_ppi:
-            import pyautogui
             pyautogui.press('escape')
             time.sleep(0.1)
         if player_location is not None:
@@ -878,8 +873,6 @@ def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location
 
 def auto_turn_towards_poi(player_location, poi_location, poi_name):
     """Automatically turn player towards POI"""
-    from lib.mouse import smooth_move_mouse
-    
     max_attempts = 20
     base_turn_sensitivity_factor = 0.8
     angle_threshold = 10
@@ -973,7 +966,6 @@ def get_position_with_fallback():
 def check_for_pixel():
     """Check if the pixel at a specific location is white or (60, 61, 80)"""
     try:
-        import pyautogui
         return pyautogui.pixelMatchesColor(1877, 50, (255, 255, 255), tolerance=10) or \
                pyautogui.pixelMatchesColor(1877, 50, (60, 61, 80), tolerance=10)
     except Exception:
