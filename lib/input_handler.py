@@ -15,6 +15,10 @@ VK_OEM_5 = getattr(win32con, 'VK_OEM_5', 0xDC)  # '\|'
 VK_OEM_6 = getattr(win32con, 'VK_OEM_6', 0xDD)  # ']}'
 VK_OEM_7 = getattr(win32con, 'VK_OEM_7', 0xDE)  # ''"'
 
+# Additional mouse button VK codes
+VK_XBUTTON1 = getattr(win32con, 'VK_XBUTTON1', 0x05)  # Mouse button 4 (back)
+VK_XBUTTON2 = getattr(win32con, 'VK_XBUTTON2', 0x06)  # Mouse button 5 (forward)
+
 # Virtual Key Codes for NUMPAD, Special Keys, and Mouse Buttons
 VK_KEYS = {
     'num 0': win32con.VK_NUMPAD0,
@@ -39,7 +43,9 @@ VK_KEYS = {
     'rshift': win32con.VK_RSHIFT,
     'lalt': win32con.VK_LMENU,
     'ralt': win32con.VK_RMENU,
-    'middle mouse': getattr(win32con, 'VK_MBUTTON', 0x04), # VK_MBUTTON
+    'middle mouse': getattr(win32con, 'VK_MBUTTON', 0x04),  # VK_MBUTTON
+    'mouse 4': VK_XBUTTON1,  # Mouse button 4 (back button)
+    'mouse 5': VK_XBUTTON2,  # Mouse button 5 (forward button)
     'f1': win32con.VK_F1,
     'f2': win32con.VK_F2,
     'f3': win32con.VK_F3,
@@ -68,32 +74,32 @@ VK_KEYS = {
     'down': win32con.VK_DOWN,
     'left': win32con.VK_LEFT,
     'right': win32con.VK_RIGHT,
-    'printscreen': win32con.VK_SNAPSHOT, # VK_SNAPSHOT
+    'printscreen': win32con.VK_SNAPSHOT,  # VK_SNAPSHOT
     'scrolllock': win32con.VK_SCROLL,
     'pause': win32con.VK_PAUSE,
     'numlock': win32con.VK_NUMLOCK,
-    'bracketleft': VK_OEM_4, # For '['
-    'bracketright': VK_OEM_6, # For ']'
-    'apostrophe': VK_OEM_7, # For "'"
-    'grave': VK_OEM_3, # For '`'
-    'backslash': VK_OEM_5, # For '\'
-    'semicolon': VK_OEM_1, # For ';'
-    'period': VK_OEM_PERIOD, # For '.'
+    'bracketleft': VK_OEM_4,  # For '['
+    'bracketright': VK_OEM_6,  # For ']'
+    'apostrophe': VK_OEM_7,  # For "'"
+    'grave': VK_OEM_3,  # For '`'
+    'backslash': VK_OEM_5,  # For '\'
+    'semicolon': VK_OEM_1,  # For ';'
+    'period': VK_OEM_PERIOD,  # For '.'
     'comma': VK_OEM_COMMA,  # For ','
-    'minus': VK_OEM_MINUS, # For '-' (main keyboard)
-    'equals': VK_OEM_PLUS, # For '=' (main keyboard, often requires shift for '+')
-    'slash': VK_OEM_2 # For '/' (main keyboard)
+    'minus': VK_OEM_MINUS,  # For '-' (main keyboard)
+    'equals': VK_OEM_PLUS,  # For '=' (main keyboard, often requires shift for '+')
+    'slash': VK_OEM_2  # For '/' (main keyboard)
 }
 
 def is_key_pressed(key: str) -> bool:
     """
     Checks if a specific key is currently pressed.
     Args:
-        key: The string representation of the key (e.g., 'a', 'num 5', 'lctrl').
+        key: The string representation of the key (e.g., 'a', 'num 5', 'lctrl', 'middle mouse').
     Returns:
         True if the key is pressed, False otherwise or if the key is unrecognized.
     """
-    if not key: # Handle empty key string gracefully
+    if not key:
         return False
         
     key_lower = key.lower()
@@ -114,16 +120,24 @@ def is_key_pressed(key: str) -> bool:
     if vk_code == 0: 
         return False
 
+    # Special handling for X buttons (mouse 4 and 5)
+    if vk_code in [VK_XBUTTON1, VK_XBUTTON2]:
+        return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
+
     return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
 
 
 def get_pressed_key():
-    # Check middle mouse first
-    if is_key_pressed('middle mouse'):
-        return 'middle mouse'
+    """Get the currently pressed key or mouse button."""
+    # Check mouse buttons first (including new ones)
+    mouse_buttons = ['middle mouse', 'mouse 4', 'mouse 5']
+    for button_name in mouse_buttons:
+        if is_key_pressed(button_name):
+            return button_name
     
+    # Check other special keys
     for key_name, vk_code in VK_KEYS.items():
-        if key_name != 'middle mouse' and (win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0):
+        if key_name not in mouse_buttons and (win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0):
             return key_name
             
     # Check A-Z
@@ -139,4 +153,16 @@ def get_pressed_key():
     return None
 
 def is_numlock_on():
+    """Check if Num Lock is currently on."""
     return win32api.GetKeyState(win32con.VK_NUMLOCK) & 1 != 0
+
+def is_mouse_button(key: str) -> bool:
+    """
+    Check if a key string represents a mouse button.
+    Args:
+        key: The key string to check
+    Returns:
+        True if the key is a mouse button, False otherwise
+    """
+    mouse_button_keys = ['middle mouse', 'mouse 4', 'mouse 5']
+    return key.lower() in mouse_button_keys

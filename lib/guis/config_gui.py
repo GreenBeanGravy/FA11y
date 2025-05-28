@@ -9,11 +9,13 @@ from tkinter import ttk, messagebox
 import configparser
 from typing import Callable, Dict, Optional, List, Any, Tuple, Set
 import time
+import win32api
+import win32gui
 
 from lib.guis.base_ui import AccessibleUI
 from lib.spatial_audio import SpatialAudio
 from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string
-from lib.input_handler import VK_KEYS
+from lib.input_handler import VK_KEYS, is_mouse_button
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -51,7 +53,13 @@ class ConfigGUI(AccessibleUI):
 
         self.capturing_keybind_for_widget: Optional[ttk.Entry] = None
         self.original_keybind_value: str = ""
-        self.key_binding_id = None 
+        self.key_binding_id = None
+        self.mouse_binding_ids = []
+        
+        # Mouse position control for keybind capture
+        self.original_mouse_pos: Optional[Tuple[int, int]] = None
+        self.mouse_constraint_active = False
+        self.mouse_constraint_timer = None
         
         self.setup()
     
@@ -173,6 +181,107 @@ class ConfigGUI(AccessibleUI):
                 description = description[:-1]
             return value, description
         return value_string, ""
+    
+    def get_window_center_screen_coords(self) -> Tuple[int, int]:
+        """Get the screen coordinates of the window center"""
+        try:
+            # Get window position and size
+            window_x = self.root.winfo_rootx()
+            window_y = self.root.winfo_rooty()
+            window_width = self.root.winfo_width()
+            window_height = self.root.winfo_height()
+            
+            # Calculate center coordinates
+            center_x = window_x + window_width // 2
+            center_y = window_y + window_height // 2
+            
+            return (center_x, center_y)
+        except Exception as e:
+            logger.error(f"Error getting window center coordinates: {e}")
+            return (500, 400)  # Fallback coordinates
+    
+    def get_widget_screen_coords(self, widget: tk.Widget) -> Tuple[int, int]:
+        """Get screen coordinates of a widget's center"""
+        try:
+            # Get widget position relative to root
+            widget_x = widget.winfo_rootx()
+            widget_y = widget.winfo_rooty()
+            widget_width = widget.winfo_width()
+            widget_height = widget.winfo_height()
+            
+            # Calculate center coordinates
+            center_x = widget_x + widget_width // 2
+            center_y = widget_y + widget_height // 2
+            
+            return (center_x, center_y)
+        except Exception as e:
+            logger.error(f"Error getting widget coordinates: {e}")
+            return self.get_window_center_screen_coords()
+    
+    def constrain_mouse_to_window(self) -> None:
+        """Constrain mouse cursor to the window center and keep it there"""
+        if not self.mouse_constraint_active:
+            return
+            
+        try:
+            # Get current window center
+            center_x, center_y = self.get_window_center_screen_coords()
+            
+            # Get current mouse position
+            current_x, current_y = win32api.GetCursorPos()
+            
+            # Calculate distance from center
+            distance = abs(current_x - center_x) + abs(current_y - center_y)
+            
+            # If mouse has moved significantly from center, snap it back
+            if distance > 5:  # Allow small movement tolerance
+                win32api.SetCursorPos((center_x, center_y))
+            
+            # Schedule next check
+            if self.mouse_constraint_active:
+                self.mouse_constraint_timer = self.root.after(10, self.constrain_mouse_to_window)
+                
+        except Exception as e:
+            logger.error(f"Error constraining mouse: {e}")
+    
+    def start_mouse_constraint(self, widget: tk.Widget) -> None:
+        """Start constraining mouse to window center"""
+        try:
+            # Store original mouse position
+            self.original_mouse_pos = win32api.GetCursorPos()
+            
+            # Get target position (widget center or window center)
+            target_x, target_y = self.get_widget_screen_coords(widget)
+            
+            # Move mouse to target position
+            win32api.SetCursorPos((target_x, target_y))
+            
+            # Start constraint system
+            self.mouse_constraint_active = True
+            self.constrain_mouse_to_window()
+            
+            logger.debug(f"Mouse constraint started, moved to ({target_x}, {target_y})")
+            
+        except Exception as e:
+            logger.error(f"Error starting mouse constraint: {e}")
+    
+    def stop_mouse_constraint(self) -> None:
+        """Stop constraining mouse and restore original position"""
+        try:
+            # Stop constraint system
+            self.mouse_constraint_active = False
+            if self.mouse_constraint_timer:
+                self.root.after_cancel(self.mouse_constraint_timer)
+                self.mouse_constraint_timer = None
+            
+            # Restore original mouse position if we have it
+            if self.original_mouse_pos:
+                win32api.SetCursorPos(self.original_mouse_pos)
+                logger.debug(f"Mouse position restored to {self.original_mouse_pos}")
+                self.original_mouse_pos = None
+                
+        except Exception as e:
+            logger.error(f"Error stopping mouse constraint: {e}")
     
     def on_delete_key(self, event) -> Optional[str]:
         """Handle Delete key press to unbind keybinds"""
@@ -368,6 +477,9 @@ class ConfigGUI(AccessibleUI):
     def save_and_close(self) -> None:
         """Save configuration and close the GUI"""
         try:
+            # Stop mouse constraint if active
+            self.stop_mouse_constraint()
+            
             config_parser_instance = self.config.config 
 
             for section_name in ["Toggles", "Values", "Keybinds", "POI"]:
@@ -430,9 +542,22 @@ class ConfigGUI(AccessibleUI):
             widget.insert(0, self.original_keybind_value)
             widget.config(state='readonly')
             self.speak("Keybind capture cancelled.")
+            
+            # Stop mouse constraint
+            self.stop_mouse_constraint()
+            
+            # Clean up all bindings
             if self.key_binding_id:
                 self.root.unbind('<Key>', self.key_binding_id)
                 self.key_binding_id = None
+            
+            for binding_id in self.mouse_binding_ids:
+                try:
+                    self.root.unbind('<Button>', binding_id)
+                except:
+                    pass
+            self.mouse_binding_ids.clear()
+            
             self.capturing_keybind_for_widget = None
             self.original_keybind_value = ""
             widget.focus_set()
@@ -454,7 +579,7 @@ class ConfigGUI(AccessibleUI):
             self.speak(self.get_widget_info(widget))
     
     def capture_keybind(self, widget: ttk.Entry) -> None:
-        """Start capturing a new keybind"""
+        """Start capturing a new keybind (keyboard keys or mouse buttons)"""
         current_time = time.time()
         if current_time - self.last_keybind_time < self.keybind_cooldown:
             self.speak("Please wait a moment before capturing another keybind.")
@@ -467,7 +592,11 @@ class ConfigGUI(AccessibleUI):
 
         widget.config(state='normal') 
         widget.delete(0, tk.END)
-        self.speak("Press any key to set the keybind. Press Escape to cancel.")
+        
+        # Start mouse constraint to keep cursor in window
+        self.start_mouse_constraint(widget)
+        
+        self.speak("Press any key or mouse button to set the keybind. Press Escape to cancel. Mouse is locked to window.")
         
         key_name_mapping = {"Control_L": "lctrl", "Control_R": "rctrl",
                             "Shift_L": "lshift", "Shift_R": "rshift",
@@ -490,6 +619,13 @@ class ConfigGUI(AccessibleUI):
                             "Pause":"pause", "Print":"printscreen", "Scroll_Lock":"scrolllock",
                             "space":"space", "Tab":"tab", "Up":"up", "Down":"down", "Left":"left", "Right":"right",
                             "Return":"enter"}
+        
+        # Mouse button number to name mapping
+        mouse_button_mapping = {
+            2: "middle mouse",  # Middle button
+            4: "mouse 4",       # X button 1 (back button)
+            5: "mouse 5"        # X button 2 (forward button)
+        }
         
         action_label_widget = widget.master.winfo_children()[0] 
         action_name = action_label_widget.cget('text')
@@ -515,52 +651,107 @@ class ConfigGUI(AccessibleUI):
             if final_key_str.lower() == 'tab': 
                 return "break"
             
-            if final_key_str and not self.is_valid_key(final_key_str):
-                self.speak(f"Key '{final_key_str}' is not a valid FA11y key. Restoring original.")
-                widget.delete(0, tk.END)
-                widget.insert(0, self.original_keybind_value) 
-                widget.config(state='readonly')
-                if self.key_binding_id:
-                    self.root.unbind('<Key>', self.key_binding_id)
-                    self.key_binding_id = None
-                self.capturing_keybind_for_widget = None 
+            return self._process_captured_input(final_key_str, action_name, old_key_for_action, widget)
+
+        def _capture_mouse_event_handler(event):
+            # Get mouse button number
+            button_num = event.num
+            
+            # Map button number to our naming convention
+            if button_num in mouse_button_mapping:
+                final_key_str = mouse_button_mapping[button_num]
+                return self._process_captured_input(final_key_str, action_name, old_key_for_action, widget)
+            else:
+                # Unknown mouse button - ignore
                 return "break"
-
+            
+        # Clean up any existing bindings
+        if self.key_binding_id: 
+            self.root.unbind('<Key>', self.key_binding_id)
+        for binding_id in self.mouse_binding_ids:
+            try:
+                self.root.unbind('<Button>', binding_id)
+            except:
+                pass
+        self.mouse_binding_ids.clear()
+        
+        # Set up new bindings
+        self.key_binding_id = self.root.bind('<Key>', _capture_key_event_handler)
+        
+        # Bind mouse button events
+        for button_num in mouse_button_mapping.keys():
+            binding_id = self.root.bind(f'<Button-{button_num}>', _capture_mouse_event_handler)
+            self.mouse_binding_ids.append(binding_id)
+    
+    def _process_captured_input(self, final_key_str: str, action_name: str, old_key_for_action: str, widget: ttk.Entry) -> str:
+        """Process captured keyboard key or mouse button input"""
+        if final_key_str and not self.is_valid_key(final_key_str):
+            self.speak(f"Key or button '{final_key_str}' is not a valid FA11y input. Restoring original.")
             widget.delete(0, tk.END)
-            widget.insert(0, final_key_str) 
-            
-            self.variables["Keybinds"][action_name].set(final_key_str)
-            
-            new_key_lower = final_key_str.lower()
-
-            if old_key_for_action and self.key_to_action.get(old_key_for_action) == action_name:
-                self.key_to_action.pop(old_key_for_action, None)
-            self.action_to_key.pop(action_name, None)
-
-            if new_key_lower and new_key_lower in self.key_to_action:
-                conflicting_action = self.key_to_action[new_key_lower]
-                if conflicting_action != action_name: 
-                    self.speak(f"Warning: Key {new_key_lower} was bound to {conflicting_action}. That binding is now cleared.")
-                    self.action_to_key.pop(conflicting_action, None) 
-                    self.update_conflicting_keybind_widget(conflicting_action, "", "") 
-
-            if new_key_lower: 
-                self.key_to_action[new_key_lower] = action_name
-            self.action_to_key[action_name] = new_key_lower
-            
-            if final_key_str: 
-                self.speak(f"Keybind for {action_name} set to {final_key_str}.")
-            
+            widget.insert(0, self.original_keybind_value) 
             widget.config(state='readonly')
+            
+            # Stop mouse constraint
+            self.stop_mouse_constraint()
+            
+            # Clean up bindings
             if self.key_binding_id:
                 self.root.unbind('<Key>', self.key_binding_id)
                 self.key_binding_id = None
+            for binding_id in self.mouse_binding_ids:
+                try:
+                    self.root.unbind('<Button>', binding_id)
+                except:
+                    pass
+            self.mouse_binding_ids.clear()
+            
             self.capturing_keybind_for_widget = None 
             return "break"
-            
-        if self.key_binding_id: 
+
+        widget.delete(0, tk.END)
+        widget.insert(0, final_key_str) 
+        
+        self.variables["Keybinds"][action_name].set(final_key_str)
+        
+        new_key_lower = final_key_str.lower()
+
+        if old_key_for_action and self.key_to_action.get(old_key_for_action) == action_name:
+            self.key_to_action.pop(old_key_for_action, None)
+        self.action_to_key.pop(action_name, None)
+
+        if new_key_lower and new_key_lower in self.key_to_action:
+            conflicting_action = self.key_to_action[new_key_lower]
+            if conflicting_action != action_name: 
+                self.speak(f"Warning: Key {new_key_lower} was bound to {conflicting_action}. That binding is now cleared.")
+                self.action_to_key.pop(conflicting_action, None) 
+                self.update_conflicting_keybind_widget(conflicting_action, "", "") 
+
+        if new_key_lower: 
+            self.key_to_action[new_key_lower] = action_name
+        self.action_to_key[action_name] = new_key_lower
+        
+        if final_key_str: 
+            input_type = "button" if is_mouse_button(final_key_str) else "key"
+            self.speak(f"Keybind for {action_name} set to {input_type} {final_key_str}.")
+        
+        widget.config(state='readonly')
+        
+        # Stop mouse constraint
+        self.stop_mouse_constraint()
+        
+        # Clean up bindings
+        if self.key_binding_id:
             self.root.unbind('<Key>', self.key_binding_id)
-        self.key_binding_id = self.root.bind('<Key>', _capture_key_event_handler)
+            self.key_binding_id = None
+        for binding_id in self.mouse_binding_ids:
+            try:
+                self.root.unbind('<Button>', binding_id)
+            except:
+                pass
+        self.mouse_binding_ids.clear()
+        
+        self.capturing_keybind_for_widget = None 
+        return "break"
     
     def is_valid_key(self, key: str) -> bool:
         """Check if a key is valid for the input system"""
