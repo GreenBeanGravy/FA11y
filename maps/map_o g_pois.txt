@@ -20,6 +20,6 @@ Fatal Fields, 1041, 825
 The Prison, 1200, 789
 Moisty Mire, 1266, 840
 Flush Factory, 793, 923
-Dusty Divot,1039,568
-Risky Reels,1175,259
-Lucky Landing,1003,973
+Dusty Divot, 1039, 568
+Risky Reels, 1175, 259
+Lucky Landing, 1003, 973
