@@ -8,7 +8,6 @@ Soccer Stadium, 681, 539
 Tilted Towers, 812, 554
 Tomato Town, 1100, 372
 Loot Lake, 878, 426
-Dusty Depot, 1025, 508
 Lonely Lodge, 1321, 476
 Scrap Yard, 1170, 458
 The Factory, 1059, 590
@@ -21,3 +20,6 @@ Fatal Fields, 1041, 825
 The Prison, 1200, 789
 Moisty Mire, 1266, 840
 Flush Factory, 793, 923
+Dusty Divot,1039,568
+Risky Reels,1175,259
+Lucky Landing,1003,973
