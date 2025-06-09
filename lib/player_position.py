@@ -8,9 +8,10 @@ import time
 import threading
 import os
 from mss import mss
+from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config, get_config_boolean, get_config_float
-from lib.object_finder import OBJECT_CONFIGS, find_closest_object
+from lib.object_finder import optimized_finder, OBJECT_CONFIGS
 from lib.spatial_audio import SpatialAudio
 from lib.mouse import smooth_move_mouse
 from lib.custom_poi_handler import update_poi_handler
@@ -25,22 +26,22 @@ spatial_poi = SpatialAudio('sounds/poi.ogg')
 pyautogui.FAILSAFE = False
 
 # Core constants for screen regions
-ROI_START_ORIG = (524, 84)    # Top-left of detection region
-ROI_END_ORIG = (1390, 1010)   # Bottom-right of detection region
-SCALE_FACTOR = 4              # Scale factor for image processing
-MIN_AREA = 1008               # Minimum player icon area
-MAX_AREA = 1386               # Maximum player icon area
+ROI_START_ORIG = (524, 84)
+ROI_END_ORIG = (1390, 1010)
+SCALE_FACTOR = 4
+MIN_AREA = 1008
+MAX_AREA = 1386
 
 # Minimap constants
-MINIMAP_START = (1735, 154)   # Minimap top-left coordinates
-MINIMAP_END = (1766, 184)     # Minimap bottom-right coordinates
-MINIMAP_MIN_AREA = 800        # Minimum minimap icon area
-MINIMAP_MAX_AREA = 1100       # Maximum minimap icon area
+MINIMAP_START = (1735, 154)
+MINIMAP_END = (1766, 184)
+MINIMAP_MIN_AREA = 800
+MINIMAP_MAX_AREA = 1100
 
-# PPI (Player Position Information) constants
+# PPI constants
 PPI_CAPTURE_REGION = {"top": 20, "left": 1600, "width": 300, "height": 300}
 
-# Width and height of the detection region
+# Detection region dimensions
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
 
 # Storm detection constants
@@ -49,7 +50,7 @@ STORM_ROI_START = (621, 182)
 STORM_ROI_END = (1342, 964)
 STORM_ROI_START_SCALED = tuple(4 * np.array(STORM_ROI_START))
 STORM_ROI_END_SCALED = tuple(4 * np.array(STORM_ROI_END))
-STORM_TARGET_COLOR = np.array([165, 29, 146]) # BGR format for OpenCV
+STORM_TARGET_COLOR = np.array([165, 29, 146])
 STORM_COLOR_DISTANCE = 70
 STORM_LOWER_BOUND = np.maximum(0, STORM_TARGET_COLOR - STORM_COLOR_DISTANCE)
 STORM_UPPER_BOUND = np.minimum(255, STORM_TARGET_COLOR + STORM_COLOR_DISTANCE)
@@ -57,7 +58,7 @@ STORM_ROI_SLICE = np.s_[STORM_ROI_START_SCALED[1]:STORM_ROI_END_SCALED[1], STORM
 
 # Icon detection constants
 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
-SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
+SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0"), ("Closest Game Object", "0", "0")]
 
 def find_triangle_tip(contour, center_mass):
     """Find the tip of a triangular shape (player direction indicator)"""
@@ -96,7 +97,7 @@ def find_player_icon_location_with_direction():
         else:
             screenshot = screenshot_rgba
     except Exception as e:
-        print(f"Error capturing player icon screenshot: {e}")
+        print(f"Player icon capture error: {e}")
         return None, None
 
     screenshot_large = cv2.resize(screenshot, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR, 
@@ -141,7 +142,7 @@ def find_minimap_icon_direction():
         else:
             screenshot = screenshot_rgba
     except Exception as e:
-        print(f"Error capturing minimap screenshot: {e}")
+        print(f"Minimap capture error: {e}")
         return None, None
 
     screenshot_large = cv2.resize(screenshot, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR,
@@ -214,16 +215,16 @@ def get_relative_direction(player_angle, poi_angle):
         return "behind and to the left"
     elif 247.5 <= angle_diff < 292.5:
         return "to the left"
-    else:  # 292.5 <= angle_diff < 337.5
+    else:
         return "in front and to the left"
 
 def get_quadrant(x, y, width, height):
     """Determine which quadrant a point is in"""
     mid_x, mid_y = width // 2, height // 2
     quad = 0
-    if x >= mid_x: # Right half
+    if x >= mid_x:
         quad +=1
-    if y >= mid_y: # Bottom half
+    if y >= mid_y:
         quad +=2
     return quad
 
@@ -337,15 +338,27 @@ class MapManager:
         self.sift = cv2.SIFT_create()
         self.bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
         self.sct_lock = threading.Lock()
+        
+        # Add caching to reduce map loading prints
+        self.map_load_cache = {}
     
     def switch_map(self, map_name: str) -> bool:
-        """Switch to a different map"""
+        """Switch to a different map with caching"""
         if self.current_map == map_name:
+            return True
+        
+        # Check cache first
+        if map_name in self.map_load_cache:
+            cache_entry = self.map_load_cache[map_name]
+            self.current_map = map_name
+            self.current_image = cache_entry['image']
+            self.current_keypoints = cache_entry['keypoints']
+            self.current_descriptors = cache_entry['descriptors']
             return True
         
         map_file = f"maps/{map_name}.png"
         if not os.path.exists(map_file):
-            print(f"Error: Map file {map_file} not found")
+            print(f"Map file not found: {map_file}")
             return False
         
         self.current_map = map_name
@@ -353,6 +366,14 @@ class MapManager:
         self.current_keypoints, self.current_descriptors = self.sift.detectAndCompute(
             self.current_image, None
         )
+        
+        # Cache the loaded map
+        self.map_load_cache[map_name] = {
+            'image': self.current_image,
+            'keypoints': self.current_keypoints,
+            'descriptors': self.current_descriptors
+        }
+        
         return True
 
 map_manager = MapManager()
@@ -405,7 +426,7 @@ def find_best_match(captured_area):
             else:
                 return None
                 
-        except cv2.error as e:
+        except cv2.error:
             return None
     else:
         return None
@@ -415,23 +436,18 @@ def find_player_position():
     config = read_config()
     current_map_id = config.get('POI', 'current_map', fallback='main')
     
-    # Fixed code: Properly extract the actual map name for image loading
+    # Extract actual map name for file loading
     if current_map_id == 'main':
         map_filename_to_load = 'main'
     else:
-        # Check if the map_id starts with "map_" prefix and contains "_pois"
         if current_map_id.startswith("map_") and "_pois" in current_map_id:
-            # Extract the actual map name between "map_" and "_pois"
             map_name_parts = current_map_id.split("_pois")
             base_name = map_name_parts[0]
             if base_name.startswith("map_"):
-                base_name = base_name[4:]  # Remove "map_" prefix
+                base_name = base_name[4:]
             map_filename_to_load = base_name
         else:
-            # For backwards compatibility, support non-prefixed map IDs
             map_filename_to_load = current_map_id
-    
-    print(f"Loading map file: maps/{map_filename_to_load}.png")
     
     if not map_manager.switch_map(map_filename_to_load):
         return None
@@ -496,10 +512,8 @@ def process_storm_contour(roi_color_bgr, contour, area):
     if abs(center_mass_screen[0] - screen_center_x) <= 5 and \
        abs(center_mass_screen[1] - screen_center_y) <= 5:
         speaker.speak("No storm detected")
-        print("Storm center is too close to screen center, likely no storm.")
         return None 
         
-    print(f"Storm position (full screen): {center_mass_screen}")
     return center_mass_screen
 
 def start_storm_detection():
@@ -527,7 +541,6 @@ def find_closest_poi(icon_location, poi_list):
             ) * 2.65
             distances.append((poi_name, (coord_x, coord_y), distance))
         except (ValueError, TypeError, IndexError):
-            print(f"Warning: Could not parse coordinates for POI: {poi_name}")
             continue
             
     if not distances:
@@ -535,6 +548,51 @@ def find_closest_poi(icon_location, poi_list):
         
     closest = min(distances, key=lambda x: x[2])
     return closest[0], closest[1]
+
+def find_closest_game_object(player_location: Tuple[int, int], use_ppi: bool = False) -> Optional[Tuple[str, Tuple[int, int]]]:
+    """
+    Find the closest game object to the player using object detection.
+    
+    Args:
+        player_location: Player's current position (x, y)
+        use_ppi: Whether to use PPI for detection
+        
+    Returns:
+        Tuple of (object_name, (x, y)) or None if no objects found
+    """
+    try:
+        if not player_location or not OBJECT_CONFIGS:
+            return None
+        
+        # Get all object names
+        object_names = list(OBJECT_CONFIGS.keys())
+        
+        # Try to find objects
+        found_objects = optimized_finder.find_all_objects(object_names, use_ppi)
+        
+        if not found_objects:
+            return None
+        
+        # Calculate distances and find closest
+        closest_object = None
+        min_distance = float('inf')
+        
+        for obj_name, obj_coords in found_objects.items():
+            distance = np.linalg.norm(
+                np.array(player_location) - np.array(obj_coords)
+            )
+            
+            if distance < min_distance:
+                min_distance = distance
+                # Convert internal name to display name
+                display_name = obj_name.replace('_', ' ').title()
+                closest_object = (display_name, obj_coords)
+        
+        return closest_object
+        
+    except Exception as e:
+        print(f"Error finding closest game object: {e}")
+        return None
 
 def load_config():
     """Load configuration from file"""
@@ -545,8 +603,19 @@ def load_config():
         return parts[0].strip(), parts[1].strip(), parts[2].strip()
     return 'none', '0', '0'
 
+def find_game_object_with_fallback(object_name: str, use_ppi: bool = False) -> Optional[Tuple[int, int]]:
+    """Find game object with fallback between PPI and fullscreen detection"""
+    object_key = object_name.lower().replace(' ', '_')
+    
+    result = optimized_finder.find_closest_object(object_key, use_ppi)
+    
+    if result is None and use_ppi:
+        result = optimized_finder.find_closest_object(object_key, False)
+        
+    return result
+
 def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_ppi=False):
-    """Handle POI selection process"""
+    """Handle POI selection process with improved object detection"""
     from lib.guis.poi_selector_gui import POIData
     poi_data_manager = POIData()
     
@@ -561,7 +630,6 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
             try:
                 coords = (int(float(coords[0])), int(float(coords[1])))
             except ValueError:
-                print(f"Error converting custom POI coords for {name}: {coords}")
                 return name, None
         return name, coords
 
@@ -599,7 +667,6 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
                      pois_to_check.extend(poi_data_manager.maps[resolved_map_key].pois)
 
             if not pois_to_check:
-                 print(f"No POIs available for map '{current_map_id}' to find closest.")
                  return "Closest", None
             return find_closest_poi(center_mass_screen, pois_to_check)
         else:
@@ -612,11 +679,20 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
             else:
                 return "Closest Landmark", None
         else:
-            print("Closest Landmark is only available on the main map.")
             speaker.speak("Closest Landmark is only available on the main map.")
             return "Closest Landmark", None
+
+    elif poi_name_lower == 'closest game object':
+        if center_mass_screen:
+            closest_obj = find_closest_game_object(center_mass_screen, use_ppi)
+            if closest_obj:
+                return closest_obj
+            else:
+                return "Closest Game Object", None
+        else:
+            return "Closest Game Object", None
             
-    else: # Specific POI name
+    else:
         # Check current map's POIs first
         pois_to_search = []
         if current_map_id == "main":
@@ -633,24 +709,29 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
             if resolved_map_key and resolved_map_key in poi_data_manager.maps:
                  pois_to_search.extend(poi_data_manager.maps[resolved_map_key].pois)
 
+        # Search in regular POIs first
         for poi_tuple in pois_to_search:
             if poi_tuple[0].lower() == poi_name_lower:
                 try:
                     return poi_tuple[0], (int(float(poi_tuple[1])), int(float(poi_tuple[2])))
                 except (ValueError, TypeError):
-                    print(f"Error parsing coordinates for {poi_tuple[0]}")
                     return selected_poi_name_from_config, None
         
-        # If not found in primary lists, check game objects
-        for obj_name_cfg, _, _ in GAME_OBJECTS:
-            if obj_name_cfg.lower() == poi_name_lower:
-                icon_path_tuple = OBJECT_CONFIGS.get(poi_name_lower.replace(' ', '_'))
-                if icon_path_tuple:
-                    icon_path, threshold = icon_path_tuple
-                    obj_location = find_closest_object(icon_path, threshold)
-                    if obj_location:
-                        return obj_name_cfg, obj_location
-                return obj_name_cfg, None
+        # Check if it's a game object using improved detection
+        object_key = poi_name_lower.replace(' ', '_')
+        if object_key in OBJECT_CONFIGS or any(obj_name.lower() == poi_name_lower for obj_name, _, _ in GAME_OBJECTS):
+            obj_location = optimized_finder.find_closest_object(object_key, use_ppi)
+            
+            if obj_location:
+                proper_name = selected_poi_name_from_config
+                for obj_name_cfg, _, _ in GAME_OBJECTS:
+                    if obj_name_cfg.lower() == poi_name_lower:
+                        proper_name = obj_name_cfg
+                        break
+                
+                return proper_name, obj_location
+            else:
+                return selected_poi_name_from_config, None
 
     return selected_poi_name_from_config, None
 
@@ -680,8 +761,6 @@ def process_screenshot(selected_coordinates, poi_name, player_location, use_ppi=
         message = generate_poi_message(poi_name, player_angle, poi_info)
         print(message)
         speaker.speak(message)
-    else:
-        method = "PPI" if use_ppi else "player icon"
 
 # Initialize a global reference to track the active sound updater
 active_sound_updater = None
@@ -690,19 +769,16 @@ def play_spatial_poi_sound(player_location, player_angle, poi_location):
     """Play POI sound with real-time spatial audio updates as player turns."""
     global config, active_sound_updater
     
-    # Stop any currently active sound updater
     if active_sound_updater:
         active_sound_updater.stop()
         active_sound_updater = None
     
     if not player_location or not poi_location or player_angle is None:
-        print("Missing position or angle data for spatial POI sound")
         return None
     
     config = read_config()
     play_poi_sound_enabled = get_config_boolean(config, 'PlayPOISound', True)
     if not play_poi_sound_enabled or not os.path.exists('sounds/poi.ogg'):
-        print("POI sound is disabled or file not found.")
         return None
     
     # Calculate initial spatial parameters
@@ -734,7 +810,7 @@ def play_spatial_poi_sound(player_location, player_angle, poi_location):
         volume=final_volume
     )
     
-    # Create a new sound updater and store globally (without repeating global declaration)
+    # Create a new sound updater and store globally
     active_sound_updater = POISoundUpdater(player_location, poi_location, final_volume)
     return active_sound_updater
 
@@ -760,27 +836,23 @@ class POISoundUpdater:
     
     def _update_loop(self):
         """Continuously update panning based on player's current angle."""
-        update_interval = 0.1  # Update every 100ms
+        update_interval = 0.1
         
         while not self.stop_event.is_set() and spatial_poi.is_playing:
             try:
-                # Get current player direction
                 _, current_player_angle = find_minimap_icon_direction()
                 
                 if current_player_angle is not None:
-                    # Calculate relative angle and new panning values
                     relative_angle = (self.poi_angle - current_player_angle + 180) % 360 - 180
                     pan = np.clip(relative_angle / 90, -1, 1)
                     left_weight = np.clip((1 - pan) / 2, 0, 1)
                     right_weight = np.clip((1 + pan) / 2, 0, 1)
                     
-                    # Update the spatial audio panning
                     spatial_poi.update_panning(left_weight, right_weight)
             
-            except Exception as e:
-                print(f"Error updating POI sound panning: {e}")
+            except Exception:
+                pass
             
-            # Wait before the next update
             time.sleep(update_interval)
     
     def stop(self):
@@ -799,7 +871,7 @@ def start_icon_detection(use_ppi=False):
     icon_detection_cycle(selected_poi_name_from_config, use_ppi, play_poi_sound_enabled)
 
 def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True):
-    """Modified icon detection cycle with real-time spatial audio updates."""
+    """Modified icon detection cycle with improved object detection and real-time spatial audio updates."""
     if selected_poi_name.lower() == 'none':
         speaker.speak("No POI selected. Please select a POI first.")
         return
@@ -822,11 +894,16 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
     if play_poi_sound_enabled and player_location is not None and player_angle is not None:
         play_spatial_poi_sound(player_location, player_angle, poi_coords_resolved)
 
-    if not use_ppi:
+    # Handle game object interaction differently for PPI vs fullscreen
+    is_game_object = any(obj_name.lower() == selected_poi_name.lower() for obj_name, _, _ in GAME_OBJECTS)
+    
+    if not use_ppi and not is_game_object:
         pyautogui.moveTo(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
         pyautogui.rightClick(_pause=False)
         time.sleep(0.05)
         pyautogui.click(_pause=False)
+    elif not use_ppi and is_game_object:
+        pyautogui.moveTo(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
 
     perform_poi_actions(poi_data_tuple, player_location, speak_info=False, use_ppi=use_ppi)
     
@@ -854,7 +931,6 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
 def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location, auto_turn_enabled, success):
     """Speak auto-turn result"""
     if not isinstance(poi_location, tuple) or len(poi_location) != 2:
-        print(f"Invalid poi_location for {poi_name}: {poi_location}. Cannot generate message.")
         speaker.speak(f"Error with {poi_name} location data.")
         return
 
@@ -975,3 +1051,7 @@ def get_config_int(config, key, fallback=None):
     """Get an integer from config"""
     from lib.utilities import get_config_int as util_get_config_int
     return util_get_config_int(config, key, fallback)
+
+def cleanup_object_detection():
+    """Clean up object detection resources"""
+    optimized_finder.cleanup()

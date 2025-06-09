@@ -54,6 +54,7 @@ from lib.height_checker import start_height_checker
 from lib.background_checks import monitor
 from lib.material_monitor import material_monitor
 from lib.resource_monitor import resource_monitor
+from lib.gameobject_monitor import gameobject_monitor
 from lib.player_position import (
     announce_current_direction as speak_minimap_direction, 
     start_icon_detection, 
@@ -61,7 +62,8 @@ from lib.player_position import (
     ROI_START_ORIG,
     ROI_END_ORIG,
     get_quadrant,
-    get_position_in_quadrant
+    get_position_in_quadrant,
+    cleanup_object_detection
 )
 from lib.hotbar_detection import (
     initialize_hotbar_detection,
@@ -77,7 +79,9 @@ from lib.utilities import (
     read_config,
     Config,
     get_default_config_value_string,
-    DEFAULT_CONFIG
+    get_gameobject_configs,
+    clear_config_cache,
+    save_config
 )
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
 from lib.custom_poi_handler import load_custom_pois
@@ -86,10 +90,9 @@ from lib.custom_poi_handler import load_custom_pois
 pygame.mixer.init()
 update_sound = pygame.mixer.Sound("sounds/update.ogg")
 
-# GitHub repository details
-REPO_OWNER = "GreenBeanGravy"
-REPO_NAME = "FA11y"
-API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/main"
+# Website API configuration
+API_BASE_URL = "https://a11yvault.com/api"
+PROJECT_NAME = "fa11y"
 
 speaker = Auto()
 key_state = {}
@@ -108,11 +111,13 @@ POI_CATEGORY_REGULAR = "regular"
 POI_CATEGORY_LANDMARK = "landmark"
 POI_CATEGORY_FAVORITE = "favorite"
 POI_CATEGORY_CUSTOM = "custom"
+POI_CATEGORY_GAMEOBJECT = "gameobject"
 
 # Special POI names
 SPECIAL_POI_CLOSEST = "closest"
 SPECIAL_POI_SAFEZONE = "safe zone"
 SPECIAL_POI_CLOSEST_LANDMARK = "closest landmark"
+SPECIAL_POI_CLOSEST_GAMEOBJECT = "closest game object"
 
 # Global variable to track current POI category
 current_poi_category = POI_CATEGORY_SPECIAL
@@ -178,112 +183,123 @@ def handle_scroll(action: str) -> None:
     mouse_scroll(scroll_sensitivity)
 
 def reload_config() -> None:
-    """Reload configuration and update action handlers."""
+    """Reload configuration and update action handlers with thread safety"""
     global config, action_handlers, key_bindings, poi_data_instance, current_poi_category
-    config = read_config()
+    
+    try:
+        # Use thread-safe config reading with cache clearing to ensure fresh read
+        clear_config_cache()
+        config = read_config(use_cache=False)
 
-    # Initialize POI data if not already done
-    if poi_data_instance is None:
-        print("Initializing POI data...")
-        poi_data_instance = POIData()
+        # Initialize POI data if not already done
+        if poi_data_instance is None:
+            print("Initializing POI data...")
+            poi_data_instance = POIData()
 
-    # Initialize or update current_poi_category based on selected POI
-    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
-    selected_poi_parts = selected_poi_str.split(',')
-    selected_poi_name = selected_poi_parts[0].strip()
-    current_poi_category = get_poi_category(selected_poi_name)
+        # Initialize or update current_poi_category based on selected POI
+        selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+        selected_poi_parts = selected_poi_str.split(',')
+        selected_poi_name = selected_poi_parts[0].strip()
+        current_poi_category = get_poi_category(selected_poi_name)
 
-    # Validate keybinds and reset if necessary
-    config_updated = False
-    temp_key_bindings_from_config = {key.lower(): get_config_value(config, key)[0].lower()
-                                     for key in config['Keybinds'] if get_config_value(config, key)[0]}
+        # Validate keybinds and reset if necessary
+        config_updated = False
+        temp_key_bindings_from_config = {key.lower(): get_config_value(config, key)[0].lower()
+                                         for key in config['Keybinds'] if get_config_value(config, key)[0]}
 
-    validated_key_bindings = {}
-    for action, key_str in temp_key_bindings_from_config.items():
-        if not key_str: # Allow empty keybinds (disabled)
-            validated_key_bindings[action] = key_str
-            continue
+        validated_key_bindings = {}
+        for action, key_str in temp_key_bindings_from_config.items():
+            if not key_str: # Allow empty keybinds (disabled)
+                validated_key_bindings[action] = key_str
+                continue
 
-        key_lower = key_str.lower()
-        valid_key = False
-        if key_lower in VK_KEYS:
-            valid_key = True
-        else:
-            try:
-                # Check if it's a single character A-Z, 0-9, or other direct ASCII map
-                vk_code = ord(key_str.upper())
-                if 'a' <= key_lower <= 'z' or '0' <= key_lower <= '9':
-                     valid_key = True
-                elif key_lower in [',', '.', '/', '\'', ';', '[', ']', '\\', '`', '-','=']: # common punctuation
-                    valid_key = True
-
-            except (TypeError, ValueError):
-                valid_key = False
-        
-        if valid_key:
-            validated_key_bindings[action] = key_str
-        else:
-            speaker.speak(f"Unrecognized key '{key_str}' for action '{action}'. Resetting to default.")
-            print(f"Warning: Unrecognized key '{key_str}' for action '{action}'. Resetting to default.")
-            
-            default_value_string = get_default_config_value_string('Keybinds', action)
-            if default_value_string is not None:
-                config['Keybinds'][action] = default_value_string
-                default_key_part = default_value_string.split('"')[0].strip()
-                validated_key_bindings[action] = default_key_part.lower()
+            key_lower = key_str.lower()
+            valid_key = False
+            if key_lower in VK_KEYS:
+                valid_key = True
             else:
-                config['Keybinds'][action] = f" \"{get_config_value(config, action)[1]}\"" # Keep description
-                validated_key_bindings[action] = ""
-            config_updated = True
+                try:
+                    # Check if it's a single character A-Z, 0-9, or other direct ASCII map
+                    vk_code = ord(key_str.upper())
+                    if 'a' <= key_lower <= 'z' or '0' <= key_lower <= '9':
+                         valid_key = True
+                    elif key_lower in [',', '.', '/', '\'', ';', '[', ']', '\\', '`', '-','=']: # common punctuation
+                        valid_key = True
 
-    if config_updated:
-        with open('config.txt', 'w') as f:
-            config.write(f)
-        print("Configuration updated with default values for invalid keys.")
+                except (TypeError, ValueError):
+                    valid_key = False
+            
+            if valid_key:
+                validated_key_bindings[action] = key_str
+            else:
+                speaker.speak(f"Unrecognized key '{key_str}' for action '{action}'. Resetting to default.")
+                print(f"Warning: Unrecognized key '{key_str}' for action '{action}'. Resetting to default.")
+                
+                default_value_string = get_default_config_value_string('Keybinds', action)
+                if default_value_string is not None:
+                    config['Keybinds'][action] = default_value_string
+                    default_key_part = default_value_string.split('"')[0].strip()
+                    validated_key_bindings[action] = default_key_part.lower()
+                else:
+                    config['Keybinds'][action] = f" \"{get_config_value(config, action)[1]}\"" # Keep description
+                    validated_key_bindings[action] = ""
+                config_updated = True
 
-    key_bindings = validated_key_bindings
+        if config_updated:
+            # Use thread-safe config saving
+            success = save_config(config)
+            if success:
+                print("Configuration updated with default values for invalid keys.")
+            else:
+                print("Warning: Could not save updated configuration")
 
-    mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
-    reset_sensitivity = get_config_boolean(config, 'ResetSensitivity', False)
+        key_bindings = validated_key_bindings
 
-    action_handlers.clear()
+        mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
+        reset_sensitivity = get_config_boolean(config, 'ResetSensitivity', False)
 
-    action_handlers['start navigation'] = lambda: start_icon_detection(use_ppi=check_for_pixel())
+        action_handlers.clear()
 
-    if mouse_keys_enabled:
+        action_handlers['start navigation'] = lambda: start_icon_detection(use_ppi=check_for_pixel())
+
+        if mouse_keys_enabled:
+            action_handlers.update({
+                'fire': left_mouse_down,
+                'target': right_mouse_down,
+                'turn left': lambda: handle_movement('turn left', reset_sensitivity),
+                'turn right': lambda: handle_movement('turn right', reset_sensitivity),
+                'secondary turn left': lambda: handle_movement('secondary turn left', reset_sensitivity),
+                'secondary turn right': lambda: handle_movement('secondary turn right', reset_sensitivity),
+                'look up': lambda: handle_movement('look up', reset_sensitivity),
+                'look down': lambda: handle_movement('look down', reset_sensitivity),
+                'turn around': lambda: handle_movement('turn around', reset_sensitivity),
+                'recenter': lambda: handle_movement('recenter', reset_sensitivity),
+                'scroll up': lambda: handle_scroll('scroll up'),
+                'scroll down': lambda: handle_scroll('scroll down')
+            })
+
         action_handlers.update({
-            'fire': left_mouse_down,
-            'target': right_mouse_down,
-            'turn left': lambda: handle_movement('turn left', reset_sensitivity),
-            'turn right': lambda: handle_movement('turn right', reset_sensitivity),
-            'secondary turn left': lambda: handle_movement('secondary turn left', reset_sensitivity),
-            'secondary turn right': lambda: handle_movement('secondary turn right', reset_sensitivity),
-            'look up': lambda: handle_movement('look up', reset_sensitivity),
-            'look down': lambda: handle_movement('look down', reset_sensitivity),
-            'turn around': lambda: handle_movement('turn around', reset_sensitivity),
-            'recenter': lambda: handle_movement('recenter', reset_sensitivity),
-            'scroll up': lambda: handle_scroll('scroll up'),
-            'scroll down': lambda: handle_scroll('scroll down')
+            'announce direction faced': speak_minimap_direction,
+            'check health shields': check_health_shields,
+            'check rarity': check_rarity,
+            'open p o i selector': open_poi_selector,
+            'open gamemode selector': open_gamemode_selector,
+            'open configuration menu': open_config_gui,
+            'exit match': exit_match,
+            'create custom p o i': handle_custom_poi_gui,
+            'announce ammo': announce_ammo_manually,
+            'toggle keybinds': toggle_keybinds,
+            'cycle map': cycle_map,
+            'cycle poi': cycle_poi,
+            'cycle poi category': cycle_poi_category,
         })
 
-    action_handlers.update({
-        'announce direction faced': speak_minimap_direction,
-        'check health shields': check_health_shields,
-        'check rarity': check_rarity,
-        'open p o i selector': open_poi_selector,
-        'open gamemode selector': open_gamemode_selector,
-        'open configuration menu': open_config_gui,
-        'exit match': exit_match,
-        'create custom p o i': handle_custom_poi_gui,
-        'announce ammo': announce_ammo_manually,
-        'toggle keybinds': toggle_keybinds,
-        'cycle map': cycle_map,
-        'cycle poi': cycle_poi,
-        'cycle poi category': cycle_poi_category,
-    })
-
-    for i in range(1, 6):
-        action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
+        for i in range(1, 6):
+            action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
+            
+    except Exception as e:
+        print(f"Error reloading config: {e}")
+        speaker.speak("Error reloading configuration")
 
 def toggle_keybinds() -> None:
     """Toggle keybinds on/off."""
@@ -358,19 +374,37 @@ def create_desktop_shortcut() -> None:
     shortcut.save()
 
 def update_script_config(new_config: configparser.ConfigParser) -> None:
-    """Update script configuration and restart key listener."""
+    """Update script configuration and restart key listener with safe operations"""
     global config, key_listener_thread, stop_key_listener
-    config = new_config
-    reload_config()
-
-    # Restart key listener
-    if key_listener_thread and key_listener_thread.is_alive():
-        stop_key_listener.set()
-        key_listener_thread.join()
     
-    stop_key_listener.clear()
-    key_listener_thread = threading.Thread(target=key_listener, daemon=True)
-    key_listener_thread.start()
+    try:
+        # Use thread-safe config saving
+        clear_config_cache()
+        
+        # Save the new config
+        success = save_config(new_config)
+        if not success:
+            print("Warning: Could not save updated config")
+            speaker.speak("Warning: Could not save configuration")
+            return
+        
+        # Clear cache and reload
+        clear_config_cache()
+        config = read_config(use_cache=False)
+        reload_config()
+
+        # Restart key listener
+        if key_listener_thread and key_listener_thread.is_alive():
+            stop_key_listener.set()
+            key_listener_thread.join()
+        
+        stop_key_listener.clear()
+        key_listener_thread = threading.Thread(target=key_listener, daemon=True)
+        key_listener_thread.start()
+        
+    except Exception as e:
+        print(f"Error updating script config: {e}")
+        speaker.speak("Error updating configuration")
 
 def open_config_gui() -> None:
     """Open the configuration GUI."""
@@ -389,46 +423,62 @@ def open_config_gui() -> None:
             config.write(f)
             
         reload_config()
+        
+        # Notify game object monitor of config changes
+        if gameobject_monitor.running:
+            # The monitor will automatically pick up the new config on its next cycle
+            pass
+            
         print("Configuration updated and saved to disk")
     
     launch_config_gui(config_instance, update_callback)
     config_gui_open.clear()
 
 def open_poi_selector() -> None:
-    """Open the POI selector GUI."""
-    from lib.guis.poi_selector_gui import launch_poi_selector
-    
-    global poi_data_instance, current_poi_category
-    if poi_data_instance is None:
-        poi_data_instance = POIData()
-    
-    # Save current configuration state
-    previous_config = read_config()
-    previous_poi = previous_config.get('POI', 'selected_poi', fallback='closest, 0, 0')
-    previous_map = previous_config.get('POI', 'current_map', fallback='main')
-    
-    # Launch the POI selector GUI
-    launch_poi_selector(poi_data_instance)
-    
-    # Read updated configuration after GUI closes
-    updated_config = read_config()
-    updated_poi = updated_config.get('POI', 'selected_poi', fallback='closest, 0, 0')
-    updated_map = updated_config.get('POI', 'current_map', fallback='main')
-    
-    # If the configuration changed, update our internal state
-    if previous_poi != updated_poi or previous_map != updated_map:
-        # Get the selected POI name
-        selected_poi_parts = updated_poi.split(',')
-        selected_poi_name = selected_poi_parts[0].strip()
+    """Open the POI selector GUI with safe config handling"""
+    try:
+        from lib.guis.poi_selector_gui import launch_poi_selector
         
-        # Update the current_poi_category based on the selected POI
-        updated_category = get_poi_category(selected_poi_name)
-        current_poi_category = updated_category
+        global poi_data_instance, current_poi_category, config
         
-        print(f"POI selection updated from GUI: {selected_poi_name} (Category: {updated_category})")
-    
-    # Refresh configuration in case anything else changed
-    config = updated_config
+        if poi_data_instance is None:
+            poi_data_instance = POIData()
+        
+        # Store original state for comparison
+        original_config = read_config(use_cache=False)
+        original_poi = original_config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+        original_map = original_config.get('POI', 'current_map', fallback='main')
+        
+        # Launch the POI selector GUI
+        launch_poi_selector(poi_data_instance)
+        
+        # Check if configuration changed after GUI closes
+        # Use fresh read to ensure we get any changes
+        clear_config_cache()
+        updated_config = read_config(use_cache=False)
+        updated_poi = updated_config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+        updated_map = updated_config.get('POI', 'current_map', fallback='main')
+        
+        # If the configuration changed, update our internal state
+        if original_poi != updated_poi or original_map != updated_map:
+            # Get the selected POI name
+            selected_poi_parts = updated_poi.split(',')
+            selected_poi_name = selected_poi_parts[0].strip()
+            
+            # Update the current_poi_category based on the selected POI
+            updated_category = get_poi_category(selected_poi_name)
+            current_poi_category = updated_category
+            
+            print(f"POI selection updated from GUI: {selected_poi_name} (Category: {updated_category})")
+            
+            # Update our global config reference
+            config = updated_config
+        else:
+            print("No POI configuration changes detected")
+            
+    except Exception as e:
+        print(f"Error opening POI selector: {e}")
+        speaker.speak("Error opening POI selector")
 
 def handle_custom_poi_gui(use_ppi=False) -> None:
     """Handle custom POI GUI creation with map-specific support"""
@@ -476,6 +526,9 @@ def get_poi_category(poi_name: str) -> str:
     if poi_name.lower() == SPECIAL_POI_CLOSEST_LANDMARK.lower() and current_map == 'main':
         return POI_CATEGORY_SPECIAL
     
+    if poi_name.lower() == SPECIAL_POI_CLOSEST_GAMEOBJECT.lower():
+        return POI_CATEGORY_SPECIAL
+    
     # Check favorites
     favorites_file = 'FAVORITE_POIS.txt'
     if os.path.exists(favorites_file):
@@ -491,6 +544,12 @@ def get_poi_category(poi_name: str) -> str:
     custom_pois = load_custom_pois(current_map)
     if any(poi[0].lower() == poi_name.lower() for poi in custom_pois):
         return POI_CATEGORY_CUSTOM
+    
+    # Check game objects
+    from lib.object_finder import OBJECT_CONFIGS
+    game_objects = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
+    if any(poi[0].lower() == poi_name.lower() for poi in game_objects):
+        return POI_CATEGORY_GAMEOBJECT
     
     # Check landmarks (main map only)
     if current_map == 'main':
@@ -516,7 +575,7 @@ def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
     
     # Special POIs
     if category == POI_CATEGORY_SPECIAL:
-        special_pois = [(SPECIAL_POI_CLOSEST, "0", "0"), (SPECIAL_POI_SAFEZONE, "0", "0")]
+        special_pois = [(SPECIAL_POI_CLOSEST, "0", "0"), (SPECIAL_POI_SAFEZONE, "0", "0"), (SPECIAL_POI_CLOSEST_GAMEOBJECT, "0", "0")]
         if current_map == 'main':
             special_pois.append((SPECIAL_POI_CLOSEST_LANDMARK, "0", "0"))
         return special_pois
@@ -536,6 +595,11 @@ def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
     # Custom POIs
     if category == POI_CATEGORY_CUSTOM:
         return load_custom_pois(current_map)
+    
+    # Game Objects
+    if category == POI_CATEGORY_GAMEOBJECT:
+        from lib.object_finder import OBJECT_CONFIGS
+        return [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
     
     # Landmarks (main map only)
     if category == POI_CATEGORY_LANDMARK and current_map == 'main':
@@ -584,9 +648,13 @@ def sort_pois_by_position(pois: List[Tuple[str, str, str]]) -> List[Tuple[str, s
     if not pois:
         return []
     
-    # Don't sort special POIs
-    if pois[0][0].lower() in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
+    # Don't sort special POIs or game objects
+    if pois[0][0].lower() in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower(), SPECIAL_POI_CLOSEST_GAMEOBJECT.lower()]:
         return pois
+    
+    # Don't sort game objects (they have coordinates "0", "0")
+    if all(poi[1] == "0" and poi[2] == "0" for poi in pois):
+        return sorted(pois, key=lambda x: x[0].lower())
     
     return sorted(pois, key=poi_sort_key)
 
@@ -653,6 +721,11 @@ def get_poi_categories(include_empty: bool = False) -> List[str]:
     if current_map == 'main':
         categories.append(POI_CATEGORY_LANDMARK)
     
+    # Add game objects if any exist
+    game_objects = get_pois_by_category(POI_CATEGORY_GAMEOBJECT)
+    if include_empty or game_objects:
+        categories.append(POI_CATEGORY_GAMEOBJECT)
+    
     # Add favorites if any exist
     favorites = get_pois_by_category(POI_CATEGORY_FAVORITE)
     if include_empty or favorites:
@@ -665,235 +738,329 @@ def get_poi_categories(include_empty: bool = False) -> List[str]:
     
     return categories
 
+def find_closest_game_object(player_location: Tuple[int, int]) -> Optional[Tuple[str, Tuple[int, int]]]:
+    """
+    Find the closest game object to the player using object detection.
+    
+    Args:
+        player_location: Player's current position (x, y)
+        
+    Returns:
+        Tuple of (object_name, (x, y)) or None if no objects found
+    """
+    try:
+        from lib.object_finder import optimized_finder, OBJECT_CONFIGS
+        
+        if not player_location or not OBJECT_CONFIGS:
+            return None
+        
+        # Get all object names
+        object_names = list(OBJECT_CONFIGS.keys())
+        
+        # Try to find objects using PPI first, then fallback to fullscreen
+        use_ppi = check_for_pixel()
+        found_objects = optimized_finder.find_all_objects(object_names, use_ppi)
+        
+        if not found_objects:
+            # Fallback to non-PPI if PPI didn't find anything
+            found_objects = optimized_finder.find_all_objects(object_names, False)
+        
+        if not found_objects:
+            return None
+        
+        # Calculate distances and find closest
+        closest_object = None
+        min_distance = float('inf')
+        
+        for obj_name, obj_coords in found_objects.items():
+            distance = np.linalg.norm(
+                np.array(player_location) - np.array(obj_coords)
+            )
+            
+            if distance < min_distance:
+                min_distance = distance
+                # Convert internal name to display name
+                display_name = obj_name.replace('_', ' ').title()
+                closest_object = (display_name, obj_coords)
+        
+        return closest_object
+        
+    except Exception as e:
+        print(f"Error finding closest game object: {e}")
+        return None
+
 def cycle_poi_category() -> None:
-    """Cycle between POI categories."""
+    """Cycle between POI categories with safe config handling"""
     global config, poi_data_instance, current_poi_category
     
-    # Always re-read the config to ensure we have the latest state
-    config = read_config()
-    
-    # Check if shift is being held for reverse cycling
-    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
-    
-    # Validate POI data is initialized
-    if poi_data_instance is None:
-        print("POI data not initialized")
-        speaker.speak("POI data not initialized")
-        return
-    
-    # Get all available categories
-    categories = get_poi_categories()
-    if not categories:
-        speaker.speak("No POI categories available")
-        return
-    
-    # Find current category index
     try:
-        current_index = categories.index(current_poi_category)
-    except ValueError:
-        # If current category not found, default to first category
-        current_index = 0
-    
-    # Calculate new index with wrapping
-    if reverse:
-        new_index = (current_index - 1) % len(categories)
-    else:
-        new_index = (current_index + 1) % len(categories)
-    
-    # Get new category
-    new_category = categories[new_index]
-    
-    # Update global category tracker
-    current_poi_category = new_category
-    
-    # Get POIs in the new category
-    category_pois = get_pois_by_category(new_category)
-    
-    # Sort POIs by position
-    sorted_pois = sort_pois_by_position(category_pois)
-    
-    # If category has POIs, select the first one
-    if sorted_pois:
-        first_poi = sorted_pois[0]
-        config['POI']['selected_poi'] = f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}"
+        # Always re-read the config to ensure we have the latest state
+        clear_config_cache()
+        config = read_config(use_cache=False)
         
-        # Save the config
-        with open('config.txt', 'w') as f:
-            config.write(f)
+        # Check if shift is being held for reverse cycling
+        reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
         
-        # Get category display name
-        category_display_names = {
-            POI_CATEGORY_SPECIAL: "Special",
-            POI_CATEGORY_REGULAR: "Regular",
-            POI_CATEGORY_LANDMARK: "Landmark",
-            POI_CATEGORY_FAVORITE: "Favorite",
-            POI_CATEGORY_CUSTOM: "Custom"
-        }
-        display_name = category_display_names.get(new_category, new_category.title())
+        # Validate POI data is initialized
+        if poi_data_instance is None:
+            print("POI data not initialized")
+            speaker.speak("POI data not initialized")
+            return
         
-        # Get position description if not a special POI
-        position_desc = ""
-        if first_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
-            position_desc = get_poi_position_description(first_poi)
-            if position_desc:
-                position_desc = f", {position_desc}"
+        # Get all available categories
+        categories = get_poi_categories()
+        if not categories:
+            speaker.speak("No POI categories available")
+            return
         
-        # Announce selection
-        speaker.speak(f"{display_name} POIs: {first_poi[0]}{position_desc}")
-        print(f"Selected {first_poi[0]} from {display_name} POIs")
-    else:
-        speaker.speak(f"No POIs available in the selected category")
-        print(f"No POIs available in the selected category")
+        # Find current category index
+        try:
+            current_index = categories.index(current_poi_category)
+        except ValueError:
+            # If current category not found, default to first category
+            current_index = 0
+        
+        # Calculate new index with wrapping
+        if reverse:
+            new_index = (current_index - 1) % len(categories)
+        else:
+            new_index = (current_index + 1) % len(categories)
+        
+        # Get new category
+        new_category = categories[new_index]
+        
+        # Update global category tracker
+        current_poi_category = new_category
+        
+        # Get POIs in the new category
+        category_pois = get_pois_by_category(new_category)
+        
+        # Sort POIs by position
+        sorted_pois = sort_pois_by_position(category_pois)
+        
+        # If category has POIs, select the first one
+        if sorted_pois:
+            first_poi = sorted_pois[0]
+            
+            # Use thread-safe config operations
+            config_adapter = Config()
+            config_adapter.set_poi(first_poi[0], first_poi[1], first_poi[2])
+            success = config_adapter.save()
+            
+            if success:
+                # Update our global config reference
+                clear_config_cache()
+                config = read_config(use_cache=False)
+                
+                # Get category display name
+                category_display_names = {
+                    POI_CATEGORY_SPECIAL: "Special",
+                    POI_CATEGORY_REGULAR: "Regular",
+                    POI_CATEGORY_LANDMARK: "Landmark",
+                    POI_CATEGORY_FAVORITE: "Favorite",
+                    POI_CATEGORY_CUSTOM: "Custom",
+                    POI_CATEGORY_GAMEOBJECT: "Game Object"
+                }
+                display_name = category_display_names.get(new_category, new_category.title())
+                
+                # Get position description if not a special POI or game object
+                position_desc = ""
+                if (first_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), 
+                                                SPECIAL_POI_CLOSEST_LANDMARK.lower(), SPECIAL_POI_CLOSEST_GAMEOBJECT.lower()] 
+                    and first_poi[1] != "0" and first_poi[2] != "0"):
+                    position_desc = get_poi_position_description(first_poi)
+                    if position_desc:
+                        position_desc = f", {position_desc}"
+                
+                # Announce selection
+                speaker.speak(f"{display_name} POIs: {first_poi[0]}{position_desc}")
+                print(f"Selected {first_poi[0]} from {display_name} POIs")
+            else:
+                speaker.speak("Error saving POI selection")
+        else:
+            speaker.speak(f"No POIs available in the selected category")
+            print(f"No POIs available in the selected category")
+            
+    except Exception as e:
+        print(f"Error cycling POI category: {e}")
+        speaker.speak("Error cycling POI categories")
 
 def cycle_poi() -> None:
-    """Cycle through POIs in the current category."""
+    """Cycle through POIs in the current category with safe config handling"""
     global config, poi_data_instance, current_poi_category
     
-    # Always re-read the config to ensure we have the latest state
-    config = read_config()
-    
-    # Check if shift is being held for reverse cycling
-    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
-    
-    if poi_data_instance is None:
-        print("POI data not initialized")
-        speaker.speak("POI data not initialized")
-        return
-    
-    # Get POIs in the current category
-    category_pois = get_pois_by_category(current_poi_category)
-    
-    # If no POIs in the category, notify user
-    if not category_pois:
-        speaker.speak("No POIs available in the current category")
-        return
-    
-    # Sort POIs by position
-    sorted_pois = sort_pois_by_position(category_pois)
-    
-    # Get current selected POI directly from config
-    selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
-    selected_poi_parts = selected_poi_str.split(',')
-    selected_poi_name = selected_poi_parts[0].strip()
-    
-    # Find index of current POI
-    current_index = -1
-    for i, poi in enumerate(sorted_pois):
-        if poi[0].lower() == selected_poi_name.lower():
-            current_index = i
-            break
-    
-    # If not found, default to first POI
-    if current_index == -1:
-        current_index = 0
-    
-    # Calculate new index with wrapping
-    if reverse:
-        new_index = (current_index - 1) % len(sorted_pois)
-    else:
-        new_index = (current_index + 1) % len(sorted_pois)
-    
-    # Get new POI
-    new_poi = sorted_pois[new_index]
-    
-    # Update config
-    config['POI']['selected_poi'] = f"{new_poi[0]}, {new_poi[1]}, {new_poi[2]}"
-    
-    # Save config
-    with open('config.txt', 'w') as f:
-        config.write(f)
-    
-    # Get position description if not a special POI
-    position_desc = ""
-    if new_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
-        position_desc = get_poi_position_description(new_poi)
-        if position_desc:
-            position_desc = f", {position_desc}"
-    
-    # Announce selection
-    speaker.speak(f"{new_poi[0]}{position_desc}")
-    print(f"{new_poi[0]} selected")
+    try:
+        # Always re-read the config to ensure we have the latest state
+        clear_config_cache()
+        config = read_config(use_cache=False)
+        
+        # Check if shift is being held for reverse cycling
+        reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
+        
+        if poi_data_instance is None:
+            print("POI data not initialized")
+            speaker.speak("POI data not initialized")
+            return
+        
+        # Get POIs in the current category
+        category_pois = get_pois_by_category(current_poi_category)
+        
+        # If no POIs in the category, notify user
+        if not category_pois:
+            speaker.speak("No POIs available in the current category")
+            return
+        
+        # Sort POIs by position
+        sorted_pois = sort_pois_by_position(category_pois)
+        
+        # Get current selected POI directly from config
+        selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
+        selected_poi_parts = selected_poi_str.split(',')
+        selected_poi_name = selected_poi_parts[0].strip()
+        
+        # Find index of current POI
+        current_index = -1
+        for i, poi in enumerate(sorted_pois):
+            if poi[0].lower() == selected_poi_name.lower():
+                current_index = i
+                break
+        
+        # If not found, default to first POI
+        if current_index == -1:
+            current_index = 0
+        
+        # Calculate new index with wrapping
+        if reverse:
+            new_index = (current_index - 1) % len(sorted_pois)
+        else:
+            new_index = (current_index + 1) % len(sorted_pois)
+        
+        # Get new POI
+        new_poi = sorted_pois[new_index]
+        
+        # Use thread-safe config operations
+        config_adapter = Config()
+        config_adapter.set_poi(new_poi[0], new_poi[1], new_poi[2])
+        success = config_adapter.save()
+        
+        if success:
+            # Update our global config reference
+            clear_config_cache()
+            config = read_config(use_cache=False)
+            
+            # Get position description if not a special POI or game object
+            position_desc = ""
+            if (new_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), 
+                                          SPECIAL_POI_CLOSEST_LANDMARK.lower(), SPECIAL_POI_CLOSEST_GAMEOBJECT.lower()] 
+                and new_poi[1] != "0" and new_poi[2] != "0"):
+                position_desc = get_poi_position_description(new_poi)
+                if position_desc:
+                    position_desc = f", {position_desc}"
+            
+            # Announce selection
+            speaker.speak(f"{new_poi[0]}{position_desc}")
+            print(f"{new_poi[0]} selected")
+        else:
+            speaker.speak("Error saving POI selection")
+            
+    except Exception as e:
+        print(f"Error cycling POI: {e}")
+        speaker.speak("Error cycling POIs")
 
 def cycle_map():
-    """Cycle to the next/previous map."""
+    """Cycle to the next/previous map with safe config handling"""
     global config, poi_data_instance, current_poi_category
     
-    # Always re-read the config to ensure we have the latest state
-    config = read_config()
-    
-    # Check if shift is being held for reverse cycling
-    reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
-    
-    if poi_data_instance is None:
-        print("POI data not initialized")
-        speaker.speak("POI data not initialized")
-        return
-
-    # Get the current map from config
-    current_map = config.get('POI', 'current_map', fallback='main')
-    
-    # Get a sorted list of all available maps (without duplicating 'main')
-    all_maps = sorted(poi_data_instance.maps.keys())
-    
-    # Find the index of the current map
     try:
-        current_index = all_maps.index(current_map)
-    except ValueError:
-        current_index = 0
-    
-    # Calculate the new index with wrapping
-    if reverse:
-        new_index = (current_index - 1) % len(all_maps)
-    else:
-        new_index = (current_index + 1) % len(all_maps)
-    
-    # Get the new map name
-    new_map = all_maps[new_index]
-    
-    # Update the config
-    config['POI']['current_map'] = new_map
-    
-    # Remember current category - don't change it when switching maps
-    previous_category = current_poi_category
-    
-    # Try to get POIs in the current category for the new map
-    category_pois = get_pois_by_category(previous_category)
-    
-    # If no POIs in the current category on the new map, fall back to special category
-    if not category_pois:
-        current_poi_category = POI_CATEGORY_SPECIAL
-        category_pois = get_pois_by_category(POI_CATEGORY_SPECIAL)
-    
-    # Reset selected POI to first one in the category
-    if category_pois:
-        sorted_pois = sort_pois_by_position(category_pois)
-        first_poi = sorted_pois[0]
-        config['POI']['selected_poi'] = f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}"
-    else:
-        # If no POIs found at all, reset to closest
-        config['POI']['selected_poi'] = "closest, 0, 0"
-    
-    # Save the config
-    with open('config.txt', 'w') as f:
-        config.write(f)
-    
-    # Get display name for announcement
-    try:
-        display_name = poi_data_instance.maps[new_map].name
-    except (KeyError, AttributeError):
-        display_name = new_map.replace('_', ' ').title()
+        # Always re-read the config to ensure we have the latest state
+        clear_config_cache()
+        config = read_config(use_cache=False)
         
-    speaker.speak(f"{display_name} map selected")
-    print(f"{new_map} selected")
+        # Check if shift is being held for reverse cycling
+        reverse = is_key_pressed('lshift') or is_key_pressed('rshift')
+        
+        if poi_data_instance is None:
+            print("POI data not initialized")
+            speaker.speak("POI data not initialized")
+            return
 
-def handle_update_with_changelog(repo_owner: str, repo_name: str) -> None:
+        # Get the current map from config
+        current_map = config.get('POI', 'current_map', fallback='main')
+        
+        # Get a sorted list of all available maps (without duplicating 'main')
+        all_maps = sorted(poi_data_instance.maps.keys())
+        
+        # Find the index of the current map
+        try:
+            current_index = all_maps.index(current_map)
+        except ValueError:
+            current_index = 0
+        
+        # Calculate the new index with wrapping
+        if reverse:
+            new_index = (current_index - 1) % len(all_maps)
+        else:
+            new_index = (current_index + 1) % len(all_maps)
+        
+        # Get the new map name
+        new_map = all_maps[new_index]
+        
+        # Remember current category - don't change it when switching maps
+        previous_category = current_poi_category
+        
+        # Try to get POIs in the current category for the new map
+        # Temporarily update the config to check POIs
+        temp_config = config
+        temp_config.set('POI', 'current_map', new_map)
+        category_pois = get_pois_by_category(previous_category)
+        
+        # If no POIs in the current category on the new map, fall back to special category
+        if not category_pois:
+            current_poi_category = POI_CATEGORY_SPECIAL
+            category_pois = get_pois_by_category(POI_CATEGORY_SPECIAL)
+        
+        # Reset selected POI to first one in the category
+        if category_pois:
+            sorted_pois = sort_pois_by_position(category_pois)
+            first_poi = sorted_pois[0]
+            selected_poi_value = f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}"
+        else:
+            # If no POIs found at all, reset to closest
+            selected_poi_value = "closest, 0, 0"
+        
+        # Use thread-safe config operations
+        config_adapter = Config()
+        config_adapter.set_current_map(new_map)
+        config_adapter.set_poi(*selected_poi_value.split(', '))
+        success = config_adapter.save()
+        
+        if success:
+            # Update our global config reference
+            clear_config_cache()
+            config = read_config(use_cache=False)
+            
+            # Get display name for announcement
+            try:
+                display_name = poi_data_instance.maps[new_map].name
+            except (KeyError, AttributeError):
+                display_name = new_map.replace('_', ' ').title()
+                
+            speaker.speak(f"{display_name} map selected")
+            print(f"{new_map} selected")
+        else:
+            speaker.speak("Error saving map selection")
+            
+    except Exception as e:
+        print(f"Error cycling map: {e}")
+        speaker.speak("Error cycling maps")
+
+def handle_update_with_changelog() -> None:
     """Handle update notification with changelog display option."""
-    repo = f"{repo_owner}/{repo_name}"
     local_changelog_path = 'CHANGELOG.txt'
     
     local_changelog_exists = os.path.exists(local_changelog_path)
     
-    url = f"https://raw.githubusercontent.com/{repo}/main/CHANGELOG.txt"
+    url = f"{API_BASE_URL}/changelog/{PROJECT_NAME}"
     remote_changelog = None
     try:
         response = requests.get(url)
@@ -972,21 +1139,20 @@ def run_updater() -> bool:
     update_performed = result.returncode == 1
     
     if update_performed:
-        repo_owner = "GreenBeanGravy"
-        repo_name = "FA11y"
-        handle_update_with_changelog(repo_owner, repo_name)
+        handle_update_with_changelog()
         
     return update_performed
 
-def get_version(repo: str) -> str:
-    """Get version from GitHub repository."""
-    url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
+def get_version() -> str:
+    """Get version from website API."""
+    url = f"{API_BASE_URL}/version/{PROJECT_NAME}"
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return response.text.strip()
+        data = response.json()
+        return data.get('version', None)
     except requests.RequestException as e:
-        print(f"Failed to fetch VERSION file: {e}")
+        print(f"Failed to fetch version: {e}")
         return None
 
 def parse_version(version: str) -> tuple:
@@ -995,7 +1161,6 @@ def parse_version(version: str) -> tuple:
 
 def check_for_updates() -> None:
     """Periodically check for updates."""
-    repo = "GreenBeanGravy/FA11y"
     update_notified = False
 
     while True:
@@ -1004,17 +1169,17 @@ def check_for_updates() -> None:
             with open('VERSION', 'r') as f:
                 local_version = f.read().strip()
 
-        repo_version = get_version(repo)
+        remote_version = get_version()
 
         if not local_version:
             print("No local version found. Update may be required.")
-        elif not repo_version:
-            print("Failed to fetch repository version. Skipping version check.")
+        elif not remote_version:
+            print("Failed to fetch remote version. Skipping version check.")
         else:
             try:
                 local_v = parse_version(local_version)
-                repo_v = parse_version(repo_version)
-                if local_v != repo_v:
+                remote_v = parse_version(remote_version)
+                if local_v != remote_v:
                     if not update_notified:
                         update_sound.play()
                         speaker.speak("An update is available for FA11y! Restart FA11y to update!")
@@ -1025,7 +1190,7 @@ def check_for_updates() -> None:
             except ValueError:
                 print("Invalid version format. Treating as update required.")
 
-        time.sleep(30)
+        time.sleep(6)
 
 def get_legendary_username() -> str:
     """Get username from Legendary launcher."""
@@ -1089,9 +1254,20 @@ def main() -> None:
         monitor.start_monitoring()
         material_monitor.start_monitoring()
         resource_monitor.start_monitoring()
+        gameobject_monitor.start_monitoring()  # Start game object monitoring
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
+
+        # Print available game objects for reference
+        gameobjects = get_gameobject_configs()
+        if gameobjects:
+            print(f"Game object monitoring configured for {len(gameobjects)} object types:")
+            for obj_name in sorted(gameobjects.keys()):
+                display_name = obj_name.replace('_', ' ').title()
+                config_key = f"Monitor{obj_name.replace('_', '').title()}"
+                ping_key = f"{obj_name.replace('_', '').title()}PingInterval"
+                print(f"  - {display_name} (Toggle: {config_key}, Interval: {ping_key})")
 
         # Notify user that FA11y is running
         speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
@@ -1110,6 +1286,10 @@ def main() -> None:
         monitor.stop_monitoring()
         material_monitor.stop_monitoring()
         resource_monitor.stop_monitoring()
+        gameobject_monitor.stop_monitoring()  # Stop game object monitoring
+        
+        # Clean up object detection resources
+        cleanup_object_detection()
 
         # Clean up any remaining tkinter variables
         if 'tk' in sys.modules:

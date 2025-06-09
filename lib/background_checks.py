@@ -31,6 +31,7 @@ class BackgroundMonitor:
         
         # Load escape key template
         self.escape_template = None
+        self.template_loaded = False
         self.load_escape_template()
         
         # Define inventory scan region
@@ -40,6 +41,10 @@ class BackgroundMonitor:
             'width': 121,  # 1832 - 1711
             'height': 28   # 1040 - 1012
         }
+        
+        # Performance optimization
+        self.last_error_time = 0
+        self.error_cooldown = 5.0  # 5 seconds between error reports
 
     def get_mss(self):
         """Get thread-local MSS instance with proper error handling."""
@@ -47,8 +52,7 @@ class BackgroundMonitor:
             if not hasattr(self.thread_local, 'mss'):
                 try:
                     self.thread_local.mss = mss()
-                except Exception as e:
-                    print(f"Error creating MSS instance: {e}")
+                except Exception:
                     return None
             return self.thread_local.mss
 
@@ -58,8 +62,8 @@ class BackgroundMonitor:
             if hasattr(self.thread_local, 'mss'):
                 try:
                     self.thread_local.mss.close()
-                except Exception as e:
-                    print(f"Error closing MSS instance: {e}")
+                except Exception:
+                    pass
                 finally:
                     delattr(self.thread_local, 'mss')
 
@@ -71,6 +75,9 @@ class BackgroundMonitor:
 
     def load_escape_template(self):
         """Load the escape key template for detection."""
+        if self.template_loaded:
+            return
+            
         template_path = Path("keys") / "escape.png"
         if template_path.exists():
             try:
@@ -78,16 +85,16 @@ class BackgroundMonitor:
                 if img is not None:
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                     self.escape_template = cv2.Canny(gray, 100, 200)
-            except Exception as e:
-                print(f"Error loading escape template: {e}")
+                    self.template_loaded = True
+            except Exception:
                 self.escape_template = None
 
     def detect_escape_key(self, screenshot):
         """Detect escape key using template matching."""
+        if self.escape_template is None or screenshot is None:
+            return False
+            
         try:
-            if self.escape_template is None or screenshot is None:
-                return False
-                
             if screenshot.shape[2] == 4:  # Convert BGRA to BGR if needed
                 screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
                 
@@ -98,8 +105,7 @@ class BackgroundMonitor:
             threshold = 0.5
             
             return np.max(result) >= threshold
-        except Exception as e:
-            print(f"Error in detect_escape_key: {e}")
+        except Exception:
             return False
 
     def check_map_status(self):
@@ -111,10 +117,13 @@ class BackgroundMonitor:
             if is_map_color != self.map_open:
                 self.map_open = is_map_color
                 if self.announce_map:
-                    self.speaker.speak("Map " + ("opened" if is_map_color else "closed"))
+                    status = "opened" if is_map_color else "closed"
+                    self.speaker.speak(f"Map {status}")
                     
-        except Exception as e:
-            print(f"Error checking map status: {e}")
+        except Exception:
+            current_time = time.time()
+            if current_time - self.last_error_time > self.error_cooldown:
+                self.last_error_time = current_time
 
     def check_inventory_status(self):
         """Check if inventory is open/closed using template matching."""
@@ -132,18 +141,18 @@ class BackgroundMonitor:
             if is_escape_visible != self.inventory_open:
                 self.inventory_open = is_escape_visible
                 if self.announce_inventory:
-                    self.speaker.speak(
-                        "Inventory opened" if is_escape_visible else "Inventory closed"
-                    )
+                    status = "opened" if is_escape_visible else "closed"
+                    self.speaker.speak(f"Inventory {status}")
                     
-        except Exception as e:
-            print(f"Error checking inventory status: {e}")
+        except Exception:
             # Try to recover by cleaning up MSS instance
             self.cleanup_mss()
-            time.sleep(0.5)  # Add a small delay on error
+            current_time = time.time()
+            if current_time - self.last_error_time > self.error_cooldown:
+                self.last_error_time = current_time
 
     def monitor_loop(self):
-        """Main monitoring loop."""
+        """Main monitoring loop with performance optimizations."""
         try:
             while self.running:
                 try:
@@ -151,12 +160,11 @@ class BackgroundMonitor:
                         self.check_map_status()
                     if self.announce_inventory:
                         self.check_inventory_status()
-                    time.sleep(0.1)
-                except Exception as e:
-                    print(f"Error in monitor loop iteration: {e}")
-                    time.sleep(0.5)  # Add a small delay on error
-        except Exception as e:
-            print(f"Fatal error in monitor loop: {e}")
+                    time.sleep(0.15)  # Slightly longer interval to reduce CPU usage
+                except Exception:
+                    time.sleep(1.0)  # Longer delay on error
+        except Exception:
+            pass
         finally:
             # Ensure cleanup on exit
             self.cleanup_mss()

@@ -10,11 +10,13 @@ import json
 import re
 import requests
 import numpy as np
+import threading
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 
 from lib.guis.base_ui import AccessibleUI
-from lib.utilities import force_focus_window, read_config, Config
+from lib.utilities import force_focus_window, read_config, Config, clear_config_cache, save_config
 from lib.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
 from lib.custom_poi_handler import load_custom_pois
 
@@ -24,6 +26,9 @@ logger = logging.getLogger(__name__)
 # Constants
 CONFIG_FILE = 'config.txt'
 POI_TYPE = Union[Tuple[str, str, str], str]
+
+# Global lock for favorites operations
+_favorites_lock = threading.RLock()
 
 class CoordinateSystem:
     """Handles coordinate transformation between world and screen coordinates"""
@@ -208,7 +213,7 @@ class FavoritePOI:
     source_tab: str
 
 class FavoritesManager:
-    """Manages favorite POIs"""
+    """Manages favorite POIs with thread-safe operations"""
     
     def __init__(self, filename: str = "FAVORITE_POIS.txt"):
         """Initialize the favorites manager
@@ -218,28 +223,87 @@ class FavoritesManager:
         """
         self.filename = filename
         self.favorites: List[FavoritePOI] = []
+        self._load_lock = threading.RLock()
         self.load_favorites()
 
-    def load_favorites(self) -> None:
-        """Load favorites from file"""
-        if os.path.exists(self.filename):
+    def _safe_write_favorites(self, data: List[dict], max_retries: int = 3) -> bool:
+        """Safely write favorites to file with retry logic"""
+        for attempt in range(max_retries):
             try:
-                with open(self.filename, 'r') as f:
-                    data = json.load(f)
-                    self.favorites = [FavoritePOI(**poi) for poi in data]
-            except json.JSONDecodeError:
-                logger.error("Error loading favorites file. Starting with empty favorites.")
-                self.favorites = []
-        else:
-            self.favorites = []
+                # Create backup
+                backup_file = f"{self.filename}.backup"
+                if os.path.exists(self.filename):
+                    try:
+                        with open(self.filename, 'r') as f:
+                            backup_content = f.read()
+                        with open(backup_file, 'w') as f:
+                            f.write(backup_content)
+                    except Exception as e:
+                        logger.warning(f"Could not create backup: {e}")
+                
+                # Write new data
+                with open(self.filename, 'w') as f:
+                    json.dump(data, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                
+                # Remove backup on success
+                if os.path.exists(backup_file):
+                    try:
+                        os.remove(backup_file)
+                    except:
+                        pass
+                        
+                return True
+                
+            except Exception as e:
+                logger.error(f"Attempt {attempt + 1} failed to write favorites: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(0.1 * (attempt + 1))
+                    # Try to restore from backup
+                    backup_file = f"{self.filename}.backup"
+                    if os.path.exists(backup_file):
+                        try:
+                            with open(backup_file, 'r') as f:
+                                backup_content = f.read()
+                            with open(self.filename, 'w') as f:
+                                f.write(backup_content)
+                        except:
+                            pass
+                else:
+                    return False
+        
+        return False
 
-    def save_favorites(self) -> None:
-        """Save favorites to file"""
-        with open(self.filename, 'w') as f:
-            json.dump([vars(poi) for poi in self.favorites], f, indent=2)
+    def load_favorites(self) -> None:
+        """Load favorites from file with thread safety"""
+        with _favorites_lock:
+            if os.path.exists(self.filename):
+                try:
+                    with open(self.filename, 'r') as f:
+                        data = json.load(f)
+                        self.favorites = [FavoritePOI(**poi) for poi in data]
+                except json.JSONDecodeError:
+                    logger.error("Error loading favorites file. Starting with empty favorites.")
+                    self.favorites = []
+                except Exception as e:
+                    logger.error(f"Error loading favorites: {e}")
+                    self.favorites = []
+            else:
+                self.favorites = []
+
+    def save_favorites(self) -> bool:
+        """Save favorites to file with thread safety"""
+        with _favorites_lock:
+            try:
+                data = [vars(poi) for poi in self.favorites]
+                return self._safe_write_favorites(data)
+            except Exception as e:
+                logger.error(f"Error saving favorites: {e}")
+                return False
 
     def toggle_favorite(self, poi: Tuple[str, str, str], source_tab: str) -> bool:
-        """Toggle favorite status for a POI
+        """Toggle favorite status for a POI with thread safety
         
         Args:
             poi: POI data tuple (name, x, y)
@@ -248,21 +312,32 @@ class FavoritesManager:
         Returns:
             bool: True if added, False if removed
         """
-        name, x, y = poi
-        existing = next((f for f in self.favorites if f.name == name), None)
-        
-        if existing:
-            self.favorites.remove(existing)
-            self.save_favorites()
-            return False
-        else:
-            new_fav = FavoritePOI(name=name, x=x, y=y, source_tab=source_tab)
-            self.favorites.append(new_fav)
-            self.save_favorites()
-            return True
+        with _favorites_lock:
+            name, x, y = poi
+            existing = next((f for f in self.favorites if f.name == name), None)
+            
+            if existing:
+                self.favorites.remove(existing)
+                success = self.save_favorites()
+                if not success:
+                    # Rollback on failure
+                    self.favorites.append(existing)
+                    logger.error(f"Failed to save favorites after removing {name}")
+                    return False
+                return False
+            else:
+                new_fav = FavoritePOI(name=name, x=x, y=y, source_tab=source_tab)
+                self.favorites.append(new_fav)
+                success = self.save_favorites()
+                if not success:
+                    # Rollback on failure
+                    self.favorites.remove(new_fav)
+                    logger.error(f"Failed to save favorites after adding {name}")
+                    return False
+                return True
 
     def is_favorite(self, poi_name: str) -> bool:
-        """Check if a POI is a favorite
+        """Check if a POI is a favorite with thread safety
         
         Args:
             poi_name: POI name
@@ -270,18 +345,20 @@ class FavoritesManager:
         Returns:
             bool: True if favorite, False otherwise
         """
-        return any(f.name == poi_name for f in self.favorites)
+        with _favorites_lock:
+            return any(f.name == poi_name for f in self.favorites)
 
     def get_favorites_as_tuples(self) -> List[Tuple[str, str, str]]:
-        """Get favorites as tuples
+        """Get favorites as tuples with thread safety
         
         Returns:
             list: List of POI tuples (name, x, y)
         """
-        return [(f.name, f.x, f.y) for f in self.favorites]
+        with _favorites_lock:
+            return [(f.name, f.x, f.y) for f in self.favorites]
 
     def get_source_tab(self, poi_name: str) -> Optional[str]:
-        """Get source tab for a favorite POI
+        """Get source tab for a favorite POI with thread safety
         
         Args:
             poi_name: POI name
@@ -289,16 +366,25 @@ class FavoritesManager:
         Returns:
             str or None: Source tab name or None if not found
         """
-        fav = next((f for f in self.favorites if f.name == poi_name), None)
-        return fav.source_tab if fav else None
+        with _favorites_lock:
+            fav = next((f for f in self.favorites if f.name == poi_name), None)
+            return fav.source_tab if fav else None
         
-    def remove_all_favorites(self) -> None:
-        """Remove all favorites"""
-        self.favorites = []
-        self.save_favorites()
+    def remove_all_favorites(self) -> bool:
+        """Remove all favorites with thread safety"""
+        with _favorites_lock:
+            old_favorites = self.favorites.copy()
+            self.favorites = []
+            success = self.save_favorites()
+            if not success:
+                # Rollback on failure
+                self.favorites = old_favorites
+                logger.error("Failed to save favorites after removing all")
+                return False
+            return True
 
 class POIGUI(AccessibleUI):
-    """POI selector GUI"""
+    """POI selector GUI with safe config handling"""
     
     def __init__(self, poi_data, config_file: str = CONFIG_FILE):
         """Initialize the POI selector GUI
@@ -322,6 +408,15 @@ class POIGUI(AccessibleUI):
         
         # Initialize favorites manager
         self.favorites_manager = FavoritesManager()
+        
+        # Store original config state for rollback if needed
+        self.original_config_state = {
+            'selected_poi': config.get('POI', 'selected_poi', fallback='closest, 0, 0'),
+            'current_map': config.get('POI', 'current_map', fallback='main')
+        }
+        
+        # Track if config has been modified
+        self.config_modified = False
         
         # Setup UI components
         self.setup()
@@ -375,7 +470,7 @@ class POIGUI(AccessibleUI):
         
         # Constants
         GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
-        SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
+        SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0"), ("Closest Game Object", "0", "0")]
         CLOSEST_LANDMARK = ("Closest Landmark", "0", "0")
         
         # Get map-specific custom POIs using the current map
@@ -394,6 +489,7 @@ class POIGUI(AccessibleUI):
             current_map_name = self.poi_data.maps[self.current_map_ref[0]].name
             return [
                 (f"{current_map_name} P O I's", SPECIAL_POIS + sorted(self.poi_data.maps[self.current_map_ref[0]].pois, key=self.poi_sort_key)),
+                ("Game Objects", GAME_OBJECTS),
                 ("Custom P O I's", sorted(custom_pois, key=self.poi_sort_key)),
                 ("Favorites", self.favorites_manager.get_favorites_as_tuples())
             ]
@@ -433,11 +529,16 @@ class POIGUI(AccessibleUI):
             bool: True if position should be spoken, False otherwise
         """
         # Don't speak positions for game objects
-        if poi_set_index == 2 and self.current_map_ref[0] == "main":
+        if self.current_map_ref[0] == "main":
+            game_objects_index = 2
+        else:
+            game_objects_index = 1
+        
+        if poi_set_index == game_objects_index:
             return False
         
         # Don't speak positions for special POIs
-        SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
+        SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0"), ("Closest Game Object", "0", "0")]
         CLOSEST_LANDMARK = ("Closest Landmark", "0", "0")
         
         if poi in SPECIAL_POIS or poi == CLOSEST_LANDMARK:
@@ -521,7 +622,7 @@ class POIGUI(AccessibleUI):
             using_grid_layout = index in [1, 3, 4]
         # For other maps, use grid layout for custom POIs and favorites
         else:
-            using_grid_layout = index in [1, 2]
+            using_grid_layout = index in [2, 3]
 
         if using_grid_layout:
             # Create grid layout for these types
@@ -559,170 +660,101 @@ class POIGUI(AccessibleUI):
             self.speak(pois_to_use[0])
     
     def select_poi(self, poi: str) -> None:
-        """Handle POI selection and update configuration
+        """Handle POI selection and update configuration safely
         
         Args:
             poi: POI name
         """
-        # Update the current map in POIData
-        self.poi_data.current_map = self.current_map_ref[0]
+        try:
+            # Update the current map in POIData
+            self.poi_data.current_map = self.current_map_ref[0]
+        
+            # Handle special POIs first
+            if poi.lower() in ["closest", "safe zone", "closest landmark", "closest game object"]:
+                special_poi_map = {
+                    "closest": "Closest",
+                    "closest landmark": "Closest Landmark",
+                    "safe zone": "Safe Zone",
+                    "closest game object": "Closest Game Object"
+                }
+                actual_name = special_poi_map.get(poi.lower(), poi)
+                
+                success = self.safe_update_config(actual_name, "0", "0")
+                if success:
+                    self.speak(f"{actual_name} selected")
+                    self.close()
+                else:
+                    self.speak("Error updating configuration")
+                return
+        
+            # Handle selecting a favorite POI
+            source_tab = self.favorites_manager.get_source_tab(poi)
+            if source_tab:
+                for set_name, pois in self.poi_sets:
+                    if set_name == source_tab:
+                        for original_poi in pois:
+                            if isinstance(original_poi, tuple) and original_poi[0] == poi:
+                                success = self.safe_update_config_from_poi_data(poi)
+                                if success:
+                                    self.speak(f"{poi} selected")
+                                    self.close()
+                                else:
+                                    self.speak("Error updating configuration")
+                                return
+            else:
+                success = self.safe_update_config_from_poi_data(poi)
+                if success:
+                    self.speak(f"{poi} selected")
+                    self.close()
+                else:
+                    self.speak("Error updating configuration")
+                    
+        except Exception as e:
+            logger.error(f"Error in POI selection: {e}")
+            self.speak("Error selecting POI")
     
-        # Handle special POIs first
-        if poi.lower() in ["closest", "safe zone", "closest landmark"]:
-            special_poi_map = {
-                "closest": "Closest",
-                "closest landmark": "Closest Landmark",
-                "safe zone": "Safe Zone"
-            }
-            actual_name = special_poi_map.get(poi.lower(), poi)
+    def safe_update_config(self, poi_name: str, x: str, y: str) -> bool:
+        """Safely update config with POI selection
+        
+        Args:
+            poi_name: POI name
+            x: X coordinate
+            y: Y coordinate
             
-            # Use the config adapter from lib.utilities to ensure case is preserved
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Use thread-safe config operations
             config_adapter = Config()
-            config_adapter.set_poi(actual_name, "0", "0")
+            config_adapter.set_poi(poi_name, x, y)
             config_adapter.set_current_map(self.current_map_ref[0])
-            config_adapter.save()
             
-            self.speak(f"{actual_name} selected")
-            self.close()
-            return
-    
-        # Handle selecting a favorite POI
-        source_tab = self.favorites_manager.get_source_tab(poi)
-        if source_tab:
-            for set_name, pois in self.poi_sets:
-                if set_name == source_tab:
-                    for original_poi in pois:
-                        if isinstance(original_poi, tuple) and original_poi[0] == poi:
-                            self.update_config_file(poi)
-                            break
-        else:
-            self.update_config_file(poi)
-    
-        self.speak(f"{poi} selected")
-        self.close()
-    
-    def handle_favorite_key(self, event) -> None:
-        """Handle pressing the favorite key for a POI
-        
-        Args:
-            event: Key event
-        """
-        focused = self.root.focus_get()
-        if isinstance(focused, ttk.Button):
-            try:
-                poi_text = focused['text'].replace('⭐ ', '')
-                current_set = self.poi_sets[self.current_poi_set[0]]
+            success = config_adapter.save()
+            if success:
+                self.config_modified = True
+                return True
+            else:
+                logger.error("Failed to save config")
+                return False
                 
-                poi = next((p for p in current_set[1] if isinstance(p, tuple) and p[0] == poi_text), None)
-                if poi:
-                    # Toggle favorite status
-                    is_added = self.favorites_manager.toggle_favorite(poi, current_set[0])
-                    
-                    # Update button text
-                    focused.configure(text=f"⭐ {poi_text}" if is_added else poi_text)
-                    
-                    # Update favorites list index based on current map
-                    favorites_index = 4 if self.current_map_ref[0] == "main" else 2
-                    self.poi_sets[favorites_index] = ("Favorites", self.favorites_manager.get_favorites_as_tuples())
-                    
-                    # Refresh favorites tab if currently viewing it
-                    if self.current_poi_set[0] == favorites_index:
-                        self.set_poi_buttons(favorites_index)
-                    
-                    # Announce action
-                    action = "added to" if is_added else "removed from"
-                    self.speak(f"{poi_text} {action} favorites")
-                    
-            except tk.TclError:
-                pass
+        except Exception as e:
+            logger.error(f"Error updating config: {e}")
+            return False
     
-    def handle_remove_all_favorites(self, event) -> str:
-        """Handle the remove all favorites key press
-        
-        Args:
-            event: Key event
-            
-        Returns:
-            str: "break" to prevent default handling
-        """
-        # Determine favorites index based on current map
-        favorites_index = 4 if self.current_map_ref[0] == "main" else 2
-        
-        if self.current_poi_set[0] == favorites_index:  # Only when in favorites tab
-            self.show_remove_all_confirmation()
-        return "break"
-    
-    def show_remove_all_confirmation(self) -> None:
-        """Show confirmation dialog for removing all favorites"""
-        confirmation = messagebox.askyesno(
-            "Remove All Favorites",
-            "Are you sure you want to remove all favorites?",
-            parent=self.root
-        )
-        if confirmation:
-            self.favorites_manager.remove_all_favorites()
-            
-            # Update favorites list index based on current map
-            favorites_index = 4 if self.current_map_ref[0] == "main" else 2
-            self.poi_sets[favorites_index] = ("Favorites", [])
-            
-            # Refresh favorites tab if currently viewing it
-            if self.current_poi_set[0] == favorites_index:
-                self.set_poi_buttons(favorites_index)
-                
-            self.speak("All favorites removed")
-        else:
-            self.speak("Operation cancelled")
-    
-    def cycle_poi_set(self, event) -> str:
-        """Handle cycling between POI sets
-        
-        Args:
-            event: Key event
-            
-        Returns:
-            str: "break" to prevent default handling
-        """
-        next_index = (
-            self.current_poi_set[0] + (1 if not event.state & 0x1 else -1)
-        ) % len(self.poi_sets)
-        self.set_poi_buttons(next_index)
-        return "break"
-    
-    def focus_first_widget(self) -> None:
-        """Focus the first widget and announce its state"""
-        if self.widgets["P O I's"]:
-            first_widget = self.widgets["P O I's"][0]
-            first_widget.focus_set()
-            widget_info = self.get_widget_info(first_widget)
-            if widget_info:
-                self.speak(widget_info)
-    
-    def update_config_file(self, selected_poi_name: str) -> None:
-        """Update configuration file with selected POI
+    def safe_update_config_from_poi_data(self, selected_poi_name: str) -> bool:
+        """Safely update configuration file with selected POI from data
         
         Args:
             selected_poi_name: Selected POI name
+            
+        Returns:
+            bool: True if successful, False otherwise
         """
         try:
-            # Use the Config class from lib.utilities to ensure case preservation
-            config_adapter = Config()
-            
             logger.info(f"Updating configuration for POI: {selected_poi_name}")
             
-            # Update current map in config with the correct format
             current_map = self.current_map_ref[0]
-            
-            # Store the map identifier in a format that can be correctly resolved later
-            if current_map == 'main':
-                config_adapter.set_current_map('main')
-            elif current_map.startswith('map_') and current_map.endswith('_pois'):
-                # Extract the middle part, preserving underscores
-                map_id = current_map[4:-5]
-                config_adapter.set_current_map(map_id)
-            else:
-                # Fallback if the format is unexpected
-                config_adapter.set_current_map(current_map)
             
             # Check current map's POIs
             if current_map == "main":
@@ -743,9 +775,9 @@ class POIGUI(AccessibleUI):
                     (poi for poi in custom_pois if poi[0].lower() == selected_poi_name.lower()),
                     None
                 )
-    
+        
             # Check game objects if still not found
-            if not poi_entry and current_map == "main":
+            if not poi_entry:
                 from lib.object_finder import OBJECT_CONFIGS
                 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
                 
@@ -754,19 +786,148 @@ class POIGUI(AccessibleUI):
                      if poi[0].lower() == selected_poi_name.lower()),
                     None
                 )
-    
+        
             # Save the POI entry
             if poi_entry:
-                config_adapter.set_poi(poi_entry[0], poi_entry[1], poi_entry[2])
+                return self.safe_update_config(poi_entry[0], poi_entry[1], poi_entry[2])
             else:
-                config_adapter.set_poi("none", "0", "0")
-            
-            config_adapter.save()
+                return self.safe_update_config("none", "0", "0")
                 
         except Exception as e:
             logger.error(f"Error updating configuration: {e}")
-            self.speak("Error updating configuration")
+            return False
+    
+    def handle_favorite_key(self, event) -> None:
+        """Handle pressing the favorite key for a POI with safe operations
         
+        Args:
+            event: Key event
+        """
+        try:
+            focused = self.root.focus_get()
+            if isinstance(focused, ttk.Button):
+                try:
+                    poi_text = focused['text'].replace('⭐ ', '')
+                    current_set = self.poi_sets[self.current_poi_set[0]]
+                    
+                    poi = next((p for p in current_set[1] if isinstance(p, tuple) and p[0] == poi_text), None)
+                    if poi:
+                        # Toggle favorite status with thread safety
+                        is_added = self.favorites_manager.toggle_favorite(poi, current_set[0])
+                        
+                        if is_added is not None:  # None indicates operation failed
+                            # Update button text
+                            focused.configure(text=f"⭐ {poi_text}" if is_added else poi_text)
+                            
+                            # Update favorites list index based on current map
+                            if self.current_map_ref[0] == "main":
+                                favorites_index = 4
+                            else:
+                                favorites_index = 3
+                            self.poi_sets[favorites_index] = ("Favorites", self.favorites_manager.get_favorites_as_tuples())
+                            
+                            # Refresh favorites tab if currently viewing it
+                            if self.current_poi_set[0] == favorites_index:
+                                self.set_poi_buttons(favorites_index)
+                            
+                            # Announce action
+                            action = "added to" if is_added else "removed from"
+                            self.speak(f"{poi_text} {action} favorites")
+                        else:
+                            self.speak(f"Failed to update favorites for {poi_text}")
+                        
+                except tk.TclError:
+                    pass
+                except Exception as e:
+                    logger.error(f"Error handling favorite key: {e}")
+                    self.speak("Error updating favorites")
+        except Exception as e:
+            logger.error(f"Error in handle_favorite_key: {e}")
+    
+    def handle_remove_all_favorites(self, event) -> str:
+        """Handle the remove all favorites key press with safe operations
+        
+        Args:
+            event: Key event
+            
+        Returns:
+            str: "break" to prevent default handling
+        """
+        try:
+            # Determine favorites index based on current map
+            if self.current_map_ref[0] == "main":
+                favorites_index = 4
+            else:
+                favorites_index = 3
+            
+            if self.current_poi_set[0] == favorites_index:  # Only when in favorites tab
+                self.show_remove_all_confirmation()
+        except Exception as e:
+            logger.error(f"Error in handle_remove_all_favorites: {e}")
+        return "break"
+    
+    def show_remove_all_confirmation(self) -> None:
+        """Show confirmation dialog for removing all favorites with safe operations"""
+        try:
+            confirmation = messagebox.askyesno(
+                "Remove All Favorites",
+                "Are you sure you want to remove all favorites?",
+                parent=self.root
+            )
+            if confirmation:
+                success = self.favorites_manager.remove_all_favorites()
+                
+                if success:
+                    # Update favorites list index based on current map
+                    if self.current_map_ref[0] == "main":
+                        favorites_index = 4
+                    else:
+                        favorites_index = 3
+                    self.poi_sets[favorites_index] = ("Favorites", [])
+                    
+                    # Refresh favorites tab if currently viewing it
+                    if self.current_poi_set[0] == favorites_index:
+                        self.set_poi_buttons(favorites_index)
+                        
+                    self.speak("All favorites removed")
+                else:
+                    self.speak("Failed to remove all favorites")
+            else:
+                self.speak("Operation cancelled")
+        except Exception as e:
+            logger.error(f"Error in show_remove_all_confirmation: {e}")
+            self.speak("Error removing favorites")
+    
+    def cycle_poi_set(self, event) -> str:
+        """Handle cycling between POI sets
+        
+        Args:
+            event: Key event
+            
+        Returns:
+            str: "break" to prevent default handling
+        """
+        try:
+            next_index = (
+                self.current_poi_set[0] + (1 if not event.state & 0x1 else -1)
+            ) % len(self.poi_sets)
+            self.set_poi_buttons(next_index)
+        except Exception as e:
+            logger.error(f"Error cycling POI set: {e}")
+        return "break"
+    
+    def focus_first_widget(self) -> None:
+        """Focus the first widget and announce its state"""
+        try:
+            if self.widgets["P O I's"]:
+                first_widget = self.widgets["P O I's"][0]
+                first_widget.focus_set()
+                widget_info = self.get_widget_info(first_widget)
+                if widget_info:
+                    self.speak(widget_info)
+        except Exception as e:
+            logger.error(f"Error focusing first widget: {e}")
+    
     def poi_sort_key(self, poi: Tuple[str, str, str]) -> Tuple[int, int, int, int]:
         """Generate a sort key for POI ordering
         
@@ -818,10 +979,19 @@ class POIGUI(AccessibleUI):
             return f"in the {position} of the {quadrant_names[quadrant]} quadrant"
         except (ValueError, TypeError):
             return "position unknown"
+    
+    def close(self) -> None:
+        """Close the GUI safely"""
+        try:
+            # Clear config cache to ensure fresh reads elsewhere
+            clear_config_cache()
+            super().close()
+        except Exception as e:
+            logger.error(f"Error closing POI GUI: {e}")
 
 
 def launch_poi_selector(poi_data = None) -> None:
-    """Launch the POI selector GUI
+    """Launch the POI selector GUI with safe error handling
     
     Args:
         poi_data: POI data manager (optional)
