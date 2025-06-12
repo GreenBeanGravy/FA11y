@@ -11,6 +11,7 @@ import win32con
 import win32com.client
 import win32api
 import win32process
+import numpy as np
 from accessible_output2.outputs.auto import Auto
 
 # Try to import fcntl for Unix systems, ignore on Windows
@@ -74,7 +75,8 @@ PerformFacingCheck = true "Toggles whether to check if the player is facing the 
 PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
-MonitorGameObjects = false "Toggles background monitoring and spatial audio for nearby game objects while the map is closed."""
+MonitorGameObjects = false "Toggles background monitoring and spatial audio for nearby game objects while the map is closed."
+MonitorStorm = true "Toggles monitoring for storm detection on the minimap with spatial audio pings."""
 
     if toggle_entries:
         base_config += "\n" + "\n".join(toggle_entries)
@@ -100,7 +102,9 @@ PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping so
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
 MinimumPOIVolume = 0.05 "The minimum volume for the P O I sound when the P O I is farthest."
-MaximumPOIVolume = 1.0 "The maximum volume for the P O I sound when the P O I is closest."""
+MaximumPOIVolume = 1.0 "The maximum volume for the P O I sound when the P O I is closest."
+StormVolume = 0.5 "The volume for storm audio pings when storm monitoring is enabled."
+StormPingInterval = 1.5 "The interval in seconds between audio pings for storm detection."""
 
     if value_entries:
         base_config += "\n" + "\n".join(value_entries)
@@ -347,7 +351,7 @@ def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any 
 def get_config_section_for_key(key: str, value: str) -> str:
     """Determine which section a key belongs in"""
     # Check if it's a dynamic game object toggle
-    if key.startswith('Monitor') and key != 'MonitorGameObjects':
+    if key.startswith('Monitor') and key not in ['MonitorGameObjects', 'MonitorStorm']:
         return 'Toggles'
     
     # Check if it's a dynamic game object ping interval
@@ -359,7 +363,7 @@ def get_config_section_for_key(key: str, value: str) -> str:
         'AnnounceWeaponAttachments', 'AnnounceAmmo', 'AutoUpdates', 
         'CreateDesktopShortcut', 'AutoTurn', 'PerformFacingCheck', 
         'PlayPOISound', 'AnnounceMapStatus', 'AnnounceInventoryStatus',
-        'MonitorGameObjects'
+        'MonitorGameObjects', 'MonitorStorm'
     ]
     if key in toggles_keys:
         return 'Toggles'
@@ -782,6 +786,39 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
         ctypes.windll.user32.SetCursorPos(center_x, center_y)
     except Exception as e:
         print(f"Failed to move cursor to window center: {e}")
+
+MINIMAP_REGION = {
+    'left': 1600,
+    'top': 20,
+    'width': 300,
+    'height': 300
+}
+
+def process_minimap(capture_func=None) -> np.ndarray:
+    """
+    Capture and return the minimap region as an RGB numpy array.
+    Optionally, pass a custom capture function (for testing or alternate backends).
+    """
+    # Import here to avoid circular import issues
+    if capture_func is None:
+        from lib.screenshot_manager import capture_coordinates
+        capture_func = capture_coordinates
+
+    region = MINIMAP_REGION
+    arr = capture_func(
+        region['left'],
+        region['top'],
+        region['width'],
+        region['height'],
+        'rgb'
+    )
+    return arr  # Returns np.ndarray or None if capture failed
+
+def calculate_distance(player_pos, other_pos, scale=2.65):
+    """Calculate distance between two points in meters"""
+    import numpy as np
+    distance_pixels = np.linalg.norm(np.array(other_pos) - np.array(player_pos))
+    return distance_pixels * scale
 
 class Config:
     """Config adapter class for UI components with thread-safe operations"""

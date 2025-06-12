@@ -55,6 +55,7 @@ from lib.background_checks import monitor
 from lib.material_monitor import material_monitor
 from lib.resource_monitor import resource_monitor
 from lib.gameobject_monitor import gameobject_monitor
+from lib.storm_monitor import storm_monitor
 from lib.player_position import (
     announce_current_direction as speak_minimap_direction, 
     start_icon_detection, 
@@ -424,9 +425,10 @@ def open_config_gui() -> None:
             
         reload_config()
         
-        # Notify game object monitor of config changes
+        # Notify monitors of config changes
         if gameobject_monitor.running:
-            # The monitor will automatically pick up the new config on its next cycle
+            pass
+        if storm_monitor.running:
             pass
             
         print("Configuration updated and saved to disk")
@@ -1254,7 +1256,8 @@ def main() -> None:
         monitor.start_monitoring()
         material_monitor.start_monitoring()
         resource_monitor.start_monitoring()
-        gameobject_monitor.start_monitoring()  # Start game object monitoring
+        gameobject_monitor.start_monitoring()
+        storm_monitor.start_monitoring()
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
@@ -1268,6 +1271,11 @@ def main() -> None:
                 config_key = f"Monitor{obj_name.replace('_', '').title()}"
                 ping_key = f"{obj_name.replace('_', '').title()}PingInterval"
                 print(f"  - {display_name} (Toggle: {config_key}, Interval: {ping_key})")
+
+        # Print storm monitoring info
+        print("Storm monitoring configured:")
+        print("  - Monitor storm on minimap with spatial audio pings")
+        print("  - Config options: MonitorStorm (toggle), StormVolume, StormPingInterval")
 
         # Notify user that FA11y is running
         speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
@@ -1286,7 +1294,8 @@ def main() -> None:
         monitor.stop_monitoring()
         material_monitor.stop_monitoring()
         resource_monitor.stop_monitoring()
-        gameobject_monitor.stop_monitoring()  # Stop game object monitoring
+        gameobject_monitor.stop_monitoring()
+        storm_monitor.stop_monitoring()
         
         # Clean up object detection resources
         cleanup_object_detection()

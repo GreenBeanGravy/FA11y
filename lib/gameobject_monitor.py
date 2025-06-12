@@ -4,10 +4,9 @@ Background game object detection and spatial audio system
 import threading
 import time
 import os
-import queue
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities import read_config, get_config_boolean, get_config_float
+from lib.utilities import read_config, get_config_boolean, get_config_float, calculate_distance
 from lib.background_checks import monitor
 from lib.object_finder import optimized_finder, OBJECT_CONFIGS
 from lib.player_position import find_player_position, find_minimap_icon_direction
@@ -195,7 +194,6 @@ class GameObjectMonitor:
             return {}
         
         try:
-            # Only check objects that are enabled
             enabled_objects = [
                 obj_name for obj_name in OBJECT_CONFIGS.keys()
                 if self.is_object_enabled(obj_name)
@@ -209,12 +207,6 @@ class GameObjectMonitor:
             
         except Exception:
             return {}
-    
-    def calculate_distance(self, player_pos: Tuple[int, int], object_pos: Tuple[int, int]) -> float:
-        """Calculate distance between player and object in meters"""
-        import numpy as np
-        distance_pixels = np.linalg.norm(np.array(object_pos) - np.array(player_pos))
-        return distance_pixels * 2.65
     
     def should_play_audio_for_distance(self, distance: float) -> bool:
         """Check if audio should play based on distance"""
@@ -242,7 +234,7 @@ class GameObjectMonitor:
                         detection_update = {}
                         
                         for obj_name, coords in detected_objects.items():
-                            distance = self.calculate_distance(player_pos, coords)
+                            distance = calculate_distance(player_pos, coords)
                             detection_update[obj_name] = {
                                 'coords': coords,
                                 'distance': distance,
@@ -270,36 +262,30 @@ class GameObjectMonitor:
             self.cleanup_all_audio_threads()
             return
         
-        # Stop threads for objects that are no longer detected or too far
+        # Stop threads for objects that are no longer detected or too close
         objects_to_remove = []
         for obj_name, audio_thread in list(self.active_audio_threads.items()):
             if obj_name not in detected_objects:
-                # Object no longer detected, stop its audio
                 audio_thread.stop()
                 objects_to_remove.append(obj_name)
             else:
                 obj_data = detected_objects[obj_name]
                 if not self.should_play_audio_for_distance(obj_data['distance']):
-                    # Object too close, stop audio
                     audio_thread.stop()
                     objects_to_remove.append(obj_name)
         
-        # Remove stopped threads
         for obj_name in objects_to_remove:
             if obj_name in self.active_audio_threads:
                 del self.active_audio_threads[obj_name]
         
-        # Start or update threads for detected objects
         for obj_name, obj_data in detected_objects.items():
             distance = obj_data['distance']
             coords = obj_data['coords']
             
             if self.should_play_audio_for_distance(distance):
                 if obj_name in self.active_audio_threads:
-                    # Update existing thread
                     self.active_audio_threads[obj_name].update_position(coords, distance)
                 else:
-                    # Start new audio thread
                     audio_instance = self.get_audio_instance(obj_name)
                     if audio_instance:
                         ping_interval = self.get_object_ping_interval(obj_name)
@@ -327,13 +313,11 @@ class GameObjectMonitor:
         self.stop_event.set()
         self.running = False
         
-        # Stop all audio threads
         self.cleanup_all_audio_threads()
         
         if self.detection_thread:
             self.detection_thread.join(timeout=3.0)
         
-        # Clean up audio instances
         if self.default_audio:
             try:
                 self.default_audio.stop()

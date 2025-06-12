@@ -1,5 +1,5 @@
 """
-Unified player position, direction, navigation, and storm detection module for FA11y
+Unified player position, direction, navigation detection module for FA11y
 """
 import cv2
 import numpy as np
@@ -43,18 +43,6 @@ PPI_CAPTURE_REGION = {"top": 20, "left": 1600, "width": 300, "height": 300}
 
 # Detection region dimensions
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
-
-# Storm detection constants
-STORM_MIN_SHAPE_SIZE = 150000
-STORM_ROI_START = (621, 182)
-STORM_ROI_END = (1342, 964)
-STORM_ROI_START_SCALED = tuple(4 * np.array(STORM_ROI_START))
-STORM_ROI_END_SCALED = tuple(4 * np.array(STORM_ROI_END))
-STORM_TARGET_COLOR = np.array([165, 29, 146])
-STORM_COLOR_DISTANCE = 70
-STORM_LOWER_BOUND = np.maximum(0, STORM_TARGET_COLOR - STORM_COLOR_DISTANCE)
-STORM_UPPER_BOUND = np.minimum(255, STORM_TARGET_COLOR + STORM_COLOR_DISTANCE)
-STORM_ROI_SLICE = np.s_[STORM_ROI_START_SCALED[1]:STORM_ROI_END_SCALED[1], STORM_ROI_START_SCALED[0]:STORM_ROI_END_SCALED[0]]
 
 # Icon detection constants
 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
@@ -464,67 +452,6 @@ def find_player_position():
         return (x, y)
     return None
 
-def get_storm_screenshot():
-    """Get screenshot for storm detection"""
-    pyautogui.moveTo(1900, 1000, duration=0.1, tween=pyautogui.easeInOutQuad)
-    screenshot_rgba = np.array(pyautogui.screenshot())
-    return cv2.cvtColor(screenshot_rgba, cv2.COLOR_RGBA2RGB)
-
-def process_storm_image(screenshot_rgb):
-    """Process screenshot for storm detection"""
-    screenshot_bgr = cv2.cvtColor(screenshot_rgb, cv2.COLOR_RGB2BGR)
-    return cv2.resize(
-        screenshot_bgr, 
-        None, 
-        fx=4, 
-        fy=4, 
-        interpolation=cv2.INTER_LINEAR
-    )
-
-def detect_storm(roi_color_bgr):
-    """Detect storm in the given ROI"""
-    mask = cv2.inRange(roi_color_bgr, STORM_LOWER_BOUND, STORM_UPPER_BOUND)
-    mask = cv2.bitwise_not(mask)
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area > STORM_MIN_SHAPE_SIZE:
-            return process_storm_contour(roi_color_bgr, contour, area)
-    return None
-
-def process_storm_contour(roi_color_bgr, contour, area):
-    """Process storm contour to calculate center of mass"""
-    M = cv2.moments(contour)
-    if M["m00"] == 0:
-        return None
-        
-    cX = int(M["m10"] / M["m00"])
-    cY = int(M["m01"] / M["m00"])
-    
-    center_mass_screen_x = (cX // SCALE_FACTOR) + STORM_ROI_START[0]
-    center_mass_screen_y = (cY // SCALE_FACTOR) + STORM_ROI_START[1]
-    center_mass_screen = (center_mass_screen_x, center_mass_screen_y)
-
-    screen_width, screen_height = pyautogui.size()
-    screen_center_x, screen_center_y = screen_width // 2, screen_height // 2
-
-    if abs(center_mass_screen[0] - screen_center_x) <= 5 and \
-       abs(center_mass_screen[1] - screen_center_y) <= 5:
-        speaker.speak("No storm detected")
-        return None 
-        
-    return center_mass_screen
-
-def start_storm_detection():
-    """Start storm detection"""
-    screenshot_rgb = get_storm_screenshot()
-    processed_image_bgr = process_storm_image(screenshot_rgb)
-    roi_color_bgr = processed_image_bgr[STORM_ROI_SLICE]
-    
-    storm_coords = detect_storm(roi_color_bgr)
-    return storm_coords
-
 def find_closest_poi(icon_location, poi_list):
     """Find closest POI to the player"""
     if not icon_location or not poi_list:
@@ -636,18 +563,9 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
     poi_name_lower = selected_poi_name_from_config.lower()
 
     if poi_name_lower == 'safe zone':
-        map_was_opened_by_script = False
-        if not monitor.map_open:
-            pyautogui.press('m')
-            time.sleep(0.1)
-            map_was_opened_by_script = True
-
-        storm_location = start_storm_detection()
-
-        if map_was_opened_by_script:
-            pyautogui.press('escape')
-            time.sleep(0.05)
-
+        # Use new storm monitor system
+        from lib.storm_monitor import storm_monitor
+        storm_location = storm_monitor.get_current_storm_location()
         return 'Safe Zone', storm_location
 
     elif poi_name_lower == 'closest':
