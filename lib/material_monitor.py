@@ -6,6 +6,7 @@ from threading import Thread, Event, Lock
 from accessible_output2.outputs.auto import Auto
 import time
 from pathlib import Path
+from lib.ocr_manager import get_ocr_manager
 
 # Screen coordinates
 MATERIAL_ICON_AREA = {
@@ -29,39 +30,16 @@ class MaterialMonitor:
         self.stop_event = Event()
         self.thread = None
         
-        # OCR setup
-        self.easyocr_available = False
-        self.easyocr_ready = Event()
-        self.easyocr_lock = Lock()
-        self.reader = None
+        # Get OCR manager instance
+        self.ocr_manager = get_ocr_manager()
         
         # State tracking
         self.current_material = None
         self.last_count = None
         self.material_templates = {}
         
-        # Initialize OCR and load templates
-        self.initialize_easyocr()
+        # Load templates
         self.load_material_templates()
-
-    def initialize_easyocr(self):
-        """Initialize EasyOCR in a background thread."""
-        def load_easyocr():
-            import warnings
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore')
-                try:
-                    import easyocr
-                    with self.easyocr_lock:
-                        self.reader = easyocr.Reader(['en'], recognizer='number')
-                        self.easyocr_available = True
-                except Exception as e:
-                    print(f"EasyOCR initialization failed: {e}")
-                    self.easyocr_available = False
-                finally:
-                    self.easyocr_ready.set()
-
-        Thread(target=load_easyocr, daemon=True).start()
 
     def load_material_templates(self):
         """Load material template images."""
@@ -83,7 +61,6 @@ class MaterialMonitor:
                         'original': img,
                         'masked': masked
                     }
-                   # print(f"Loaded {material} template: {img.shape}")
                 else:
                     print(f"Failed to load template for {material}")
         
@@ -120,7 +97,7 @@ class MaterialMonitor:
 
     def detect_count(self, screenshot):
         """Detect number using OCR with specific color range filtering."""
-        if not self.easyocr_available or not self.easyocr_ready.is_set():
+        if not self.ocr_manager.is_ready():
             return None
 
         try:
@@ -143,13 +120,12 @@ class MaterialMonitor:
             # Resize
             gray = cv2.resize(gray, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_LINEAR)
             
-            with self.easyocr_lock:
-                results = self.reader.readtext(gray,
-                                            allowlist='0123456789',
-                                            paragraph=False,
-                                            min_size=10,
-                                            text_threshold=0.4,
-                                            width_ths=0.8)
+            results = self.ocr_manager.read_numbers(gray,
+                                        allowlist='0123456789',
+                                        paragraph=False,
+                                        min_size=10,
+                                        text_threshold=0.4,
+                                        width_ths=0.8)
             
             if results:
                 count_text = results[0][1]
@@ -165,45 +141,50 @@ class MaterialMonitor:
             last_material_time = 0
             
             while not self.stop_event.is_set():
-                # Capture material icon area
-                icon_screenshot = np.array(sct.grab(MATERIAL_ICON_AREA))
-                
-                # Detect material
-                detected_material = self.detect_material(icon_screenshot)
-                current_time = time.time()
-                
-                if detected_material:
-                    last_material_time = current_time
+                try:
+                    # Capture material icon area
+                    icon_screenshot = np.array(sct.grab(MATERIAL_ICON_AREA))
                     
-                    if self.current_material != detected_material:
-                        # Reset state for new material
-                        self.current_material = detected_material
+                    # Detect material
+                    detected_material = self.detect_material(icon_screenshot)
+                    current_time = time.time()
+                    
+                    if detected_material:
+                        last_material_time = current_time
+                        
+                        if self.current_material != detected_material:
+                            # Reset state for new material
+                            self.current_material = detected_material
+                            self.last_count = None
+                            
+                            # Get initial count when new material detected
+                            count_screenshot = np.array(sct.grab(MATERIAL_COUNT_AREA))
+                            current_count = self.detect_count(count_screenshot)
+                            if current_count is not None:
+                                # Announce initial detection
+                                self.speaker.speak(f"plus {current_count} {detected_material}")
+                                self.last_count = current_count
+                        else:
+                            # Continue monitoring count for same material
+                            count_screenshot = np.array(sct.grab(MATERIAL_COUNT_AREA))
+                            current_count = self.detect_count(count_screenshot)
+                            
+                            if current_count is not None and current_count != self.last_count:
+                                # Announce count changes
+                                if self.last_count is not None:
+                                    self.speaker.speak(f"plus {current_count}")
+                                self.last_count = current_count
+                            
+                    # Only consider material gone if not seen for 1.5 seconds
+                    elif self.current_material and current_time - last_material_time > 1.5:
+                        self.current_material = None
                         self.last_count = None
-                        
-                        # Get initial count when new material detected
-                        count_screenshot = np.array(sct.grab(MATERIAL_COUNT_AREA))
-                        current_count = self.detect_count(count_screenshot)
-                        if current_count is not None:
-                            # Announce initial detection
-                            self.speaker.speak(f"plus {current_count} {detected_material}")
-                            self.last_count = current_count
-                    else:
-                        # Continue monitoring count for same material
-                        count_screenshot = np.array(sct.grab(MATERIAL_COUNT_AREA))
-                        current_count = self.detect_count(count_screenshot)
-                        
-                        if current_count is not None and current_count != self.last_count:
-                            # Announce count changes
-                            if self.last_count is not None:
-                                self.speaker.speak(f"plus {current_count}")
-                            self.last_count = current_count
-                        
-                # Only consider material gone if not seen for 1.5 seconds
-                elif self.current_material and current_time - last_material_time > 1.5:
-                    self.current_material = None
-                    self.last_count = None
-                
-                time.sleep(0.3)  # Check every 0.5 seconds
+                    
+                    time.sleep(0.3)  # Check every 0.3 seconds
+                    
+                except Exception as e:
+                    print(f"Error in material monitor loop: {e}")
+                    time.sleep(0.5)
 
     def start_monitoring(self):
         """Start the material monitoring."""

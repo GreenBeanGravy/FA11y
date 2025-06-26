@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, List
+from lib.ocr_manager import get_ocr_manager
 
 # Screen monitoring configuration
 SCAN_REGION = {
@@ -66,30 +67,13 @@ class ResourceMonitor:
         self.lock = Lock()
         self.active_resources: Dict[str, ResourceState] = {}
         self.resource_templates = {}
-        self.easyocr_available = False
-        self.easyocr_ready = Event()
-        self.easyocr_lock = Lock()
-        self.reader = None
+        
+        # Get OCR manager instance
+        self.ocr_manager = get_ocr_manager()
+        
         self.position_change_cooldown = 0.2  # 200ms cooldown for position changes
-        self.initialize_easyocr()
         self.load_resource_templates()
         self.last_positions = {}  # Track last known positions of resources
-
-    def initialize_easyocr(self):
-        def load_easyocr():
-            import warnings
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore')
-                try:
-                    import easyocr
-                    with self.easyocr_lock:
-                        self.reader = easyocr.Reader(['en'], recognizer='number')
-                        self.easyocr_available = True
-                except:
-                    self.easyocr_available = False
-                finally:
-                    self.easyocr_ready.set()
-        Thread(target=load_easyocr, daemon=True).start()
 
     def load_resource_templates(self):
         templates = {}
@@ -190,7 +174,7 @@ class ResourceMonitor:
 
     def detect_count(self, screenshot, position: Tuple[int, int], name: str, current_time: float) -> Optional[int]:
         """Enhanced count detection with position validation."""
-        if not self.easyocr_available or not self.easyocr_ready.is_set():
+        if not self.ocr_manager.is_ready():
             return None
 
         try:
@@ -207,13 +191,12 @@ class ResourceMonitor:
             _, gray = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
             gray = cv2.resize(gray, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_LINEAR)
             
-            with self.easyocr_lock:
-                results = self.reader.readtext(gray,
-                                            allowlist='0123456789',
-                                            paragraph=False,
-                                            min_size=10,
-                                            text_threshold=0.4,
-                                            width_ths=0.8)
+            results = self.ocr_manager.read_numbers(gray,
+                                        allowlist='0123456789',
+                                        paragraph=False,
+                                        min_size=10,
+                                        text_threshold=0.4,
+                                        width_ths=0.8)
             
             if results:
                 count_text = results[0][1]
@@ -228,8 +211,8 @@ class ResourceMonitor:
                                 if abs(count - old_count) > 100:  # Adjust threshold as needed
                                     return None
                         return count
-        except:
-            pass
+        except Exception as e:
+            print(f"Error in count detection: {e}")
         return None
 
     def monitor_loop(self):
@@ -306,16 +289,15 @@ class ResourceMonitor:
                             current_count = self.detect_count(count_screenshot, state.position, name, current_time)
                             
                             if current_count is not None:
-                                state.last_count = state.count
+                                old_count = state.count
                                 state.count = current_count
-                                state.count_history.append(current_count)
                                 state.last_seen = current_time
                                 
-                                # Only announce if count has changed and hasn't been announced too many times
-                                if state.last_count is None or current_count > state.last_count:
-                                    if state.announcements < 2:
-                                        self.speaker.speak(f"plus {current_count} {name.replace('_', ' ')}")
-                                        state.announcements += 1
+                                # Only announce if count has changed and we can announce
+                                if old_count != current_count and state.can_announce(current_count, current_time):
+                                    self.speaker.speak(f"plus {current_count} {name.replace('_', ' ')}")
+                                    state.announced_values[current_count] = current_time
+                                    state.last_global_announcement = current_time
                         
                         # Remove inactive resources
                         for name in resources_to_remove:

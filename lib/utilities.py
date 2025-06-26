@@ -2,21 +2,67 @@ import os
 import time
 import ctypes
 import configparser
-from typing import Dict, Tuple, Optional, Any, Union
+import threading
+from typing import Dict, Tuple, Optional, Any, Union, List
 
-import pywintypes
+import pywintypes 
 import win32gui
 import win32con
 import win32com.client
 import win32api
 import win32process
+import numpy as np
 from accessible_output2.outputs.auto import Auto
+
+# Try to import fcntl for Unix systems, ignore on Windows
+try:
+    import fcntl
+    HAS_FCNTL = True
+except ImportError:
+    HAS_FCNTL = False
 
 speaker = Auto()
 CONFIG_FILE = 'config.txt'
 
-# Modified DEFAULT_CONFIG to use new section format
-DEFAULT_CONFIG = """[Toggles]
+# Global lock for config file operations
+_config_lock = threading.RLock()
+_config_cache = None
+_config_cache_time = 0
+_config_cache_timeout = 1.0  # Cache config for 1 second to prevent excessive file reads
+
+def get_gameobject_configs():
+    """Get game object configurations for dynamic config generation"""
+    try:
+        from lib.object_finder import OBJECT_CONFIGS
+        return OBJECT_CONFIGS
+    except ImportError:
+        return {}
+
+def generate_dynamic_config_sections():
+    """Generate dynamic config sections based on available game objects"""
+    gameobjects = get_gameobject_configs()
+    
+    # Generate toggle entries for each game object
+    toggle_entries = []
+    value_entries = []
+    
+    for obj_name in sorted(gameobjects.keys()):
+        # Convert object name to display format
+        display_name = obj_name.replace('_', ' ').title()
+        config_key = f"Monitor{obj_name.replace('_', '').title()}"
+        ping_key = f"{obj_name.replace('_', '').title()}PingInterval"
+        
+        toggle_entries.append(f'{config_key} = true "Toggles monitoring for {display_name} objects."')
+        value_entries.append(f'{ping_key} = 2.0 "The interval in seconds between audio pings for {display_name} objects."')
+    
+    return toggle_entries, value_entries
+
+# Default configuration with all options and descriptions
+def get_default_config():
+    """Generate default config with dynamic game object entries"""
+    toggle_entries, value_entries = generate_dynamic_config_sections()
+    
+    base_config = """[Toggles]
 SimplifySpeechOutput = false "Toggles simplifying speech for various FA11y announcements."
 MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
 ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
@@ -28,8 +74,14 @@ AutoTurn = true "Toggles the automatic turning feature when navigating to a posi
 PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
 PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
-AnnounceSpectatingStatus = true "Toggles announcements when spectating status changes."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
+MonitorGameObjects = false "Toggles background monitoring and spatial audio for nearby game objects while the map is closed."
+MonitorStorm = true "Toggles monitoring for storm detection on the minimap with spatial audio pings."""
+
+    if toggle_entries:
+        base_config += "\n" + "\n".join(toggle_entries)
+
+    base_config += """
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
@@ -46,14 +98,18 @@ RecenterLookDown = 1500 "The sensitivity used when moving the camera down when r
 RecenterLookUp = -820 "The sensitivity used when moving the camera up when recentering the camera."
 ResetRecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
 ResetRecenterLookUp = -580 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
-PathfindingCheckInterval = 0.3 "The interval in seconds between pathfinding position checks."
-PathfindingPointRadius = 10 "The radius in meters within which a pathfinding point is considered reached."
-MinimumMovementDistance = 1 "The minimum distance the player must move in meters within a second while pathfinding to avoid pressing the spacebar."
 PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
 PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
 FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
 MinimumPOIVolume = 0.05 "The minimum volume for the P O I sound when the P O I is farthest."
 MaximumPOIVolume = 1.0 "The maximum volume for the P O I sound when the P O I is closest."
+StormVolume = 0.5 "The volume for storm audio pings when storm monitoring is enabled."
+StormPingInterval = 1.5 "The interval in seconds between audio pings for storm detection."""
+
+    if value_entries:
+        base_config += "\n" + "\n".join(value_entries)
+
+    base_config += """
 
 [Keybinds]
 Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."
@@ -69,7 +125,9 @@ Turn Around = num 0 "Turns the player camera around 180 degrees by moving the mo
 Recenter = num 5 "Recenters the player camera using many configurable sensitivity values."
 Scroll Up = num 7 "Scrolls up on the current mouse position using the ScrollSensitivity sensitivity."
 Scroll Down = num 9 "Scrolls down on the current mouse position using the ScrollSensitivity sensitivity."
-Toggle Pathfinding = p "Toggles pathfinding for the current selected POI or position."
+Cycle Map =  "Cycles through available maps. Hold Shift to cycle in reverse."
+Cycle POI =  "Cycles through POIs in the current map. Hold Shift to cycle in reverse."
+Cycle POI Category =  "Cycles between POI categories (Special, Regular, Landmarks, Favorites, Custom). Hold Shift to cycle in reverse."
 Start Navigation = grave "Starts the player navigation process based on the players selected P O I, Game Object, or location."
 Check Health Shields = h "Announces the players Health and Shield values."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."
@@ -90,315 +148,610 @@ Detect Hotbar 5 = 5 "Announces details about the item the player is currently ho
 selected_poi = closest, 0, 0
 current_map = main"""
 
-# Mapping for where settings should go in new format
-SETTINGS_MAPPING = {
-    'MouseKeys': 'Toggles',
-    'ResetSensitivity': 'Toggles',
-    'AnnounceWeaponAttachments': 'Toggles',
-    'AnnounceAmmo': 'Toggles',
-    'AutoUpdates': 'Toggles',
-    'CreateDesktopShortcut': 'Toggles',
-    'AutoTurn': 'Toggles',
-    'PerformFacingCheck': 'Toggles',
-    # All other settings go to Values by default
-}
+    return base_config
+
+DEFAULT_CONFIG = get_default_config()
+
+def _create_config_parser_with_case_preserved() -> configparser.ConfigParser:
+    """Create a ConfigParser that preserves case for keys"""
+    parser = configparser.ConfigParser(interpolation=None)
+    parser.optionxform = str  # Preserve case for keys
+    return parser
+
+def _safe_file_write(filename: str, content: str, max_retries: int = 3) -> bool:
+    """Safely write content to file with retry logic and proper locking"""
+    for attempt in range(max_retries):
+        try:
+            # Create backup of existing file
+            backup_file = f"{filename}.backup"
+            if os.path.exists(filename):
+                try:
+                    with open(filename, 'r', encoding='utf-8') as f:
+                        backup_content = f.read()
+                    with open(backup_file, 'w', encoding='utf-8') as f:
+                        f.write(backup_content)
+                except Exception as e:
+                    print(f"Warning: Could not create backup: {e}")
+            
+            # Write new content
+            with open(filename, 'w', encoding='utf-8') as f:
+                # Use file locking on Unix systems
+                if HAS_FCNTL:
+                    try:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except (OSError, IOError):
+                        if attempt < max_retries - 1:
+                            time.sleep(0.1 * (attempt + 1))
+                            continue
+                        raise
+                
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            
+            # Remove backup if write was successful
+            if os.path.exists(backup_file):
+                try:
+                    os.remove(backup_file)
+                except:
+                    pass
+                    
+            return True
+            
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed to write {filename}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(0.1 * (attempt + 1))
+                # Try to restore from backup
+                backup_file = f"{filename}.backup"
+                if os.path.exists(backup_file):
+                    try:
+                        with open(backup_file, 'r', encoding='utf-8') as f:
+                            backup_content = f.read()
+                        with open(filename, 'w', encoding='utf-8') as f:
+                            f.write(backup_content)
+                    except:
+                        pass
+            else:
+                return False
+    
+    return False
+
+def _safe_file_read(filename: str, max_retries: int = 3) -> Optional[str]:
+    """Safely read content from file with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                # Use file locking on Unix systems
+                if HAS_FCNTL:
+                    try:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+                    except (OSError, IOError):
+                        if attempt < max_retries - 1:
+                            time.sleep(0.1 * (attempt + 1))
+                            continue
+                        raise
+                
+                return f.read()
+                
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed to read {filename}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(0.1 * (attempt + 1))
+            else:
+                return None
+    
+    return None
+
+def get_default_config_order() -> Dict[str, List[str]]:
+    """Get the order of sections and keys in the default config"""
+    default_config_parser = _create_config_parser_with_case_preserved()
+    default_config_parser.read_string(DEFAULT_CONFIG)
+    
+    order = {}
+    for section in default_config_parser.sections():
+        order[section] = list(default_config_parser.options(section))
+    
+    return order
+
+def reorganize_config(config: configparser.ConfigParser) -> configparser.ConfigParser:
+    """Reorganize config according to the default order"""
+    default_order = get_default_config_order()
+    reorganized_config = _create_config_parser_with_case_preserved()
+    
+    # First add all sections in the default order
+    for section in default_order:
+        if not reorganized_config.has_section(section):
+            reorganized_config.add_section(section)
+        
+        # Add keys in default order, preserving values from current config
+        for key in default_order[section]:
+            if config.has_section(section) and config.has_option(section, key):
+                reorganized_config.set(section, key, config.get(section, key))
+    
+    # Add any sections/keys not in default config
+    for section in config.sections():
+        if section not in default_order:
+            if not reorganized_config.has_section(section):
+                reorganized_config.add_section(section)
+        
+        for key, value in config.items(section):
+            if not reorganized_config.has_option(section, key):
+                reorganized_config.set(section, key, value)
+    
+    return reorganized_config
+
+def configs_have_different_values(config1: configparser.ConfigParser, config2: configparser.ConfigParser) -> bool:
+    """
+    Compare two config parsers for value differences.
+    Returns True if any actual values differ (ignoring organization and whitespace).
+    """
+    # Check all sections in config1
+    for section in config1.sections():
+        if not config2.has_section(section):
+            return True  # Section missing in config2
+        
+        # Check all options in this section of config1
+        for option in config1.options(section):
+            if not config2.has_option(section, option):
+                return True  # Option missing in config2
+            
+            # Extract just the value part (before any description in quotes)
+            value1 = config1.get(section, option).split('"')[0].strip()
+            value2 = config2.get(section, option).split('"')[0].strip()
+            
+            if value1 != value2:
+                return True  # Values differ
+    
+    # Check for sections in config2 that aren't in config1
+    for section in config2.sections():
+        if not config1.has_section(section):
+            return True  # Section in config2 that's not in config1
+        
+        # Check for options in config2's section that aren't in config1
+        for option in config2.options(section):
+            if not config1.has_option(section, option):
+                return True  # Option in config2 that's not in config1
+    
+    # If we get here, the configs have equivalent values
+    return False
+
+def configs_differ_structurally(config1: configparser.ConfigParser, config2: configparser.ConfigParser) -> bool:
+    """
+    Check if configs differ in structure (sections and options).
+    This ignores the values and only checks the organization.
+    """
+    # Check if sections are different
+    sections1 = set(config1.sections())
+    sections2 = set(config2.sections())
+    if sections1 != sections2:
+        return True
+    
+    # Check if options in each section are different
+    for section in sections1:
+        options1 = set(config1.options(section))
+        options2 = set(config2.options(section))
+        if options1 != options2:
+            return True
+    
+    # Otherwise, they have the same structure
+    return False
 
 def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any = None) -> Tuple[str, str]:
-    """Get a configuration value from any section.
-    
-    Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found
-        
-    Returns:
-        tuple: (value, description)
-    """
-    for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS']:
-        if section in config and key in config[section]:
-            value = config[section][key]
+    """Get a config value from any section with its description"""
+    for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS', 'POI']: 
+        if config.has_section(section) and config.has_option(section, key): 
+            value = config.get(section, key) 
             parts = value.split('"')
-            if len(parts) > 1:
+            if len(parts) > 1: 
                 return parts[0].strip(), parts[1]
-            return parts[0].strip(), ""
-    return fallback, ""
+            return parts[0].strip(), "" 
+    return str(fallback) if fallback is not None else "", ""
 
 def get_config_section_for_key(key: str, value: str) -> str:
-    """Determine which section a key should be in based on its value and mapping.
-    
-    Args:
-        key: The configuration key
-        value: The value associated with the key
-        
-    Returns:
-        str: The appropriate section name
-    """
-    if key in SETTINGS_MAPPING:
-        return SETTINGS_MAPPING[key]
-    if value.lower() in ['true', 'false']:
+    """Determine which section a key belongs in"""
+    # Check if it's a dynamic game object toggle
+    if key.startswith('Monitor') and key not in ['MonitorGameObjects', 'MonitorStorm']:
         return 'Toggles'
+    
+    # Check if it's a dynamic game object ping interval
+    if key.endswith('PingInterval'):
+        return 'Values'
+    
+    toggles_keys = [
+        'SimplifySpeechOutput', 'MouseKeys', 'ResetSensitivity', 
+        'AnnounceWeaponAttachments', 'AnnounceAmmo', 'AutoUpdates', 
+        'CreateDesktopShortcut', 'AutoTurn', 'PerformFacingCheck', 
+        'PlayPOISound', 'AnnounceMapStatus', 'AnnounceInventoryStatus',
+        'MonitorGameObjects', 'MonitorStorm'
+    ]
+    if key in toggles_keys:
+        return 'Toggles'
+    
+    default_parser = _create_config_parser_with_case_preserved()
+    default_parser.read_string(DEFAULT_CONFIG)
+    if default_parser.has_option('Keybinds', key): 
+        return 'Keybinds'
+
+    if value.lower() in ['true', 'false'] and key not in toggles_keys: 
+        return 'Toggles'
+        
     return 'Values'
 
 def migrate_config_to_new_format(config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """Migrate an old format config to the new format.
-    
-    Args:
-        config: The old configuration parser object
-        
-    Returns:
-        ConfigParser: The new format configuration
-    """
-    new_config = configparser.ConfigParser(interpolation=None)
-    new_config.optionxform = str
-    
-    # Initialize new sections
-    new_config.add_section('Toggles')
-    new_config.add_section('Values')
-    new_config.add_section('Keybinds')
-    
-    # Migrate settings
-    if 'SETTINGS' in config:
-        for key, value in config['SETTINGS'].items():
-            target_section = get_config_section_for_key(key, value.split('"')[0].strip())
-            new_config[target_section][key] = value
+    """Migrate old config format to new format, preserving case"""
+    new_config = _create_config_parser_with_case_preserved()
             
-    # Migrate keybinds
-    if 'SCRIPT KEYBINDS' in config:
-        for key, value in config['SCRIPT KEYBINDS'].items():
-            new_config['Keybinds'][key] = value
+    for section_name in ['Toggles', 'Values', 'Keybinds', 'POI']:
+        if not new_config.has_section(section_name):
+            new_config.add_section(section_name)
             
-    # Preserve POI section
-    if 'POI' in config:
-        new_config.add_section('POI')
-        for key, value in config['POI'].items():
-            new_config['POI'][key] = value
+    if config.has_section('SETTINGS'):
+        for key, value_with_desc in config.items('SETTINGS'): 
+            value_part = value_with_desc.split('"')[0].strip() 
+            target_section = get_config_section_for_key(key, value_part)
+            new_config.set(target_section, key, value_with_desc) 
             
+    if config.has_section('SCRIPT KEYBINDS'):
+        for key, value_with_desc in config.items('SCRIPT KEYBINDS'):
+            new_config.set('Keybinds', key, value_with_desc)
+            
+    if config.has_section('POI'):
+        for key, value in config.items('POI'):
+            new_config.set('POI', key, value) 
+            
+    # Reorganize the config according to default order
+    new_config = reorganize_config(new_config)
+    
     return new_config
 
-def read_config() -> configparser.ConfigParser:
-    """Read and parse the configuration file, converting to new format if needed.
+def read_config(use_cache: bool = True) -> configparser.ConfigParser:
+    """Read and parse config file, handling migration and default values"""
+    global _config_cache, _config_cache_time
     
-    Returns:
-        ConfigParser: The configuration parser object
-    """
-    config = configparser.ConfigParser(interpolation=None)
-    config.optionxform = str
-
-    try:
-        if os.path.exists(CONFIG_FILE):
-            config.read(CONFIG_FILE)
-            if not config.sections():
-                raise configparser.MissingSectionHeaderError(CONFIG_FILE, 1, "File contains no section headers.")
-        else:
-            raise FileNotFoundError
-
-        # Check if config needs migration
-        if 'SETTINGS' in config.sections() or 'SCRIPT KEYBINDS' in config.sections():
-            print("Converting config to new format...")
-            config = migrate_config_to_new_format(config)
-            
-        config = update_config(config)
+    with _config_lock:
+        # Use cache if available and recent
+        if use_cache and _config_cache is not None:
+            current_time = time.time()
+            if current_time - _config_cache_time < _config_cache_timeout:
+                # Return a copy to prevent external modifications
+                new_config = _create_config_parser_with_case_preserved()
+                for section in _config_cache.sections():
+                    new_config.add_section(section)
+                    for key, value in _config_cache.items(section):
+                        new_config.set(section, key, value)
+                return new_config
         
-        # Save the migrated config
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-            
-    except (configparser.MissingSectionHeaderError, FileNotFoundError):
-        print(f"Config file is corrupted or missing. Creating a new one with default values.")
-        if os.path.exists(CONFIG_FILE):
-            os.remove(CONFIG_FILE)
-        config.read_string(DEFAULT_CONFIG)
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-        print(f"Created new config file: {CONFIG_FILE}")
+        config = _create_config_parser_with_case_preserved()
 
-    return config
-
-def update_config(config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """Update the configuration file with default values if necessary.
-    
-    Args:
-        config: The configuration parser object
-        
-    Returns:
-        ConfigParser: The updated configuration
-    """
-    default_config = configparser.ConfigParser(interpolation=None)
-    default_config.optionxform = str
-    default_config.read_string(DEFAULT_CONFIG)
-
-    updated = False
-
-    # Ensure all sections exist
-    for section in default_config.sections():
-        if not config.has_section(section):
-            config.add_section(section)
-            updated = True
-
-    # Update all sections
-    for section in default_config.sections():
-        if section == 'POI':
-            continue  # Skip POI section as it's user-specific
-            
-        new_section = {}
-        existing_keys = {k.lower(): (k, config[section][k]) for k in config[section]}
-
-        for key, value in default_config.items(section):
-            lower_key = key.lower()
-            default_value, default_description = get_config_value(default_config, key)
-
-            if lower_key in existing_keys:
-                original_key, existing_value = existing_keys[lower_key]
-                existing_value, existing_description = get_config_value(config, original_key)
-
-                if original_key != key:
-                    updated = True
-
-                new_value = f"{existing_value}"
-                if existing_description:
-                    new_value += f' "{existing_description}"'
-                elif default_description:
-                    new_value += f' "{default_description}"'
-                    updated = True
-
-                new_section[key] = new_value
+        try:
+            if os.path.exists(CONFIG_FILE):
+                content = _safe_file_read(CONFIG_FILE)
+                if content is not None:
+                    config.read_string(content)
+                    if not config.sections(): 
+                        raise configparser.Error("File contains no section headers or is empty.")
+                else:
+                    raise FileNotFoundError(f"Could not read {CONFIG_FILE}")
             else:
-                new_section[key] = value
-                updated = True
+                raise FileNotFoundError(f"{CONFIG_FILE} not found.")
 
-        config[section] = new_section
+            is_old_format = config.has_section('SETTINGS') or config.has_section('SCRIPT KEYBINDS')
+            
+            if is_old_format:
+                print("Old config format detected. Migrating to new format...")
+                migrated_config = migrate_config_to_new_format(config)
+                config = migrated_config 
+                if not save_config(config):
+                    print("Warning: Could not save migrated config")
+                print("Config migrated and saved. Now ensuring all default values are present.")
+            
+            config = update_config(config) 
+                
+        except (configparser.Error, FileNotFoundError) as e: 
+            print(f"Config file error: {e}. Creating a new one with default values.")
+            if os.path.exists(CONFIG_FILE):
+                try:
+                    os.remove(CONFIG_FILE) 
+                except OSError as oe:
+                    print(f"Could not remove existing config file: {oe}")
 
-    if updated:
-        with open(CONFIG_FILE, 'w') as configfile:
-            config.write(configfile)
-        print(f"Updated config file: {CONFIG_FILE}")
+            config = _create_config_parser_with_case_preserved()
+            config.read_string(DEFAULT_CONFIG)
+            if not save_config(config):
+                print("Warning: Could not save new config file")
+            print(f"Created new config file: {CONFIG_FILE}")
+        
+        # Update cache
+        _config_cache = config
+        _config_cache_time = time.time()
+        
+        # Return a copy to prevent external modifications
+        new_config = _create_config_parser_with_case_preserved()
+        for section in config.sections():
+            new_config.add_section(section)
+            for key, value in config.items(section):
+                new_config.set(section, key, value)
+        
+        return new_config
 
-    return config
+def save_config(config: configparser.ConfigParser) -> bool:
+    """Save config to file with proper locking and error handling"""
+    global _config_cache, _config_cache_time
+    
+    with _config_lock:
+        try:
+            # Create string representation
+            from io import StringIO
+            config_string = StringIO()
+            config.write(config_string)
+            content = config_string.getvalue()
+            config_string.close()
+            
+            # Save to file
+            success = _safe_file_write(CONFIG_FILE, content)
+            if success:
+                # Update cache
+                _config_cache = config
+                _config_cache_time = time.time()
+                return True
+            else:
+                print(f"Failed to save config to {CONFIG_FILE}")
+                return False
+                
+        except Exception as e:
+            print(f"Error saving config: {e}")
+            return False
+
+def update_config(current_config: configparser.ConfigParser) -> configparser.ConfigParser:
+    """Update config with default values and clean up duplicates"""
+    default_config_parser = _create_config_parser_with_case_preserved()
+    default_config_parser.read_string(DEFAULT_CONFIG)
+
+    # Track different types of changes
+    values_changed = False  # Actual values (settings) changed
+    structure_changed = False  # Organization/structure changed
+
+    # Ensure all default sections and keys are present
+    for section in default_config_parser.sections():
+        if not current_config.has_section(section):
+            current_config.add_section(section)
+            structure_changed = True
+            values_changed = True  # New section with values
+        
+        for key, default_full_value in default_config_parser.items(section):
+            if not current_config.has_option(section, key):
+                current_config.set(section, key, default_full_value)
+                structure_changed = True
+                values_changed = True  # New value added
+            else:
+                # Ensure description consistency
+                current_val_str = current_config.get(section, key)
+                has_current_desc = '"' in current_val_str
+                has_default_desc = '"' in default_full_value
+                if not has_current_desc and has_default_desc:
+                    current_value_part_only = current_val_str.strip()
+                    _, default_desc_only = default_full_value.split('"', 1)
+                    if default_desc_only.endswith('"'):
+                        default_desc_only = default_desc_only[:-1]
+                    current_config.set(section, key, f'{current_value_part_only} "{default_desc_only}"')
+                    structure_changed = True  # Description added/changed
+
+    # Clean up duplicates
+    for section in current_config.sections():
+        if section == "POI":  # Skip POI section for advanced cleanup
+            continue
+
+        options_in_section = current_config.options(section)
+        keys_to_remove = []
+        
+        # Find case duplicates
+        options_by_lower = {}
+        for opt in options_in_section:
+            lower_opt = opt.lower()
+            if lower_opt not in options_by_lower:
+                options_by_lower[lower_opt] = []
+            options_by_lower[lower_opt].append(opt)
+
+        for lower_key, cased_keys in options_by_lower.items():
+            if len(cased_keys) > 1:  # Found duplicates
+                structure_changed = True
+                canonical_key_from_default = None
+                
+                # Find canonical key from default config
+                if default_config_parser.has_section(section):
+                    for default_opt_key in default_config_parser.options(section):
+                        if default_opt_key.lower() == lower_key:
+                            canonical_key_from_default = default_opt_key
+                            break
+                
+                if canonical_key_from_default and canonical_key_from_default in cased_keys:
+                    # Keep the correctly cased key from default
+                    for k_to_check in cased_keys:
+                        if k_to_check != canonical_key_from_default:
+                            keys_to_remove.append(k_to_check)
+                else:
+                    # Prioritize user-modified values
+                    default_value_for_key = None
+                    if canonical_key_from_default and default_config_parser.has_option(section, canonical_key_from_default):
+                         default_value_for_key = default_config_parser.get(section, canonical_key_from_default)
+
+                    kept_key = None
+                    if default_value_for_key:
+                        for k_in_dups in cased_keys:
+                            if current_config.get(section, k_in_dups) != default_value_for_key:
+                                kept_key = k_in_dups  # Prioritize user-modified value
+                                break
+                    
+                    if not kept_key:
+                        kept_key = sorted(cased_keys)[0]  # Keep first one alphabetically
+
+                    for k_to_remove_dup in cased_keys:
+                        if k_to_remove_dup != kept_key:
+                            keys_to_remove.append(k_to_remove_dup)
+        
+        # Remove duplicate keys
+        for k_rem in keys_to_remove:
+            current_config.remove_option(section, k_rem)
+            print(f"Removed duplicate key '{k_rem}' from section '[{section}]'")
+            values_changed = True  # Consider removing duplicates a value change
+
+    # Always reorganize the config according to default order
+    reorganized_config = reorganize_config(current_config)
+    
+    # Check if only the structure is different but not the actual values
+    if not values_changed and not configs_have_different_values(reorganized_config, current_config):
+        # Only the structure differs - use the reorganized version but don't report it as changed
+        should_report_update = False
+    else:
+        # Either values changed or reorganized version has different values
+        should_report_update = True
+    
+    # Always use the reorganized config
+    current_config = reorganized_config
+
+    # Save if we have any changes (structural or values)
+    if values_changed or structure_changed:
+        if save_config(current_config):
+            if should_report_update:
+                print(f"Config file '{CONFIG_FILE}' was updated.")
+        else:
+            print(f"Error writing updated config file")
+            
+    return current_config
+
+def clear_config_cache():
+    """Clear the config cache to force reload on next read"""
+    global _config_cache, _config_cache_time
+    with _config_lock:
+        _config_cache = None
+        _config_cache_time = 0
+
+def get_default_config_value_string(section_name: str, key_name: str) -> Optional[str]:
+    """Get the default value string for a specific key"""
+    default_config_parser = _create_config_parser_with_case_preserved()
+    default_config_parser.read_string(DEFAULT_CONFIG)
+    if default_config_parser.has_option(section_name, key_name):
+        return default_config_parser.get(section_name, key_name) 
+    print(f"Warning: Default value for [{section_name}] {key_name} not found in DEFAULT_CONFIG.")
+    return None
 
 def get_config_int(config: configparser.ConfigParser, key: str, fallback: Optional[int] = None) -> Optional[int]:
-    """Get an integer configuration value from any section.
-    
-    Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found or invalid
-        
-    Returns:
-        int or None: The integer value or fallback
-    """
-    value, _ = get_config_value(config, key, fallback)
+    """Get an integer config value from any section"""
+    value, _ = get_config_value(config, key, str(fallback) if fallback is not None else None)
     try:
         return int(value)
     except (ValueError, TypeError):
         return fallback
 
 def get_config_float(config: configparser.ConfigParser, key: str, fallback: Optional[float] = None) -> Optional[float]:
-    """Get a float configuration value from any section.
-    
-    Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found or invalid
-        
-    Returns:
-        float or None: The float value or fallback
-    """
-    value, _ = get_config_value(config, key, fallback)
+    """Get a float config value from any section"""
+    value, _ = get_config_value(config, key, str(fallback) if fallback is not None else None)
     try:
         return float(value)
     except (ValueError, TypeError):
         return fallback
 
 def get_config_boolean(config: configparser.ConfigParser, key: str, fallback: bool = False) -> bool:
-    """Get a boolean configuration value from any section.
-    
-    Args:
-        config: The configuration parser object
-        key: The key to look for
-        fallback: The fallback value if key is not found or invalid
-        
-    Returns:
-        bool: The boolean value or fallback
-    """
+    """Get a boolean config value from any section"""
     value, _ = get_config_value(config, key, str(fallback))
     return value.lower() in ('true', 'yes', 'on', '1')
 
 def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: Optional[Union[callable, Any]] = None) -> None:
-    """Force focus on a given window, with optional speech and widget focus.
-
-    Args:
-        window: The window to focus
-        speak_text: Text to speak after focusing
-        focus_widget: Widget to focus after window is focused
-    """
+    """Force focus on a given window with optional speech and widget focus"""
     window.deiconify()
     window.attributes('-topmost', True)
     window.update()
     window.lift()
 
-    hwnd = win32gui.GetParent(window.winfo_id())
+    # Try to get window handle
+    hwnd = None
+    try:
+        hwnd = win32gui.GetParent(window.winfo_id())
+        if hwnd == 0: 
+            hwnd = window.winfo_id()
+    except Exception as e:
+        print(f"Error getting window handle: {e}")
+        window.focus_force()
+        if speak_text: speaker.speak(speak_text)
+        if focus_widget:
+            if callable(focus_widget): window.after(100, focus_widget)
+            else: window.after(100, focus_widget.focus_set)
+        return
 
-    # Ensure window is not minimized
+    if hwnd == 0: 
+        print("Invalid window handle. Using Tkinter focus_force.")
+        window.focus_force()
+        if speak_text: speaker.speak(speak_text)
+        if focus_widget:
+            if callable(focus_widget): window.after(100, focus_widget)
+            else: window.after(100, focus_widget.focus_set)
+        return
+
+    # Setup window for focus
     win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-
     shell = win32com.client.Dispatch("WScript.Shell")
-
-    # Release mouse capture from other windows
     ctypes.windll.user32.ReleaseCapture()
 
-    # Try to allow the process to set the foreground window
     try:
-        ctypes.windll.user32.AllowSetForegroundWindow(ctypes.windll.kernel32.GetCurrentProcessId())
+        ctypes.windll.user32.AllowSetForegroundWindow(win32api.GetCurrentProcessId())
     except Exception as e:
         print(f"AllowSetForegroundWindow failed: {e}")
 
-    # Initialize foreground_thread_id to None
+    # Attempt thread attachment for foreground control
     foreground_thread_id = None
+    current_thread_id = win32api.GetCurrentThreadId()
 
-    # Attach input threads
     try:
-        current_thread_id = win32api.GetCurrentThreadId()
         foreground_window = win32gui.GetForegroundWindow()
-        if foreground_window != hwnd:
-            foreground_thread_id = win32process.GetWindowThreadProcessId(foreground_window)[0]
-            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, True)
+        if foreground_window != 0 and foreground_window != hwnd:
+            fg_tid, fg_pid = win32process.GetWindowThreadProcessId(foreground_window)
+            foreground_thread_id = fg_tid
+            if foreground_thread_id != 0 and current_thread_id != 0 and foreground_thread_id != current_thread_id:
+                 win32process.AttachThreadInput(foreground_thread_id, current_thread_id, True)
     except Exception as e:
         print(f"AttachThreadInput failed: {e}")
 
-    # Try multiple methods to bring the window to the foreground
-    for _ in range(15):
+    # Try multiple methods to set focus
+    for _ in range(15): 
         try:
             win32gui.SetForegroundWindow(hwnd)
             win32gui.BringWindowToTop(hwnd)
-            win32gui.SetFocus(hwnd)
-            win32gui.SetActiveWindow(hwnd)
+            win32gui.SetFocus(hwnd) 
 
             if win32gui.GetForegroundWindow() == hwnd:
                 break
 
-            # Alternative methods
-            shell.SendKeys('%')
+            shell.SendKeys('%') 
+            time.sleep(0.05) 
             ctypes.windll.user32.SetForegroundWindow(hwnd)
             ctypes.windll.user32.BringWindowToTop(hwnd)
             ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
-            ctypes.windll.user32.SetFocus(hwnd)
-            ctypes.windll.user32.SetActiveWindow(hwnd)
 
             if win32gui.GetForegroundWindow() == hwnd:
                 break
-        except pywintypes.error:
+        except pywintypes.error as pye:
+            if pye.winerror == 1400: 
+                print("Invalid window handle (1400).")
+                break
+            elif pye.winerror == 5: 
+                print("Focus access denied (5).")
+            pass 
+        except Exception:
             pass
-
-        time.sleep(0.1)
+        time.sleep(0.1) 
     else:
-        print("Failed to set window focus after multiple attempts")
+        print("Failed to set window focus after multiple attempts.")
 
-    # Detach input threads
+    # Cleanup and finalize
     try:
-        if foreground_thread_id is not None:
-            ctypes.windll.user32.AttachThreadInput(foreground_thread_id, current_thread_id, False)
+        if foreground_thread_id is not None and foreground_thread_id != 0 and current_thread_id != 0 and foreground_thread_id != current_thread_id:
+            win32process.AttachThreadInput(foreground_thread_id, current_thread_id, False)
     except Exception as e:
         print(f"DetachThreadInput failed: {e}")
+
+    window.focus_force()
+    window.attributes('-topmost', False) 
 
     if speak_text:
         speaker.speak(speak_text)
@@ -409,22 +762,23 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
         else:
             window.after(100, focus_widget.focus_set)
 
-    # Final check and fallback using SetWindowPos
+    # Final attempt with SetWindowPos if needed
     if win32gui.GetForegroundWindow() != hwnd:
         try:
             current_pos = win32gui.GetWindowRect(hwnd)
             win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST,
                                 current_pos[0], current_pos[1],
                                 current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                win32con.SWP_SHOWWINDOW)
+                                win32con.SWP_SHOWWINDOW | win32con.SWP_NOACTIVATE) 
             win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST,
                                 current_pos[0], current_pos[1],
                                 current_pos[2] - current_pos[0], current_pos[3] - current_pos[1],
-                                win32con.SWP_SHOWWINDOW)
+                                win32con.SWP_SHOWWINDOW | win32con.SWP_NOACTIVATE)
+            win32gui.SetForegroundWindow(hwnd) 
         except Exception as e:
             print(f"Failed to force focus using SetWindowPos: {e}")
-
-    # Attempt to move mouse cursor to the center of the window
+            
+    # Move cursor to window center
     try:
         rect = win32gui.GetWindowRect(hwnd)
         center_x = (rect[0] + rect[2]) // 2
@@ -433,118 +787,119 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
     except Exception as e:
         print(f"Failed to move cursor to window center: {e}")
 
-# New additions for supporting the updated UI system
+MINIMAP_REGION = {
+    'left': 1600,
+    'top': 20,
+    'width': 300,
+    'height': 300
+}
+
+def process_minimap(capture_func=None) -> np.ndarray:
+    """
+    Capture and return the minimap region as an RGB numpy array.
+    Optionally, pass a custom capture function (for testing or alternate backends).
+    """
+    # Import here to avoid circular import issues
+    if capture_func is None:
+        from lib.screenshot_manager import capture_coordinates
+        capture_func = capture_coordinates
+
+    region = MINIMAP_REGION
+    arr = capture_func(
+        region['left'],
+        region['top'],
+        region['width'],
+        region['height'],
+        'rgb'
+    )
+    return arr  # Returns np.ndarray or None if capture failed
+
+def calculate_distance(player_pos, other_pos, scale=2.65):
+    """Calculate distance between two points in meters"""
+    import numpy as np
+    distance_pixels = np.linalg.norm(np.array(other_pos) - np.array(player_pos))
+    return distance_pixels * scale
 
 class Config:
-    """
-    Config adapter class that bridges between FA11y's existing config system
-    and what the new UI components expect.
-    """
-    def __init__(self, config_file='config.txt'):
-        """
-        Initialize with a ConfigParser instance or create a new one.
-        
-        Args:
-            config_file: Path to config file
-        """
+    """Config adapter class for UI components with thread-safe operations"""
+    def __init__(self, config_file=CONFIG_FILE): 
         self.config_file = config_file
-        self.config = read_config()  # Use existing read_config function
+        self.config = read_config()  
         
     def get_value(self, key, section=None, fallback=None):
-        """
-        Get a value from the configuration.
-        
-        Args:
-            key: Configuration key
-            section: Optional section name (will search all sections if None)
-            fallback: Default value if not found
-            
-        Returns:
-            The configuration value
-        """
+        """Get a config value with optional section"""
         if section:
-            if section in self.config.sections() and key in self.config[section]:
-                value_string = self.config[section][key]
-                # Extract just the value part (before any description in quotes)
+            if self.config.has_section(section) and self.config.has_option(section, key):
+                value_string = self.config.get(section, key) 
                 if '"' in value_string:
                     return value_string.split('"')[0].strip()
-                return value_string
-            return fallback
+                return value_string.strip()
+            return str(fallback) if fallback is not None else ""
         else:
-            return get_config_value(self.config, key, fallback)[0]
+            for sec_name in ['Toggles', 'Values', 'Keybinds', 'POI']: 
+                 if self.config.has_section(sec_name) and self.config.has_option(sec_name, key):
+                    value_string = self.config.get(sec_name, key)
+                    if '"' in value_string:
+                        return value_string.split('"')[0].strip()
+                    return value_string.strip()
+            return str(fallback) if fallback is not None else ""
     
     def get_boolean(self, key, section=None, fallback=False):
-        """Get a boolean value from configuration."""
-        if section:
-            value = self.get_value(key, section, str(fallback))
-            return value.lower() in ('true', 'yes', 'on', '1')
-        else:
-            return get_config_boolean(self.config, key, fallback)
+        """Get a boolean config value"""
+        value_str = self.get_value(key, section, str(fallback))
+        return value_str.lower() in ('true', 'yes', 'on', '1')
     
     def get_int(self, key, section=None, fallback=0):
-        """Get an integer value from configuration."""
-        if section:
-            value = self.get_value(key, section, fallback)
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return fallback
-        else:
-            return get_config_int(self.config, key, fallback)
+        """Get an integer config value"""
+        value_str = self.get_value(key, section, str(fallback))
+        try:
+            return int(value_str)
+        except (ValueError, TypeError):
+            return fallback if isinstance(fallback, int) else 0
     
     def get_float(self, key, section=None, fallback=0.0):
-        """Get a float value from configuration."""
-        if section:
-            value = self.get_value(key, section, fallback)
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return fallback
-        else:
-            return get_config_float(self.config, key, fallback)
+        """Get a float config value"""
+        value_str = self.get_value(key, section, str(fallback))
+        try:
+            return float(value_str)
+        except (ValueError, TypeError):
+            return fallback if isinstance(fallback, float) else 0.0
     
     def set_value(self, key, value, section):
-        """
-        Set a configuration value.
-        
-        Args:
-            key: Configuration key
-            value: Value to set
-            section: Section name
-        """
-        if section not in self.config.sections():
+        """Set a config value, preserving description"""
+        if not self.config.has_section(section):
             self.config.add_section(section)
             
-        # Preserve any existing description
-        current = self.config[section].get(key, "")
+        current_full_value = ""
+        if self.config.has_option(section, key):
+             current_full_value = self.config.get(section, key)
+        
         description = ""
-        if current and '"' in current:
-            description = current.split('"', 1)[1].strip()
-            description = f' "{description}"'
+        if '"' in current_full_value:
+            description = current_full_value.split('"', 1)[1] 
+            if description.endswith('"'):
+                description = description[:-1] 
+            description = f' "{description}"' 
             
-        self.config[section][key] = f"{value}{description}"
+        self.config.set(section, key, f"{str(value)}{description}") 
     
     def set_poi(self, name, x, y):
-        """
-        Set the selected POI.
-        
-        Args:
-            name: POI name
-            x: X coordinate
-            y: Y coordinate
-        """
+        """Set the selected POI"""
         self.set_value('selected_poi', f"{name}, {x}, {y}", 'POI')
     
     def set_current_map(self, map_name):
-        """
-        Set the current map.
-        
-        Args:
-            map_name: Map name
-        """
+        """Set the current map"""
         self.set_value('current_map', map_name, 'POI')
     
     def save(self):
-        """Save configuration to file."""
-        with open(self.config_file, 'w') as f:
-            self.config.write(f)
+        """Save configuration to file with thread-safe locking"""
+        # Reorganize before saving
+        self.config = reorganize_config(self.config)
+        success = save_config(self.config)
+        if not success:
+            print(f"Error saving config file {self.config_file}")
+            return False
+        
+        # Clear cache to force reload
+        clear_config_cache()
+        return True

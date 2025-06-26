@@ -141,7 +141,6 @@ def create_custom_poi(current_position: Optional[Tuple[int, int]], poi_name: str
     x, y = current_position
     return save_custom_poi(poi_name, x, y, map_name)
 
-# Update the POI handling in icon.py to use these functions:
 def update_poi_handler(selected_poi: str, use_ppi: bool = False) -> Tuple[Optional[str], Optional[Tuple[int, int]]]:
     """
     Enhanced POI selection handler with PPI support.
@@ -153,8 +152,7 @@ def update_poi_handler(selected_poi: str, use_ppi: bool = False) -> Tuple[Option
     Returns:
         Tuple of (poi_name, coordinates) or (None, None) if not found
     """
-    from lib.ppi import find_player_position
-    from lib.player_location import find_player_icon_location
+    from lib.player_position import find_player_position, find_player_icon_location
     
     # Get current position based on method
     current_position = find_player_position() if use_ppi else find_player_icon_location()

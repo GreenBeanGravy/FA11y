@@ -1,5 +1,4 @@
 """
-
 Custom POI creation GUI for FA11y
 Provides interface for creating custom points of interest
 """
@@ -20,21 +19,21 @@ logger = logging.getLogger(__name__)
 class CustomPOIGUI(AccessibleUI):
     """Custom POI creation GUI"""
     
-    def __init__(self, use_ppi: bool = False, player_detector = None):
+    def __init__(self, use_ppi: bool = False, player_detector = None, current_map: str = "main"):
         """Initialize the custom POI GUI
         
         Args:
             use_ppi: Whether to use PPI for position detection
             player_detector: Player detection module
+            current_map: Name of the map to create the POI for
         """
         super().__init__(title="Enter custom POI name")
         
         self.use_ppi = use_ppi
         self.player_detector = player_detector
         
-        # Get current map from config file
-        config = read_config()
-        self.current_map = config.get('POI', 'current_map', fallback='main')
+        # Use the provided map name instead of reading from config
+        self.current_map = current_map
         
         # Get initial position - we already checked in the launcher, so this should succeed
         self.coordinates = self.get_current_position()
@@ -200,12 +199,13 @@ class CustomPOIGUI(AccessibleUI):
                 self.speak(widget_info)
 
 
-def launch_custom_poi_creator(use_ppi: bool = False, player_detector = None) -> None:
+def launch_custom_poi_creator(use_ppi: bool = False, player_detector = None, current_map: str = "main") -> None:
     """Launch the custom POI creator GUI
     
     Args:
         use_ppi: Whether to use PPI for position detection
         player_detector: Player detection module
+        current_map: Name of the map to create the POI for
     """
     try:
         # First check if we can get coordinates before creating any UI
@@ -221,7 +221,7 @@ def launch_custom_poi_creator(use_ppi: bool = False, player_detector = None) -> 
             return  # Don't even create the GUI if we can't get coordinates
         
         # Only now create and run the GUI since we have coordinates
-        gui = CustomPOIGUI(use_ppi, player_detector)
+        gui = CustomPOIGUI(use_ppi, player_detector, current_map)
         gui.run()
     except Exception as e:
         logger.error(f"Error launching custom POI GUI: {e}")
