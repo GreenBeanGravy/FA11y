@@ -4,6 +4,7 @@ import subprocess
 import time
 import concurrent.futures
 from functools import lru_cache
+import winreg
 
 # Ensure the "requests" library is installed before importing it
 try:
@@ -22,6 +23,14 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 AUTO_UPDATE_UPDATER = True
 MAX_RESTARTS = 3
 
+# Update sources - A11yVault website first, then GitHub main branch as fallback
+A11YVAULT_BASE_URL = "https://a11yvault.com/FA11y"
+GITHUB_REPO = "GreenBeanGravy/FA11y"
+GITHUB_BRANCH = "main"  # Fallback to main branch
+
+# Current update source (will be set dynamically)
+CURRENT_SOURCE = "a11yvault"  # Start with website, fallback to github
+
 # Files to ignore during updates (will not be replaced)
 IGNORED_FILES = [
     'config.txt',
@@ -29,9 +38,119 @@ IGNORED_FILES = [
     'FAVORITE_POIS.txt',
 ]
 
+# FakerInput configuration
+FAKERINPUT_MSI_URL = "https://github.com/Ryochan7/FakerInput/releases/download/v0.1.0/FakerInput_0.1.0_x64.msi"
+FAKERINPUT_MSI_FILENAME = "FakerInput_0.1.0_x64.msi"
+
 def print_info(message):
     """Prints information to the console."""
     print(message)
+
+def check_fakerinput_installed():
+    """
+    Checks if FakerInput is installed on the system.
+    Returns True if installed, False otherwise.
+    """
+    try:
+        # Check registry for installed programs
+        registry_paths = [
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+        ]
+        
+        for registry_path in registry_paths:
+            try:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_path) as key:
+                    for i in range(winreg.QueryInfoKey(key)[0]):
+                        try:
+                            subkey_name = winreg.EnumKey(key, i)
+                            with winreg.OpenKey(key, subkey_name) as subkey:
+                                try:
+                                    display_name = winreg.QueryValueEx(subkey, "DisplayName")[0]
+                                    if "FakerInput" in display_name:
+                                        print_info("FakerInput found in registry.")
+                                        return True
+                                except FileNotFoundError:
+                                    continue
+                        except OSError:
+                            continue
+            except FileNotFoundError:
+                continue
+        
+        # Alternative check: look for executable in common locations
+        common_paths = [
+            r"C:\Program Files\FakerInput\FakerInput.exe",
+            r"C:\Program Files (x86)\FakerInput\FakerInput.exe",
+            os.path.expanduser(r"~\AppData\Local\FakerInput\FakerInput.exe")
+        ]
+        
+        for path in common_paths:
+            if os.path.exists(path):
+                print_info(f"FakerInput found at: {path}")
+                return True
+        
+        return False
+        
+    except Exception as e:
+        print_info(f"Error checking FakerInput installation: {e}")
+        return False
+
+def install_fakerinput():
+    """
+    Downloads and installs FakerInput using the MSI package.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        print_info("FakerInput not found. Downloading and installing...")
+        
+        # Download the MSI file
+        print_info("Downloading FakerInput MSI...")
+        response = requests.get(FAKERINPUT_MSI_URL, stream=True)
+        response.raise_for_status()
+        
+        # Save MSI to temporary location
+        msi_path = os.path.join(os.getcwd(), FAKERINPUT_MSI_FILENAME)
+        with open(msi_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        print_info("Download complete. Installing FakerInput...")
+        print_info("Please accept the UAC prompt and follow the installation wizard...")
+        
+        # Execute the MSI package with UAC
+        result = subprocess.run([msi_path], shell=True)
+        
+        # Clean up the downloaded MSI file
+        try:
+            os.remove(msi_path)
+        except OSError:
+            pass
+        
+        # Check if installation was successful
+        print_info("Checking if FakerInput was installed successfully...")
+        if check_fakerinput_installed():
+            print_info("FakerInput installed successfully.")
+            return True
+        else:
+            print_info("FakerInput installation may have failed or was cancelled.")
+            return False
+            
+    except requests.RequestException as e:
+        print_info(f"Failed to download FakerInput: {e}")
+        return False
+    except Exception as e:
+        print_info(f"Error installing FakerInput: {e}")
+        return False
+
+def check_and_install_fakerinput():
+    """
+    Checks if FakerInput is installed and installs it if not found.
+    """
+    if check_fakerinput_installed():
+        print_info("FakerInput is already installed.")
+        return True
+    else:
+        return install_fakerinput()
 
 def install_required_modules():
     """
@@ -116,30 +235,73 @@ def download_file_to_path(url, path):
     Downloads a file from a URL to a specified local path.
     """
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         with open(path, 'wb') as f:
             f.write(response.content)
+        return True
     except requests.RequestException as e:
         print_info(f"Failed to download {url}: {e}")
+        return False
 
-def download_folder(repo, branch, folder):
+def download_folder_a11yvault(folder):
+    """
+    Downloads all files in a folder from A11yVault website.
+    """
+    try:
+        # Get list of files from A11yVault API endpoint
+        url = f"{A11YVAULT_BASE_URL}/api/files/{folder}"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        files = response.json()
+        
+        os.makedirs(folder, exist_ok=True)
+        
+        for file_info in files:
+            file_url = f"{A11YVAULT_BASE_URL}/{folder}/{file_info['name']}"
+            file_path = os.path.join(folder, file_info['name'])
+            download_file_to_path(file_url, file_path)
+        
+        print_info(f"Downloaded folder from A11yVault: {folder}")
+        return True
+    except requests.RequestException as e:
+        print_info(f"Failed to download folder {folder} from A11yVault: {e}")
+        return False
+
+def download_folder_github(repo, branch, folder):
     """
     Downloads all files in a GitHub repository folder to a local folder.
     """
     url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         files = response.json()
         os.makedirs(folder, exist_ok=True)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(download_file_to_path, file['download_url'], os.path.join(folder, file['name'])) for file in files if file['type'] == 'file']
             concurrent.futures.wait(futures)
-        print_info(f"Downloaded folder: {folder}")
+        print_info(f"Downloaded folder from GitHub: {folder}")
+        return True
     except requests.RequestException as e:
-        print_info(f"Failed to download folder {folder}: {e}")
-        sys.exit(1)
+        print_info(f"Failed to download folder {folder} from GitHub: {e}")
+        return False
+
+def download_folder(folder):
+    """
+    Downloads a folder using current source (A11yVault or GitHub).
+    """
+    global CURRENT_SOURCE
+    
+    if CURRENT_SOURCE == "a11yvault":
+        success = download_folder_a11yvault(folder)
+        if not success:
+            print_info(f"A11yVault failed for {folder}, trying GitHub...")
+            CURRENT_SOURCE = "github"
+            return download_folder_github(GITHUB_REPO, GITHUB_BRANCH, folder)
+        return success
+    else:
+        return download_folder_github(GITHUB_REPO, GITHUB_BRANCH, folder)
 
 def install_required_modules_and_whls():
     """
@@ -154,7 +316,7 @@ def install_required_modules_and_whls():
     print_info("Modules installed.")
 
     if not os.path.exists('whls'):
-        download_folder("GreenBeanGravy/FA11y", "dev", "whls")
+        download_folder("whls")
 
 def create_mock_imp():
     """
@@ -172,41 +334,100 @@ def create_mock_imp():
     sys.modules['imp'] = MockImp()
 
 @lru_cache(maxsize=None)
-def get_repo_files(repo, branch='dev'):
+def get_repo_files_a11yvault():
+    """
+    Gets the list of files from A11yVault website.
+    """
+    try:
+        url = f"{A11YVAULT_BASE_URL}/api/files"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print_info(f"Failed to get files from A11yVault: {e}")
+        return []
+
+@lru_cache(maxsize=None)
+def get_repo_files_github(repo, branch):
     """
     Gets the list of files in a GitHub repository branch.
     """
     url = f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         tree = response.json().get('tree', [])
         return [item['path'] for item in tree if item['type'] == 'blob']
     except requests.RequestException as e:
-        print_info(f"Failed to get repo files: {e}")
+        print_info(f"Failed to get repo files from GitHub: {e}")
         return []
 
-def download_file(repo, file_path):
+def get_repo_files():
     """
-    Downloads a single file from a GitHub repository.
+    Gets the list of files using current source (A11yVault or GitHub).
     """
-    url = f"https://raw.githubusercontent.com/{repo}/dev/{file_path}"
+    global CURRENT_SOURCE
+    
+    if CURRENT_SOURCE == "a11yvault":
+        files = get_repo_files_a11yvault()
+        if not files:
+            print_info("A11yVault failed, trying GitHub...")
+            CURRENT_SOURCE = "github"
+            return get_repo_files_github(GITHUB_REPO, GITHUB_BRANCH)
+        return files
+    else:
+        return get_repo_files_github(GITHUB_REPO, GITHUB_BRANCH)
+
+def download_file_a11yvault(file_path):
+    """
+    Downloads a single file from A11yVault website.
+    """
+    url = f"{A11YVAULT_BASE_URL}/{file_path}"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         return response.content
     except requests.RequestException as e:
-        print_info(f"Failed to download file {file_path}: {e}")
+        print_info(f"Failed to download file {file_path} from A11yVault: {e}")
         return None
 
-def file_needs_update(local_path, github_content):
+def download_file_github(repo, branch, file_path):
+    """
+    Downloads a single file from a GitHub repository.
+    """
+    url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.content
+    except requests.RequestException as e:
+        print_info(f"Failed to download file {file_path} from GitHub: {e}")
+        return None
+
+def download_file(file_path):
+    """
+    Downloads a file using current source (A11yVault or GitHub).
+    """
+    global CURRENT_SOURCE
+    
+    if CURRENT_SOURCE == "a11yvault":
+        content = download_file_a11yvault(file_path)
+        if content is None:
+            print_info(f"A11yVault failed for {file_path}, trying GitHub...")
+            CURRENT_SOURCE = "github"
+            return download_file_github(GITHUB_REPO, GITHUB_BRANCH, file_path)
+        return content
+    else:
+        return download_file_github(GITHUB_REPO, GITHUB_BRANCH, file_path)
+
+def file_needs_update(local_path, remote_content):
     """
     Checks if a local file needs to be updated with new content.
     """
     if not os.path.exists(local_path):
         return True
     with open(local_path, 'rb') as file:
-        return file.read() != github_content
+        return file.read() != remote_content
 
 def is_sound_file(file_path):
     """
@@ -228,28 +449,29 @@ def should_skip_file(file_path):
         
     return False
 
-def update_script(repo, script_name):
+def update_script(script_name):
     """
-    Updates the script from a GitHub repository if needed.
+    Updates the script from the current source if needed.
     """
     if not AUTO_UPDATE_UPDATER:
         return False
-    github_content = download_file(repo, script_name)
-    if github_content is None or not file_needs_update(script_name, github_content):
+    
+    remote_content = download_file(script_name)
+    if remote_content is None or not file_needs_update(script_name, remote_content):
         return False
 
     with open(script_name, 'wb') as file:
-        file.write(github_content)
+        file.write(remote_content)
     print_info(f"Updated script: {script_name}")
     return True
 
-def check_and_update_file(repo, file_path):
+def check_and_update_file(file_path):
     """
-    Checks if a file needs to be updated from the GitHub repository.
+    Checks if a file needs to be updated from the current source.
     """
     # Handle readme.md specially
     if file_path.lower() == 'readme.md':
-        readme_content = download_file(repo, file_path)
+        readme_content = download_file(file_path)
         if readme_content and file_needs_update('README.txt', readme_content):
             with open('README.txt', 'wb') as file:
                 file.write(readme_content)
@@ -266,8 +488,8 @@ def check_and_update_file(repo, file_path):
     if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg', '.pkl')) and file_path != 'VERSION':
         return False
 
-    github_content = download_file(repo, file_path)
-    if github_content is None or not file_needs_update(file_path, github_content):
+    remote_content = download_file(file_path)
+    if remote_content is None or not file_needs_update(file_path, remote_content):
         return False
 
     directory = os.path.dirname(file_path)
@@ -275,17 +497,49 @@ def check_and_update_file(repo, file_path):
         os.makedirs(directory, exist_ok=True)
     
     with open(file_path, 'wb') as file:
-        file.write(github_content)
+        file.write(remote_content)
     print_info(f"Updated file: {file_path}")
     return True
 
-def update_folder(repo, folder, branch='dev'):
+def update_folder_a11yvault(folder):
+    """
+    Updates a folder from A11yVault website.
+    """
+    try:
+        url = f"{A11YVAULT_BASE_URL}/api/files/{folder}"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        remote_files = {file['name'] for file in response.json()}
+        
+        if os.path.exists(folder):
+            local_files = set(os.listdir(folder))
+            files_to_remove = local_files - remote_files
+            
+            # Don't remove custom sounds 
+            if folder == 'sounds':
+                files_to_remove = set()
+            
+            for file in files_to_remove:
+                # Skip ignored files
+                if file in IGNORED_FILES:
+                    continue
+                    
+                os.remove(os.path.join(folder, file))
+                print_info(f"Removed file from {folder} folder: {file}")
+            
+            return bool(files_to_remove)
+        return False
+    except requests.RequestException as e:
+        print_info(f"Failed to update {folder} folder from A11yVault: {e}")
+        return False
+
+def update_folder_github(repo, branch, folder):
     """
     Updates a folder from a GitHub repository.
     """
     url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         remote_files = {file['name'] for file in response.json() if file['type'] == 'file'}
         
@@ -308,8 +562,24 @@ def update_folder(repo, folder, branch='dev'):
             return bool(files_to_remove)
         return False
     except requests.RequestException as e:
-        print_info(f"Failed to update {folder} folder: {e}")
+        print_info(f"Failed to update {folder} folder from GitHub: {e}")
         return False
+
+def update_folder(folder):
+    """
+    Updates a folder using current source (A11yVault or GitHub).
+    """
+    global CURRENT_SOURCE
+    
+    if CURRENT_SOURCE == "a11yvault":
+        success = update_folder_a11yvault(folder)
+        if not success:
+            print_info(f"A11yVault failed for {folder}, trying GitHub...")
+            CURRENT_SOURCE = "github"
+            return update_folder_github(GITHUB_REPO, GITHUB_BRANCH, folder)
+        return success
+    else:
+        return update_folder_github(GITHUB_REPO, GITHUB_BRANCH, folder)
 
 def check_legendary():
     """
@@ -324,22 +594,19 @@ def check_legendary():
     legendary_url = "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe"
     
     try:
-        download_file_to_path(legendary_url, legendary_path)
-        print_info("Legendary downloaded successfully.")
-        return True
+        if download_file_to_path(legendary_url, legendary_path):
+            print_info("Legendary downloaded successfully.")
+            return True
     except Exception as e:
         print_info(f"Failed to download Legendary: {e}")
-        return False
+    
+    return False
 
 def install_requirements():
     """
-    Install dependencies listed in requirements.txt more efficiently by:
-    1. Only downloading requirements.txt if it doesn't exist
-    2. Using importlib.metadata (Python 3.8+) or pkg_resources (older versions) to check installed packages
-    3. Only installing missing or outdated packages
+    Install dependencies listed in requirements.txt more efficiently.
     """
     import sys
-    import requests
     
     # Handle different Python versions
     if sys.version_info >= (3, 8):
@@ -365,15 +632,13 @@ def install_requirements():
 
     # Download requirements.txt if it doesn't exist
     if not os.path.exists(requirements_file):
-        print_info(f"{requirements_file} not found. Downloading from GitHub...")
-        url = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/dev/requirements.txt"
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            with open(requirements_file, 'w') as f:
-                f.write(response.text)
-        except requests.RequestException as e:
-            print_info(f"Failed to download {requirements_file}: {e}")
+        print_info(f"{requirements_file} not found. Downloading...")
+        requirements_content = download_file("requirements.txt")
+        if requirements_content:
+            with open(requirements_file, 'wb') as f:
+                f.write(requirements_content)
+        else:
+            print_info(f"Failed to download {requirements_file}")
             return False
 
     # Read requirements
@@ -410,7 +675,6 @@ def install_requirements():
 
     # Install only if needed
     if not missing_packages and not upgrade_packages:
-        # print_info("All requirements are already satisfied!")
         return True
 
     if missing_packages:
@@ -438,18 +702,47 @@ def install_requirements():
     print_info("Dependencies installed successfully!")
     return True
 
-def get_version(repo):
+def get_version_a11yvault():
     """
-    Fetches the version file from a GitHub repository.
+    Fetches the version file from A11yVault website.
     """
-    url = f"https://raw.githubusercontent.com/{repo}/dev/VERSION"
     try:
-        response = requests.get(url)
+        url = f"{A11YVAULT_BASE_URL}/VERSION"
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         return response.text.strip()
     except requests.RequestException as e:
-        print_info(f"Failed to fetch VERSION file: {e}")
+        print_info(f"Failed to fetch VERSION file from A11yVault: {e}")
         return None
+
+def get_version_github(repo, branch):
+    """
+    Fetches the version file from a GitHub repository.
+    """
+    url = f"https://raw.githubusercontent.com/{repo}/{branch}/VERSION"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.text.strip()
+    except requests.RequestException as e:
+        print_info(f"Failed to fetch VERSION file from GitHub: {e}")
+        return None
+
+def get_version():
+    """
+    Fetches the version using current source (A11yVault or GitHub).
+    """
+    global CURRENT_SOURCE
+    
+    if CURRENT_SOURCE == "a11yvault":
+        version = get_version_a11yvault()
+        if version is None:
+            print_info("A11yVault failed for VERSION, trying GitHub...")
+            CURRENT_SOURCE = "github"
+            return get_version_github(GITHUB_REPO, GITHUB_BRANCH)
+        return version
+    else:
+        return get_version_github(GITHUB_REPO, GITHUB_BRANCH)
 
 def parse_version(version):
     """
@@ -461,13 +754,12 @@ def check_version():
     """
     Checks if the local version matches the repository version.
     """
-    repo = "GreenBeanGravy/FA11y"
     local_version = None
     if os.path.exists('VERSION'):
         with open('VERSION', 'r') as f:
             local_version = f.read().strip()
     
-    repo_version = get_version(repo)
+    repo_version = get_version()
     
     if not local_version:
         return True  # No local version, update required
@@ -488,9 +780,15 @@ def main():
     """
     Main function to run the updater script.
     """
+    global CURRENT_SOURCE
+    
     script_name = os.path.basename(__file__)
+    
+    print_info("Starting FA11y updater...")
+    print_info(f"Primary source: A11yVault ({A11YVAULT_BASE_URL})")
+    print_info(f"Fallback source: GitHub ({GITHUB_REPO}/{GITHUB_BRANCH})")
 
-    if update_script("GreenBeanGravy/FA11y", script_name):
+    if update_script(script_name):
         print_info("Please restart the updater for updates. Closing in 5 seconds.")
         time.sleep(5)
         sys.exit(0)
@@ -519,6 +817,17 @@ def main():
         if speaker:
             speaker.speak("Some updates may have failed. Please check the console output.")
 
+    # Check and install FakerInput
+    print_info("Checking FakerInput installation...")
+    fakerinput_success = check_and_install_fakerinput()
+    if fakerinput_success:
+        if speaker:
+            speaker.speak("FakerInput is ready!")
+    else:
+        print_info("Warning: FakerInput installation failed. Some features may not work properly.")
+        if speaker:
+            speaker.speak("Warning: FakerInput installation failed.")
+
     # Ensure to check for updates if version differs
     if not check_version():
         print_info("You are on the latest version of FA11y!")
@@ -526,14 +835,15 @@ def main():
             speaker.speak("You are on the latest version of FA11y!")
         sys.exit(0)
 
-    repo_files = get_repo_files("GreenBeanGravy/FA11y")
+    print_info(f"Checking for updates from {CURRENT_SOURCE}...")
+    repo_files = get_repo_files()
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        update_results = list(executor.map(lambda file_path: check_and_update_file("GreenBeanGravy/FA11y", file_path), repo_files))
+        update_results = list(executor.map(check_and_update_file, repo_files))
         updates_available = any(update_results)
 
-    icons_updated = update_folder("GreenBeanGravy/FA11y", "icons")
-    images_updated = update_folder("GreenBeanGravy/FA11y", "images")
+    icons_updated = update_folder("icons")
+    images_updated = update_folder("images")
     
     # Special handling for sounds folder - only add missing files
     sounds_updated = False
@@ -542,24 +852,33 @@ def main():
         sounds_updated = True
     
     # Check if we need to update the sounds folder by adding missing files
-    url = f"https://api.github.com/repos/GreenBeanGravy/FA11y/contents/sounds?ref=dev"
-    try:
-        response = requests.get(url)
+    if CURRENT_SOURCE == "a11yvault":
+        try:
+            url = f"{A11YVAULT_BASE_URL}/api/files/sounds"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            remote_sound_files = [file['name'] for file in response.json()]
+        except requests.RequestException:
+            # Fallback to GitHub
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/sounds?ref={GITHUB_BRANCH}"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            remote_sound_files = [file['name'] for file in response.json() if file['type'] == 'file']
+    else:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/sounds?ref={GITHUB_BRANCH}"
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         remote_sound_files = [file['name'] for file in response.json() if file['type'] == 'file']
-        existing_sounds = os.listdir('sounds') if os.path.exists('sounds') else []
-        
-        # Only download sounds that don't exist locally
-        for sound_file in remote_sound_files:
-            if sound_file not in existing_sounds:
-                download_file_to_path(
-                    f"https://raw.githubusercontent.com/GreenBeanGravy/FA11y/dev/sounds/{sound_file}",
-                    os.path.join('sounds', sound_file)
-                )
+    
+    existing_sounds = os.listdir('sounds') if os.path.exists('sounds') else []
+    
+    # Only download sounds that don't exist locally
+    for sound_file in remote_sound_files:
+        if sound_file not in existing_sounds:
+            sound_url = f"{A11YVAULT_BASE_URL}/sounds/{sound_file}" if CURRENT_SOURCE == "a11yvault" else f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/sounds/{sound_file}"
+            if download_file_to_path(sound_url, os.path.join('sounds', sound_file)):
                 print_info(f"Added missing sound file: {sound_file}")
                 sounds_updated = True
-    except requests.RequestException as e:
-        print_info(f"Failed to check sounds directory: {e}")
     
     fa11y_updates = updates_available or icons_updated or images_updated or sounds_updated
 
@@ -570,6 +889,7 @@ def main():
         print_info("Failed to download or find Legendary. Please download it manually and add it to your system PATH.")
 
     print_info("Update process completed")
+    print_info(f"Final source used: {CURRENT_SOURCE}")
 
     if fa11y_updates:
         closing_message = "FA11y updated! Closing in 5 seconds..."
