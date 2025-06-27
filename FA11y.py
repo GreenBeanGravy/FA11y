@@ -86,6 +86,7 @@ from lib.utilities import (
 )
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
 from lib.custom_poi_handler import load_custom_pois
+from lib.spatial_audio import get_spatial_engine
 
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
@@ -122,6 +123,25 @@ SPECIAL_POI_CLOSEST_GAMEOBJECT = "closest game object"
 
 # Global variable to track current POI category
 current_poi_category = POI_CATEGORY_SPECIAL
+
+def initialize_spatial_audio_system() -> None:
+    """Initialize the spatial audio system and provide user feedback"""
+    try:
+        print("Initializing spatial audio system...")
+        
+        # Get the spatial engine (this will initialize it)
+        spatial_engine = get_spatial_engine()
+        
+        if spatial_engine.hrtf_initialized:
+            print("✓ HRTF-based spatial audio system initialized successfully")
+            print("  Enhanced 3D audio positioning is now available")
+        else:
+            print("⚠ HRTF system not available, using fallback stereo panning")
+            print("  Install spaudiopy for enhanced spatial audio: pip install spaudiopy")
+        
+    except Exception as e:
+        print(f"⚠ Spatial audio initialization warning: {e}")
+        print("  Basic stereo panning will be used instead")
 
 def handle_movement(action: str, reset_sensitivity: bool) -> None:
     """Handle all movement-related actions."""
@@ -1219,6 +1239,9 @@ def main() -> None:
     try:
         print("Starting FA11y...")
 
+        # Initialize spatial audio system early
+        initialize_spatial_audio_system()
+
         # Check and welcome user
         local_username = get_legendary_username()
         if local_username:
@@ -1276,6 +1299,13 @@ def main() -> None:
         print("Storm monitoring configured:")
         print("  - Monitor storm on minimap with spatial audio pings")
         print("  - Config options: MonitorStorm (toggle), StormVolume, StormPingInterval")
+
+        # Print spatial audio info
+        spatial_engine = get_spatial_engine()
+        if spatial_engine.hrtf_initialized:
+            print("✓ Enhanced spatial audio with HRTF processing enabled")
+        else:
+            print("⚠ Basic stereo panning mode (install spaudiopy for HRTF support)")
 
         # Notify user that FA11y is running
         speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")

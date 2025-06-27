@@ -33,3 +33,4 @@ soundfile
 easyocr
 pyaudio
 pythonnet
+spaudiopy

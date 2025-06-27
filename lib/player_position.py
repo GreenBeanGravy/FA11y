@@ -12,7 +12,7 @@ from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config, get_config_boolean, get_config_float
 from lib.object_finder import optimized_finder, OBJECT_CONFIGS
-from lib.spatial_audio import SpatialAudio
+from lib.spatial_audio import SpatialAudio, get_spatial_engine
 from lib.mouse import smooth_move_mouse
 from lib.custom_poi_handler import update_poi_handler
 from lib.background_checks import monitor
@@ -155,6 +155,11 @@ def find_minimap_icon_direction():
                     angle = (90 - angle) % 360
                     
                     cardinal_direction = get_cardinal_direction(angle)
+                    
+                    # Update the spatial engine with current player direction
+                    spatial_engine = get_spatial_engine()
+                    spatial_engine.update_player_direction(angle)
+                    
                     return cardinal_direction, angle
     
     return None, None
@@ -269,7 +274,7 @@ def calculate_poi_info(player_location, player_angle, poi_location):
         return None, None, None, "unknown"
     
     poi_vector = np.array(poi_location) - np.array(player_location)
-    distance = np.linalg.norm(poi_vector) * 2.65
+    distance = np.linalg.norm(poi_vector) * 1.8  # Reduced from 2.65 to make distances more reasonable
     poi_angle, cardinal_direction = get_angle_and_direction(poi_vector)
     
     relative_direction = get_relative_direction(player_angle, poi_angle) if player_angle is not None else "unknown"
@@ -465,7 +470,7 @@ def find_closest_poi(icon_location, poi_list):
             coord_y = int(float(poi_data[2]))
             distance = np.linalg.norm(
                 np.array(icon_location) - np.array([coord_x, coord_y])
-            ) * 2.65
+            ) * 1.8  # Reduced from 2.65 for consistency
             distances.append((poi_name, (coord_x, coord_y), distance))
         except (ValueError, TypeError, IndexError):
             continue
@@ -699,33 +704,37 @@ def play_spatial_poi_sound(player_location, player_angle, poi_location):
     if not play_poi_sound_enabled or not os.path.exists('sounds/poi.ogg'):
         return None
     
-    # Calculate initial spatial parameters
+    # Calculate spatial parameters with debug output
     poi_vector = np.array(poi_location) - np.array(player_location)
-    distance = np.linalg.norm(poi_vector) * 2.65
-    poi_angle = (90 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
+    distance = np.linalg.norm(poi_vector) * 1.8
+    poi_azimuth = (90 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
     
-    # Get volume configuration
-    min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05)
-    max_volume = get_config_float(config, 'MaximumPOIVolume', 1.0)
-    ping_volume_max_distance = get_config_float(config, 'PingVolumeMaxDistance', 100.0)
+    # DEBUG: Print coordinate and azimuth calculations
+    print(f"DEBUG POI: Player at {player_location}, POI at {poi_location}")
+    print(f"DEBUG POI: Vector {poi_vector}, Azimuth {poi_azimuth:.1f}°")
     
-    # Calculate volume based on distance
+    # Get volume configuration with much gentler falloff
+    min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05) * 2.0
+    max_volume = get_config_float(config, 'MaximumPOIVolume', 1.0) * 1.8
+    ping_volume_max_distance = get_config_float(config, 'PingVolumeMaxDistance', 300.0)
+    
+    # Much gentler volume calculation - linear falloff with high minimum
     distance_for_volume_calc = max(1.0, ping_volume_max_distance)
-    volume_factor = 1.0 - min(distance / distance_for_volume_calc, 1.0)
+    volume_factor = max(0.5, 1.0 - (distance / distance_for_volume_calc) * 0.6)
     final_volume = min_volume + (max_volume - min_volume) * volume_factor
     final_volume = np.clip(final_volume, min_volume, max_volume)
     
-    # Calculate initial stereo weights based on relative angle
-    initial_relative_angle = (poi_angle - player_angle + 180) % 360 - 180
-    initial_pan = np.clip(initial_relative_angle / 90, -1, 1)
-    left_weight = np.clip((1 - initial_pan) / 2, 0, 1)
-    right_weight = np.clip((1 + initial_pan) / 2, 0, 1)
+    # Update spatial engine with initial player direction
+    spatial_engine = get_spatial_engine()
+    spatial_engine.update_player_direction(player_angle)
     
-    # Start playing the sound with initial parameters
-    spatial_poi.play_audio(
-        left_weight=left_weight,
-        right_weight=right_weight,
-        volume=final_volume
+    # Start playing with the new spatial audio API
+    spatial_poi.play_spatial(
+        azimuth=poi_azimuth,
+        elevation=0.0,
+        distance=distance,
+        volume=final_volume,
+        use_player_direction=True
     )
     
     # Create a new sound updater and store globally
@@ -741,7 +750,8 @@ class POISoundUpdater:
         self.poi_location = poi_location
         self.volume = volume
         self.poi_vector = np.array(poi_location) - np.array(player_location)
-        self.poi_angle = (90 - np.degrees(np.arctan2(-self.poi_vector[1], self.poi_vector[0]))) % 360
+        self.poi_azimuth = (90 - np.degrees(np.arctan2(-self.poi_vector[1], self.poi_vector[0]))) % 360
+        self.distance = np.linalg.norm(self.poi_vector) * 1.8  # Reduced from 2.65
         self.stop_event = threading.Event()
         self.update_thread = None
         self.start_updates()
@@ -753,7 +763,7 @@ class POISoundUpdater:
         self.update_thread.start()
     
     def _update_loop(self):
-        """Continuously update panning based on player's current angle."""
+        """Continuously update spatial parameters based on player's current angle."""
         update_interval = 0.1
         
         while not self.stop_event.is_set() and spatial_poi.is_playing:
@@ -761,12 +771,13 @@ class POISoundUpdater:
                 _, current_player_angle = find_minimap_icon_direction()
                 
                 if current_player_angle is not None:
-                    relative_angle = (self.poi_angle - current_player_angle + 180) % 360 - 180
-                    pan = np.clip(relative_angle / 90, -1, 1)
-                    left_weight = np.clip((1 - pan) / 2, 0, 1)
-                    right_weight = np.clip((1 + pan) / 2, 0, 1)
-                    
-                    spatial_poi.update_panning(left_weight, right_weight)
+                    # Update the spatial audio position
+                    spatial_poi.update_spatial_position(
+                        azimuth=self.poi_azimuth,
+                        elevation=0.0,
+                        distance=self.distance,
+                        volume=self.volume
+                    )
             
             except Exception:
                 pass

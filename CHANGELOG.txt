@@ -1,3 +1,7 @@
+6/27/2025 #1:
+- Merged the dev branch into main, containing a giant list of new features and changes
+- Updated the spatial audio module to use "spaudiopy" for proper HRTF audio support when navigating to POIs, getting pings for the storm, and gameobjects.
+
 4/15/2025 #1:
 - Added missing items and the new Reload Slurp Rush map to the POI selector
 
