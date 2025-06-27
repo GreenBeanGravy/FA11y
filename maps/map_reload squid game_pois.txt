@@ -1,0 +1,10 @@
+Manager's Meals,1054,312
+Costly Condos,822,369
+Phoney Crossroads,1202,479
+Affluent Arrivals,797,508
+The Labrinth,928,527
+Player's Power,625,572
+Square Meals,789,698
+Designer Docks,994,704
+Red Greens,1151,654
+Hectic Hedges,1268,588
