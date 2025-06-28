@@ -1,3 +1,8 @@
+6/28/2025 #1:
+- Attempted to fix issues where some audio devices stopped working with the new spatial audio system. Laptop internal speakers may not work.
+- Inverted the calculations for spatial audio.
+- Removed some print statements.
+
 6/27/2025 #1:
 - Merged the dev branch into main, containing a giant list of new features and changes
 - Updated the spatial audio module to use "spaudiopy" for proper HRTF audio support when navigating to POIs, getting pings for the storm, and gameobjects.

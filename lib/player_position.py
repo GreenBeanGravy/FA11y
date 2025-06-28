@@ -704,14 +704,10 @@ def play_spatial_poi_sound(player_location, player_angle, poi_location):
     if not play_poi_sound_enabled or not os.path.exists('sounds/poi.ogg'):
         return None
     
-    # Calculate spatial parameters with debug output
+    # Calculate spatial parameters
     poi_vector = np.array(poi_location) - np.array(player_location)
     distance = np.linalg.norm(poi_vector) * 1.8
     poi_azimuth = (90 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
-    
-    # DEBUG: Print coordinate and azimuth calculations
-    print(f"DEBUG POI: Player at {player_location}, POI at {poi_location}")
-    print(f"DEBUG POI: Vector {poi_vector}, Azimuth {poi_azimuth:.1f}°")
     
     # Get volume configuration with much gentler falloff
     min_volume = get_config_float(config, 'MinimumPOIVolume', 0.05) * 2.0

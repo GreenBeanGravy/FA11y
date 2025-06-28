@@ -31,9 +31,7 @@ class SpatialAudioEngine:
             try:
                 self.hrirs = spa.io.load_hrirs(sample_rate)
                 self.hrtf_initialized = True
-                print("HRTF system initialized successfully")
             except Exception as e:
-                print(f"Failed to initialize HRTF system: {e}")
                 self.hrtf_initialized = False
         
     def update_player_direction(self, direction_degrees: float):
@@ -98,7 +96,7 @@ class SpatialAudio:
         self.initialize_audio()
 
     def initialize_audio(self):
-        """Initialize PyAudio with robust error handling"""
+        """Initialize PyAudio with robust error handling and laptop speaker compatibility"""
         if self.initialization_attempted:
             return
             
@@ -106,7 +104,35 @@ class SpatialAudio:
         
         try:
             self.pyaudio_instance = pyaudio.PyAudio()
-            self.audio_initialized = True
+            
+            # Test if we can actually create a stream (some laptop speakers are picky)
+            try:
+                test_stream = self.pyaudio_instance.open(
+                    format=pyaudio.paInt16,
+                    channels=2,
+                    rate=44100,
+                    output=True,
+                    frames_per_buffer=1024
+                )
+                test_stream.close()
+                self.audio_initialized = True
+            except Exception:
+                # Try mono output for problematic laptop speakers
+                try:
+                    test_stream = self.pyaudio_instance.open(
+                        format=pyaudio.paInt16,
+                        channels=1,
+                        rate=44100,
+                        output=True,
+                        frames_per_buffer=1024
+                    )
+                    test_stream.close()
+                    self.audio_initialized = True
+                except Exception:
+                    self.pyaudio_instance.terminate()
+                    self.pyaudio_instance = None
+                    self.audio_initialized = False
+                    
         except Exception:
             self.pyaudio_instance = None
             self.audio_initialized = False
@@ -135,22 +161,49 @@ class SpatialAudio:
             self.sample_rate = None
 
     def open_audio_stream(self):
-        """Open a PyAudio stream with enhanced error handling"""
+        """Open a PyAudio stream with enhanced error handling and better laptop speaker compatibility"""
         if not self.audio_initialized or self.pyaudio_instance is None:
             return None
             
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                stream = self.pyaudio_instance.open(
-                    format=pyaudio.paInt16, 
-                    channels=2, 
-                    rate=int(self.sample_rate), 
-                    output=True, 
-                    frames_per_buffer=self.chunk_size,
-                    stream_callback=None
-                )
-                return stream
+                # Try different audio configurations for better laptop compatibility
+                configs_to_try = [
+                    # Primary config
+                    {
+                        'format': pyaudio.paInt16,
+                        'channels': 2,
+                        'rate': int(self.sample_rate),
+                        'output': True,
+                        'frames_per_buffer': self.chunk_size
+                    },
+                    # Fallback with smaller buffer
+                    {
+                        'format': pyaudio.paInt16,
+                        'channels': 2,
+                        'rate': int(self.sample_rate),
+                        'output': True,
+                        'frames_per_buffer': 1024
+                    },
+                    # Fallback with different sample rate
+                    {
+                        'format': pyaudio.paInt16,
+                        'channels': 2,
+                        'rate': 44100,
+                        'output': True,
+                        'frames_per_buffer': 1024
+                    }
+                ]
+                
+                for config in configs_to_try:
+                    try:
+                        stream = self.pyaudio_instance.open(**config)
+                        return stream
+                    except Exception:
+                        continue
+                        
+                return None
                 
             except Exception:
                 if attempt == max_attempts - 1:
@@ -203,10 +256,10 @@ class SpatialAudio:
             # Apply player direction if enabled
             if self.use_player_direction:
                 relative_angle = self.spatial_engine.calculate_relative_direction(azimuth)
-                # Flip azimuth for HRTF coordinate system
-                azimuth_rad = np.radians(-relative_angle)
+                # Use original azimuth calculation (removed negative)
+                azimuth_rad = np.radians(relative_angle)
             else:
-                azimuth_rad = np.radians(-azimuth)
+                azimuth_rad = np.radians(azimuth)
             
             elevation_rad = np.radians(elevation)
             
@@ -252,8 +305,8 @@ class SpatialAudio:
         else:
             relative_angle = azimuth
         
-        # Convert to pan (-1 to 1) - Flipped to fix stereo orientation
-        pan = np.clip(-relative_angle / 90, -1, 1)
+        # Convert to pan (-1 to 1) - Back to original calculation
+        pan = np.clip(relative_angle / 90, -1, 1)
         left_weight = np.clip((1 - pan) / 2, 0, 1)
         right_weight = np.clip((1 + pan) / 2, 0, 1)
         
