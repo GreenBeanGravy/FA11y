@@ -13,7 +13,7 @@ from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, MINIMAP_REGION
 from lib.background_checks import monitor
 from lib.player_position import find_player_position, find_minimap_icon_direction
-from lib.spatial_audio import SpatialAudio, get_spatial_engine
+from lib.spatial_audio import SpatialAudio
 
 class StormAudioThread:
     """Manages audio for storm with configurable ping intervals"""
@@ -64,16 +64,11 @@ class StormAudioThread:
                     distance = self.current_distance
 
                 if position and distance is not None:
-                    # Get player position and update spatial engine
-                    player_pos = find_player_position()
-                    if player_pos:
-                        # Update player direction in spatial engine
-                        _, player_angle = find_minimap_icon_direction()
-                        if player_angle is not None:
-                            spatial_engine = get_spatial_engine()
-                            spatial_engine.update_player_direction(player_angle)
-                        
-                        self._play_spatial_audio(player_pos, position, distance)
+                    _, player_angle = find_minimap_icon_direction()
+                    if player_angle is not None:
+                        player_pos = find_player_position()
+                        if player_pos:
+                            self._play_spatial_audio(player_pos, player_angle, position, distance)
 
                 if self.stop_event.wait(timeout=self.ping_interval):
                     break
@@ -81,31 +76,31 @@ class StormAudioThread:
             except Exception:
                 time.sleep(0.1)
 
-    def _play_spatial_audio(self, player_pos: Tuple[int, int], storm_pos: Tuple[int, int], distance: float):
+    def _play_spatial_audio(self, player_pos: Tuple[int, int], player_angle: float,
+                           storm_pos: Tuple[int, int], distance: float):
         """Play spatial audio for the storm"""
         if not self.audio_instance:
             return
         try:
-            # Calculate direction from player to storm
             storm_vector = np.array(storm_pos) - np.array(player_pos)
-            
-            # Convert to azimuth (0 = North, 90 = East, 180 = South, 270 = West)
-            storm_azimuth = (90 - np.degrees(np.arctan2(-storm_vector[1], storm_vector[0]))) % 360
+            storm_angle = (90 - np.degrees(np.arctan2(-storm_vector[1], storm_vector[0]))) % 360
 
-            # Even gentler distance-based volume falloff
-            max_distance = 1000.0  # Increased from 800
-            min_volume_factor = 0.6  # Increased from 0.4
+            relative_angle = (storm_angle - player_angle + 180) % 360 - 180
+            pan = np.clip(relative_angle / 90, -1, 1)
+            left_weight = np.clip((1 - pan) / 2, 0, 1)
+            right_weight = np.clip((1 + pan) / 2, 0, 1)
+
+            # Distance-based volume falloff
+            max_distance = 300.0
             distance_factor = min(distance / max_distance, 1.0)
-            volume_factor = max(min_volume_factor, 1.0 - distance_factor * 0.5)  # Only 50% reduction instead of 70%
+            volume_factor = (1.0 - distance_factor) ** 1.5
             final_volume = self.volume * volume_factor
+            final_volume = np.clip(final_volume, 0.1, self.volume)
 
-            # Use the new spatial audio API
-            self.audio_instance.play_spatial(
-                azimuth=storm_azimuth,
-                elevation=0.0,  # Storm is assumed at ground level
-                distance=distance,
-                volume=final_volume,
-                use_player_direction=True
+            self.audio_instance.play_audio(
+                left_weight=left_weight,
+                right_weight=right_weight,
+                volume=final_volume
             )
 
         except Exception:
@@ -155,10 +150,9 @@ class StormMonitor:
         return self.is_enabled() and not monitor.map_open
 
     def get_storm_volume(self) -> float:
-        """Get storm volume from config with 2x increase"""
+        """Get storm volume from config"""
         config = read_config()
-        base_volume = get_config_float(config, 'StormVolume', 0.5)
-        return base_volume * 3.0  # Increased from 1.5 to 3.0 (2x boost)
+        return get_config_float(config, 'StormVolume', 0.5)
 
     def get_storm_ping_interval(self) -> float:
         """Get storm ping interval from config"""

@@ -86,7 +86,6 @@ from lib.utilities import (
 )
 from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
 from lib.custom_poi_handler import load_custom_pois
-from lib.spatial_audio import get_spatial_engine
 
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
@@ -1272,6 +1271,11 @@ def main() -> None:
                 config_key = f"Monitor{obj_name.replace('_', '').title()}"
                 ping_key = f"{obj_name.replace('_', '').title()}PingInterval"
                 print(f"  - {display_name} (Toggle: {config_key}, Interval: {ping_key})")
+
+        # Print storm monitoring info
+        print("Storm monitoring configured:")
+        print("  - Monitor storm on minimap with spatial audio pings")
+        print("  - Config options: MonitorStorm (toggle), StormVolume, StormPingInterval")
 
         # Notify user that FA11y is running
         speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")

@@ -13,7 +13,7 @@ import win32api
 import win32gui
 
 from lib.guis.base_ui import AccessibleUI
-from lib.spatial_audio import SpatialAudio, get_spatial_engine
+from lib.spatial_audio import SpatialAudio
 from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string
 from lib.input_handler import VK_KEYS, is_mouse_button
 
@@ -445,7 +445,7 @@ class ConfigGUI(AccessibleUI):
             self.play_poi_sound_at_volume(key, new_value)
     
     def play_poi_sound_at_volume(self, key: str, value_str: str) -> None:
-        """Play POI sound at the specified volume using improved spatial audio"""
+        """Play POI sound at the specified volume"""
         try:
             volume = float(value_str)
             volume = max(0.0, min(volume, 1.0))  
@@ -455,18 +455,8 @@ class ConfigGUI(AccessibleUI):
                 logger.warning(f"POI sound file not found: {sound_path}")
                 return
 
-            # Create a test spatial audio instance
-            spatial_poi_player = SpatialAudio(sound_path)
-            
-            # Play with improved spatial audio - straight ahead as a test
-            spatial_poi_player.play_spatial(
-                azimuth=0.0,        # Straight ahead (North)
-                elevation=0.0,      # At ear level
-                distance=10.0,      # 10 meters away
-                volume=volume,
-                use_player_direction=False  # Don't use player direction for testing
-            )
-            
+            spatial_poi_player = SpatialAudio(sound_path) 
+            spatial_poi_player.play_audio(left_weight=1.0, right_weight=1.0, volume=volume)
         except ValueError:
             logger.error(f"Invalid volume value '{value_str}' for {key}")
         except Exception as e:
