@@ -5,6 +5,16 @@ import time
 import concurrent.futures
 from functools import lru_cache
 import winreg
+import warnings
+
+# Suppress pkg_resources deprecation warnings from external libraries
+warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", category=UserWarning)
+
+# Check Python version requirement
+if sys.version_info < (3, 8):
+    print("Error: Python 3.8 or higher is required.")
+    input("Press Enter to exit...")
+    sys.exit(1)
 
 # Ensure the "requests" library is installed before importing it
 try:
@@ -20,7 +30,7 @@ os.system("title FA11y")
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Configuration
-AUTO_UPDATE_UPDATER = True
+AUTO_UPDATE_UPDATER = False
 MAX_RESTARTS = 3
 
 # GitHub repository configuration
@@ -455,27 +465,14 @@ def install_requirements():
     """
     Install dependencies listed in requirements.txt more efficiently.
     """
-    import sys
+    from importlib.metadata import version, PackageNotFoundError
+    from packaging.version import parse as parse_version
     
-    # Handle different Python versions
-    if sys.version_info >= (3, 8):
-        from importlib.metadata import version, PackageNotFoundError
-        from packaging.version import parse as parse_version
-        
-        def get_package_version(pkg_name):
-            try:
-                return version(pkg_name)
-            except PackageNotFoundError:
-                return None
-    else:
-        import pkg_resources
-        from pkg_resources import parse_version
-        
-        def get_package_version(pkg_name):
-            try:
-                return pkg_resources.get_distribution(pkg_name).version
-            except pkg_resources.DistributionNotFound:
-                return None
+    def get_package_version(pkg_name):
+        try:
+            return version(pkg_name)
+        except PackageNotFoundError:
+            return None
     
     requirements_file = 'requirements.txt'
 

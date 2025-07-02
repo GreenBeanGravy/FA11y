@@ -9,7 +9,17 @@ import win32com.client
 import requests
 import json
 import numpy as np
+import warnings
 from typing import List, Tuple, Optional, Dict, Any, Union
+
+# Suppress pkg_resources deprecation warnings from external libraries
+warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", category=UserWarning)
+
+# Check Python version requirement
+if sys.version_info < (3, 8):
+    print("Error: Python 3.8 or higher is required.")
+    input("Press Enter to exit...")
+    sys.exit(1)
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
@@ -91,9 +101,10 @@ from lib.custom_poi_handler import load_custom_pois
 pygame.mixer.init()
 update_sound = pygame.mixer.Sound("sounds/update.ogg")
 
-# Website API configuration
-API_BASE_URL = "https://a11yvault.com/api"
-PROJECT_NAME = "fa11y"
+# GitHub repository configuration
+GITHUB_REPO_URL = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main"
+VERSION_URL = f"{GITHUB_REPO_URL}/VERSION"
+CHANGELOG_URL = f"{GITHUB_REPO_URL}/CHANGELOG.txt"
 
 speaker = Auto()
 key_state = {}
@@ -1062,10 +1073,9 @@ def handle_update_with_changelog() -> None:
     
     local_changelog_exists = os.path.exists(local_changelog_path)
     
-    url = f"{API_BASE_URL}/changelog/{PROJECT_NAME}"
     remote_changelog = None
     try:
-        response = requests.get(url)
+        response = requests.get(CHANGELOG_URL, timeout=10)
         response.raise_for_status()
         remote_changelog = response.text
     except requests.RequestException as e:
@@ -1146,15 +1156,13 @@ def run_updater() -> bool:
     return update_performed
 
 def get_version() -> str:
-    """Get version from website API."""
-    url = f"{API_BASE_URL}/version/{PROJECT_NAME}"
+    """Get version from GitHub repository."""
     try:
-        response = requests.get(url)
+        response = requests.get(VERSION_URL, timeout=10)
         response.raise_for_status()
-        data = response.json()
-        return data.get('version', None)
+        return response.text.strip()
     except requests.RequestException as e:
-        print(f"Failed to fetch version: {e}")
+        print(f"Failed to fetch version from GitHub: {e}")
         return None
 
 def parse_version(version: str) -> tuple:
