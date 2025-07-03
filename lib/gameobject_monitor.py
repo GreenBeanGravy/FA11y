@@ -86,15 +86,10 @@ class GameObjectAudioThread:
             return
         
         try:
-            import numpy as np
-            
-            obj_vector = np.array(object_pos) - np.array(player_pos)
-            obj_angle = (90 - np.degrees(np.arctan2(-obj_vector[1], obj_vector[0]))) % 360
-            
-            relative_angle = (obj_angle - player_angle + 180) % 360 - 180
-            pan = np.clip(relative_angle / 90, -1, 1)
-            left_weight = np.clip((1 - pan) / 2, 0, 1)
-            right_weight = np.clip((1 + pan) / 2, 0, 1)
+            # Calculate distance and relative angle using universal calculation
+            calc_distance, relative_angle = SpatialAudio.calculate_distance_and_angle(
+                player_pos, player_angle, object_pos
+            )
             
             # Enhanced falloff parameters
             max_distance = 250.0
@@ -105,11 +100,13 @@ class GameObjectAudioThread:
             distance_factor = min(distance / max_distance, 1.0)
             volume_factor = (1.0 - distance_factor) ** 1.8
             volume = min_volume + (max_volume - min_volume) * volume_factor
+            
+            import numpy as np
             volume = np.clip(volume, min_volume, max_volume)
             
             self.audio_instance.play_audio(
-                left_weight=left_weight,
-                right_weight=right_weight,
+                distance=calc_distance,
+                relative_angle=relative_angle,
                 volume=volume
             )
             
@@ -150,6 +147,13 @@ class GameObjectMonitor:
         if os.path.exists(default_sound_path):
             try:
                 self.default_audio = SpatialAudio(default_sound_path)
+                # Set up volume management
+                config = read_config()
+                master_volume, gameobject_volume = SpatialAudio.get_volume_from_config(
+                    config, 'GameObjectVolume', 'MasterVolume', 1.0
+                )
+                self.default_audio.set_master_volume(master_volume)
+                self.default_audio.set_individual_volume(gameobject_volume)
             except Exception:
                 self.default_audio = None
         
@@ -158,7 +162,15 @@ class GameObjectMonitor:
             
             if os.path.exists(object_sound_path):
                 try:
-                    self.audio_instances[object_name] = SpatialAudio(object_sound_path)
+                    audio_instance = SpatialAudio(object_sound_path)
+                    # Set up volume management for individual object sounds
+                    config = read_config()
+                    master_volume, individual_volume = SpatialAudio.get_volume_from_config(
+                        config, f"{object_name.replace('_', '').title()}Volume", 'MasterVolume', 1.0
+                    )
+                    audio_instance.set_master_volume(master_volume)
+                    audio_instance.set_individual_volume(individual_volume)
+                    self.audio_instances[object_name] = audio_instance
                 except Exception:
                     continue
     

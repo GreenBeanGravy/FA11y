@@ -1,6 +1,6 @@
 """
 Configuration GUI for FA11y
-Provides interface for user configuration of settings, values, and keybinds
+Provides interface for user configuration of settings, values, and keybinds with multi-column layout
 """
 import os
 import logging
@@ -11,17 +11,18 @@ from typing import Callable, Dict, Optional, List, Any, Tuple, Set
 import time
 import win32api
 import win32gui
+import math
 
 from lib.guis.base_ui import AccessibleUI
 from lib.spatial_audio import SpatialAudio
-from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string
+from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string, get_available_sounds, is_audio_setting
 from lib.input_handler import VK_KEYS, is_mouse_button
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
 class ConfigGUI(AccessibleUI):
-    """Configuration GUI for FA11y settings"""
+    """Configuration GUI for FA11y settings with multi-column layout"""
 
     def __init__(self, config, 
                  update_callback: Callable,
@@ -42,6 +43,7 @@ class ConfigGUI(AccessibleUI):
         self.section_tab_mapping = {
             "Toggles": {},
             "Values": {},
+            "Audio": {},
             "Keybinds": {},
         }
         
@@ -61,6 +63,20 @@ class ConfigGUI(AccessibleUI):
         self.mouse_constraint_active = False
         self.mouse_constraint_timer = None
         
+        # Multi-column layout settings
+        self.columns_per_row = 3  # Number of columns per row
+        self.current_row = 0
+        self.current_column = 0
+        
+        # Grid management for each tab
+        self.grid_positions = {}  # tab_name -> (row, col)
+        
+        # Audio instances for volume testing
+        self.test_audio_instances = {}
+        
+        # Track widgets for proper tab order
+        self.tab_order_widgets = {}  # tab_name -> list of widgets in order
+        
         self.setup()
     
     def setup(self) -> None:
@@ -73,12 +89,14 @@ class ConfigGUI(AccessibleUI):
         self.root.bind_all('<r>', self.on_r_key)
         self.root.bind_all('<R>', self.on_r_key) 
         self.root.bind_all('<Delete>', self.on_delete_key)
+        self.root.bind_all('<t>', self.on_t_key)  # Test volume
+        self.root.bind_all('<T>', self.on_t_key)
         
         self.root.protocol("WM_DELETE_WINDOW", self.save_and_close)
         
         self.root.after(100, lambda: force_focus_window(
             self.root,
-            "Press R to reset the focused setting to its default value. Press Delete to unbind a keybind when focused. Press Escape to save and close, or cancel current edit/keybind capture.",
+            "Press R to reset the focused setting to its default value. Press Delete to unbind a keybind when focused. Press T to test audio settings. Press Escape to save and close, or cancel current edit/keybind capture.",
             self.focus_first_widget
         ))
     
@@ -86,7 +104,30 @@ class ConfigGUI(AccessibleUI):
         """Create tabs for different setting categories"""
         self.add_tab("Toggles")
         self.add_tab("Values")
+        self.add_tab("Audio")
         self.add_tab("Keybinds")
+        
+        # Initialize grid positions for each tab
+        for tab_name in ["Toggles", "Values", "Audio", "Keybinds"]:
+            self.grid_positions[tab_name] = [0, 0]  # [row, col]
+            self.tab_order_widgets[tab_name] = []
+    
+    def get_next_grid_position(self, tab_name: str) -> Tuple[int, int]:
+        """Get the next grid position for a widget in the specified tab"""
+        if tab_name not in self.grid_positions:
+            self.grid_positions[tab_name] = [0, 0]
+        
+        row, col = self.grid_positions[tab_name]
+        current_row, current_col = row, col
+        
+        # Move to next position
+        col += 1
+        if col >= self.columns_per_row:
+            col = 0
+            row += 1
+        
+        self.grid_positions[tab_name] = [row, col]
+        return current_row, current_col
     
     def analyze_config(self) -> None:
         """Analyze configuration to determine appropriate tab mappings"""
@@ -104,10 +145,15 @@ class ConfigGUI(AccessibleUI):
                     self.section_tab_mapping["Toggles"][key] = "Toggles"
                 elif section == "Values":
                     self.section_tab_mapping["Values"][key] = "Values"
+                elif section == "Audio":
+                    self.section_tab_mapping["Audio"][key] = "Audio"
                 elif section == "Keybinds":
                     self.section_tab_mapping["Keybinds"][key] = "Keybinds"
                 elif section == "SETTINGS":
-                    if value.lower() in ['true', 'false']:
+                    # Handle legacy SETTINGS section
+                    if is_audio_setting(key):
+                        self.section_tab_mapping["Audio"][key] = "Audio"
+                    elif value.lower() in ['true', 'false']:
                         self.section_tab_mapping["Toggles"][key] = "Toggles"
                     else:
                         self.section_tab_mapping["Values"][key] = "Values"
@@ -130,7 +176,7 @@ class ConfigGUI(AccessibleUI):
                     self.action_to_key[action] = key_lower 
     
     def create_widgets(self) -> None:
-        """Create widgets for each configuration section"""
+        """Create widgets for each configuration section with multi-column layout"""
         for section in self.config.config.sections():
             if section == "POI": 
                 continue
@@ -139,36 +185,353 @@ class ConfigGUI(AccessibleUI):
                 value_string = self.config.config[section][key]
                 
                 if section == "Toggles":
-                    self.create_checkbox("Toggles", key, value_string)
-                elif section == "Keybinds":
-                    self.create_keybind_entry("Keybinds", key, value_string)
+                    self.create_checkbox_grid("Toggles", key, value_string)
                 elif section == "Values":
-                    self.create_value_entry("Values", key, value_string)
+                    self.create_value_entry_grid("Values", key, value_string)
+                elif section == "Audio":
+                    # Determine widget type based on key
+                    value, _ = self.extract_value_and_description(value_string)
+                    if value.lower() in ['true', 'false']:
+                        self.create_audio_checkbox_grid("Audio", key, value_string)
+                    elif key.endswith('Volume') or key == 'MasterVolume':
+                        self.create_volume_entry_grid("Audio", key, value_string)
+                    else:
+                        self.create_audio_value_entry_grid("Audio", key, value_string)
+                elif section == "Keybinds":
+                    self.create_keybind_entry_grid("Keybinds", key, value_string)
                 elif section == "SETTINGS":
-                     val_part, _ = self.extract_value_and_description(value_string)
-                     if val_part.lower() in ['true', 'false']:
-                         self.create_checkbox("Toggles", key, value_string)
-                     else:
-                         self.create_value_entry("Values", key, value_string)
+                    # Handle legacy SETTINGS section
+                    val_part, _ = self.extract_value_and_description(value_string)
+                    if is_audio_setting(key):
+                        if val_part.lower() in ['true', 'false']:
+                            self.create_audio_checkbox_grid("Audio", key, value_string)
+                        elif key.endswith('Volume') or key == 'MasterVolume':
+                            self.create_volume_entry_grid("Audio", key, value_string)
+                        else:
+                            self.create_audio_value_entry_grid("Audio", key, value_string)
+                    elif val_part.lower() in ['true', 'false']:
+                        self.create_checkbox_grid("Toggles", key, value_string)
+                    else:
+                        self.create_value_entry_grid("Values", key, value_string)
                 elif section == "SCRIPT KEYBINDS":
-                    self.create_keybind_entry("Keybinds", key, value_string)
-
+                    self.create_keybind_entry_grid("Keybinds", key, value_string)
     
-    def create_checkbox(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a checkbox for a boolean setting"""
+    def create_checkbox_grid(self, tab_name: str, key: str, value_string: str) -> None:
+        """Create a checkbox for a boolean setting in grid layout"""
         value, description = self.extract_value_and_description(value_string)
         bool_value = value.lower() == 'true'
-        self.add_checkbox(tab_name, key, bool_value, description)
+        
+        row, col = self.get_next_grid_position(tab_name)
+        self.add_checkbox_grid(tab_name, key, bool_value, description, row, col)
     
-    def create_value_entry(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a text entry field for a value setting"""
+    def create_audio_checkbox_grid(self, tab_name: str, key: str, value_string: str) -> None:
+        """Create a checkbox for an audio boolean setting in grid layout"""
         value, description = self.extract_value_and_description(value_string)
-        self.add_entry(tab_name, key, value, description)
+        bool_value = value.lower() == 'true'
+        
+        row, col = self.get_next_grid_position(tab_name)
+        self.add_checkbox_grid(tab_name, key, bool_value, description, row, col)
     
-    def create_keybind_entry(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a keybind entry field"""
+    def create_value_entry_grid(self, tab_name: str, key: str, value_string: str) -> None:
+        """Create a text entry field for a value setting in grid layout"""
         value, description = self.extract_value_and_description(value_string)
-        self.add_keybind(tab_name, key, value, description) 
+        
+        row, col = self.get_next_grid_position(tab_name)
+        self.add_entry_grid(tab_name, key, value, description, row, col)
+    
+    def create_audio_value_entry_grid(self, tab_name: str, key: str, value_string: str) -> None:
+        """Create a text entry field for an audio value setting in grid layout"""
+        value, description = self.extract_value_and_description(value_string)
+        
+        row, col = self.get_next_grid_position(tab_name)
+        self.add_entry_grid(tab_name, key, value, description, row, col)
+    
+    def create_volume_entry_grid(self, tab_name: str, key: str, value_string: str) -> None:
+        """Create a volume entry field with test button in grid layout"""
+        value, description = self.extract_value_and_description(value_string)
+        
+        row, col = self.get_next_grid_position(tab_name)
+        self.add_volume_entry_grid(tab_name, key, value, description, row, col)
+    
+    def create_keybind_entry_grid(self, tab_name: str, key: str, value_string: str) -> None:
+        """Create a keybind entry field in grid layout"""
+        value, description = self.extract_value_and_description(value_string)
+        
+        row, col = self.get_next_grid_position(tab_name)
+        self.add_keybind_grid(tab_name, key, value, description, row, col)
+    
+    def add_checkbox_grid(self, tab_name: str, key: str, value: bool, description: str, row: int, col: int) -> None:
+        """Add a checkbox widget in grid layout"""
+        if tab_name not in self.tabs:
+            return
+        
+        frame = self.tabs[tab_name]
+        
+        # Create a container frame for this checkbox
+        container = ttk.Frame(frame)
+        container.grid(row=row, column=col, padx=5, pady=2, sticky='ew')
+        
+        # Configure column weight for the container's parent
+        frame.grid_columnconfigure(col, weight=1)
+        
+        var = tk.BooleanVar(value=value)
+        
+        checkbox = ttk.Checkbutton(
+            container,
+            text=key,
+            variable=var
+        )
+        checkbox.pack(fill='x')
+        checkbox.description = description
+        
+        if tab_name not in self.variables:
+            self.variables[tab_name] = {}
+        if tab_name not in self.widgets:
+            self.widgets[tab_name] = []
+            
+        self.variables[tab_name][key] = var
+        self.widgets[tab_name].append(checkbox)
+        self.tab_order_widgets[tab_name].append(checkbox)
+    
+    def add_entry_grid(self, tab_name: str, key: str, value: str, description: str, row: int, col: int) -> None:
+        """Add an entry widget in grid layout"""
+        if tab_name not in self.tabs:
+            return
+        
+        frame = self.tabs[tab_name]
+        
+        # Create a container frame for this entry
+        container = ttk.Frame(frame)
+        container.grid(row=row, column=col, padx=5, pady=2, sticky='ew')
+        
+        # Configure column weight
+        frame.grid_columnconfigure(col, weight=1)
+        
+        # Label
+        label = ttk.Label(container, text=key)
+        label.pack(anchor='w')
+        
+        # Entry
+        var = tk.StringVar(value=value)
+        entry = ttk.Entry(container, textvariable=var, state='readonly')
+        entry.pack(fill='x')
+        entry.description = description
+        
+        # Bind events
+        entry.bind('<Button-1>', lambda e: self.start_editing(entry))
+        
+        if tab_name not in self.variables:
+            self.variables[tab_name] = {}
+        if tab_name not in self.widgets:
+            self.widgets[tab_name] = []
+            
+        self.variables[tab_name][key] = var
+        self.widgets[tab_name].append(entry)
+        self.tab_order_widgets[tab_name].append(entry)
+    
+    def add_volume_entry_grid(self, tab_name: str, key: str, value: str, description: str, row: int, col: int) -> None:
+        """Add a volume entry widget with test button in grid layout"""
+        if tab_name not in self.tabs:
+            return
+        
+        frame = self.tabs[tab_name]
+        
+        # Create a container frame for this volume entry
+        container = ttk.Frame(frame)
+        container.grid(row=row, column=col, padx=5, pady=2, sticky='ew')
+        
+        # Configure column weight
+        frame.grid_columnconfigure(col, weight=1)
+        
+        # Label
+        label = ttk.Label(container, text=key)
+        label.pack(anchor='w')
+        
+        # Entry frame to hold entry and test button
+        entry_frame = ttk.Frame(container)
+        entry_frame.pack(fill='x')
+        
+        # Entry
+        var = tk.StringVar(value=value)
+        entry = ttk.Entry(entry_frame, textvariable=var, state='readonly')
+        entry.pack(side='left', fill='x', expand=True)
+        entry.description = description
+        
+        # Test button
+        test_button = ttk.Button(
+            entry_frame, 
+            text="Test", 
+            width=6,
+            command=lambda: self.test_volume(key, var.get())
+        )
+        test_button.pack(side='right', padx=(2, 0))
+        
+        # Bind events
+        entry.bind('<Button-1>', lambda e: self.start_editing(entry))
+        
+        if tab_name not in self.variables:
+            self.variables[tab_name] = {}
+        if tab_name not in self.widgets:
+            self.widgets[tab_name] = []
+            
+        self.variables[tab_name][key] = var
+        self.widgets[tab_name].append(entry)
+        self.widgets[tab_name].append(test_button)
+        
+        # Add to tab order - entry first, then test button
+        self.tab_order_widgets[tab_name].append(entry)
+        self.tab_order_widgets[tab_name].append(test_button)
+    
+    def add_keybind_grid(self, tab_name: str, key: str, value: str, description: str, row: int, col: int) -> None:
+        """Add a keybind widget in grid layout"""
+        if tab_name not in self.tabs:
+            return
+        
+        frame = self.tabs[tab_name]
+        
+        # Create a container frame for this keybind
+        container = ttk.Frame(frame)
+        container.grid(row=row, column=col, padx=5, pady=2, sticky='ew')
+        
+        # Configure column weight
+        frame.grid_columnconfigure(col, weight=1)
+        
+        # Label
+        label = ttk.Label(container, text=key)
+        label.pack(anchor='w')
+        
+        # Entry
+        var = tk.StringVar(value=value)
+        entry = ttk.Entry(container, textvariable=var, state='readonly')
+        entry.pack(fill='x')
+        entry.description = description
+        
+        # Bind events
+        entry.bind('<Button-1>', lambda e: self.capture_keybind(entry))
+        
+        if tab_name not in self.variables:
+            self.variables[tab_name] = {}
+        if tab_name not in self.widgets:
+            self.widgets[tab_name] = []
+            
+        self.variables[tab_name][key] = var
+        self.widgets[tab_name].append(entry)
+        self.tab_order_widgets[tab_name].append(entry)
+    
+    def find_widget_label(self, widget: tk.Widget) -> Optional[str]:
+        """Find the label text for a widget, checking parent containers
+        
+        Args:
+            widget: Widget to find label for
+            
+        Returns:
+            str or None: Label text or None if not found
+        """
+        # First check immediate parent for label
+        try:
+            for child in widget.master.winfo_children():
+                if isinstance(child, ttk.Label):
+                    return child.cget('text')
+        except (tk.TclError, AttributeError):
+            pass
+        
+        # If not found, check grandparent (for volume entries where entry is in entry_frame)
+        try:
+            for child in widget.master.master.winfo_children():
+                if isinstance(child, ttk.Label):
+                    return child.cget('text')
+        except (tk.TclError, AttributeError):
+            pass
+        
+        return None
+    
+    def test_volume(self, volume_key: str, volume_value: str) -> None:
+        """Test a volume setting by playing an appropriate sound"""
+        try:
+            volume = float(volume_value)
+            volume = max(0.0, min(volume, 1.0))
+            
+            # Determine which sound to play based on the volume key
+            sound_file = None
+            if volume_key == 'MasterVolume':
+                sound_file = 'sounds/poi.ogg'  # Use POI sound for master volume
+            elif volume_key == 'POIVolume':
+                sound_file = 'sounds/poi.ogg'
+            elif volume_key == 'StormVolume':
+                sound_file = 'sounds/storm.ogg'
+            elif volume_key == 'GameObjectVolume':
+                sound_file = 'sounds/gameobject.ogg'
+            else:
+                # For individual object sounds, try to find the corresponding file
+                clean_key = volume_key.replace('Volume', '').lower()
+                for sound_name in get_available_sounds():
+                    if clean_key in sound_name.lower():
+                        sound_file = f'sounds/{sound_name}.ogg'
+                        break
+                
+                # Fallback to a default sound
+                if not sound_file:
+                    sound_file = 'sounds/poi.ogg'
+            
+            if not os.path.exists(sound_file):
+                self.speak(f"Sound file not found for {volume_key}")
+                return
+            
+            # Create or get audio instance
+            if volume_key not in self.test_audio_instances:
+                self.test_audio_instances[volume_key] = SpatialAudio(sound_file)
+            
+            audio_instance = self.test_audio_instances[volume_key]
+            
+            # Set up volume management
+            if volume_key == 'MasterVolume':
+                # For master volume, set both master and individual to the test value
+                audio_instance.set_master_volume(volume)
+                audio_instance.set_individual_volume(1.0)
+            else:
+                # For individual volumes, use current master volume
+                master_vol = 1.0
+                if 'MasterVolume' in self.variables.get("Audio", {}):
+                    try:
+                        master_vol = float(self.variables["Audio"]['MasterVolume'].get())
+                    except:
+                        master_vol = 1.0
+                
+                audio_instance.set_master_volume(master_vol)
+                audio_instance.set_individual_volume(volume)
+            
+            # Play the sound in center (no spatial positioning for testing)
+            audio_instance.play_audio(left_weight=0.5, right_weight=0.5, volume=1.0)
+            
+            self.speak(f"Testing {volume_key} at {volume:.1f}")
+            
+        except ValueError:
+            self.speak(f"Invalid volume value: {volume_value}")
+        except Exception as e:
+            logger.error(f"Error testing volume: {e}")
+            self.speak(f"Error testing volume for {volume_key}")
+    
+    def on_t_key(self, event) -> Optional[str]:
+        """Handle T key press to test audio settings"""
+        if self.capturing_keybind_for_widget or self.currently_editing:
+            self.speak("Cannot test audio while editing or capturing keybind.")
+            return "break"
+
+        current_widget = self.root.focus_get()
+        current_tab_name = self.notebook.tab(self.notebook.select(), "text")
+        
+        # Only process in Audio tab with entry widget focused
+        if current_tab_name != "Audio" or not isinstance(current_widget, ttk.Entry):
+            return None
+        
+        # Get audio setting name using the helper method
+        audio_key = self.find_widget_label(current_widget)
+        if audio_key and (audio_key.endswith('Volume') or audio_key == 'MasterVolume'):
+            audio_value = current_widget.get()
+            self.test_volume(audio_key, audio_value)
+            return "break"
+                    
+        return None
     
     def extract_value_and_description(self, value_string: str) -> tuple:
         """Extract value and description from a config string"""
@@ -295,15 +658,13 @@ class ConfigGUI(AccessibleUI):
         # Only process in Keybinds tab with entry widget focused
         if current_tab_name != "Keybinds" or not isinstance(current_widget, ttk.Entry):
             return None
-            
-        # Get action name from label widget
-        if hasattr(current_widget, 'master') and current_widget.master.winfo_children():
-            label_widget = current_widget.master.winfo_children()[0]
-            if isinstance(label_widget, ttk.Label):
-                action_name = label_widget.cget('text')
-                self.unbind_keybind(action_name, current_widget)
-                return "break"
-                
+        
+        # Get action name using the helper method
+        action_name = self.find_widget_label(current_widget)
+        if action_name:
+            self.unbind_keybind(action_name, current_widget)
+            return "break"
+                    
         return None
 
     def unbind_keybind(self, action_name: str, widget: ttk.Entry) -> None:
@@ -340,10 +701,7 @@ class ConfigGUI(AccessibleUI):
         if isinstance(current_widget, ttk.Checkbutton):
             setting_key = current_widget.cget('text')
         elif isinstance(current_widget, ttk.Entry) or isinstance(current_widget, ttk.Combobox):
-            if hasattr(current_widget, 'master') and current_widget.master.winfo_children():
-                label_widget = current_widget.master.winfo_children()[0]
-                if isinstance(label_widget, ttk.Label):
-                    setting_key = label_widget.cget('text')
+            setting_key = self.find_widget_label(current_widget)
         
         if setting_key:
             self.reset_to_default(current_tab_name, setting_key, current_widget)
@@ -352,7 +710,12 @@ class ConfigGUI(AccessibleUI):
     
     def reset_to_default(self, tab_name: str, key: str, widget: Any) -> None:
         """Reset any setting to its default value"""
-        default_full_value = get_default_config_value_string(tab_name, key)
+        # For audio settings, always look in Audio section for defaults
+        lookup_tab = tab_name
+        if tab_name == "Audio":
+            lookup_tab = "Audio"
+            
+        default_full_value = get_default_config_value_string(lookup_tab, key)
                     
         if not default_full_value:
             self.speak(f"No default value found for {key}")
@@ -399,8 +762,8 @@ class ConfigGUI(AccessibleUI):
                 widget.config(state='readonly')
                 self.variables[tab_name][key].set(default_value_part) 
                 
-                if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
-                    self.play_poi_sound_at_volume(key, default_value_part)
+                if tab_name == "Audio" and (key.endswith('Volume') or key == 'MasterVolume'):
+                    self.test_volume(key, default_value_part)
 
         elif isinstance(widget, ttk.Combobox):
              var = self.variables[tab_name][key] 
@@ -412,8 +775,8 @@ class ConfigGUI(AccessibleUI):
         """Updates the widget for an action whose keybind was taken"""
         for widget_in_tab in self.widgets.get("Keybinds", []):
             if isinstance(widget_in_tab, ttk.Entry):
-                label_widget = widget_in_tab.master.winfo_children()[0]
-                if isinstance(label_widget, ttk.Label) and label_widget.cget('text') == action_to_clear:
+                widget_label = self.find_widget_label(widget_in_tab)
+                if widget_label == action_to_clear:
                     widget_in_tab.config(state='normal')
                     widget_in_tab.delete(0, tk.END)
                     widget_in_tab.insert(0, new_key_value)
@@ -431,8 +794,13 @@ class ConfigGUI(AccessibleUI):
         self.currently_editing = None
         widget.config(state='readonly')
         new_value = widget.get()
-        key_label_widget = widget.master.winfo_children()[0]
-        key = key_label_widget.cget('text')
+        
+        # Find the key using the helper method
+        key = self.find_widget_label(widget)
+        
+        if not key:
+            self.speak("Could not determine setting name")
+            return
         
         current_tab = self.notebook.tab(self.notebook.select(), "text")
         if key in self.variables[current_tab]:
@@ -441,38 +809,86 @@ class ConfigGUI(AccessibleUI):
         else:
             self.speak(f"Value for {key} updated to {new_value} but not linked to a variable.")
 
-        if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
-            self.play_poi_sound_at_volume(key, new_value)
-    
-    def play_poi_sound_at_volume(self, key: str, value_str: str) -> None:
-        """Play POI sound at the specified volume"""
-        try:
-            volume = float(value_str)
-            volume = max(0.0, min(volume, 1.0))  
-            
-            sound_path = os.path.join('sounds', 'poi.ogg') 
-            if not os.path.exists(sound_path):
-                logger.warning(f"POI sound file not found: {sound_path}")
-                return
-
-            spatial_poi_player = SpatialAudio(sound_path) 
-            spatial_poi_player.play_audio(left_weight=1.0, right_weight=1.0, volume=volume)
-        except ValueError:
-            logger.error(f"Invalid volume value '{value_str}' for {key}")
-        except Exception as e:
-            logger.error(f"Error playing POI sound: {e}")
+        if current_tab == "Audio" and (key.endswith('Volume') or key == 'MasterVolume'):
+            self.test_volume(key, new_value)
     
     def focus_first_widget(self) -> None:
         """Focus the first widget in the current tab"""
         current_tab_name = self.notebook.tab(self.notebook.select(), "text")
         
-        if self.widgets.get(current_tab_name):
-            first_widget = self.widgets[current_tab_name][0]
+        if self.tab_order_widgets.get(current_tab_name):
+            first_widget = self.tab_order_widgets[current_tab_name][0]
             first_widget.focus_set()
             self.speak(f"{current_tab_name} tab.") 
             widget_info = self.get_widget_info(first_widget) 
             if widget_info:
                 self.speak(widget_info)
+    
+    def get_widget_info(self, widget: tk.Widget) -> str:
+        """Get speaking information for a widget
+        
+        Args:
+            widget: Widget to get info for
+            
+        Returns:
+            str: Widget information for speech
+        """
+        if isinstance(widget, ttk.Button):
+            if hasattr(widget, 'custom_speech'):
+                return widget.custom_speech
+            return f"{widget.cget('text')}, button"
+            
+        elif isinstance(widget, ttk.Checkbutton):
+            description = getattr(widget, 'description', '')
+            info = f"{widget.cget('text')}, {'checked' if widget.instate(['selected']) else 'unchecked'}, press Enter to toggle"
+            if description:
+                info += f". {description}"
+            return info
+            
+        elif isinstance(widget, ttk.Entry):
+            key = self.find_widget_label(widget)
+            description = getattr(widget, 'description', '')
+            is_keybind = getattr(widget, 'is_keybind', False)
+            
+            info = f"{key}, current value: {widget.get() or 'No value set'}"
+            
+            if is_keybind:
+                info += ", press Enter to capture new keybind"
+            else:
+                info += ", press Enter to edit"
+                
+            if description:
+                info += f". {description}"
+                
+            return info
+            
+        elif isinstance(widget, ttk.Combobox):
+            key = self.find_widget_label(widget)
+            description = getattr(widget, 'description', '')
+            
+            info = f"{key}, current value: {widget.get() or 'No value set'}, press Enter to open dropdown"
+            
+            if description:
+                info += f". {description}"
+                
+            return info
+            
+        elif isinstance(widget, tk.Listbox):
+            description = getattr(widget, 'description', '')
+            selection = widget.curselection()
+            
+            if selection:
+                selected_item = widget.get(selection[0])
+                info = f"Listbox, selected: {selected_item}"
+            else:
+                info = "Listbox, no selection"
+                
+            if description:
+                info += f". {description}"
+                
+            return info
+            
+        return "Unknown widget"
     
     def save_and_close(self) -> None:
         """Save configuration and close the GUI"""
@@ -480,14 +896,23 @@ class ConfigGUI(AccessibleUI):
             # Stop mouse constraint if active
             self.stop_mouse_constraint()
             
+            # Clean up test audio instances
+            for audio_instance in self.test_audio_instances.values():
+                try:
+                    audio_instance.cleanup()
+                except Exception:
+                    pass
+            self.test_audio_instances.clear()
+            
             config_parser_instance = self.config.config 
 
-            for section_name in ["Toggles", "Values", "Keybinds", "POI"]:
+            for section_name in ["Toggles", "Values", "Audio", "Keybinds", "POI"]:
                 if not config_parser_instance.has_section(section_name):
                     config_parser_instance.add_section(section_name)
 
             for tab_name in self.tabs.keys(): 
-                if tab_name not in self.variables: continue 
+                if tab_name not in self.variables: 
+                    continue 
 
                 for setting_key, tk_var in self.variables[tab_name].items():
                     description = ""
@@ -495,10 +920,8 @@ class ConfigGUI(AccessibleUI):
                         widget_label = ""
                         if isinstance(widget_candidate, ttk.Checkbutton):
                             widget_label = widget_candidate.cget('text')
-                        elif hasattr(widget_candidate, 'master') and widget_candidate.master.winfo_children():
-                            label_widget = widget_candidate.master.winfo_children()[0]
-                            if isinstance(label_widget, ttk.Label):
-                                widget_label = label_widget.cget('text')
+                        elif isinstance(widget_candidate, ttk.Entry):
+                            widget_label = self.find_widget_label(widget_candidate)
                         
                         if widget_label == setting_key:
                             description = getattr(widget_candidate, 'description', '')
@@ -513,7 +936,11 @@ class ConfigGUI(AccessibleUI):
                             value_to_save = "" 
                     
                     value_string_to_save = f"{value_to_save} \"{description}\"" if description else str(value_to_save)
-                    config_parser_instance.set(tab_name, setting_key, value_string_to_save)
+                    
+                    # Determine target section based on tab
+                    target_section = tab_name
+                    
+                    config_parser_instance.set(target_section, setting_key, value_string_to_save)
 
             self.update_callback(config_parser_instance) 
             self.speak("Configuration saved and applied.")
@@ -568,11 +995,16 @@ class ConfigGUI(AccessibleUI):
         if self.currently_editing:
             widget = self.currently_editing
             widget.config(state='readonly')
-            setting_key_label = widget.master.winfo_children()[0].cget('text')
-            current_tab = self.notebook.tab(self.notebook.select(), "text")
-            self.variables[current_tab][setting_key_label].set(self.previous_value)
-            widget.delete(0, tk.END)
-            widget.insert(0, self.previous_value)
+            
+            # Find setting key using helper method
+            setting_key = self.find_widget_label(widget)
+            
+            if setting_key:
+                current_tab = self.notebook.tab(self.notebook.select(), "text")
+                self.variables[current_tab][setting_key].set(self.previous_value)
+                widget.delete(0, tk.END)
+                widget.insert(0, self.previous_value)
+            
             self.currently_editing = None
             self.speak("Cancelled editing, value restored to previous.")
             widget.focus_set()
@@ -627,8 +1059,11 @@ class ConfigGUI(AccessibleUI):
             5: "mouse 5"        # X button 2 (forward button)
         }
         
-        action_label_widget = widget.master.winfo_children()[0] 
-        action_name = action_label_widget.cget('text')
+        # Find action name using helper method
+        action_name = self.find_widget_label(widget)
+        
+        if not action_name:
+            return
         
         old_key_for_action = self.action_to_key.get(action_name, "")
 

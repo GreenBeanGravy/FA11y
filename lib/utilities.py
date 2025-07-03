@@ -3,7 +3,7 @@ import time
 import ctypes
 import configparser
 import threading
-from typing import Dict, Tuple, Optional, Any, Union, List
+from typing import Dict, Tuple, Optional, Any, Union, List, Set
 
 import pywintypes 
 import win32gui
@@ -38,29 +38,55 @@ def get_gameobject_configs():
     except ImportError:
         return {}
 
-def generate_dynamic_config_sections():
-    """Generate dynamic config sections based on available game objects"""
+def get_available_sounds():
+    """Get list of available sound files in the sounds directory"""
+    sounds_dir = 'sounds'
+    if not os.path.exists(sounds_dir):
+        return []
+    
+    sound_files = []
+    for file in os.listdir(sounds_dir):
+        if file.endswith('.ogg'):
+            sound_name = file[:-4]  # Remove .ogg extension
+            sound_files.append(sound_name)
+    
+    return sorted(sound_files)
+
+def generate_dynamic_audio_config():
+    """Generate dynamic audio configuration entries"""
     gameobjects = get_gameobject_configs()
+    available_sounds = get_available_sounds()
     
-    # Generate toggle entries for each game object
-    toggle_entries = []
-    value_entries = []
+    dynamic_entries = []
     
+    # Generate game object monitor toggles
     for obj_name in sorted(gameobjects.keys()):
-        # Convert object name to display format
         display_name = obj_name.replace('_', ' ').title()
         config_key = f"Monitor{obj_name.replace('_', '').title()}"
-        ping_key = f"{obj_name.replace('_', '').title()}PingInterval"
-        
-        toggle_entries.append(f'{config_key} = true "Toggles monitoring for {display_name} objects."')
-        value_entries.append(f'{ping_key} = 2.0 "The interval in seconds between audio pings for {display_name} objects."')
+        dynamic_entries.append(f'{config_key} = true "Toggles monitoring for {display_name} objects."')
     
-    return toggle_entries, value_entries
+    # Generate game object ping intervals
+    for obj_name in sorted(gameobjects.keys()):
+        display_name = obj_name.replace('_', ' ').title()
+        config_key = f"{obj_name.replace('_', '').title()}PingInterval"
+        dynamic_entries.append(f'{config_key} = 2.0 "The interval in seconds between audio pings for {display_name} objects."')
+    
+    # Generate individual sound volumes for game objects
+    for obj_name in sorted(gameobjects.keys()):
+        # Check if there's a specific sound file for this object
+        if obj_name in available_sounds:
+            display_name = obj_name.replace('_', ' ').title()
+            config_key = f"{obj_name.replace('_', '').title()}Volume"
+            dynamic_entries.append(f'{config_key} = 1.0 "Volume for {display_name} sounds."')
+    
+    return dynamic_entries
 
-# Default configuration with all options and descriptions
+# Default configuration with improved audio organization
 def get_default_config():
-    """Generate default config with dynamic game object entries"""
-    toggle_entries, value_entries = generate_dynamic_config_sections()
+    """Generate default config with organized audio section"""
+    
+    # Get dynamic audio entries
+    dynamic_audio_entries = generate_dynamic_audio_config()
     
     base_config = """[Toggles]
 SimplifySpeechOutput = false "Toggles simplifying speech for various FA11y announcements."
@@ -71,17 +97,8 @@ AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weap
 AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
-PerformFacingCheck = true "Toggles whether to check if the player is facing the next point. When enabled, it affects audio feedback by playing a distinct sound when facing the next point. This setting does not affect AutoTurn."
-PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
-MonitorGameObjects = false "Toggles background monitoring and spatial audio for nearby game objects while the map is closed."
-MonitorStorm = true "Toggles monitoring for storm detection on the minimap with spatial audio pings."""
-
-    if toggle_entries:
-        base_config += "\n" + "\n".join(toggle_entries)
-
-    base_config += """
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
@@ -98,16 +115,23 @@ RecenterLookDown = 1500 "The sensitivity used when moving the camera down when r
 RecenterLookUp = -820 "The sensitivity used when moving the camera up when recentering the camera."
 ResetRecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
 ResetRecenterLookUp = -580 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
-PingVolumeMaxDistance = 100 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
-PingFrequency = 0.5 "The frequency in seconds at which the navigation ping sound plays."
-FacingPointAngleThreshold = 30 "The maximum angle difference in degrees between the player's facing direction and the direction to the next point for it to be considered 'facing' the point."
+
+[Audio]
+MasterVolume = 1.0 "Master volume control for all FA11y sounds."
+PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
+MonitorGameObjects = false "Toggles background monitoring and spatial audio for nearby game objects while the map is closed."
+MonitorStorm = true "Toggles monitoring for storm detection on the minimap with spatial audio pings."
+POIVolume = 1.0 "Volume for POI navigation sounds."
+StormVolume = 0.5 "Volume for storm audio pings when storm monitoring is enabled."
+GameObjectVolume = 1.0 "Volume for game object detection sounds."
+PingVolumeMaxDistance = 1000 "The maximum distance in meters at which the ping sound becomes inaudible. Affects how quickly the volume falls off with distance."
 MinimumPOIVolume = 0.05 "The minimum volume for the P O I sound when the P O I is farthest."
 MaximumPOIVolume = 1.0 "The maximum volume for the P O I sound when the P O I is closest."
-StormVolume = 0.5 "The volume for storm audio pings when storm monitoring is enabled."
-StormPingInterval = 1.5 "The interval in seconds between audio pings for storm detection."""
+StormPingInterval = 1.5 "The interval in seconds between audio pings for storm detection.\""""
 
-    if value_entries:
-        base_config += "\n" + "\n".join(value_entries)
+    # Add dynamic audio entries
+    if dynamic_audio_entries:
+        base_config += "\n" + "\n".join(dynamic_audio_entries)
 
     base_config += """
 
@@ -254,6 +278,87 @@ def get_default_config_order() -> Dict[str, List[str]]:
     
     return order
 
+def get_valid_config_structure() -> Dict[str, Set[str]]:
+    """Get the valid structure (sections and keys) from the default config"""
+    default_config_parser = _create_config_parser_with_case_preserved()
+    default_config_parser.read_string(DEFAULT_CONFIG)
+    
+    structure = {}
+    for section in default_config_parser.sections():
+        structure[section] = set(default_config_parser.options(section))
+    
+    return structure
+
+def clean_config_of_unused_entries(config: configparser.ConfigParser) -> Tuple[configparser.ConfigParser, bool]:
+    """Remove unused config entries that are not in the default config structure"""
+    valid_structure = get_valid_config_structure()
+    cleaned_config = _create_config_parser_with_case_preserved()
+    entries_removed = False
+    
+    # Keep track of what we're removing for logging
+    removed_sections = []
+    removed_keys = []
+    
+    # Process each section in the current config
+    for section_name in config.sections():
+        # Special handling for POI section - always keep it
+        if section_name == "POI":
+            if not cleaned_config.has_section(section_name):
+                cleaned_config.add_section(section_name)
+            for key, value in config.items(section_name):
+                cleaned_config.set(section_name, key, value)
+            continue
+        
+        # Check if this section exists in the valid structure
+        if section_name not in valid_structure:
+            removed_sections.append(section_name)
+            entries_removed = True
+            continue
+        
+        # Section is valid, add it to cleaned config
+        if not cleaned_config.has_section(section_name):
+            cleaned_config.add_section(section_name)
+        
+        # Process each key in this section
+        valid_keys = valid_structure[section_name]
+        for key, value in config.items(section_name):
+            # Check if key is valid (case-insensitive)
+            key_valid = False
+            for valid_key in valid_keys:
+                if key.lower() == valid_key.lower():
+                    # Use the correct case from valid structure
+                    cleaned_config.set(section_name, valid_key, value)
+                    key_valid = True
+                    break
+            
+            if not key_valid:
+                removed_keys.append(f"[{section_name}] {key}")
+                entries_removed = True
+    
+    # Add any missing sections and keys from default config
+    for section_name, valid_keys in valid_structure.items():
+        if not cleaned_config.has_section(section_name):
+            cleaned_config.add_section(section_name)
+        
+        for valid_key in valid_keys:
+            if not cleaned_config.has_option(section_name, valid_key):
+                # Get default value from default config
+                default_config_parser = _create_config_parser_with_case_preserved()
+                default_config_parser.read_string(DEFAULT_CONFIG)
+                if default_config_parser.has_option(section_name, valid_key):
+                    default_value = default_config_parser.get(section_name, valid_key)
+                    cleaned_config.set(section_name, valid_key, default_value)
+    
+    # Log what was removed
+    if entries_removed:
+        print("Config cleanup removed unused entries:")
+        if removed_sections:
+            print(f"  Removed sections: {', '.join(removed_sections)}")
+        if removed_keys:
+            print(f"  Removed keys: {', '.join(removed_keys)}")
+    
+    return cleaned_config, entries_removed
+
 def reorganize_config(config: configparser.ConfigParser) -> configparser.ConfigParser:
     """Reorganize config according to the default order"""
     default_order = get_default_config_order()
@@ -269,15 +374,12 @@ def reorganize_config(config: configparser.ConfigParser) -> configparser.ConfigP
             if config.has_section(section) and config.has_option(section, key):
                 reorganized_config.set(section, key, config.get(section, key))
     
-    # Add any sections/keys not in default config
-    for section in config.sections():
-        if section not in default_order:
-            if not reorganized_config.has_section(section):
-                reorganized_config.add_section(section)
-        
-        for key, value in config.items(section):
-            if not reorganized_config.has_option(section, key):
-                reorganized_config.set(section, key, value)
+    # Add POI section if it exists (it's not in default order but should be preserved)
+    if config.has_section("POI"):
+        if not reorganized_config.has_section("POI"):
+            reorganized_config.add_section("POI")
+        for key, value in config.items("POI"):
+            reorganized_config.set("POI", key, value)
     
     return reorganized_config
 
@@ -339,7 +441,7 @@ def configs_differ_structurally(config1: configparser.ConfigParser, config2: con
 
 def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any = None) -> Tuple[str, str]:
     """Get a config value from any section with its description"""
-    for section in ['Toggles', 'Values', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS', 'POI']: 
+    for section in ['Toggles', 'Values', 'Audio', 'Keybinds', 'SETTINGS', 'SCRIPT KEYBINDS', 'POI']: 
         if config.has_section(section) and config.has_option(section, key): 
             value = config.get(section, key) 
             parts = value.split('"')
@@ -350,20 +452,14 @@ def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any 
 
 def get_config_section_for_key(key: str, value: str) -> str:
     """Determine which section a key belongs in"""
-    # Check if it's a dynamic game object toggle
-    if key.startswith('Monitor') and key not in ['MonitorGameObjects', 'MonitorStorm']:
-        return 'Toggles'
-    
-    # Check if it's a dynamic game object ping interval
-    if key.endswith('PingInterval'):
-        return 'Values'
+    # Check if it's an audio setting
+    if is_audio_setting(key):
+        return 'Audio'
     
     toggles_keys = [
         'SimplifySpeechOutput', 'MouseKeys', 'ResetSensitivity', 
         'AnnounceWeaponAttachments', 'AnnounceAmmo', 'AutoUpdates', 
-        'CreateDesktopShortcut', 'AutoTurn', 'PerformFacingCheck', 
-        'PlayPOISound', 'AnnounceMapStatus', 'AnnounceInventoryStatus',
-        'MonitorGameObjects', 'MonitorStorm'
+        'CreateDesktopShortcut', 'AutoTurn', 'AnnounceMapStatus', 'AnnounceInventoryStatus'
     ]
     if key in toggles_keys:
         return 'Toggles'
@@ -378,11 +474,40 @@ def get_config_section_for_key(key: str, value: str) -> str:
         
     return 'Values'
 
+def is_audio_setting(key: str) -> bool:
+    """Check if a setting is audio-related"""
+    audio_toggles = {
+        'PlayPOISound', 'MonitorGameObjects', 'MonitorStorm'
+    }
+    
+    audio_values = {
+        'PingVolumeMaxDistance', 'MinimumPOIVolume', 'MaximumPOIVolume', 
+        'StormPingInterval'
+    }
+    
+    # Check for volume settings
+    if key.endswith('Volume') or key == 'MasterVolume':
+        return True
+        
+    # Check for ping interval settings
+    if key.endswith('PingInterval'):
+        return True
+        
+    # Check for monitor toggles (game objects)
+    if key.startswith('Monitor') and key.endswith(('Gasstation', 'Herocache', 'Medallion', 'Npc', 'Overlordspire', 'Questicon', 'Rebootcard', 'Rebootvan', 'Scoutspire', 'Stormtower', 'Supplydrop')):
+        return True
+        
+    # Check for specific audio toggles and values
+    if key in audio_toggles or key in audio_values:
+        return True
+        
+    return False
+
 def migrate_config_to_new_format(config: configparser.ConfigParser) -> configparser.ConfigParser:
     """Migrate old config format to new format, preserving case"""
     new_config = _create_config_parser_with_case_preserved()
             
-    for section_name in ['Toggles', 'Values', 'Keybinds', 'POI']:
+    for section_name in ['Toggles', 'Values', 'Audio', 'Keybinds', 'POI']:
         if not new_config.has_section(section_name):
             new_config.add_section(section_name)
             
@@ -399,7 +524,30 @@ def migrate_config_to_new_format(config: configparser.ConfigParser) -> configpar
     if config.has_section('POI'):
         for key, value in config.items('POI'):
             new_config.set('POI', key, value) 
-            
+    
+    # Handle existing Audio section
+    if config.has_section('Audio'):
+        for key, value in config.items('Audio'):
+            new_config.set('Audio', key, value)
+    
+    # Handle existing Toggles section
+    if config.has_section('Toggles'):
+        for key, value in config.items('Toggles'):
+            new_config.set('Toggles', key, value)
+    
+    # Handle existing Values section
+    if config.has_section('Values'):
+        for key, value in config.items('Values'):
+            new_config.set('Values', key, value)
+    
+    # Handle existing Keybinds section
+    if config.has_section('Keybinds'):
+        for key, value in config.items('Keybinds'):
+            new_config.set('Keybinds', key, value)
+    
+    # Clean up unused entries from the migrated config
+    new_config, _ = clean_config_of_unused_entries(new_config)
+    
     # Reorganize the config according to default order
     new_config = reorganize_config(new_config)
     
@@ -504,13 +652,22 @@ def save_config(config: configparser.ConfigParser) -> bool:
             return False
 
 def update_config(current_config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """Update config with default values and clean up duplicates"""
+    """Update config with default values and clean up unused entries"""
     default_config_parser = _create_config_parser_with_case_preserved()
     default_config_parser.read_string(DEFAULT_CONFIG)
 
     # Track different types of changes
     values_changed = False  # Actual values (settings) changed
     structure_changed = False  # Organization/structure changed
+
+    # First, clean up unused entries
+    cleaned_config, entries_removed = clean_config_of_unused_entries(current_config)
+    if entries_removed:
+        structure_changed = True
+        values_changed = True  # Removing entries counts as a value change
+    
+    # Use the cleaned config for further processing
+    current_config = cleaned_config
 
     # Ensure all default sections and keys are present
     for section in default_config_parser.sections():
@@ -537,7 +694,7 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
                     current_config.set(section, key, f'{current_value_part_only} "{default_desc_only}"')
                     structure_changed = True  # Description added/changed
 
-    # Clean up duplicates
+    # Clean up duplicates within sections
     for section in current_config.sections():
         if section == "POI":  # Skip POI section for advanced cleanup
             continue
@@ -836,7 +993,7 @@ class Config:
                 return value_string.strip()
             return str(fallback) if fallback is not None else ""
         else:
-            for sec_name in ['Toggles', 'Values', 'Keybinds', 'POI']: 
+            for sec_name in ['Toggles', 'Values', 'Audio', 'Keybinds', 'POI']: 
                  if self.config.has_section(sec_name) and self.config.has_option(sec_name, key):
                     value_string = self.config.get(sec_name, key)
                     if '"' in value_string:

@@ -82,13 +82,10 @@ class StormAudioThread:
         if not self.audio_instance:
             return
         try:
-            storm_vector = np.array(storm_pos) - np.array(player_pos)
-            storm_angle = (90 - np.degrees(np.arctan2(-storm_vector[1], storm_vector[0]))) % 360
-
-            relative_angle = (storm_angle - player_angle + 180) % 360 - 180
-            pan = np.clip(relative_angle / 90, -1, 1)
-            left_weight = np.clip((1 - pan) / 2, 0, 1)
-            right_weight = np.clip((1 + pan) / 2, 0, 1)
+            # Calculate distance and relative angle using universal calculation
+            calc_distance, relative_angle = SpatialAudio.calculate_distance_and_angle(
+                player_pos, player_angle, storm_pos
+            )
 
             # Distance-based volume falloff
             max_distance = 300.0
@@ -98,8 +95,8 @@ class StormAudioThread:
             final_volume = np.clip(final_volume, 0.1, self.volume)
 
             self.audio_instance.play_audio(
-                left_weight=left_weight,
-                right_weight=right_weight,
+                distance=calc_distance,
+                relative_angle=relative_angle,
                 volume=final_volume
             )
 
@@ -137,6 +134,13 @@ class StormMonitor:
         if os.path.exists(storm_sound_path):
             try:
                 self.storm_audio = SpatialAudio(storm_sound_path)
+                # Set up volume management
+                config = read_config()
+                master_volume, storm_volume = SpatialAudio.get_volume_from_config(
+                    config, 'StormVolume', 'MasterVolume', 0.5
+                )
+                self.storm_audio.set_master_volume(master_volume)
+                self.storm_audio.set_individual_volume(storm_volume)
             except Exception:
                 self.storm_audio = None
 
