@@ -354,7 +354,8 @@ def key_listener() -> None:
                 ]:
                     continue
 
-                if action_lower in ['fire', 'target'] and not numlock_on:
+                ignore_numlock = get_config_boolean(config, 'IgnoreNumlock', False)
+                if action_lower in ['fire', 'target'] and not (ignore_numlock or numlock_on):
                     continue
                 
                 if key_pressed != key_state.get(key_str, False):

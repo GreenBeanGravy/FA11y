@@ -120,10 +120,6 @@ def is_key_pressed(key: str) -> bool:
     if vk_code == 0: 
         return False
 
-    # Special handling for X buttons (mouse 4 and 5)
-    if vk_code in [VK_XBUTTON1, VK_XBUTTON2]:
-        return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
-
     return win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0
 
 

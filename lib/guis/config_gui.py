@@ -58,11 +58,6 @@ class ConfigGUI(AccessibleUI):
         self.key_binding_id = None
         self.mouse_binding_ids = []
         
-        # Mouse position control for keybind capture
-        self.original_mouse_pos: Optional[Tuple[int, int]] = None
-        self.mouse_constraint_active = False
-        self.mouse_constraint_timer = None
-        
         # Multi-column layout settings
         self.columns_per_row = 3  # Number of columns per row
         self.current_row = 0
@@ -91,6 +86,8 @@ class ConfigGUI(AccessibleUI):
         self.root.bind_all('<Delete>', self.on_delete_key)
         self.root.bind_all('<t>', self.on_t_key)  # Test volume
         self.root.bind_all('<T>', self.on_t_key)
+        self.root.bind_all('<Return>', self.on_enter)  # Override Enter key handling
+        self.root.bind_all('<Escape>', self.on_escape)  # Override Escape key handling
         
         self.root.protocol("WM_DELETE_WINDOW", self.save_and_close)
         
@@ -406,6 +403,9 @@ class ConfigGUI(AccessibleUI):
         entry.pack(fill='x')
         entry.description = description
         
+        # Mark as keybind entry - this is crucial!
+        entry.is_keybind = True
+        
         # Bind events
         entry.bind('<Button-1>', lambda e: self.capture_keybind(entry))
         
@@ -544,107 +544,6 @@ class ConfigGUI(AccessibleUI):
                 description = description[:-1]
             return value, description
         return value_string, ""
-    
-    def get_window_center_screen_coords(self) -> Tuple[int, int]:
-        """Get the screen coordinates of the window center"""
-        try:
-            # Get window position and size
-            window_x = self.root.winfo_rootx()
-            window_y = self.root.winfo_rooty()
-            window_width = self.root.winfo_width()
-            window_height = self.root.winfo_height()
-            
-            # Calculate center coordinates
-            center_x = window_x + window_width // 2
-            center_y = window_y + window_height // 2
-            
-            return (center_x, center_y)
-        except Exception as e:
-            logger.error(f"Error getting window center coordinates: {e}")
-            return (500, 400)  # Fallback coordinates
-    
-    def get_widget_screen_coords(self, widget: tk.Widget) -> Tuple[int, int]:
-        """Get screen coordinates of a widget's center"""
-        try:
-            # Get widget position relative to root
-            widget_x = widget.winfo_rootx()
-            widget_y = widget.winfo_rooty()
-            widget_width = widget.winfo_width()
-            widget_height = widget.winfo_height()
-            
-            # Calculate center coordinates
-            center_x = widget_x + widget_width // 2
-            center_y = widget_y + widget_height // 2
-            
-            return (center_x, center_y)
-        except Exception as e:
-            logger.error(f"Error getting widget coordinates: {e}")
-            return self.get_window_center_screen_coords()
-    
-    def constrain_mouse_to_window(self) -> None:
-        """Constrain mouse cursor to the window center and keep it there"""
-        if not self.mouse_constraint_active:
-            return
-            
-        try:
-            # Get current window center
-            center_x, center_y = self.get_window_center_screen_coords()
-            
-            # Get current mouse position
-            current_x, current_y = win32api.GetCursorPos()
-            
-            # Calculate distance from center
-            distance = abs(current_x - center_x) + abs(current_y - center_y)
-            
-            # If mouse has moved significantly from center, snap it back
-            if distance > 5:  # Allow small movement tolerance
-                win32api.SetCursorPos((center_x, center_y))
-            
-            # Schedule next check
-            if self.mouse_constraint_active:
-                self.mouse_constraint_timer = self.root.after(10, self.constrain_mouse_to_window)
-                
-        except Exception as e:
-            logger.error(f"Error constraining mouse: {e}")
-    
-    def start_mouse_constraint(self, widget: tk.Widget) -> None:
-        """Start constraining mouse to window center"""
-        try:
-            # Store original mouse position
-            self.original_mouse_pos = win32api.GetCursorPos()
-            
-            # Get target position (widget center or window center)
-            target_x, target_y = self.get_widget_screen_coords(widget)
-            
-            # Move mouse to target position
-            win32api.SetCursorPos((target_x, target_y))
-            
-            # Start constraint system
-            self.mouse_constraint_active = True
-            self.constrain_mouse_to_window()
-            
-            logger.debug(f"Mouse constraint started, moved to ({target_x}, {target_y})")
-            
-        except Exception as e:
-            logger.error(f"Error starting mouse constraint: {e}")
-    
-    def stop_mouse_constraint(self) -> None:
-        """Stop constraining mouse and restore original position"""
-        try:
-            # Stop constraint system
-            self.mouse_constraint_active = False
-            if self.mouse_constraint_timer:
-                self.root.after_cancel(self.mouse_constraint_timer)
-                self.mouse_constraint_timer = None
-            
-            # Restore original mouse position if we have it
-            if self.original_mouse_pos:
-                win32api.SetCursorPos(self.original_mouse_pos)
-                logger.debug(f"Mouse position restored to {self.original_mouse_pos}")
-                self.original_mouse_pos = None
-                
-        except Exception as e:
-            logger.error(f"Error stopping mouse constraint: {e}")
     
     def on_delete_key(self, event) -> Optional[str]:
         """Handle Delete key press to unbind keybinds"""
@@ -893,9 +792,6 @@ class ConfigGUI(AccessibleUI):
     def save_and_close(self) -> None:
         """Save configuration and close the GUI"""
         try:
-            # Stop mouse constraint if active
-            self.stop_mouse_constraint()
-            
             # Clean up test audio instances
             for audio_instance in self.test_audio_instances.values():
                 try:
@@ -951,7 +847,37 @@ class ConfigGUI(AccessibleUI):
             if self.root and self.root.winfo_exists():
                 self.root.destroy()
     
-    def on_escape(self, event) -> str:
+    def on_enter(self, event) -> str:
+        """Handle Enter key press
+        
+        Args:
+            event: Key event
+            
+        Returns:
+            str: "break" to prevent default handling
+        """
+        current_widget = self.root.focus_get()
+        
+        if isinstance(current_widget, ttk.Checkbutton):
+            current_widget.invoke()
+            self.speak(f"{current_widget.cget('text')} {'checked' if current_widget.instate(['selected']) else 'unchecked'}")
+            
+        elif isinstance(current_widget, ttk.Entry):
+            if self.currently_editing == current_widget:
+                self.finish_editing(current_widget)
+            else:
+                if getattr(current_widget, 'is_keybind', False):
+                    self.capture_keybind(current_widget)
+                else:
+                    self.start_editing(current_widget)
+                    
+        elif isinstance(current_widget, ttk.Button):
+            current_widget.invoke()
+            
+        elif isinstance(current_widget, ttk.Combobox):
+            current_widget.event_generate('<Down>')
+            
+        return "break"
         """Handle Escape key press globally for the ConfigGUI window"""
         if self.capturing_keybind_for_widget:
             self._cancel_keybind_capture()
@@ -969,9 +895,6 @@ class ConfigGUI(AccessibleUI):
             widget.insert(0, self.original_keybind_value)
             widget.config(state='readonly')
             self.speak("Keybind capture cancelled.")
-            
-            # Stop mouse constraint
-            self.stop_mouse_constraint()
             
             # Clean up all bindings
             if self.key_binding_id:
@@ -1025,10 +948,7 @@ class ConfigGUI(AccessibleUI):
         widget.config(state='normal') 
         widget.delete(0, tk.END)
         
-        # Start mouse constraint to keep cursor in window
-        self.start_mouse_constraint(widget)
-        
-        self.speak("Press any key or mouse button to set the keybind. Press Escape to cancel. Mouse is locked to window.")
+        self.speak("Press any key or mouse button to set the keybind. Press Escape to cancel.")
         
         key_name_mapping = {"Control_L": "lctrl", "Control_R": "rctrl",
                             "Shift_L": "lshift", "Shift_R": "rshift",
@@ -1126,9 +1046,6 @@ class ConfigGUI(AccessibleUI):
             widget.insert(0, self.original_keybind_value) 
             widget.config(state='readonly')
             
-            # Stop mouse constraint
-            self.stop_mouse_constraint()
-            
             # Clean up bindings
             if self.key_binding_id:
                 self.root.unbind('<Key>', self.key_binding_id)
@@ -1170,9 +1087,6 @@ class ConfigGUI(AccessibleUI):
             self.speak(f"Keybind for {action_name} set to {input_type} {final_key_str}.")
         
         widget.config(state='readonly')
-        
-        # Stop mouse constraint
-        self.stop_mouse_constraint()
         
         # Clean up bindings
         if self.key_binding_id:
