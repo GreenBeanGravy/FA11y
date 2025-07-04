@@ -11,7 +11,6 @@ import cv2
 from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config
 from lib.input_handler import is_key_pressed
-from lib.background_checks import monitor
 from lib.ocr_manager import get_ocr_manager
 
 class InventoryHandler:
@@ -28,6 +27,10 @@ class InventoryHandler:
         self.last_focused_item = None
         self.navigation_timestamp = 0
         self.ocr_timers = {}
+        
+        # Inventory detection
+        self.wood_template = None
+        self.load_wood_icon()
         
         # Threading
         self.monitoring_thread = None
@@ -128,6 +131,76 @@ class InventoryHandler:
         # Start threads
         self.start_monitoring()
         self.start_movement_handler()
+
+    def load_wood_icon(self):
+        """Load the wood icon template for inventory detection"""
+        wood_folder = os.path.join("mats")
+        
+        if not os.path.exists(wood_folder):
+            return
+            
+        # Try to find wood icon file
+        for filename in os.listdir(wood_folder):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                wood_icon_path = os.path.join(wood_folder, filename)
+                try:
+                    self.wood_template = cv2.imread(wood_icon_path, cv2.IMREAD_COLOR)
+                    if self.wood_template is not None:
+                        if self.wood_template.shape[-1] == 4:
+                            self.wood_template = cv2.cvtColor(self.wood_template, cv2.COLOR_BGRA2BGR)
+                        break
+                except Exception:
+                    continue
+
+    def detect_inventory_open(self) -> bool:
+        """Detect if inventory is open by looking for wood icon in materials section"""
+        if self.wood_template is None:
+            return False
+            
+        try:
+            # Define the region to check for wood icon
+            inventory_region = {
+                'left': 1220,
+                'top': 315, 
+                'width': 1700 - 1220,  # 480
+                'height': 500 - 315    # 185
+            }
+            
+            # Capture the region
+            with mss() as sct:
+                screenshot = np.array(sct.grab(inventory_region))
+                if screenshot.shape[2] == 4:
+                    screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
+            
+            # Perform template matching with multiple scales
+            scales = [0.8, 0.9, 1.0, 1.1, 1.2]
+            confidence_threshold = 0.7
+            
+            for scale in scales:
+                if scale != 1.0:
+                    template_h, template_w = self.wood_template.shape[:2]
+                    scaled_h, scaled_w = int(template_h * scale), int(template_w * scale)
+                    
+                    # Skip if template would be larger than screenshot
+                    if scaled_h > screenshot.shape[0] or scaled_w > screenshot.shape[1]:
+                        continue
+                        
+                    scaled_template = cv2.resize(self.wood_template, (scaled_w, scaled_h), 
+                                               interpolation=cv2.INTER_AREA)
+                else:
+                    scaled_template = self.wood_template
+                
+                # Perform template matching
+                result = cv2.matchTemplate(screenshot, scaled_template, cv2.TM_CCOEFF_NORMED)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                
+                if max_val >= confidence_threshold:
+                    return True
+            
+            return False
+            
+        except Exception:
+            return False
 
     def load_item_names(self):
         """Load item names from the cache file"""
@@ -231,7 +304,7 @@ class InventoryHandler:
     def check_pixel_color(self, x, y, target_color, tolerance=2):
         """Check if pixel at location matches target color within tolerance"""
         try:
-            pixel_color = pyautougui.pixel(x, y)
+            pixel_color = pyautogui.pixel(x, y)
             if isinstance(target_color, tuple) and len(target_color) == 3:
                 return all(abs(a - b) <= tolerance for a, b in zip(pixel_color, target_color))
             return pixel_color == target_color
@@ -257,7 +330,7 @@ class InventoryHandler:
         
         while not self.stop_monitoring.is_set():
             try:
-                current_inventory_state = monitor.inventory_open
+                current_inventory_state = self.detect_inventory_open()
                 
                 # Handle inventory state change
                 if current_inventory_state != prev_inventory_state:
@@ -301,7 +374,7 @@ class InventoryHandler:
 
     def handle_horizontal_navigation(self, direction):
         """Handle left/right navigation within the current section"""
-        if not monitor.inventory_open:
+        if not self.detect_inventory_open():
             return
         
         with self.state_lock:
@@ -328,7 +401,7 @@ class InventoryHandler:
 
     def handle_vertical_navigation(self, direction):
         """Handle up/down navigation between sections"""
-        if not monitor.inventory_open:
+        if not self.detect_inventory_open():
             return
         
         sections = ["materials", "ammo", "bottom"]
@@ -355,7 +428,7 @@ class InventoryHandler:
 
     def handle_space(self):
         """Toggle drag state for hotbar items"""
-        if not monitor.inventory_open or self.current_section != "bottom":
+        if not self.detect_inventory_open() or self.current_section != "bottom":
             return
         
         self.dragging = not self.dragging
