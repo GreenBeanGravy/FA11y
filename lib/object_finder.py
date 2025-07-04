@@ -200,6 +200,24 @@ class FastObjectFinder:
         except Exception:
             return {}
 
+    def find_objects_on_minimap_screen(self, object_names: List[str]) -> Dict[str, Tuple[int, int]]:
+        """Detects objects on the minimap and returns their screen coordinates."""
+        if not object_names or not self.icons_loaded:
+            return {}
+        try:
+            screen = self.capture_region(MINIMAP_REGION)
+            if screen is None:
+                return {}
+            batch_results = self.batch_detect_objects(screen, object_names)
+            found_objects = {}
+            for result in batch_results:
+                minimap_screen_x = result.center_x + MINIMAP_REGION['left']
+                minimap_screen_y = result.center_y + MINIMAP_REGION['top']
+                found_objects[result.object_name] = (minimap_screen_x, minimap_screen_y)
+            return found_objects
+        except Exception:
+            return {}
+
     def find_closest_object(self, object_name: str, use_ppi: bool = False) -> Optional[Tuple[int, int]]:
         results = self.find_all_objects([object_name], use_ppi)
         return results.get(object_name)

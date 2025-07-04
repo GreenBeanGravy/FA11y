@@ -199,12 +199,8 @@ class GameObjectMonitor:
         config_key = f"{object_name.replace('_', '').title()}PingInterval"
         return get_config_float(config, config_key, 2.0)
     
-    def detect_nearby_objects(self) -> Dict[str, Tuple[int, int]]:
-        """Detect nearby game objects using efficient batch detection"""
-        player_pos = find_player_position()
-        if player_pos is None:
-            return {}
-        
+    def detect_objects_on_minimap(self) -> Dict[str, Tuple[int, int]]:
+        """Detects objects on the minimap and returns their screen coordinates."""
         try:
             enabled_objects = [
                 obj_name for obj_name in OBJECT_CONFIGS.keys()
@@ -214,7 +210,7 @@ class GameObjectMonitor:
             if not enabled_objects:
                 return {}
             
-            detected_objects = optimized_finder.find_all_objects(enabled_objects, use_ppi=True)
+            detected_objects = optimized_finder.find_objects_on_minimap_screen(enabled_objects)
             return detected_objects
             
         except Exception:
@@ -239,28 +235,37 @@ class GameObjectMonitor:
                 
                 # Perform detection at fixed intervals only
                 if current_time - last_detection_time >= self.detection_interval:
-                    detected_objects = self.detect_nearby_objects()
-                    
-                    player_pos = find_player_position()
-                    if player_pos:
-                        detection_update = {}
-                        
-                        for obj_name, coords in detected_objects.items():
-                            distance = calculate_distance(player_pos, coords)
-                            detection_update[obj_name] = {
-                                'coords': coords,
-                                'distance': distance,
-                                'last_seen': current_time,
-                                'player_pos': player_pos
-                            }
-                        
-                        with self.detection_lock:
-                            self.detection_data = detection_update
-                        
-                        # Update audio threads
-                        self.update_audio_threads(detection_update, current_time)
-                    
                     last_detection_time = current_time
+                    
+                    # Step 1: Detect on minimap, get screen coords
+                    detected_minimap_objects = self.detect_objects_on_minimap()
+                    
+                    detection_update = {}
+                    
+                    if detected_minimap_objects:
+                        # Step 2: Get player position only if objects are found
+                        player_pos = find_player_position()
+                        if player_pos:
+                            # Step 3: Convert to fullmap coords and prepare update data
+                            for obj_name, minimap_coords in detected_minimap_objects.items():
+                                fullmap_coords = optimized_finder.convert_minimap_to_fullmap_coords(
+                                    minimap_coords, player_pos
+                                )
+                                distance = calculate_distance(player_pos, fullmap_coords)
+                                detection_update[obj_name] = {
+                                    'coords': fullmap_coords,
+                                    'distance': distance,
+                                    'last_seen': current_time,
+                                    'player_pos': player_pos
+                                }
+                    
+                    # This structure ensures that if no objects are detected, or if player_pos is not found,
+                    # an empty detection_update dict is passed to update_audio_threads, which will
+                    # correctly clean up any old, no-longer-visible object threads.
+                    with self.detection_lock:
+                        self.detection_data = detection_update
+                    
+                    self.update_audio_threads(detection_update, current_time)
                 
                 # Fixed sleep time
                 time.sleep(1.5)
