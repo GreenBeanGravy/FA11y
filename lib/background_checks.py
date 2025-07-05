@@ -7,7 +7,6 @@ from mss import mss
 from pathlib import Path
 from accessible_output2.outputs.auto import Auto
 from lib.utilities import read_config, get_config_boolean
-import threading
 
 class BackgroundMonitor:
     def __init__(self):
@@ -25,16 +24,16 @@ class BackgroundMonitor:
         
         self.config = read_config()
         
-        # Config flags
+        # Config flags - disable inventory since inventory_handler handles it now
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
-        self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
+        self.announce_inventory = False  # Disabled - inventory_handler handles this
         
-        # Load escape key template
+        # Load escape key template for non-inventory features if needed
         self.escape_template = None
         self.template_loaded = False
         self.load_escape_template()
         
-        # Define inventory scan region
+        # Define inventory scan region for efficiency
         self.inventory_region = {
             'left': 1711,
             'top': 1012,
@@ -45,6 +44,8 @@ class BackgroundMonitor:
         # Performance optimization
         self.last_error_time = 0
         self.error_cooldown = 5.0  # 5 seconds between error reports
+        self.last_map_check = 0
+        self.map_check_interval = 0.1  # Check map every 100ms
 
     def get_mss(self):
         """Get thread-local MSS instance with proper error handling."""
@@ -71,7 +72,8 @@ class BackgroundMonitor:
         """Reload configuration values."""
         self.config = read_config()
         self.announce_map = get_config_boolean(self.config, 'AnnounceMapStatus', True)
-        self.announce_inventory = get_config_boolean(self.config, 'AnnounceInventoryStatus', True)
+        # Keep inventory announcements disabled since inventory_handler handles them
+        self.announce_inventory = False
 
     def load_escape_template(self):
         """Load the escape key template for detection."""
@@ -109,7 +111,14 @@ class BackgroundMonitor:
             return False
 
     def check_map_status(self):
-        """Check if the map is open/closed."""
+        """Check if the map is open/closed with throttling."""
+        # Throttle map checks for performance
+        current_time = time.time()
+        if current_time - self.last_map_check < self.map_check_interval:
+            return
+        
+        self.last_map_check = current_time
+        
         try:
             pixel_color = pyautogui.pixel(220, 60)
             is_map_color = all(abs(a - b) <= 10 for a, b in zip(pixel_color, (247, 255, 26)))
@@ -160,7 +169,7 @@ class BackgroundMonitor:
                         self.check_map_status()
                     if self.announce_inventory:
                         self.check_inventory_status()
-                    time.sleep(0.15)  # Slightly longer interval to reduce CPU usage
+                    time.sleep(0.15)  # Original timing - slightly longer interval to reduce CPU usage
                 except Exception:
                     time.sleep(1.0)  # Longer delay on error
         except Exception:

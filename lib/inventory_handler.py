@@ -28,10 +28,6 @@ class InventoryHandler:
         self.navigation_timestamp = 0
         self.ocr_timers = {}
         
-        # Inventory detection
-        self.wood_template = None
-        self.load_wood_icon()
-        
         # Threading
         self.monitoring_thread = None
         self.movement_thread = None
@@ -123,83 +119,78 @@ class InventoryHandler:
             "ares": "ares'",
             "modular": "warforged",
             "wapforged": "warforged",
-            "assaut": "assault",
+            "assuat": "assault",
             "assaul": "assault",
             "at": "ar"
         }
+        
+        # Simplified inventory detection region for efficiency
+        self.inventory_region = {
+            'left': 1756,
+            'top': 1022,
+            'width': 44,  # 1800 - 1756
+            'height': 11   # 1033 - 1022
+        }
+        
+        # Key pixel coordinates within the region (relative to region)
+        self.key_pixels = [
+            # Vertical line pixels (relative to region start)
+            [(0, y) for y in range(0, 12)],  # x=0 (1756), y=0-11 (1022-1033)
+            # Individual pixels (relative to region)
+            (4, 5),   # 1760, 1027
+            (18, 8),  # 1774, 1030  
+            (27, 6),  # 1783, 1028
+            (44, 5)   # 1800, 1027
+        ]
+        
+        # Performance tracking
+        self.last_inventory_check = 0
+        self.inventory_check_interval = 0.05  # Check every 50ms
         
         # Start threads
         self.start_monitoring()
         self.start_movement_handler()
 
-    def load_wood_icon(self):
-        """Load the wood icon template for inventory detection"""
-        wood_folder = os.path.join("mats")
-        
-        if not os.path.exists(wood_folder):
-            return
-            
-        # Try to find wood icon file
-        for filename in os.listdir(wood_folder):
-            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                wood_icon_path = os.path.join(wood_folder, filename)
-                try:
-                    self.wood_template = cv2.imread(wood_icon_path, cv2.IMREAD_COLOR)
-                    if self.wood_template is not None:
-                        if self.wood_template.shape[-1] == 4:
-                            self.wood_template = cv2.cvtColor(self.wood_template, cv2.COLOR_BGRA2BGR)
-                        break
-                except Exception:
-                    continue
-
     def detect_inventory_open(self) -> bool:
-        """Detect if inventory is open by looking for wood icon in materials section"""
-        if self.wood_template is None:
-            return False
-            
+        """Detect if inventory is open by checking white pixels efficiently"""
+        # Throttle checks for performance
+        current_time = time.time()
+        if current_time - self.last_inventory_check < self.inventory_check_interval:
+            return hasattr(self, '_last_inventory_state') and self._last_inventory_state
+        
+        self.last_inventory_check = current_time
+        
         try:
-            # Define the region to check for wood icon
-            inventory_region = {
-                'left': 1220,
-                'top': 315, 
-                'width': 1700 - 1220,  # 480
-                'height': 500 - 315    # 185
-            }
-            
-            # Capture the region
+            # Use MSS for efficient screenshot of small region
             with mss() as sct:
-                screenshot = np.array(sct.grab(inventory_region))
+                screenshot = np.array(sct.grab(self.inventory_region))
+                
+                # Convert to RGB for easier pixel checking
                 if screenshot.shape[2] == 4:
-                    screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
-            
-            # Perform template matching with multiple scales
-            scales = [0.8, 0.9, 1.0, 1.1, 1.2]
-            confidence_threshold = 0.7
-            
-            for scale in scales:
-                if scale != 1.0:
-                    template_h, template_w = self.wood_template.shape[:2]
-                    scaled_h, scaled_w = int(template_h * scale), int(template_w * scale)
-                    
-                    # Skip if template would be larger than screenshot
-                    if scaled_h > screenshot.shape[0] or scaled_w > screenshot.shape[1]:
+                    screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2RGB)
+                
+                # Check all key pixels in the screenshot
+                all_coords = []
+                # Add vertical line pixels
+                all_coords.extend(self.key_pixels[0])
+                # Add individual pixels  
+                for i in range(1, len(self.key_pixels)):
+                    all_coords.append(self.key_pixels[i])
+                
+                # Check if all pixels are white
+                for x, y in all_coords:
+                    if y >= screenshot.shape[0] or x >= screenshot.shape[1]:
                         continue
-                        
-                    scaled_template = cv2.resize(self.wood_template, (scaled_w, scaled_h), 
-                                               interpolation=cv2.INTER_AREA)
-                else:
-                    scaled_template = self.wood_template
+                    pixel = screenshot[y, x]
+                    if not (pixel[0] == 255 and pixel[1] == 255 and pixel[2] == 255):
+                        self._last_inventory_state = False
+                        return False
                 
-                # Perform template matching
-                result = cv2.matchTemplate(screenshot, scaled_template, cv2.TM_CCOEFF_NORMED)
-                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                self._last_inventory_state = True
+                return True
                 
-                if max_val >= confidence_threshold:
-                    return True
-            
-            return False
-            
         except Exception:
+            self._last_inventory_state = False
             return False
 
     def load_item_names(self):
@@ -299,6 +290,15 @@ class InventoryHandler:
 
     def smooth_move_to(self, x, y):
         """Queue a smooth movement request"""
+        # Don't queue if already processing similar coordinates
+        try:
+            if not self.movement_queue.empty():
+                last_x, last_y = self.movement_queue.queue[-1]
+                if abs(last_x - x) < 10 and abs(last_y - y) < 10:
+                    return
+        except:
+            pass
+        
         self.movement_queue.put((x, y))
 
     def check_pixel_color(self, x, y, target_color, tolerance=2):
@@ -335,29 +335,36 @@ class InventoryHandler:
                 # Handle inventory state change
                 if current_inventory_state != prev_inventory_state:
                     if current_inventory_state:
-                        # Inventory just opened
+                        # Inventory just opened - announce first
+                        self.speaker.speak("Inventory opened")
+                        
                         with self.state_lock:
                             self.slot_name_cache.clear()
                             self.current_section = "bottom"
                             self.current_slot = 0
                             self.last_focused_item = None
                             self.cancel_all_ocr_timers()
-                                
+                        
+                        # Small delay then navigate to slot 1
+                        time.sleep(0.1)
                         self.navigate_to_slot(0)
-                    elif self.dragging:
-                        # Release mouse if inventory closed while dragging
-                        pyautogui.mouseUp(button='left', _pause=False)
-                        self.dragging = False
+                    else:
+                        # Inventory closed
+                        self.speaker.speak("Inventory closed")
+                        if self.dragging:
+                            # Release mouse if inventory closed while dragging
+                            pyautogui.mouseUp(button='left', _pause=False)
+                            self.dragging = False
                 
                 # Handle input for open inventory
                 if current_inventory_state:
                     self.handle_keyboard_input()
                 
                 prev_inventory_state = current_inventory_state
-                time.sleep(0.0005)
+                time.sleep(0.05)  # Original timing for main loop
                 
             except Exception:
-                time.sleep(0.05)
+                time.sleep(0.1)
 
     def handle_keyboard_input(self):
         """Handle keyboard input for inventory navigation"""
