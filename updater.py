@@ -6,6 +6,7 @@ import concurrent.futures
 from functools import lru_cache
 import winreg
 import warnings
+import argparse
 
 # Suppress pkg_resources deprecation warnings from external libraries
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", category=UserWarning)
@@ -32,6 +33,7 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 # Configuration
 AUTO_UPDATE_UPDATER = False
 MAX_RESTARTS = 3
+MONARCH_MODE = False  # When enabled, retries failed downloads indefinitely
 
 # GitHub repository configuration
 GITHUB_REPO = "GreenBeanGravy/FA11y"
@@ -47,6 +49,12 @@ IGNORED_FILES = [
 # FakerInput configuration
 FAKERINPUT_MSI_URL = "https://github.com/Ryochan7/FakerInput/releases/download/v0.1.0/FakerInput_0.1.0_x64.msi"
 FAKERINPUT_MSI_FILENAME = "FakerInput_0.1.0_x64.msi"
+
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="FA11y Updater")
+    parser.add_argument('--monarch', action='store_true', help='Enable Monarch Mode for persistent download retries')
+    return parser.parse_args()
 
 def print_info(message):
     """Prints information to the console."""
@@ -240,34 +248,46 @@ def download_file_to_path(url, path):
     """
     Downloads a file from a URL to a specified local path.
     """
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        with open(path, 'wb') as f:
-            f.write(response.content)
-        return True
-    except requests.RequestException as e:
-        print_info(f"Failed to download {url}: {e}")
-        return False
+    while True:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            with open(path, 'wb') as f:
+                f.write(response.content)
+            return True
+        except requests.RequestException as e:
+            if MONARCH_MODE:
+                print_info(f"Download failed for {url}: {e}. Retrying in 2 seconds...")
+                time.sleep(2)
+                continue
+            else:
+                print_info(f"Failed to download {url}: {e}")
+                return False
 
 def download_folder_github(repo, branch, folder):
     """
     Downloads all files in a GitHub repository folder to a local folder.
     """
     url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        files = response.json()
-        os.makedirs(folder, exist_ok=True)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(download_file_to_path, file['download_url'], os.path.join(folder, file['name'])) for file in files if file['type'] == 'file']
-            concurrent.futures.wait(futures)
-        print_info(f"Downloaded folder from GitHub: {folder}")
-        return True
-    except requests.RequestException as e:
-        print_info(f"Failed to download folder {folder} from GitHub: {e}")
-        return False
+    while True:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            files = response.json()
+            os.makedirs(folder, exist_ok=True)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [executor.submit(download_file_to_path, file['download_url'], os.path.join(folder, file['name'])) for file in files if file['type'] == 'file']
+                concurrent.futures.wait(futures)
+            print_info(f"Downloaded folder from GitHub: {folder}")
+            return True
+        except requests.RequestException as e:
+            if MONARCH_MODE:
+                print_info(f"Failed to download folder {folder} from GitHub: {e}. Retrying in 2 seconds...")
+                time.sleep(2)
+                continue
+            else:
+                print_info(f"Failed to download folder {folder} from GitHub: {e}")
+                return False
 
 def install_required_modules_and_whls():
     """
@@ -305,27 +325,39 @@ def get_repo_files_github(repo, branch):
     Gets the list of files in a GitHub repository branch.
     """
     url = f"https://api.github.com/repos/{repo}/git/trees/{branch}?recursive=1"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        tree = response.json().get('tree', [])
-        return [item['path'] for item in tree if item['type'] == 'blob']
-    except requests.RequestException as e:
-        print_info(f"Failed to get repo files from GitHub: {e}")
-        return []
+    while True:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            tree = response.json().get('tree', [])
+            return [item['path'] for item in tree if item['type'] == 'blob']
+        except requests.RequestException as e:
+            if MONARCH_MODE:
+                print_info(f"Failed to get repo files from GitHub: {e}. Retrying in 2 seconds...")
+                time.sleep(2)
+                continue
+            else:
+                print_info(f"Failed to get repo files from GitHub: {e}")
+                return []
 
 def download_file_github(repo, branch, file_path):
     """
     Downloads a single file from a GitHub repository.
     """
     url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        return response.content
-    except requests.RequestException as e:
-        print_info(f"Failed to download file {file_path} from GitHub: {e}")
-        return None
+    while True:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.content
+        except requests.RequestException as e:
+            if MONARCH_MODE:
+                print_info(f"Failed to download file {file_path} from GitHub: {e}. Retrying in 2 seconds...")
+                time.sleep(2)
+                continue
+            else:
+                print_info(f"Failed to download file {file_path} from GitHub: {e}")
+                return None
 
 def file_needs_update(local_path, remote_content):
     """
@@ -413,32 +445,38 @@ def update_folder_github(repo, branch, folder):
     Updates a folder from a GitHub repository.
     """
     url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        remote_files = {file['name'] for file in response.json() if file['type'] == 'file'}
-        
-        if os.path.exists(folder):
-            local_files = set(os.listdir(folder))
-            files_to_remove = local_files - remote_files
+    while True:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            remote_files = {file['name'] for file in response.json() if file['type'] == 'file'}
             
-            # Don't remove custom sounds 
-            if folder == 'sounds':
-                files_to_remove = set()
-            
-            for file in files_to_remove:
-                # Skip ignored files
-                if file in IGNORED_FILES:
-                    continue
-                    
-                os.remove(os.path.join(folder, file))
-                print_info(f"Removed file from {folder} folder: {file}")
-            
-            return bool(files_to_remove)
-        return False
-    except requests.RequestException as e:
-        print_info(f"Failed to update {folder} folder from GitHub: {e}")
-        return False
+            if os.path.exists(folder):
+                local_files = set(os.listdir(folder))
+                files_to_remove = local_files - remote_files
+                
+                # Don't remove custom sounds 
+                if folder == 'sounds':
+                    files_to_remove = set()
+                
+                for file in files_to_remove:
+                    # Skip ignored files
+                    if file in IGNORED_FILES:
+                        continue
+                        
+                    os.remove(os.path.join(folder, file))
+                    print_info(f"Removed file from {folder} folder: {file}")
+                
+                return bool(files_to_remove)
+            return False
+        except requests.RequestException as e:
+            if MONARCH_MODE:
+                print_info(f"Failed to update {folder} folder from GitHub: {e}. Retrying in 2 seconds...")
+                time.sleep(2)
+                continue
+            else:
+                print_info(f"Failed to update {folder} folder from GitHub: {e}")
+                return False
 
 def check_legendary():
     """
@@ -553,13 +591,19 @@ def get_version_github(repo, branch):
     Fetches the version file from a GitHub repository.
     """
     url = f"https://raw.githubusercontent.com/{repo}/{branch}/VERSION"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        return response.text.strip()
-    except requests.RequestException as e:
-        print_info(f"Failed to fetch VERSION file from GitHub: {e}")
-        return None
+    while True:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.text.strip()
+        except requests.RequestException as e:
+            if MONARCH_MODE:
+                print_info(f"Failed to fetch VERSION file from GitHub: {e}. Retrying in 2 seconds...")
+                time.sleep(2)
+                continue
+            else:
+                print_info(f"Failed to fetch VERSION file from GitHub: {e}")
+                return None
 
 def parse_version(version):
     """
@@ -597,6 +641,14 @@ def main():
     """
     Main function to run the updater script.
     """
+    global MONARCH_MODE
+    
+    # Parse command line arguments
+    args = parse_arguments()
+    if args.monarch:
+        MONARCH_MODE = True
+        print_info("Monarch Mode enabled - will retry failed downloads indefinitely.")
+    
     script_name = os.path.basename(__file__)
     
     print_info("Starting FA11y updater...")
