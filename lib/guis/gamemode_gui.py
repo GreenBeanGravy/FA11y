@@ -10,7 +10,7 @@ from tkinter import ttk
 from typing import List, Tuple, Optional, Callable, Dict
 
 from lib.guis.base_ui import AccessibleUI
-from lib.utilities import force_focus_window
+from lib.utils.utilities import force_focus_window
 import pyautogui
 
 # Initialize logger

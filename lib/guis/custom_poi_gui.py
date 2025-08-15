@@ -10,7 +10,7 @@ from typing import Optional, Tuple, Callable
 
 from lib.guis.base_ui import AccessibleUI
 from lib.guis.poi_selector_gui import POIData
-from lib.utilities import force_focus_window, read_config
+from lib.utils.utilities import force_focus_window, read_config
 import pyautogui
 
 # Initialize logger

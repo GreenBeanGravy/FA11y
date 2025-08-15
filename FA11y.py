@@ -45,30 +45,28 @@ if sys.version_info >= (3, 12):
     sys.modules['imp'] = MockImp()
 
 from accessible_output2.outputs.auto import Auto
-from lib.hsr import (
+from lib.utils.hsr import (
     check_health_shields,
     check_rarity,
 )
-from lib.mouse import (
+from lib.handlers.mouse import (
     smooth_move_mouse,
-    left_mouse_down,
-    left_mouse_up,
-    right_mouse_down,
-    right_mouse_up,
+    mouse_button_down,
+    mouse_button_up,
     mouse_scroll,
 )
 
 from lib.guis.poi_selector_gui import POIData, launch_poi_selector
-from lib.exit_match import exit_match
-from lib.height_checker import start_height_checker
-from lib.background_checks import monitor
-from lib.material_monitor import material_monitor
-from lib.resource_monitor import resource_monitor
-from lib.gameobject_monitor import gameobject_monitor
-from lib.storm_monitor import storm_monitor
-from lib.player_position import (
-    announce_current_direction as speak_minimap_direction, 
-    start_icon_detection, 
+from lib.handlers.exit_match import exit_match
+from lib.vision.height_checker import start_height_checker
+from lib.monitors.background_checks import monitor
+from lib.monitors.material_monitor import material_monitor
+from lib.monitors.resource_monitor import resource_monitor
+from lib.monitors.gameobject_monitor import gameobject_monitor
+from lib.monitors.storm_monitor import storm_monitor
+from lib.vision.player_position import (
+    announce_current_direction as speak_minimap_direction,
+    start_icon_detection,
     check_for_pixel,
     ROI_START_ORIG,
     ROI_END_ORIG,
@@ -76,13 +74,13 @@ from lib.player_position import (
     get_position_in_quadrant,
     cleanup_object_detection
 )
-from lib.hotbar_detection import (
+from lib.handlers.hotbar_detection import (
     initialize_hotbar_detection,
     detect_hotbar_item,
     announce_ammo_manually,
 )
-from lib.inventory_handler import inventory_handler
-from lib.utilities import (
+from lib.handlers.inventory_handler import inventory_handler
+from lib.utils.utilities import (
     get_config_int,
     get_config_float,
     get_config_value,
@@ -94,8 +92,8 @@ from lib.utilities import (
     clear_config_cache,
     save_config
 )
-from lib.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
-from lib.custom_poi_handler import load_custom_pois
+from lib.handlers.input_handler import is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS
+from lib.handlers.custom_poi_handler import load_custom_pois
 
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
@@ -276,8 +274,8 @@ def reload_config() -> None:
 
         if mouse_keys_enabled:
             action_handlers.update({
-                'fire': left_mouse_down,
-                'target': right_mouse_down,
+                'fire': lambda: mouse_button_down('left'),
+                'target': lambda: mouse_button_down('right'),
                 'turn left': lambda: handle_movement('turn left', reset_sensitivity),
                 'turn right': lambda: handle_movement('turn right', reset_sensitivity),
                 'secondary turn left': lambda: handle_movement('secondary turn left', reset_sensitivity),
@@ -369,7 +367,7 @@ def key_listener() -> None:
                                 print(f"Error executing action {action_lower}: {e}")
                     else:
                         if action_lower in ['fire', 'target']:
-                            (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
+                            mouse_button_up('left' if action_lower == 'fire' else 'right')
         
         time.sleep(0.001)
 
@@ -505,7 +503,7 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
     
     class PlayerDetector:
         def get_player_position(self, use_ppi_flag):
-            from lib.player_position import find_player_position as find_map_player_pos, find_player_icon_location
+            from lib.vision.player_position import find_player_position as find_map_player_pos, find_player_icon_location
             return find_map_player_pos() if use_ppi_flag else find_player_icon_location()
     
     launch_custom_poi_creator(use_ppi, PlayerDetector(), current_map)
@@ -560,7 +558,7 @@ def get_poi_category(poi_name: str) -> str:
         return POI_CATEGORY_CUSTOM
     
     # Check game objects
-    from lib.object_finder import OBJECT_CONFIGS
+    from lib.vision.object_finder import OBJECT_CONFIGS
     game_objects = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
     if any(poi[0].lower() == poi_name.lower() for poi in game_objects):
         return POI_CATEGORY_GAMEOBJECT
@@ -612,7 +610,7 @@ def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
     
     # Game Objects
     if category == POI_CATEGORY_GAMEOBJECT:
-        from lib.object_finder import OBJECT_CONFIGS
+        from lib.vision.object_finder import OBJECT_CONFIGS
         return [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
     
     # Landmarks (main map only)
@@ -763,7 +761,7 @@ def find_closest_game_object(player_location: Tuple[int, int]) -> Optional[Tuple
         Tuple of (object_name, (x, y)) or None if no objects found
     """
     try:
-        from lib.object_finder import optimized_finder, OBJECT_CONFIGS
+        from lib.vision.object_finder import optimized_finder, OBJECT_CONFIGS
         
         if not player_location or not OBJECT_CONFIGS:
             return None

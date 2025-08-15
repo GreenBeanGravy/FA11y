@@ -10,10 +10,10 @@ import numpy as np
 import cv2
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, MINIMAP_REGION
-from lib.background_checks import monitor
-from lib.player_position import find_player_position, find_minimap_icon_direction
-from lib.spatial_audio import SpatialAudio
+from lib.utils.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, MINIMAP_REGION
+from lib.monitors.background_checks import monitor
+from lib.vision.player_position import find_player_position, find_minimap_icon_direction
+from lib.audio.spatial_audio import SpatialAudio
 
 class StormAudioThread:
     """Manages audio for storm with configurable ping intervals"""

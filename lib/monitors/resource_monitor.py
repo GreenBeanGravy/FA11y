@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, List
-from lib.ocr_manager import get_ocr_manager
+from lib.vision.ocr_manager import get_ocr_manager
 
 # Screen monitoring configuration
 SCAN_REGION = {

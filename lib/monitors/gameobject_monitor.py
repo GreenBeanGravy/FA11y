@@ -6,11 +6,11 @@ import time
 import os
 from typing import Dict, Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities import read_config, get_config_boolean, get_config_float, calculate_distance
-from lib.background_checks import monitor
-from lib.object_finder import optimized_finder, OBJECT_CONFIGS
-from lib.player_position import find_player_position, find_minimap_icon_direction
-from lib.spatial_audio import SpatialAudio
+from lib.utils.utilities import read_config, get_config_boolean, get_config_float, calculate_distance
+from lib.monitors.background_checks import monitor
+from lib.vision.object_finder import optimized_finder, OBJECT_CONFIGS
+from lib.vision.player_position import find_player_position, find_minimap_icon_direction
+from lib.audio.spatial_audio import SpatialAudio
 
 class GameObjectAudioThread:
     """Manages audio for a single game object with configurable ping intervals"""

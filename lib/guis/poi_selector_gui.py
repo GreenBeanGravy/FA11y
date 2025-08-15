@@ -16,9 +16,9 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 
 from lib.guis.base_ui import AccessibleUI
-from lib.utilities import force_focus_window, read_config, Config, clear_config_cache, save_config
-from lib.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
-from lib.custom_poi_handler import load_custom_pois
+from lib.utils.utilities import force_focus_window, read_config, Config, clear_config_cache, save_config
+from lib.vision.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
+from lib.handlers.custom_poi_handler import load_custom_pois
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -466,7 +466,7 @@ class POIGUI(AccessibleUI):
         Returns:
             list: List of (category_name, poi_list) tuples
         """
-        from lib.object_finder import OBJECT_CONFIGS
+        from lib.vision.object_finder import OBJECT_CONFIGS
         
         # Constants
         GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
@@ -778,7 +778,7 @@ class POIGUI(AccessibleUI):
         
             # Check game objects if still not found
             if not poi_entry:
-                from lib.object_finder import OBJECT_CONFIGS
+                from lib.vision.object_finder import OBJECT_CONFIGS
                 GAME_OBJECTS = [(name.replace('_', ' ').title(), "0", "0") for name in OBJECT_CONFIGS.keys()]
                 
                 poi_entry = next(

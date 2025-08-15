@@ -441,7 +441,7 @@ class SpatialAudio:
             Tuple of (master_volume, individual_volume)
         """
         try:
-            from lib.utilities import get_config_float
+            from lib.utils.utilities import get_config_float
             master_volume = get_config_float(config, master_key, 1.0)
             individual_volume = get_config_float(config, volume_key, fallback)
             return master_volume, individual_volume

@@ -33,7 +33,7 @@ _config_cache_timeout = 1.0  # Cache config for 1 second to prevent excessive fi
 def get_gameobject_configs():
     """Get game object configurations for dynamic config generation"""
     try:
-        from lib.object_finder import OBJECT_CONFIGS
+        from lib.vision.object_finder import OBJECT_CONFIGS
         return OBJECT_CONFIGS
     except ImportError:
         return {}
@@ -959,7 +959,7 @@ def process_minimap(capture_func=None) -> np.ndarray:
     """
     # Import here to avoid circular import issues
     if capture_func is None:
-        from lib.screenshot_manager import capture_coordinates
+        from lib.vision.screenshot_manager import capture_coordinates
         capture_func = capture_coordinates
 
     region = MINIMAP_REGION

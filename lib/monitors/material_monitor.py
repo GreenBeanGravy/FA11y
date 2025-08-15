@@ -6,7 +6,7 @@ from threading import Thread, Event, Lock
 from accessible_output2.outputs.auto import Auto
 import time
 from pathlib import Path
-from lib.ocr_manager import get_ocr_manager
+from lib.vision.ocr_manager import get_ocr_manager
 
 # Screen coordinates
 MATERIAL_ICON_AREA = {

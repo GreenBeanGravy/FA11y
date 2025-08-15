@@ -6,13 +6,13 @@ from mss import mss
 from accessible_output2.outputs.auto import Auto
 from threading import Thread, Event, Lock
 import configparser
-from lib.utilities import read_config, get_config_boolean
+from lib.utils.utilities import read_config, get_config_boolean
 import zlib
 import pickle
 from pathlib import Path
 from threading import Thread, Event, Lock
 from queue import Queue
-from lib.ocr_manager import get_ocr_manager
+from lib.vision.ocr_manager import get_ocr_manager
 
 # Screen coordinates for weapon slots (left, top, right, bottom)
 SLOT_COORDS = [

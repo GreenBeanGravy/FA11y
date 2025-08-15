@@ -1,7 +1,7 @@
 from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
-from lib.utilities import read_config, get_config_boolean # Not strictly needed now but good practice
-from lib.hotbar_detection import get_last_detected_rarity
+from lib.utils.utilities import read_config, get_config_boolean # Not strictly needed now but good practice
+from lib.handlers.hotbar_detection import get_last_detected_rarity
 
 speaker = Auto()
 

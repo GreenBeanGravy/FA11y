@@ -152,7 +152,7 @@ def update_poi_handler(selected_poi: str, use_ppi: bool = False) -> Tuple[Option
     Returns:
         Tuple of (poi_name, coordinates) or (None, None) if not found
     """
-    from lib.player_position import find_player_position, find_player_icon_location
+    from lib.vision.player_position import find_player_position, find_player_icon_location
     
     # Get current position based on method
     current_position = find_player_position() if use_ppi else find_player_icon_location()

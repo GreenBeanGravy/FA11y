@@ -176,7 +176,7 @@ class FastObjectFinder:
             return {}
         try:
             if use_ppi:
-                from lib.player_position import find_player_position
+                from lib.vision.player_position import find_player_position
                 player_fullmap_pos = find_player_position()
                 if player_fullmap_pos is None:
                     return {}
