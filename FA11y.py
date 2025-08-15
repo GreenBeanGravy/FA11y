@@ -51,10 +51,8 @@ from lib.hsr import (
 )
 from lib.mouse import (
     smooth_move_mouse,
-    left_mouse_down,
-    left_mouse_up,
-    right_mouse_down,
-    right_mouse_up,
+    mouse_button_down,
+    mouse_button_up,
     mouse_scroll,
 )
 
@@ -276,8 +274,8 @@ def reload_config() -> None:
 
         if mouse_keys_enabled:
             action_handlers.update({
-                'fire': left_mouse_down,
-                'target': right_mouse_down,
+                'fire': lambda: mouse_button_down('left'),
+                'target': lambda: mouse_button_down('right'),
                 'turn left': lambda: handle_movement('turn left', reset_sensitivity),
                 'turn right': lambda: handle_movement('turn right', reset_sensitivity),
                 'secondary turn left': lambda: handle_movement('secondary turn left', reset_sensitivity),
@@ -369,7 +367,7 @@ def key_listener() -> None:
                                 print(f"Error executing action {action_lower}: {e}")
                     else:
                         if action_lower in ['fire', 'target']:
-                            (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
+                            mouse_button_up('left' if action_lower == 'fire' else 'right')
         
         time.sleep(0.001)
 
