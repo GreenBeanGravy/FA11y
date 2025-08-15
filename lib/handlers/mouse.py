@@ -3,7 +3,7 @@ import time
 import threading
 import os
 from typing import Tuple
-from lib.utilities import get_config_int, get_config_float, read_config
+from lib.utils.utilities import get_config_int, get_config_float, read_config
 
 # Global configuration
 config = read_config()
@@ -209,80 +209,51 @@ def mouse_scroll(amount: int):
         return False
 
 # Core mouse button functions
-def left_mouse_down():
-    """Press and hold left mouse button"""
-    return _send_mouse_button("LeftButton", True)
+_BUTTON_MAP = {
+    'left': 'LeftButton',
+    'right': 'RightButton',
+    'middle': 'MiddleButton'
+}
 
-def left_mouse_up():
-    """Release left mouse button"""
-    return _send_mouse_button("LeftButton", False)
 
-def right_mouse_down():
-    """Press and hold right mouse button"""
-    return _send_mouse_button("RightButton", True)
+def mouse_button_down(button: str = 'left') -> bool:
+    """Press and hold a mouse button."""
+    btn = _BUTTON_MAP.get(button.lower())
+    if not btn:
+        raise ValueError(f"Unsupported mouse button: {button}")
+    return _send_mouse_button(btn, True)
 
-def right_mouse_up():
-    """Release right mouse button"""
-    return _send_mouse_button("RightButton", False)
 
-def hold_left_button():
-    """Hold left mouse button"""
-    return left_mouse_down()
+def mouse_button_up(button: str = 'left') -> bool:
+    """Release a mouse button."""
+    btn = _BUTTON_MAP.get(button.lower())
+    if not btn:
+        raise ValueError(f"Unsupported mouse button: {button}")
+    return _send_mouse_button(btn, False)
 
-def release_left_button():
-    """Release left mouse button"""
-    return left_mouse_up()
 
-def hold_right_button():
-    """Hold right mouse button"""
-    return right_mouse_down()
+def click_mouse(button: str = 'left') -> None:
+    """Click mouse button with brief delay."""
+    mouse_button_down(button)
+    time.sleep(0.01)
+    mouse_button_up(button)
 
-def release_right_button():
-    """Release right mouse button"""
-    return right_mouse_up()
 
-def hold_middle_button():
-    """Hold middle mouse button"""
-    return _send_mouse_button("MiddleButton", True)
+def hold_mouse_button(button: str = 'left') -> bool:
+    """Hold down mouse button."""
+    return mouse_button_down(button)
 
-def release_middle_button():
-    """Release middle mouse button"""
-    return _send_mouse_button("MiddleButton", False)
 
-def click_mouse(button='left'):
-    """Click mouse button with brief delay"""
-    if button == 'left':
-        left_mouse_down()
-        time.sleep(0.01)
-        left_mouse_up()
-    elif button == 'right':
-        right_mouse_down()
-        time.sleep(0.01)
-        right_mouse_up()
-    elif button == 'middle':
-        hold_middle_button()
-        time.sleep(0.01)
-        release_middle_button()
+def release_mouse_button(button: str = 'left') -> bool:
+    """Release mouse button."""
+    return mouse_button_up(button)
 
-def hold_mouse_button(button='left'):
-    """Hold down mouse button"""
-    if button == 'left':
-        return left_mouse_down()
-    elif button == 'right':
-        return right_mouse_down()
-    elif button == 'middle':
-        return hold_middle_button()
 
-def release_mouse_button(button='left'):
-    """Release mouse button"""
-    if button == 'left':
-        return left_mouse_up()
-    elif button == 'right':
-        return right_mouse_up()
-    elif button == 'middle':
-        return release_middle_button()
-
-# Compatibility aliases
+# Compatibility aliases for older callers
+left_mouse_down = lambda: mouse_button_down('left')
+left_mouse_up = lambda: mouse_button_up('left')
+right_mouse_down = lambda: mouse_button_down('right')
+right_mouse_up = lambda: mouse_button_up('right')
 left_click = lambda: click_mouse('left')
 right_click = lambda: click_mouse('right')
 

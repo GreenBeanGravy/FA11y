@@ -14,9 +14,9 @@ import win32gui
 import math
 
 from lib.guis.base_ui import AccessibleUI
-from lib.spatial_audio import SpatialAudio
-from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string, get_available_sounds, is_audio_setting
-from lib.input_handler import VK_KEYS, is_mouse_button
+from lib.audio.spatial_audio import SpatialAudio
+from lib.utils.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string, get_available_sounds, is_audio_setting
+from lib.handlers.input_handler import VK_KEYS, is_mouse_button
 
 # Initialize logger
 logger = logging.getLogger(__name__)

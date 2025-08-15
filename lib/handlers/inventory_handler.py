@@ -9,9 +9,9 @@ import pickle
 import difflib
 import cv2
 from accessible_output2.outputs.auto import Auto
-from lib.utilities import read_config
-from lib.input_handler import is_key_pressed
-from lib.ocr_manager import get_ocr_manager
+from lib.utils.utilities import read_config
+from lib.handlers.input_handler import is_key_pressed
+from lib.vision.ocr_manager import get_ocr_manager
 
 class InventoryHandler:
     def __init__(self):

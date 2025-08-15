@@ -10,12 +10,12 @@ import os
 from mss import mss
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities import read_config, get_config_boolean, get_config_float
-from lib.object_finder import optimized_finder, OBJECT_CONFIGS
-from lib.spatial_audio import SpatialAudio
-from lib.mouse import smooth_move_mouse
-from lib.custom_poi_handler import update_poi_handler
-from lib.background_checks import monitor
+from lib.utils.utilities import read_config, get_config_boolean, get_config_float
+from lib.vision.object_finder import optimized_finder, OBJECT_CONFIGS
+from lib.audio.spatial_audio import SpatialAudio
+from lib.handlers.mouse import smooth_move_mouse
+from lib.handlers.custom_poi_handler import update_poi_handler
+from lib.monitors.background_checks import monitor
 
 # Initialize speaker
 speaker = Auto()
@@ -564,7 +564,7 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
 
     if poi_name_lower == 'safe zone':
         # Use new storm monitor system
-        from lib.storm_monitor import storm_monitor
+        from lib.monitors.storm_monitor import storm_monitor
         storm_location = storm_monitor.get_current_storm_location()
         return 'Safe Zone', storm_location
 
@@ -964,7 +964,7 @@ def check_for_pixel():
 
 def get_config_int(config, key, fallback=None):
     """Get an integer from config"""
-    from lib.utilities import get_config_int as util_get_config_int
+    from lib.utils.utilities import get_config_int as util_get_config_int
     return util_get_config_int(config, key, fallback)
 
 def cleanup_object_detection():

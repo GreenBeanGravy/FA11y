@@ -6,7 +6,7 @@ import numpy as np
 from mss import mss
 from pathlib import Path
 from accessible_output2.outputs.auto import Auto
-from lib.utilities import read_config, get_config_boolean
+from lib.utils.utilities import read_config, get_config_boolean
 
 class BackgroundMonitor:
     def __init__(self):

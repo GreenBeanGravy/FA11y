@@ -1,5 +1,5 @@
 import numpy as np
-from lib.spatial_audio import SpatialAudio
+from lib.audio.spatial_audio import SpatialAudio
 import os
 import threading
 

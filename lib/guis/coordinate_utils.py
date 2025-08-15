@@ -1,5 +1,5 @@
 import re
-from lib.player_location import find_player_icon_location, ROI_START_ORIG, ROI_END_ORIG
+from lib.vision.player_position import find_player_icon_location, ROI_START_ORIG, ROI_END_ORIG
 
 def get_current_coordinates():
     return find_player_icon_location()
