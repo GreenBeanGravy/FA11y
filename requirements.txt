@@ -1,6 +1,6 @@
 opencv-python
 packaging
-numpy
+numpy==1.26.4
 keyboard
 pyautogui
 accessible_output2
