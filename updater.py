@@ -423,10 +423,6 @@ def check_and_update_file(file_path):
         print_info(f"Skipping file: {file_path}")
         return False
 
-    # Adjust the filter to ensure all relevant files are considered
-    if not file_path.endswith(('.py', '.txt', '.png', '.bat', '.ogg', '.jpg', '.pkl')) and file_path != 'VERSION':
-        return False
-
     remote_content = download_file_github(GITHUB_REPO, GITHUB_BRANCH, file_path)
     if remote_content is None or not file_needs_update(file_path, remote_content):
         return False
