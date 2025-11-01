@@ -1,6 +1,6 @@
 opencv-python
 packaging
-numpy==1.26.4
+numpy
 keyboard
 pyautogui
 accessible_output2
@@ -34,3 +34,4 @@ easyocr
 pyaudio
 pythonnet
 spaudiopy
+wxPython
