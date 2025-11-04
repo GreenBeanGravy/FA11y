@@ -207,6 +207,9 @@ PingVolumeMaxDistance = 1000 "The maximum distance in meters at which the ping s
 MinimumPOIVolume = 0.05 "The minimum volume for the P O I sound when the P O I is farthest."
 MaximumPOIVolume = 1.0 "The maximum volume for the P O I sound when the P O I is closest."
 StormPingInterval = 1.5 "The interval in seconds between audio pings for storm detection."
+ContinuousPingMinInterval = 0.5 "The minimum interval in seconds for the continuous POI ping."
+ContinuousPingMaxInterval = 2.0 "The maximum interval in seconds for the continuous POI ping."
+ContinuousPingDistanceExponent = 1.5 "The exponent for the distance-based speed increase of the continuous ping."
 
 [GameObjects]
 AnnounceNewMatch = true "Announce when a new match starts (detected by height indicator)."
@@ -236,6 +239,7 @@ Cycle POI Backwards = lshift+equals "Cycles backward through POIs in the current
 Cycle POI Category = minus "Cycles forward between POI categories (Special, Regular, Landmarks, Favorites, Custom, etc)."
 Cycle POI Category Backwards = lshift+minus "Cycles backward between POI categories (Special, Regular, Landmarks, Favorites, Custom, etc)."
 Start Navigation = grave "Starts the player navigation process based on the players selected P O I, Game Object, or location."
+Toggle Continuous Ping = lalt+p "Toggles a continuous ping for the currently selected object."
 Check Health Shields = h "Announces the players Health and Shield values."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."
 Announce Ammo = j "Announces the current ammo in the mag and reserves."
@@ -612,7 +616,8 @@ def is_audio_setting(key: str) -> bool:
     
     audio_values = {
         'PingVolumeMaxDistance', 'MinimumPOIVolume', 'MaximumPOIVolume', 
-        'StormPingInterval'
+        'StormPingInterval', 'ContinuousPingMinInterval', 'ContinuousPingMaxInterval',
+        'ContinuousPingDistanceExponent'
     }
     
     # Check for volume settings

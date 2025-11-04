@@ -972,6 +972,55 @@ class POISoundUpdater:
         if self.update_thread and self.update_thread.is_alive():
             self.update_thread.join(timeout=0.5)
 
+class ContinuousPOIPinger:
+    """Handles continuous pinging for a POI with variable interval."""
+    def __init__(self, poi_location: Tuple[int, int]):
+        self.poi_location = poi_location
+        self.stop_event = threading.Event()
+        self.thread = None
+        self.config = read_config()
+        self.min_interval = get_config_float(self.config, 'ContinuousPingMinInterval', 0.5)
+        self.max_interval = get_config_float(self.config, 'ContinuousPingMaxInterval', 2.0)
+        self.distance_exponent = get_config_float(self.config, 'ContinuousPingDistanceExponent', 1.5)
+        self.max_distance_for_interval = get_config_float(self.config, 'PingVolumeMaxDistance', 1000.0)
+
+    def start(self):
+        if not self.thread or not self.thread.is_alive():
+            self.stop_event.clear()
+            self.thread = threading.Thread(target=self._audio_loop, daemon=True)
+            self.thread.start()
+
+    def stop(self):
+        self.stop_event.set()
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=1.0)
+
+    def _audio_loop(self):
+        while not self.stop_event.is_set():
+            player_pos = find_player_position()
+            _, player_angle = find_minimap_icon_direction()
+
+            if player_pos and player_angle is not None:
+                distance, _ = SpatialAudio.calculate_distance_and_angle(player_pos, player_angle, self.poi_location)
+                
+                # Play sound
+                play_spatial_poi_sound(player_pos, player_angle, self.poi_location)
+                
+                # Calculate next interval
+                distance_ratio = min(distance / self.max_distance_for_interval, 1.0)
+                interval_range = self.max_interval - self.min_interval
+                # Inverted relationship: closer means smaller ratio, faster interval
+                current_interval = self.min_interval + (interval_range * (distance_ratio ** self.distance_exponent))
+                
+                sleep_time = max(self.min_interval, min(current_interval, self.max_interval))
+                
+                if self.stop_event.wait(timeout=sleep_time):
+                    break
+            else:
+                # If player position is not available, wait a bit before retrying
+                if self.stop_event.wait(timeout=self.max_interval):
+                    break
+
 def start_icon_detection(use_ppi=False):
     """Start icon detection with manual trigger handling"""
     config = read_config()

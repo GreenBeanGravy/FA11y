@@ -101,7 +101,9 @@ from lib.detection.player_position import (
     get_position_in_quadrant,
     cleanup_object_detection,
     find_player_position,
-    find_player_icon_location
+    find_player_icon_location,
+    ContinuousPOIPinger,
+    handle_poi_selection
 )
 from lib.managers.hotbar_manager import (
     initialize_hotbar_detection,
@@ -144,6 +146,7 @@ stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
+active_pinger = None
 
 # Global shutdown flag for instant shutdown
 _shutdown_requested = threading.Event()
@@ -370,6 +373,7 @@ def reload_config() -> None:
             'create custom p o i': handle_custom_poi_gui,
             'announce ammo': announce_ammo_manually,
             'toggle keybinds': toggle_keybinds,
+            'toggle continuous ping': toggle_continuous_ping,
             'mark bad game object': mark_last_reached_object_as_bad,
             'cycle map': lambda: cycle_map("forwards"),
             'cycle map backwards': lambda: cycle_map("backwards"),
@@ -666,6 +670,39 @@ def toggle_keybinds() -> None:
     speaker.speak(f"FA11y {state}")
     print(f"FA11y has been {state}.")
 
+def toggle_continuous_ping() -> None:
+    """Toggle continuous pinging for the selected POI."""
+    global active_pinger, config
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
+        return
+
+    config = read_config()
+    selected_poi_str = config.get('POI', 'selected_poi', fallback='none,0,0')
+    parts = selected_poi_str.split(',')
+    if len(parts) < 3 or parts[0].strip().lower() == 'none':
+        speaker.speak("No POI selected.")
+        return
+
+    poi_name = parts[0].strip()
+    player_pos = find_player_position()
+    if not player_pos:
+        speaker.speak("Cannot start ping, player position unknown.")
+        return
+
+    poi_data = handle_poi_selection(poi_name, player_pos)
+    if not poi_data or not poi_data[1]:
+        speaker.speak(f"Location for {poi_name} not found.")
+        return
+
+    poi_coords = (int(float(poi_data[1][0])), int(float(poi_data[1][1])))
+    
+    active_pinger = ContinuousPOIPinger(poi_coords)
+    active_pinger.start()
+    speaker.speak(f"Continuous ping enabled for {poi_name}.")
+
 def key_listener() -> None:
     """Listen for and handle key presses with modifier key support and fast shutdown response."""
     global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open, keybinds_enabled, config
@@ -824,6 +861,11 @@ def open_config_gui() -> None:
 
 def open_poi_selector() -> None:
     """Open the POI selector GUI."""
+    global active_pinger
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
     try:
         from lib.guis.poi_selector_gui import launch_poi_selector, POIData
         
@@ -1175,7 +1217,11 @@ def get_poi_categories(include_empty: bool = False) -> List[str]:
 
 def cycle_poi_category(direction: str = "forwards") -> None:
     """Cycle between POI categories with safe config handling"""
-    global config, poi_data_instance, current_poi_category
+    global config, poi_data_instance, current_poi_category, active_pinger
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
     
     try:
         # Always re-read the config to ensure we have the latest state
@@ -1266,7 +1312,11 @@ def cycle_poi_category(direction: str = "forwards") -> None:
 
 def cycle_poi(direction: str = "forwards") -> None:
     """Cycle through POIs in the current category with safe config handling"""
-    global config, poi_data_instance, current_poi_category
+    global config, poi_data_instance, current_poi_category, active_pinger
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
     
     try:
         # Always re-read the config to ensure we have the latest state
@@ -1343,7 +1393,11 @@ def cycle_poi(direction: str = "forwards") -> None:
 
 def cycle_map(direction: str = "forwards"):
     """Cycle to the next/previous map with safe config handling"""
-    global config, poi_data_instance, current_poi_category
+    global config, poi_data_instance, current_poi_category, active_pinger
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
     
     try:
         # Always re-read the config to ensure we have the latest state
