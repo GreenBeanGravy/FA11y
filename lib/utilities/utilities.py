@@ -383,167 +383,6 @@ def get_default_config_order() -> Dict[str, List[str]]:
     
     return order
 
-def get_valid_config_structure() -> Dict[str, Set[str]]:
-    """Get the valid structure (sections and keys) from the default config"""
-    default_config_parser = _create_config_parser_with_case_preserved()
-    default_config_parser.read_string(DEFAULT_CONFIG)
-    
-    structure = {}
-    for section in default_config_parser.sections():
-        structure[section] = set(default_config_parser.options(section))
-    
-    return structure
-
-def clean_config_of_unused_entries(config: configparser.ConfigParser) -> Tuple[configparser.ConfigParser, bool]:
-    """Remove unused config entries that are not in the default config structure"""
-    valid_structure = get_valid_config_structure()
-    cleaned_config = _create_config_parser_with_case_preserved()
-    entries_removed = False
-    
-    # Keep track of what we're removing for logging
-    removed_sections = []
-    removed_keys = []
-    
-    # Process each section in the current config
-    for section_name in config.sections():
-        # Special handling for POI section - always keep it
-        if section_name == "POI":
-            if not cleaned_config.has_section(section_name):
-                cleaned_config.add_section(section_name)
-            for key, value in config.items(section_name):
-                cleaned_config.set(section_name, key, value)
-            continue
-        
-        # Check if this section exists in the valid structure
-        if section_name not in valid_structure:
-            removed_sections.append(section_name)
-            entries_removed = True
-            continue
-        
-        # Section is valid, add it to cleaned config
-        if not cleaned_config.has_section(section_name):
-            cleaned_config.add_section(section_name)
-        
-        # Process each key in this section
-        valid_keys = valid_structure[section_name]
-        for key, value in config.items(section_name):
-            # Check if key is valid (case-insensitive)
-            key_valid = False
-            for valid_key in valid_keys:
-                if key.lower() == valid_key.lower():
-                    # Use the correct case from valid structure
-                    cleaned_config.set(section_name, valid_key, value)
-                    key_valid = True
-                    break
-            
-            if not key_valid:
-                removed_keys.append(f"[{section_name}] {key}")
-                entries_removed = True
-    
-    # Add any missing sections and keys from default config
-    for section_name, valid_keys in valid_structure.items():
-        if not cleaned_config.has_section(section_name):
-            cleaned_config.add_section(section_name)
-        
-        for valid_key in valid_keys:
-            if not cleaned_config.has_option(section_name, valid_key):
-                # Get default value from default config
-                default_config_parser = _create_config_parser_with_case_preserved()
-                default_config_parser.read_string(DEFAULT_CONFIG)
-                if default_config_parser.has_option(section_name, valid_key):
-                    default_value = default_config_parser.get(section_name, valid_key)
-                    cleaned_config.set(section_name, valid_key, default_value)
-    
-    # Log what was removed
-    if entries_removed:
-        print("Config cleanup removed unused entries:")
-        if removed_sections:
-            print(f"  Removed sections: {', '.join(removed_sections)}")
-        if removed_keys:
-            print(f"  Removed keys: {', '.join(removed_keys)}")
-    
-    return cleaned_config, entries_removed
-
-def reorganize_config(config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """Reorganize config according to the default order"""
-    default_order = get_default_config_order()
-    reorganized_config = _create_config_parser_with_case_preserved()
-    
-    # First add all sections in the default order
-    for section in default_order:
-        if not reorganized_config.has_section(section):
-            reorganized_config.add_section(section)
-        
-        # Add keys in default order, preserving values from current config
-        for key in default_order[section]:
-            if config.has_section(section) and config.has_option(section, key):
-                reorganized_config.set(section, key, config.get(section, key))
-    
-    # Add POI section if it exists (it's not in default order but should be preserved)
-    if config.has_section("POI"):
-        if not reorganized_config.has_section("POI"):
-            reorganized_config.add_section("POI")
-        for key, value in config.items("POI"):
-            reorganized_config.set("POI", key, value)
-    
-    return reorganized_config
-
-def configs_have_different_values(config1: configparser.ConfigParser, config2: configparser.ConfigParser) -> bool:
-    """
-    Compare two config parsers for value differences.
-    Returns True if any actual values differ (ignoring organization and whitespace).
-    """
-    # Check all sections in config1
-    for section in config1.sections():
-        if not config2.has_section(section):
-            return True  # Section missing in config2
-        
-        # Check all options in this section of config1
-        for option in config1.options(section):
-            if not config2.has_option(section, option):
-                return True  # Option missing in config2
-            
-            # Extract just the value part (before any description in quotes)
-            value1 = config1.get(section, option).split('"')[0].strip()
-            value2 = config2.get(section, option).split('"')[0].strip()
-            
-            if value1 != value2:
-                return True  # Values differ
-    
-    # Check for sections in config2 that aren't in config1
-    for section in config2.sections():
-        if not config1.has_section(section):
-            return True  # Section in config2 that's not in config1
-        
-        # Check for options in config2's section that aren't in config1
-        for option in config2.options(section):
-            if not config1.has_option(section, option):
-                return True  # Option in config2 that's not in config1
-    
-    # If we get here, the configs have equivalent values
-    return False
-
-def configs_differ_structurally(config1: configparser.ConfigParser, config2: configparser.ConfigParser) -> bool:
-    """
-    Check if configs differ in structure (sections and options).
-    This ignores the values and only checks the organization.
-    """
-    # Check if sections are different
-    sections1 = set(config1.sections())
-    sections2 = set(config2.sections())
-    if sections1 != sections2:
-        return True
-    
-    # Check if options in each section are different
-    for section in sections1:
-        options1 = set(config1.options(section))
-        options2 = set(config2.options(section))
-        if options1 != options2:
-            return True
-    
-    # Otherwise, they have the same structure
-    return False
-
 def get_config_value(config: configparser.ConfigParser, key: str, fallback: Any = None) -> Tuple[str, str]:
     """Get a config value from any section with its description"""
     # Search in standard sections first
@@ -773,130 +612,69 @@ def save_config(config: configparser.ConfigParser) -> bool:
             return False
 
 def update_config(current_config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """Update config with default values and clean up unused entries"""
+    """
+    Updates the user's configuration by comparing it against the default.
+    - Adds missing sections and keys.
+    - Removes obsolete sections and keys.
+    - Preserves user's values for existing keys.
+    - Ensures descriptions are up-to-date.
+    - Reorganizes the file to match the default order.
+    - Returns the updated config object, saving to disk if changes were made.
+    """
     default_config_parser = _create_config_parser_with_case_preserved()
     default_config_parser.read_string(DEFAULT_CONFIG)
-
-    # Track different types of changes
-    values_changed = False  # Actual values (settings) changed
-    structure_changed = False  # Organization/structure changed
-
-    # First, clean up unused entries
-    cleaned_config, entries_removed = clean_config_of_unused_entries(current_config)
-    if entries_removed:
-        structure_changed = True
-        values_changed = True  # Removing entries counts as a value change
     
-    # Use the cleaned config for further processing
-    current_config = cleaned_config
+    updated_config = _create_config_parser_with_case_preserved()
+    default_order = get_default_config_order()
 
-    # Ensure all default sections and keys are present
-    for section in default_config_parser.sections():
-        if not current_config.has_section(section):
-            current_config.add_section(section)
-            structure_changed = True
-            values_changed = True  # New section with values
-        
-        for key, default_full_value in default_config_parser.items(section):
-            if not current_config.has_option(section, key):
-                current_config.set(section, key, default_full_value)
-                structure_changed = True
-                values_changed = True  # New value added
+    # Build the new config using the default as a template
+    for section in default_order:
+        if not updated_config.has_section(section):
+            updated_config.add_section(section)
+
+        for key in default_order[section]:
+            default_full_value = default_config_parser.get(section, key)
+            
+            if current_config.has_option(section, key):
+                # Use user's value but update the description from default
+                user_value_str = current_config.get(section, key)
+                user_value_part = user_value_str.split('"')[0].strip()
+                
+                default_desc = ""
+                if '"' in default_full_value:
+                    default_desc = default_full_value.split('"', 1)[1]
+                    if default_desc.endswith('"'):
+                        default_desc = default_desc[:-1]
+                
+                final_value = f'{user_value_part} "{default_desc}"'
+                updated_config.set(section, key, final_value)
             else:
-                # Ensure description consistency
-                current_val_str = current_config.get(section, key)
-                has_current_desc = '"' in current_val_str
-                has_default_desc = '"' in default_full_value
-                if not has_current_desc and has_default_desc:
-                    current_value_part_only = current_val_str.strip()
-                    _, default_desc_only = default_full_value.split('"', 1)
-                    if default_desc_only.endswith('"'):
-                        default_desc_only = default_desc_only[:-1]
-                    current_config.set(section, key, f'{current_value_part_only} "{default_desc_only}"')
-                    structure_changed = True  # Description added/changed
+                # User is missing this key, add it from default
+                updated_config.set(section, key, default_full_value)
 
-    # Clean up duplicates within sections
-    for section in current_config.sections():
-        if section == "POI":  # Skip POI section for advanced cleanup
-            continue
+    # Preserve the user's [POI] section as-is
+    if current_config.has_section("POI"):
+        if not updated_config.has_section("POI"):
+            updated_config.add_section("POI")
+        for key, value in current_config.items("POI"):
+            updated_config.set("POI", key, value)
 
-        options_in_section = current_config.options(section)
-        keys_to_remove = []
-        
-        # Find case duplicates
-        options_by_lower = {}
-        for opt in options_in_section:
-            lower_opt = opt.lower()
-            if lower_opt not in options_by_lower:
-                options_by_lower[lower_opt] = []
-            options_by_lower[lower_opt].append(opt)
-
-        for lower_key, cased_keys in options_by_lower.items():
-            if len(cased_keys) > 1:  # Found duplicates
-                structure_changed = True
-                canonical_key_from_default = None
-                
-                # Find canonical key from default config
-                if default_config_parser.has_section(section):
-                    for default_opt_key in default_config_parser.options(section):
-                        if default_opt_key.lower() == lower_key:
-                            canonical_key_from_default = default_opt_key
-                            break
-                
-                if canonical_key_from_default and canonical_key_from_default in cased_keys:
-                    # Keep the correctly cased key from default
-                    for k_to_check in cased_keys:
-                        if k_to_check != canonical_key_from_default:
-                            keys_to_remove.append(k_to_check)
-                else:
-                    # Prioritize user-modified values
-                    default_value_for_key = None
-                    if canonical_key_from_default and default_config_parser.has_option(section, canonical_key_from_default):
-                         default_value_for_key = default_config_parser.get(section, canonical_key_from_default)
-
-                    kept_key = None
-                    if default_value_for_key:
-                        for k_in_dups in cased_keys:
-                            if current_config.get(section, k_in_dups) != default_value_for_key:
-                                kept_key = k_in_dups  # Prioritize user-modified value
-                                break
-                    
-                    if not kept_key:
-                        kept_key = sorted(cased_keys)[0]  # Keep first one alphabetically
-
-                    for k_to_remove_dup in cased_keys:
-                        if k_to_remove_dup != kept_key:
-                            keys_to_remove.append(k_to_remove_dup)
-        
-        # Remove duplicate keys
-        for k_rem in keys_to_remove:
-            current_config.remove_option(section, k_rem)
-            print(f"Removed duplicate key '{k_rem}' from section '[{section}]'")
-            values_changed = True  # Consider removing duplicates a value change
-
-    # Always reorganize the config according to default order
-    reorganized_config = reorganize_config(current_config)
+    # Check if the final config is different from the original to see if a save is needed
+    from io import StringIO
     
-    # Check if only the structure is different but not the actual values
-    if not values_changed and not configs_have_different_values(reorganized_config, current_config):
-        # Only the structure differs - use the reorganized version but don't report it as changed
-        should_report_update = False
-    else:
-        # Either values changed or reorganized version has different values
-        should_report_update = True
+    current_config_io = StringIO()
+    current_config.write(current_config_io)
     
-    # Always use the reorganized config
-    current_config = reorganized_config
-
-    # Save if we have any changes (structural or values)
-    if values_changed or structure_changed:
-        if save_config(current_config):
-            if should_report_update:
-                print(f"Config file '{CONFIG_FILE}' was updated.")
+    updated_config_io = StringIO()
+    updated_config.write(updated_config_io)
+    
+    if current_config_io.getvalue() != updated_config_io.getvalue():
+        if save_config(updated_config):
+            print(f"Config file '{CONFIG_FILE}' was updated.")
         else:
             print(f"Error writing updated config file")
-            
-    return current_config
+    
+    return updated_config
 
 def clear_config_cache():
     """Clear the config cache to force reload on next read"""
@@ -1204,8 +982,6 @@ class Config:
     
     def save(self):
         """Save configuration to file with thread-safe locking"""
-        # Reorganize before saving
-        self.config = reorganize_config(self.config)
         success = save_config(self.config)
         if not success:
             print(f"Error saving config file {self.config_file}")
