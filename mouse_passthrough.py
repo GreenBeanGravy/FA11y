@@ -796,9 +796,9 @@ class OptimizedMousePassthrough:
 
             try:
                 # Define movement parameters
-                steps = 5
+                steps = 2
                 pixels_per_step = 1
-                duration_s = 0.01
+                duration_s = 0.001
                 sleep_between_steps = duration_s / steps  # 0.002s
 
                 # --- Move forward ---
