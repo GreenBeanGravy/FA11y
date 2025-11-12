@@ -380,8 +380,13 @@ class LockerGUI(AccessibleDialog):
             # Clear list
             self.cosmetics_list.DeleteAllItems()
 
-            # Populate list (only up to 1000 for performance - virtual list would be better)
-            max_items = min(1000, len(self.filtered_cosmetics))
+            # Populate list with smart limit based on mode
+            # Allow more items for owned cosmetics (smaller set), fewer for all cosmetics
+            if self.owned_only:
+                max_items = min(5000, len(self.filtered_cosmetics))  # Higher limit for owned
+            else:
+                max_items = min(1000, len(self.filtered_cosmetics))  # Lower limit for all
+
             for idx in range(max_items):
                 cosmetic = self.filtered_cosmetics[idx]
 
@@ -534,25 +539,44 @@ class LockerGUI(AccessibleDialog):
             speaker.speak(f"Equipping {name}")
             logger.info(f"Equipping {name} to {category} slot {slot}")
 
-            # Close dialog and perform automation
+            # Hide dialog before automation
             self.Hide()
+            wx.SafeYield()  # Process any pending UI events
 
-            # Perform the equip automation
-            success = self.perform_equip_automation(category, slot, name)
+            try:
+                # Perform the equip automation
+                success = self.perform_equip_automation(category, slot, name)
 
-            if success:
-                speaker.speak(f"{name} equipped!")
-                self.Show()
-            else:
-                speaker.speak("Equip failed")
-                self.Show()
-                messageBox("Failed to equip cosmetic. Make sure Fortnite is in focus.", "Equip Failed", wx.OK | wx.ICON_ERROR, self)
+                # Always show dialog again on UI thread
+                wx.CallAfter(self._show_after_equip, success, name)
+
+            except Exception as automation_error:
+                logger.error(f"Error during automation: {automation_error}")
+                wx.CallAfter(self._show_after_equip, False, name)
+                raise
 
         except Exception as e:
             logger.error(f"Error equipping cosmetic: {e}")
             speaker.speak("Error equipping cosmetic")
+            # Make sure dialog shows even on error
+            if not self.IsShown():
+                wx.CallAfter(self.Show)
+            wx.CallAfter(lambda: messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self))
+
+    def _show_after_equip(self, success: bool, name: str):
+        """Show dialog after equip automation completes"""
+        try:
             self.Show()
-            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+            self.Raise()
+            wx.SafeYield()
+
+            if success:
+                speaker.speak(f"{name} equipped!")
+            else:
+                speaker.speak("Equip failed")
+                messageBox("Failed to equip cosmetic. Make sure Fortnite is open and in the locker.", "Equip Failed", wx.OK | wx.ICON_ERROR, self)
+        except Exception as e:
+            logger.error(f"Error showing dialog after equip: {e}")
 
     def ask_for_slot(self, cosmetic_type: str, name: str) -> Optional[int]:
         """Ask user which slot to equip to (for emotes, wraps, etc.)"""
@@ -622,8 +646,9 @@ class LockerGUI(AccessibleDialog):
             pyautogui.click()
             time.sleep(0.5)
 
-            # Type the item name
-            pyautogui.typewrite(item_name)
+            # Type the item name (use write() for better special character support)
+            pyautogui.write(item_name, interval=0.02)
+            time.sleep(0.3)
             pyautogui.press('enter')
             time.sleep(0.1)
 
