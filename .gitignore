@@ -2,10 +2,18 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/lib/__pycache__
-/lib/guis/__pycache__
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Visual Studio
 /.vs/FA11y/v17
 /.vs/FA11y/FileContentIndex
 /.vs
+
+# FA11y specific
 /config.txt
 /debug
+pixel_inspector_log.txt
