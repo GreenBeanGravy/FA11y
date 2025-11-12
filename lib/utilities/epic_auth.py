@@ -79,48 +79,22 @@ class EpicAuth:
         except Exception as e:
             logger.error(f"Error saving auth: {e}")
 
-    def authenticate_device_code(self) -> Dict[str, str]:
+    def get_authorization_url(self) -> str:
         """
-        Authenticate using device code flow
-        Returns dict with verification_uri, user_code, or None if failed
+        Get the authorization URL for manual login
+        User visits this URL, logs in, and gets a code to paste back
         """
-        try:
-            # Get basic auth header
-            auth = base64.b64encode(f"{self.CLIENT_ID}:{self.CLIENT_SECRET}".encode()).decode()
+        # Using Epic's authorization code flow
+        auth_url = (
+            "https://www.epicgames.com/id/api/redirect"
+            f"?clientId={self.CLIENT_ID}"
+            "&responseType=code"
+        )
+        return auth_url
 
-            headers = {
-                "Authorization": f"Basic {auth}",
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-
-            # Request device code
-            response = requests.post(
-                self.OAUTH_DEVICE_AUTH_URL,
-                headers=headers,
-                timeout=30
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                logger.info("Device code obtained successfully")
-                return {
-                    "device_code": data["device_code"],
-                    "user_code": data["user_code"],
-                    "verification_uri": data["verification_uri_complete"],
-                    "expires_in": data["expires_in"],
-                    "interval": data.get("interval", 5)
-                }
-            else:
-                logger.error(f"Failed to get device code: {response.status_code} - {response.text}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Authentication error: {e}")
-            return None
-
-    def poll_for_token(self, device_code: str, interval: int = 5, timeout: int = 300) -> bool:
+    def exchange_code_for_token(self, authorization_code: str) -> bool:
         """
-        Poll for access token after user authorizes device code
+        Exchange authorization code for access token
         Returns True if successful, False otherwise
         """
         try:
@@ -132,67 +106,43 @@ class EpicAuth:
             }
 
             data = {
-                "grant_type": "device_code",
-                "device_code": device_code
+                "grant_type": "authorization_code",
+                "code": authorization_code
             }
 
-            import time
-            start_time = time.time()
+            response = requests.post(
+                self.OAUTH_TOKEN_URL,
+                headers=headers,
+                data=data,
+                timeout=30
+            )
 
-            while time.time() - start_time < timeout:
-                response = requests.post(
-                    self.OAUTH_TOKEN_URL,
-                    headers=headers,
-                    data=data,
-                    timeout=30
+            if response.status_code == 200:
+                token_data = response.json()
+                self.access_token = token_data["access_token"]
+                self.account_id = token_data["account_id"]
+
+                # Get display name
+                account_info = self.get_account_info()
+                if account_info:
+                    self.display_name = account_info.get("displayName", "Unknown")
+
+                # Save auth
+                self.save_auth(
+                    self.access_token,
+                    self.account_id,
+                    self.display_name,
+                    token_data["expires_in"]
                 )
 
-                if response.status_code == 200:
-                    token_data = response.json()
-                    self.access_token = token_data["access_token"]
-                    self.account_id = token_data["account_id"]
-
-                    # Get display name
-                    account_info = self.get_account_info()
-                    if account_info:
-                        self.display_name = account_info.get("displayName", "Unknown")
-
-                    # Save auth
-                    self.save_auth(
-                        self.access_token,
-                        self.account_id,
-                        self.display_name,
-                        token_data["expires_in"]
-                    )
-
-                    logger.info(f"Successfully authenticated as {self.display_name}")
-                    return True
-
-                elif response.status_code == 400:
-                    error = response.json()
-                    error_code = error.get("errorCode", "")
-
-                    if error_code == "errors.com.epicgames.account.oauth.authorization_pending":
-                        # Still waiting for user to authorize
-                        time.sleep(interval)
-                        continue
-                    elif error_code == "errors.com.epicgames.account.oauth.slow_down":
-                        # Polling too fast
-                        interval += 1
-                        time.sleep(interval)
-                        continue
-                    else:
-                        logger.error(f"Authentication failed: {error}")
-                        return False
-                else:
-                    logger.error(f"Unexpected response: {response.status_code} - {response.text}")
-                    return False
-
-            logger.error("Authentication timeout")
-            return False
+                logger.info(f"Successfully authenticated as {self.display_name}")
+                return True
+            else:
+                logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
+                return False
 
         except Exception as e:
-            logger.error(f"Error polling for token: {e}")
+            logger.error(f"Error exchanging code for token: {e}")
             return False
 
     def get_account_info(self) -> Optional[Dict]:

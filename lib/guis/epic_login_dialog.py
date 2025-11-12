@@ -3,7 +3,6 @@ Epic Games Login Dialog for FA11y
 """
 import wx
 import webbrowser
-import threading
 import logging
 from accessible_output2.outputs.auto import Auto
 
@@ -14,16 +13,15 @@ speaker = Auto()
 
 
 class LoginDialog(AccessibleDialog):
-    """Dialog for Epic Games device code authentication"""
+    """Dialog for Epic Games manual authorization code authentication"""
 
     def __init__(self, parent, auth_instance):
         super().__init__(parent, title="Epic Games Login", helpId="EpicLogin")
         self.auth = auth_instance
-        self.device_code_data = None
-        self.auth_thread = None
+        self.auth_url = None
         self.authenticated = False
         self.setupDialog()
-        self.SetSize((600, 400))
+        self.SetSize((600, 450))
         self.CentreOnParent()
 
     def makeSettings(self, sizer: BoxSizerHelper):
@@ -41,7 +39,7 @@ class LoginDialog(AccessibleDialog):
         instructions = wx.StaticText(
             self,
             label="To access your Fortnite locker, you need to log in with your Epic Games account.\n\n"
-                  "Click 'Start Login' below to begin the authentication process."
+                  "Click 'Start Login' to open your browser and get an authorization code."
         )
         instructions.Wrap(550)
         sizer.addItem(instructions)
@@ -50,9 +48,18 @@ class LoginDialog(AccessibleDialog):
         self.status_text = wx.TextCtrl(
             self,
             style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP,
-            size=(-1, 150)
+            size=(-1, 120)
         )
         sizer.addItem(self.status_text, flag=wx.EXPAND, proportion=1)
+
+        # Authorization code input section
+        code_label = wx.StaticText(self, label="&Authorization Code:")
+        sizer.addItem(code_label)
+
+        self.code_input = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
+        self.code_input.Bind(wx.EVT_TEXT_ENTER, self.on_submit_code)
+        self.code_input.Enable(False)
+        sizer.addItem(self.code_input, flag=wx.EXPAND)
 
         # Buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -63,10 +70,10 @@ class LoginDialog(AccessibleDialog):
 
         button_sizer.AddSpacer(10)
 
-        self.open_browser_btn = wx.Button(self, label="&Open Browser")
-        self.open_browser_btn.Bind(wx.EVT_BUTTON, self.on_open_browser)
-        self.open_browser_btn.Enable(False)
-        button_sizer.Add(self.open_browser_btn)
+        self.submit_btn = wx.Button(self, label="&Submit Code")
+        self.submit_btn.Bind(wx.EVT_BUTTON, self.on_submit_code)
+        self.submit_btn.Enable(False)
+        button_sizer.Add(self.submit_btn)
 
         button_sizer.AddStretchSpacer()
 
@@ -90,100 +97,94 @@ class LoginDialog(AccessibleDialog):
     def on_start_login(self, event):
         """Handle Start Login button"""
         try:
-            speaker.speak("Starting authentication process")
-            self.status_text.AppendText("Requesting device code from Epic Games...\n")
+            speaker.speak("Opening browser for login")
+            self.status_text.AppendText("Getting authorization URL...\n")
             wx.SafeYield()
 
-            # Get device code
-            self.device_code_data = self.auth.authenticate_device_code()
-
-            if not self.device_code_data:
-                speaker.speak("Failed to get device code")
-                messageBox(
-                    "Failed to get device code from Epic Games. Please check your internet connection.",
-                    "Authentication Error",
-                    wx.OK | wx.ICON_ERROR,
-                    self
-                )
-                return
-
-            # Show the verification URL and user code
-            user_code = self.device_code_data["user_code"]
-            verification_uri = self.device_code_data["verification_uri"]
+            # Get authorization URL
+            self.auth_url = self.auth.get_authorization_url()
 
             message = (
-                f"\n✓ Device code obtained!\n\n"
-                f"To complete login:\n"
-                f"1. Open this URL in your browser:\n   {verification_uri}\n\n"
-                f"2. The page should automatically fill in the code.\n"
-                f"   If not, enter this code: {user_code}\n\n"
-                f"3. Authorize FA11y to access your Epic Games account\n\n"
-                f"Waiting for authorization...\n"
+                f"\n✓ Opening browser for Epic Games login...\n\n"
+                f"Steps to complete:\n"
+                f"1. Log in to your Epic Games account in the browser\n"
+                f"2. Authorize FA11y when prompted\n"
+                f"3. You will be redirected to a page showing 'redirectUrl=' followed by a code\n"
+                f"4. Copy the authorization code from the URL\n"
+                f"5. Paste the code below and click Submit Code\n\n"
+                f"Browser opening...\n"
             )
 
             self.status_text.AppendText(message)
-            speaker.speak(f"Device code received. Click Open Browser to log in.")
 
-            # Enable browser button, disable login button
+            # Open browser
+            webbrowser.open(self.auth_url)
+            speaker.speak("Browser opened. Please log in and copy the authorization code from the URL.")
+
+            # Enable code input and submit button, disable login button
             self.login_btn.Enable(False)
-            self.open_browser_btn.Enable(True)
-            self.open_browser_btn.SetFocus()
-
-            # Start polling for token in background thread
-            self.auth_thread = threading.Thread(target=self.poll_for_auth, daemon=True)
-            self.auth_thread.start()
+            self.code_input.Enable(True)
+            self.submit_btn.Enable(True)
+            self.code_input.SetFocus()
 
         except Exception as e:
             logger.error(f"Error starting login: {e}")
             speaker.speak("Error starting login")
             messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
 
-    def on_open_browser(self, event):
-        """Open browser to verification URL"""
-        if self.device_code_data:
-            verification_uri = self.device_code_data["verification_uri"]
-            webbrowser.open(verification_uri)
-            speaker.speak("Browser opened. Please log in and authorize FA11y.")
-            self.status_text.AppendText("\n✓ Browser opened. Please log in and authorize FA11y.\n")
-
-    def poll_for_auth(self):
-        """Poll for authentication in background thread"""
+    def on_submit_code(self, event):
+        """Handle Submit Code button"""
         try:
-            device_code = self.device_code_data["device_code"]
-            interval = self.device_code_data["interval"]
+            # Get the authorization code from the input
+            auth_code = self.code_input.GetValue().strip()
 
-            success = self.auth.poll_for_token(device_code, interval)
+            if not auth_code:
+                speaker.speak("Please enter an authorization code")
+                messageBox(
+                    "Please enter the authorization code from the browser.",
+                    "Code Required",
+                    wx.OK | wx.ICON_WARNING,
+                    self
+                )
+                return
 
-            # Update UI on main thread
-            wx.CallAfter(self.on_auth_complete, success)
+            speaker.speak("Exchanging authorization code for access token")
+            self.status_text.AppendText("\nExchanging code for access token...\n")
+            wx.SafeYield()
+
+            # Disable input during exchange
+            self.code_input.Enable(False)
+            self.submit_btn.Enable(False)
+
+            # Exchange code for token
+            success = self.auth.exchange_code_for_token(auth_code)
+
+            if success:
+                self.authenticated = True
+                speaker.speak(f"Successfully logged in as {self.auth.display_name}")
+                self.status_text.AppendText(f"\n✓ Successfully authenticated as {self.auth.display_name}!\n")
+                wx.CallLater(1000, lambda: self.EndModal(wx.ID_OK))
+            else:
+                speaker.speak("Authentication failed")
+                self.status_text.AppendText("\n✗ Authentication failed. Please check your code and try again.\n")
+                messageBox(
+                    "Failed to authenticate with the provided code. The code may be invalid or expired.\n\n"
+                    "Please click 'Start Login' again to get a new code.",
+                    "Authentication Failed",
+                    wx.OK | wx.ICON_ERROR,
+                    self
+                )
+                # Re-enable login button so user can try again
+                self.login_btn.Enable(True)
+                self.code_input.Enable(False)
+                self.submit_btn.Enable(False)
+                self.code_input.Clear()
 
         except Exception as e:
-            logger.error(f"Error polling for auth: {e}")
-            wx.CallAfter(self.on_auth_error, str(e))
-
-    def on_auth_complete(self, success: bool):
-        """Handle authentication completion"""
-        if success:
-            self.authenticated = True
-            speaker.speak(f"Successfully logged in as {self.auth.display_name}")
-            self.status_text.AppendText(f"\n✓ Successfully authenticated as {self.auth.display_name}!\n")
-            wx.CallLater(1000, lambda: self.EndModal(wx.ID_OK))
-        else:
-            speaker.speak("Authentication failed")
-            self.status_text.AppendText("\n✗ Authentication failed or timed out.\n")
-            messageBox(
-                "Authentication failed. Please try again.",
-                "Authentication Failed",
-                wx.OK | wx.ICON_ERROR,
-                self
-            )
-            self.login_btn.Enable(True)
-            self.open_browser_btn.Enable(False)
-
-    def on_auth_error(self, error: str):
-        """Handle authentication error"""
-        speaker.speak("Authentication error")
-        self.status_text.AppendText(f"\n✗ Error: {error}\n")
-        messageBox(f"Authentication error: {error}", "Error", wx.OK | wx.ICON_ERROR, self)
-        self.login_btn.Enable(True)
-        self.open_browser_btn.Enable(False)
+            logger.error(f"Error submitting code: {e}")
+            speaker.speak("Error submitting code")
+            self.status_text.AppendText(f"\n✗ Error: {e}\n")
+            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+            # Re-enable controls for retry
+            self.code_input.Enable(True)
+            self.submit_btn.Enable(True)
