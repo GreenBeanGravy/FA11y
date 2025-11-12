@@ -778,52 +778,43 @@ class LockerGUI(AccessibleDialog):
             self.owned_only = self.owned_checkbox.GetValue()
 
             if self.owned_only:
-                speaker.speak("Loading your owned cosmetics")
-                logger.info("Switching to owned cosmetics mode")
+                speaker.speak("Filtering to owned cosmetics")
+                logger.info("Filtering to owned cosmetics")
 
-                from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+                # Fetch list of owned IDs
+                owned_ids = self.auth.fetch_owned_cosmetics()
 
-                # Fetch owned cosmetics
-                owned_data = get_or_create_cosmetics_cache(force_refresh=False, owned_only=True)
+                if owned_ids:
+                    # Filter existing cosmetics data to only owned items
+                    owned_cosmetics = [c for c in self.cosmetics_data if c.get('id', '') in owned_ids]
 
-                if owned_data:
-                    self.cosmetics_data = owned_data
-                    self.filtered_cosmetics = owned_data.copy()
-                    self.stats = self._calculate_stats()
-                    self.update_list()
+                    self.filtered_cosmetics = owned_cosmetics.copy()
+                    self.apply_filters()
 
-                    speaker.speak(f"Showing {len(owned_data)} owned cosmetics")
+                    speaker.speak(f"Showing {len(owned_cosmetics)} owned cosmetics")
+                    logger.info(f"Filtered to {len(owned_cosmetics)} owned cosmetics")
                 else:
-                    speaker.speak("Failed to load owned cosmetics")
+                    speaker.speak("Failed to fetch owned cosmetics list")
                     messageBox(
-                        "Failed to load owned cosmetics. Please try refreshing.",
+                        "Failed to fetch your owned cosmetics from Epic Games. Please check your connection and try again.",
                         "Error",
                         wx.OK | wx.ICON_ERROR,
                         self
                     )
                     self.owned_checkbox.SetValue(False)
             else:
-                speaker.speak("Loading all cosmetics")
-                logger.info("Switching to all cosmetics mode")
+                speaker.speak("Showing all cosmetics")
+                logger.info("Showing all cosmetics")
 
-                from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+                # Reset to show all cosmetics
+                self.filtered_cosmetics = self.cosmetics_data.copy()
+                self.apply_filters()
 
-                # Fetch all cosmetics
-                all_data = get_or_create_cosmetics_cache(force_refresh=False, owned_only=False)
-
-                if all_data:
-                    self.cosmetics_data = all_data
-                    self.filtered_cosmetics = all_data.copy()
-                    self.stats = self._calculate_stats()
-                    self.update_list()
-
-                    speaker.speak(f"Showing all {len(all_data)} cosmetics")
-                else:
-                    speaker.speak("Failed to load cosmetics")
+                speaker.speak(f"Showing all {len(self.cosmetics_data)} cosmetics")
 
         except Exception as e:
             logger.error(f"Error toggling owned mode: {e}")
-            speaker.speak("Error loading cosmetics")
+            speaker.speak("Error filtering cosmetics")
             messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
             self.owned_checkbox.SetValue(not self.owned_only)
 
