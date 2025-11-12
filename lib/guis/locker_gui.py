@@ -1,22 +1,23 @@
 """
 Locker GUI for FA11y
-Provides an interface to equip cosmetic items in the Fortnite locker
+Provides an interface for viewing Fortnite cosmetics
 """
 import os
 import sys
+import json
 import time
 import logging
 import gc
-from typing import Optional, Tuple, Dict, List
+from typing import List, Optional, Dict
+import ctypes
+import ctypes.wintypes
 
 import wx
-import pyautogui
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
-    AccessibleDialog, BoxSizerHelper, ButtonHelper,
-    messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
-    center_mouse_in_window, BORDER_FOR_DIALOGS
+    AccessibleDialog, BoxSizerHelper, messageBox,
+    ensure_window_focus_and_center_mouse, SPACE_BETWEEN_VERTICAL_DIALOG_ITEMS
 )
 
 # Initialize logger
@@ -25,271 +26,193 @@ logger = logging.getLogger(__name__)
 # Global speaker instance
 speaker = Auto()
 
+# Map backend types to friendly names
+COSMETIC_TYPE_MAP = {
+    "AthenaCharacter": "Outfit",
+    "AthenaBackpack": "Back Bling",
+    "AthenaDance": "Emote",
+    "AthenaPickaxe": "Pickaxe",
+    "AthenaGlider": "Glider",
+    "AthenaItemWrap": "Wrap",
+    "AthenaLoadingScreen": "Loading Screen",
+    "AthenaMusicPack": "Music",
+    "AthenaSkyDiveContrail": "Contrail",
+    "VehicleCosmetics_Body": "Car Body",
+    "AthenaShoes": "Kicks",
+    "AthenaPetCarrier": "Pet"
+}
 
-class DisplayableError(Exception):
-    """Error that can be displayed to the user"""
-
-    def __init__(self, displayMessage: str, titleMessage: str = "Error"):
-        self.displayMessage = displayMessage
-        self.titleMessage = titleMessage
-
-    def displayError(self, parentWindow=None):
-        wx.CallAfter(
-            messageBox,
-            message=self.displayMessage,
-            caption=self.titleMessage,
-            style=wx.OK | wx.ICON_ERROR,
-            parent=parentWindow
-        )
+SORT_OPTIONS = [
+    "Rarity (Highest First)",
+    "Rarity (Lowest First)",
+    "Name (A-Z)",
+    "Name (Z-A)",
+    "Type",
+    "Newest First",
+    "Oldest First",
+    "Favorites First"
+]
 
 
-class LockerGUI(AccessibleDialog):
-    """Locker selector GUI for equipping cosmetic items"""
+class LockerDialog(AccessibleDialog):
+    """Dialog for viewing Fortnite cosmetics locker"""
 
-    # Slot coordinates (reused across categories)
-    SLOT_COORDS = {
-        1: (260, 400),
-        2: (420, 400),
-        3: (570, 400),
-        4: (720, 400),
-        5: (260, 560),
-        6: (420, 560),
-        7: (560, 550),
-        8: (720, 550)
-    }
+    def __init__(self, parent, cosmetics_data: List[dict]):
+        super().__init__(parent, title="Fortnite Locker Viewer", helpId="LockerViewer")
+        self.cosmetics_data = cosmetics_data
+        self.filtered_cosmetics = cosmetics_data.copy()
 
-    # Category positions
-    CATEGORY_COORDS = {
-        'Character': (110, 280),
-        'Emotes': (110, 335),
-        'Sidekicks': (110, 390),
-        'Wraps': (110, 445),
-        'Lobby': (110, 500),
-        'Cars': (110, 555),
-        'Instruments': (110, 610),
-        'Music': (110, 665)
-    }
+        # Current filter/sort state
+        self.current_search = ""
+        self.current_type_filter = "All"
+        self.current_sort = "Rarity (Highest First)"
 
-    # Sub-category positions (clicked after main category)
-    SUBCATEGORY_COORDS = {
-        'SUV/Truck': (120, 670),  # Under Cars
-        'Game Moments': (110, 790)  # Under Music
-    }
+        # Stats
+        self.stats = self._calculate_stats()
 
-    # Category structure: {category: [(slot_name, slot_number), ...]}
-    CATEGORY_ITEMS = {
-        'Character': [
-            ('Outfit', 1),
-            ('Backbling', 2),
-            ('Pickaxe', 3),
-            ('Glider', 4),
-            ('Kicks', 5),
-            ('Contrail', 6)
-        ],
-        'Emotes': [
-            ('Emote 1', 1),
-            ('Emote 2', 2),
-            ('Emote 3', 3),
-            ('Emote 4', 4),
-            ('Emote 5', 5),
-            ('Emote 6', 6)
-        ],
-        'Sidekicks': [
-            ('Pet', 1)
-        ],
-        'Wraps': [
-            ('Rifles', 1),
-            ('Shotguns', 2),
-            ('Submachine Guns', 3),
-            ('Snipers', 4),
-            ('Pistols', 5),
-            ('Utility', 6),
-            ('Vehicles', 7)
-        ],
-        'Lobby': [
-            ('Homebase Icon', 1),
-            ('Lobby Music', 2),
-            ('Loading Screen', 3)
-        ],
-        'Cars': [
-            ('Car Body', 1),
-            ('Car Decal', 2),
-            ('Car Tires', 3),
-            ('Car Trail', 4),
-            ('Car Boost', 5)
-        ],
-        'Instruments': [
-            ('Bass', 1),
-            ('Guitar', 2),
-            ('Drums', 3),
-            ('Keytar', 4),
-            ('Microphone', 5)
-        ],
-        'Music': [
-            ('Jam Track 1', 1),
-            ('Jam Track 2', 2),
-            ('Jam Track 3', 3),
-            ('Jam Track 4', 4),
-            ('Jam Track 5', 5),
-            ('Jam Track 6', 6),
-            ('Jam Track 7', 7),
-            ('Jam Track 8', 8)
-        ],
-        'SUV/Truck': [  # Sub-category under Cars
-            ('SUV Body', 1),
-            ('SUV Decal', 2),
-            ('SUV Tires', 3),
-            ('SUV Trail', 4),
-            ('SUV Boost', 5)
-        ],
-        'Game Moments': [  # Sub-category under Music
-            ('Intro Music', 1),
-            ('Celebration Music', 2)
-        ]
-    }
-
-    def __init__(self, parent=None):
-        super().__init__(parent, title="Locker Selector", helpId="LockerSelector")
-        self.notebook = None
         self.setupDialog()
+        self.SetSize((900, 700))
+        self.CentreOnScreen()
 
-    def makeSettings(self, settingsSizer: BoxSizerHelper):
-        """Create dialog content with tabbed interface"""
+    def _calculate_stats(self) -> Dict[str, int]:
+        """Calculate statistics about cosmetics"""
+        stats = {
+            "total": len(self.cosmetics_data),
+            "favorites": sum(1 for c in self.cosmetics_data if c.get("favorite", False))
+        }
 
-        # Add title label
-        titleLabel = wx.StaticText(
-            self,
-            label="Select a category and cosmetic slot to equip an item",
+        # Count by type
+        for cosmetic in self.cosmetics_data:
+            cosmetic_type = cosmetic.get("type", "Unknown")
+            friendly_name = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
+            key = f"type_{friendly_name}"
+            stats[key] = stats.get(key, 0) + 1
+
+        # Count by rarity
+        for cosmetic in self.cosmetics_data:
+            rarity = cosmetic.get("rarity", "common").title()
+            key = f"rarity_{rarity}"
+            stats[key] = stats.get(key, 0) + 1
+
+        return stats
+
+    def makeSettings(self, sizer: BoxSizerHelper):
+        """Create the dialog content"""
+
+        # Header with stats
+        header_text = f"Total Cosmetics: {self.stats['total']}"
+        if self.stats.get('favorites', 0) > 0:
+            header_text += f" | Favorites: {self.stats['favorites']}"
+
+        header_label = wx.StaticText(self, label=header_text)
+        header_font = header_label.GetFont()
+        header_font.PointSize += 2
+        header_font = header_font.Bold()
+        header_label.SetFont(header_font)
+        sizer.addItem(header_label)
+
+        # Search box
+        self.search_box = sizer.addLabeledControl(
+            "Search:",
+            wx.TextCtrl,
+            size=(300, -1)
         )
-        font = titleLabel.GetFont()
-        font.PointSize += 1
-        font = font.Bold()
-        titleLabel.SetFont(font)
-        settingsSizer.addItem(titleLabel)
+        self.search_box.Bind(wx.EVT_TEXT, self.on_search_changed)
 
-        # Create notebook (tabbed interface)
-        self.notebook = wx.Notebook(self)
+        # Filter controls in horizontal layout
+        filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        # Add tabs in order with sub-categories next to their parent categories
-        # Character
-        panel = self.create_category_panel('Character', self.notebook)
-        self.notebook.AddPage(panel, 'Character')
+        # Type filter
+        filter_label = wx.StaticText(self, label="Type:")
+        filter_sizer.Add(filter_label, flag=wx.ALIGN_CENTER_VERTICAL)
+        filter_sizer.AddSpacer(10)
 
-        # Emotes
-        panel = self.create_category_panel('Emotes', self.notebook)
-        self.notebook.AddPage(panel, 'Emotes')
+        type_choices = ["All"] + sorted(set(COSMETIC_TYPE_MAP.values()))
+        self.type_filter = wx.Choice(self, choices=type_choices)
+        self.type_filter.SetSelection(0)
+        self.type_filter.Bind(wx.EVT_CHOICE, self.on_filter_changed)
+        filter_sizer.Add(self.type_filter)
 
-        # Sidekicks
-        panel = self.create_category_panel('Sidekicks', self.notebook)
-        self.notebook.AddPage(panel, 'Sidekicks')
+        filter_sizer.AddSpacer(20)
 
-        # Wraps
-        panel = self.create_category_panel('Wraps', self.notebook)
-        self.notebook.AddPage(panel, 'Wraps')
+        # Sort control
+        sort_label = wx.StaticText(self, label="Sort:")
+        filter_sizer.Add(sort_label, flag=wx.ALIGN_CENTER_VERTICAL)
+        filter_sizer.AddSpacer(10)
 
-        # Lobby
-        panel = self.create_category_panel('Lobby', self.notebook)
-        self.notebook.AddPage(panel, 'Lobby')
+        self.sort_choice = wx.Choice(self, choices=SORT_OPTIONS)
+        self.sort_choice.SetSelection(0)
+        self.sort_choice.Bind(wx.EVT_CHOICE, self.on_sort_changed)
+        filter_sizer.Add(self.sort_choice)
 
-        # Cars + SUV/Truck sub-category
-        panel = self.create_category_panel('Cars', self.notebook)
-        self.notebook.AddPage(panel, 'Cars')
+        sizer.addItem(filter_sizer)
 
-        suv_panel = self.create_category_panel('SUV/Truck', self.notebook, parent_category='Cars')
-        self.notebook.AddPage(suv_panel, 'SUV/Truck')
+        # Results count
+        self.results_label = wx.StaticText(self, label="")
+        sizer.addItem(self.results_label)
 
-        # Instruments
-        panel = self.create_category_panel('Instruments', self.notebook)
-        self.notebook.AddPage(panel, 'Instruments')
+        # Cosmetics list
+        self.cosmetics_list = wx.ListCtrl(
+            self,
+            style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.LC_VRULES
+        )
 
-        # Music + Game Moments sub-category
-        panel = self.create_category_panel('Music', self.notebook)
-        self.notebook.AddPage(panel, 'Music')
+        # Setup columns
+        self.cosmetics_list.InsertColumn(0, "Name", width=250)
+        self.cosmetics_list.InsertColumn(1, "Type", width=120)
+        self.cosmetics_list.InsertColumn(2, "Rarity", width=100)
+        self.cosmetics_list.InsertColumn(3, "Season", width=100)
+        self.cosmetics_list.InsertColumn(4, "Variants", width=80)
 
-        game_moments_panel = self.create_category_panel('Game Moments', self.notebook, parent_category='Music')
-        self.notebook.AddPage(game_moments_panel, 'Game Moments')
+        self.cosmetics_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_item_selected)
+        self.cosmetics_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_item_activated)
+        self.cosmetics_list.Bind(wx.EVT_LIST_ITEM_FOCUSED, self.on_item_focused)
 
-        settingsSizer.addItem(self.notebook, proportion=1, flag=wx.EXPAND)
+        sizer.addItem(
+            self.cosmetics_list,
+            flag=wx.EXPAND,
+            proportion=1
+        )
 
-        # Bind notebook page change event for announcements
-        self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
+        # Details panel
+        details_box = wx.StaticBox(self, label="Cosmetic Details")
+        details_sizer = wx.StaticBoxSizer(details_box, wx.VERTICAL)
+
+        self.details_text = wx.TextCtrl(
+            self,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP,
+            size=(-1, 120)
+        )
+        details_sizer.Add(self.details_text, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
+
+        sizer.addItem(details_sizer, flag=wx.EXPAND)
+
+        # Buttons
+        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.refresh_btn = wx.Button(self, label="&Refresh Data")
+        self.refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh)
+        button_sizer.Add(self.refresh_btn)
+
+        button_sizer.AddSpacer(10)
+
+        self.export_btn = wx.Button(self, label="&Export List")
+        self.export_btn.Bind(wx.EVT_BUTTON, self.on_export)
+        button_sizer.Add(self.export_btn)
+
+        button_sizer.AddStretchSpacer()
+
+        self.close_btn = wx.Button(self, label="&Close")
+        self.close_btn.Bind(wx.EVT_BUTTON, self.on_close)
+        button_sizer.Add(self.close_btn)
+
+        sizer.addItem(button_sizer, flag=wx.EXPAND)
 
         # Bind key events
         self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
 
-    def onPageChanged(self, event):
-        """Handle notebook page change and announce tab"""
-        page_index = event.GetSelection()
-        if page_index >= 0 and page_index < self.notebook.GetPageCount():
-            tab_text = self.notebook.GetPageText(page_index)
-            speaker.speak(tab_text)
-        event.Skip()
-
-    def onButtonFocus(self, event):
-        """Handle button focus to announce with index"""
-        button = event.GetEventObject()
-        wx.CallAfter(self.announceButtonWithIndex, button)
-        event.Skip()
-
-    def announceButtonWithIndex(self, button):
-        """Announce button with index after focus"""
-        if hasattr(button, 'index') and hasattr(button, 'total'):
-            label = button.GetLabel()
-            wx.CallLater(150, lambda: speaker.speak(f"Option {button.index} of {button.total}: {label}"))
-
-    def create_category_panel(self, category: str, parent, parent_category: str = None) -> wx.Panel:
-        """Create a panel for a category with its items"""
-        panel = wx.Panel(parent)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-
-        items = self.CATEGORY_ITEMS.get(category, [])
-        total_items = len(items)
-
-        for index, (item_name, slot_number) in enumerate(items, 1):
-            button = wx.Button(panel, label=item_name)
-            button.Bind(wx.EVT_BUTTON, lambda evt, cat=category, name=item_name, slot=slot_number, parent_cat=parent_category:
-                        self.onSelectSlot(evt, cat, name, slot, parent_cat))
-
-            # Store index information for focus announcements
-            button.index = index
-            button.total = total_items
-
-            # Bind focus event for index announcements
-            button.Bind(wx.EVT_SET_FOCUS, self.onButtonFocus)
-
-            sizer.Add(button, 0, wx.ALL | wx.EXPAND, 5)
-
-        panel.SetSizer(sizer)
-        return panel
-
-    def onSelectSlot(self, evt, category: str, item_name: str, slot_number: int, parent_category: str = None):
-        """Handle locker slot button click"""
-        try:
-            dlg = SearchDialog(self, item_name)
-
-            # Ensure search dialog gets proper focus and mouse centering
-            wx.CallAfter(lambda: ensure_window_focus_and_center_mouse(dlg))
-
-            if dlg.ShowModal() == wx.ID_OK:
-                item_to_equip = dlg.getSearchText()
-                if item_to_equip.strip():
-                    dlg.Destroy()
-                    self.EndModal(wx.ID_OK)
-
-                    # Perform locker item equip
-                    success = self.equip_item(category, item_name, slot_number, item_to_equip, parent_category)
-                    if success:
-                        speaker.speak(f"{item_to_equip} selected!")
-                else:
-                    dlg.Destroy()
-            else:
-                dlg.Destroy()
-        except Exception as e:
-            error = DisplayableError(
-                f"Error opening item search: {str(e)}",
-                "Locker Selection Error"
-            )
-            error.displayError(self)
+        # Initial population
+        self.update_list()
 
     def onKeyEvent(self, event):
         """Handle key events for shortcuts"""
@@ -302,188 +225,410 @@ class LockerGUI(AccessibleDialog):
         # Allow normal navigation
         event.Skip()
 
-    def equip_item(self, category: str, item_name: str, slot_number: int, item_to_equip: str, parent_category: str = None) -> bool:
-        """Equip a cosmetic item by automating UI interactions"""
-        try:
-            # Get slot coordinates
-            slot_coords = self.SLOT_COORDS.get(slot_number)
-            if not slot_coords:
-                logger.error(f"Unknown slot number: {slot_number}")
-                return False
+    def on_search_changed(self, event):
+        """Handle search text changes"""
+        self.current_search = self.search_box.GetValue()
+        self.update_list()
+        speaker.speak(f"Showing {len(self.filtered_cosmetics)} results")
 
-            # Click initial locker button position
-            pyautogui.moveTo(420, 69, duration=0.05)
-            pyautogui.click()
-            time.sleep(0.3)
+    def on_filter_changed(self, event):
+        """Handle type filter changes"""
+        self.current_type_filter = self.type_filter.GetStringSelection()
+        self.update_list()
+        speaker.speak(f"Filter: {self.current_type_filter}. Showing {len(self.filtered_cosmetics)} results")
 
-            # Handle sub-categories (need to click parent category first)
-            if parent_category:
-                # Click parent category
-                parent_coords = self.CATEGORY_COORDS.get(parent_category)
-                if parent_coords:
-                    pyautogui.moveTo(parent_coords[0], parent_coords[1], duration=0.05)
-                    pyautogui.click()
-                    time.sleep(0.5)
+    def on_sort_changed(self, event):
+        """Handle sort option changes"""
+        self.current_sort = self.sort_choice.GetStringSelection()
+        self.update_list()
+        speaker.speak(f"Sorted by {self.current_sort}")
 
-                # Click sub-category
-                sub_coords = self.SUBCATEGORY_COORDS.get(category)
-                if sub_coords:
-                    pyautogui.moveTo(sub_coords[0], sub_coords[1], duration=0.05)
-                    pyautogui.click()
-                    time.sleep(0.3)
+    def filter_cosmetics(self) -> List[dict]:
+        """Filter cosmetics based on current search and type filter"""
+        filtered = []
 
-                    # Move mouse 500 pixels to the right and wait
-                    current_x, current_y = pyautogui.position()
-                    pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
-                    time.sleep(1.0)
-            else:
-                # Click main category
-                category_coords = self.CATEGORY_COORDS.get(category)
-                if category_coords:
-                    pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
-                    pyautogui.click()
-                    time.sleep(0.3)
+        search_lower = self.current_search.lower()
 
-                    # Move mouse 500 pixels to the right and wait
-                    current_x, current_y = pyautogui.position()
-                    pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
-                    time.sleep(1.0)
+        for cosmetic in self.cosmetics_data:
+            # Type filter
+            if self.current_type_filter != "All":
+                cosmetic_type = cosmetic.get("type", "")
+                friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
+                if friendly_type != self.current_type_filter:
+                    continue
 
-            # Now move to slot position and click
-            pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
-            pyautogui.click()
-            time.sleep(1.0)
+            # Search filter
+            if search_lower:
+                name = cosmetic.get("name", "").lower()
+                description = cosmetic.get("description", "").lower()
+                cosmetic_type = cosmetic.get("type", "")
+                friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type).lower()
+                rarity = cosmetic.get("rarity", "").lower()
 
-            # Click search bar
-            pyautogui.moveTo(1030, 210, duration=0.05)
-            pyautogui.click()
-            time.sleep(0.5)
+                if not (search_lower in name or
+                       search_lower in description or
+                       search_lower in friendly_type or
+                       search_lower in rarity):
+                    continue
 
-            # Type the item name
-            pyautogui.typewrite(item_to_equip)
-            pyautogui.press('enter')
-            time.sleep(0.1)
+            filtered.append(cosmetic)
 
-            # Click the item (twice)
-            pyautogui.moveTo(1020, 350, duration=0.05)
-            pyautogui.click()
-            time.sleep(0.05)
-            pyautogui.click()
-            time.sleep(0.1)
+        return filtered
 
-            # Press escape
-            pyautogui.press('escape')
-            time.sleep(1)
+    def sort_cosmetics(self, cosmetics: List[dict]) -> List[dict]:
+        """Sort cosmetics based on current sort option"""
+        if self.current_sort == "Rarity (Highest First)":
+            return sorted(cosmetics, key=lambda x: (-x.get("rarity_value", 0), x.get("name", "")))
 
-            # Click final position
-            pyautogui.moveTo(200, 69, duration=0.05)
-            pyautogui.click()
+        elif self.current_sort == "Rarity (Lowest First)":
+            return sorted(cosmetics, key=lambda x: (x.get("rarity_value", 0), x.get("name", "")))
 
-            return True
+        elif self.current_sort == "Name (A-Z)":
+            return sorted(cosmetics, key=lambda x: x.get("name", "").lower())
 
-        except Exception as e:
-            logger.error(f"Error equipping item: {e}")
-            return False
+        elif self.current_sort == "Name (Z-A)":
+            return sorted(cosmetics, key=lambda x: x.get("name", "").lower(), reverse=True)
 
+        elif self.current_sort == "Type":
+            return sorted(cosmetics, key=lambda x: (
+                COSMETIC_TYPE_MAP.get(x.get("type", ""), x.get("type", "")),
+                x.get("name", "")
+            ))
 
-class SearchDialog(AccessibleDialog):
-    """Search dialog for cosmetic item input"""
+        elif self.current_sort == "Newest First":
+            return sorted(cosmetics, key=lambda x: (
+                -int(x.get("introduction_chapter", "1")),
+                -int(x.get("introduction_season", "1")),
+                x.get("name", "")
+            ))
 
-    def __init__(self, parent, slot_name: str):
-        self.slot_name = slot_name
-        super().__init__(parent, title=f"Search {slot_name}", helpId="LockerSearch")
-        self.setupDialog()
+        elif self.current_sort == "Oldest First":
+            return sorted(cosmetics, key=lambda x: (
+                int(x.get("introduction_chapter", "1")),
+                int(x.get("introduction_season", "1")),
+                x.get("name", "")
+            ))
 
-    def makeSettings(self, settingsSizer: BoxSizerHelper):
-        """Create search dialog content"""
+        elif self.current_sort == "Favorites First":
+            return sorted(cosmetics, key=lambda x: (
+                not x.get("favorite", False),
+                -x.get("rarity_value", 0),
+                x.get("name", "")
+            ))
 
-        # Instruction label
-        instructionLabel = wx.StaticText(
+        return cosmetics
+
+    def update_list(self):
+        """Update the cosmetics list based on current filters and sort"""
+        # Filter and sort
+        self.filtered_cosmetics = self.filter_cosmetics()
+        self.filtered_cosmetics = self.sort_cosmetics(self.filtered_cosmetics)
+
+        # Update results label
+        total = len(self.cosmetics_data)
+        showing = len(self.filtered_cosmetics)
+        self.results_label.SetLabel(f"Showing {showing} of {total} cosmetics")
+
+        # Clear list
+        self.cosmetics_list.DeleteAllItems()
+
+        # Populate list
+        for idx, cosmetic in enumerate(self.filtered_cosmetics):
+            # Determine display values
+            name = cosmetic.get("name", "Unknown")
+            if cosmetic.get("favorite", False):
+                name = "⭐ " + name
+
+            cosmetic_type = cosmetic.get("type", "Unknown")
+            friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
+
+            rarity = cosmetic.get("rarity", "common").title()
+
+            season = f"C{cosmetic.get('introduction_chapter', '?')}S{cosmetic.get('introduction_season', '?')}"
+
+            variant_count = len(cosmetic.get("owned_variants", []))
+            variants_str = str(variant_count) if variant_count > 0 else "-"
+
+            # Insert item
+            index = self.cosmetics_list.InsertItem(idx, name)
+            self.cosmetics_list.SetItem(index, 1, friendly_type)
+            self.cosmetics_list.SetItem(index, 2, rarity)
+            self.cosmetics_list.SetItem(index, 3, season)
+            self.cosmetics_list.SetItem(index, 4, variants_str)
+
+            # Set item data to index in filtered list
+            self.cosmetics_list.SetItemData(index, idx)
+
+            # Color code by rarity
+            color = self.get_rarity_color(rarity.lower())
+            if color:
+                self.cosmetics_list.SetItemTextColour(index, color)
+
+        # Auto-select first item if available
+        if self.filtered_cosmetics:
+            self.cosmetics_list.Select(0)
+            self.cosmetics_list.Focus(0)
+
+    def get_rarity_color(self, rarity: str) -> Optional[wx.Colour]:
+        """Get color for rarity"""
+        colors = {
+            "common": wx.Colour(170, 170, 170),
+            "uncommon": wx.Colour(96, 170, 58),
+            "rare": wx.Colour(73, 172, 242),
+            "epic": wx.Colour(177, 91, 226),
+            "legendary": wx.Colour(211, 120, 65),
+            "mythic": wx.Colour(255, 223, 0),
+            "marvel": wx.Colour(197, 51, 52),
+            "dc": wx.Colour(84, 117, 199),
+            "starwars": wx.Colour(231, 196, 19),
+            "icon": wx.Colour(0, 217, 217),
+            "gaminglegends": wx.Colour(137, 86, 255),
+            "dark": wx.Colour(138, 43, 226),
+            "frozen": wx.Colour(148, 211, 246),
+            "lava": wx.Colour(232, 64, 7),
+            "shadow": wx.Colour(74, 74, 74),
+            "slurp": wx.Colour(0, 228, 255)
+        }
+        return colors.get(rarity.lower())
+
+    def on_item_focused(self, event):
+        """Handle item focus for announcements"""
+        index = event.GetIndex()
+        cosmetic_idx = self.cosmetics_list.GetItemData(index)
+
+        if 0 <= cosmetic_idx < len(self.filtered_cosmetics):
+            cosmetic = self.filtered_cosmetics[cosmetic_idx]
+            name = cosmetic.get("name", "Unknown")
+            cosmetic_type = COSMETIC_TYPE_MAP.get(cosmetic.get("type", ""), "Unknown")
+            rarity = cosmetic.get("rarity", "common").title()
+
+            # Announce with index
+            total = len(self.filtered_cosmetics)
+            announcement = f"Item {index + 1} of {total}: {name}, {cosmetic_type}, {rarity}"
+            wx.CallLater(150, lambda: speaker.speak(announcement))
+
+    def on_item_selected(self, event):
+        """Handle item selection in list"""
+        index = event.GetIndex()
+        cosmetic_idx = self.cosmetics_list.GetItemData(index)
+
+        if 0 <= cosmetic_idx < len(self.filtered_cosmetics):
+            cosmetic = self.filtered_cosmetics[cosmetic_idx]
+            self.show_cosmetic_details(cosmetic)
+
+    def on_item_activated(self, event):
+        """Handle item double-click/activation"""
+        index = event.GetIndex()
+        cosmetic_idx = self.cosmetics_list.GetItemData(index)
+
+        if 0 <= cosmetic_idx < len(self.filtered_cosmetics):
+            cosmetic = self.filtered_cosmetics[cosmetic_idx]
+            self.show_detailed_info(cosmetic)
+
+    def show_cosmetic_details(self, cosmetic: dict):
+        """Show cosmetic details in the details panel"""
+        details = []
+
+        details.append(f"Name: {cosmetic.get('name', 'Unknown')}")
+        details.append(f"ID: {cosmetic.get('id', 'Unknown')}")
+
+        cosmetic_type = cosmetic.get("type", "Unknown")
+        friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
+        details.append(f"Type: {friendly_type} ({cosmetic_type})")
+
+        details.append(f"Rarity: {cosmetic.get('rarity', 'common').title()}")
+
+        details.append(f"Season: Chapter {cosmetic.get('introduction_chapter', '?')}, Season {cosmetic.get('introduction_season', '?')}")
+
+        if cosmetic.get("description"):
+            details.append(f"\nDescription: {cosmetic['description']}")
+
+        variants = cosmetic.get("owned_variants", [])
+        if variants:
+            details.append(f"\nVariants: {len(variants)}")
+            for variant in variants[:5]:  # Show first 5
+                details.append(f"  - {variant.get('channel', '?')}: {variant.get('stage', '?')}")
+            if len(variants) > 5:
+                details.append(f"  ... and {len(variants) - 5} more")
+
+        if cosmetic.get("favorite"):
+            details.append("\n⭐ FAVORITE")
+
+        self.details_text.SetValue("\n".join(details))
+
+    def show_detailed_info(self, cosmetic: dict):
+        """Show detailed information dialog"""
+        dlg = CosmeticDetailDialog(self, cosmetic)
+        dlg.ShowModal()
+        dlg.Destroy()
+
+    def on_refresh(self, event):
+        """Handle refresh button"""
+        result = messageBox(
+            "This will re-authenticate with Epic Games and download fresh cosmetic data. Continue?",
+            "Refresh Locker Data",
+            wx.YES_NO | wx.ICON_QUESTION,
+            self
+        )
+
+        if result == wx.YES:
+            speaker.speak("Refreshing locker data")
+            self.EndModal(wx.ID_REFRESH)
+
+    def on_export(self, event):
+        """Handle export button"""
+        dlg = wx.FileDialog(
             self,
-            label=f"Enter the name of the item to equip to {self.slot_name}:",
-        )
-        settingsSizer.addItem(instructionLabel)
-
-        # Search text control
-        self.searchText = settingsSizer.addLabeledControl(
-            "Item name:",
-            wx.TextCtrl,
-            style=wx.TE_PROCESS_ENTER
+            "Export Cosmetics List",
+            defaultFile="fortnite_cosmetics.txt",
+            wildcard="Text files (*.txt)|*.txt|CSV files (*.csv)|*.csv|JSON files (*.json)|*.json",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT
         )
 
-        # Disable up/down arrow key cursor movement
-        self.searchText.Bind(wx.EVT_CHAR_HOOK, self.onTextCharHook)
+        if dlg.ShowModal() == wx.ID_OK:
+            path = dlg.GetPath()
+            try:
+                if path.endswith(".json"):
+                    with open(path, 'w', encoding='utf-8') as f:
+                        json.dump(self.filtered_cosmetics, f, indent=2)
+                elif path.endswith(".csv"):
+                    with open(path, 'w', encoding='utf-8') as f:
+                        f.write("Name,Type,Rarity,Season,Variants\n")
+                        for cosmetic in self.filtered_cosmetics:
+                            name = cosmetic.get('name', 'Unknown')
+                            cosmetic_type = COSMETIC_TYPE_MAP.get(cosmetic.get('type', ''), 'Unknown')
+                            rarity = cosmetic.get('rarity', 'common')
+                            season = f"C{cosmetic.get('introduction_chapter', '?')}S{cosmetic.get('introduction_season', '?')}"
+                            variants = len(cosmetic.get('owned_variants', []))
+                            f.write(f'"{name}",{cosmetic_type},{rarity},{season},{variants}\n')
+                else:
+                    with open(path, 'w', encoding='utf-8') as f:
+                        for cosmetic in self.filtered_cosmetics:
+                            name = cosmetic.get('name', 'Unknown')
+                            cosmetic_type = COSMETIC_TYPE_MAP.get(cosmetic.get('type', ''), 'Unknown')
+                            rarity = cosmetic.get('rarity', 'common')
+                            f.write(f"{name} - {cosmetic_type} ({rarity})\n")
 
-        # Bind Enter key to OK
-        self.searchText.Bind(wx.EVT_TEXT_ENTER, self.onOk)
+                speaker.speak(f"Exported {len(self.filtered_cosmetics)} cosmetics")
+                messageBox(f"Exported {len(self.filtered_cosmetics)} cosmetics to {path}", "Export Successful", wx.OK | wx.ICON_INFORMATION, self)
+            except Exception as e:
+                logger.error(f"Export failed: {e}")
+                messageBox(f"Export failed: {e}", "Export Error", wx.OK | wx.ICON_ERROR, self)
 
-        # Bind key events
-        self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
+        dlg.Destroy()
 
-    def onTextCharHook(self, event):
-        """Handle char events for text controls"""
-        key_code = event.GetKeyCode()
-
-        # Allow TAB for navigation
-        if key_code == wx.WXK_TAB:
-            event.Skip()
-            return
-
-        # Block up/down arrow keys
-        if key_code in [wx.WXK_UP, wx.WXK_DOWN]:
-            return
-
-        # Allow all other keys
-        event.Skip()
-
-    def onKeyEvent(self, event):
-        """Handle key events for shortcuts"""
-        key_code = event.GetKeyCode()
-
-        if key_code in [wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER]:
-            # Enter key submits
-            if self.FindFocus() == self.searchText:
-                self.onOk(event)
-            else:
-                self.EndModal(wx.ID_CANCEL)
-            return
-
-        event.Skip()
-
-    def postInit(self):
-        """Post-initialization - ensure focus and mouse centering"""
-        wx.CallAfter(self._postInitFocus)
-
-    def _postInitFocus(self):
-        """Delayed post-init focus handling"""
-        ensure_window_focus_and_center_mouse(self)
-        self.searchText.SetFocus()
-
-    def getSearchText(self) -> str:
-        """Get the entered search text"""
-        return self.searchText.GetValue()
-
-    def onOk(self, evt):
-        """Handle OK action"""
-        if not self.searchText.GetValue().strip():
-            self.searchText.SetFocus()
-            return
-        self.EndModal(wx.ID_OK)
+    def on_close(self, event):
+        """Handle close button"""
+        self.EndModal(wx.ID_CLOSE)
 
 
-def launch_locker_selector():
-    """Launch the locker selector GUI with proper isolation from other GUI frameworks"""
-    import ctypes
-    import ctypes.wintypes
-    import gc
+class CosmeticDetailDialog(AccessibleDialog):
+    """Dialog showing detailed cosmetic information"""
+
+    def __init__(self, parent, cosmetic: dict):
+        super().__init__(parent, title=f"Cosmetic Details: {cosmetic.get('name', 'Unknown')}", helpId="CosmeticDetails")
+        self.cosmetic = cosmetic
+        self.setupDialog()
+        self.SetSize((600, 500))
+        self.CentreOnParent()
+
+    def makeSettings(self, sizer: BoxSizerHelper):
+        """Create the dialog content"""
+
+        # Name
+        name = self.cosmetic.get('name', 'Unknown')
+        if self.cosmetic.get("favorite"):
+            name = "⭐ " + name
+
+        name_label = wx.StaticText(self, label=name)
+        name_font = name_label.GetFont()
+        name_font.PointSize += 3
+        name_font = name_font.Bold()
+        name_label.SetFont(name_font)
+        sizer.addItem(name_label)
+
+        # Details in a text control for easy reading
+        details = []
+
+        details.append(f"ID: {self.cosmetic.get('id', 'Unknown')}")
+
+        cosmetic_type = self.cosmetic.get("type", "Unknown")
+        friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
+        details.append(f"Type: {friendly_type}")
+        details.append(f"Backend Type: {cosmetic_type}")
+
+        rarity = self.cosmetic.get('rarity', 'common').title()
+        details.append(f"Rarity: {rarity}")
+
+        chapter = self.cosmetic.get('introduction_chapter', '?')
+        season = self.cosmetic.get('introduction_season', '?')
+        details.append(f"Introduction: Chapter {chapter}, Season {season}")
+
+        if self.cosmetic.get("description"):
+            details.append(f"\nDescription:\n{self.cosmetic['description']}")
+
+        # Variants
+        variants = self.cosmetic.get("owned_variants", [])
+        if variants:
+            details.append(f"\n--- Owned Variants ({len(variants)}) ---")
+            for variant in variants:
+                details.append(f"Channel: {variant.get('channel', 'Unknown')}")
+                details.append(f"  Stage: {variant.get('stage', 'Unknown')}")
+                details.append("")
+
+        details_text = wx.TextCtrl(
+            self,
+            value="\n".join(details),
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP
+        )
+
+        sizer.addItem(details_text, flag=wx.EXPAND, proportion=1)
+
+        # Close button
+        close_btn = wx.Button(self, label="&Close")
+        close_btn.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_CLOSE))
+        sizer.addItem(close_btn)
+
+
+def launch_locker_viewer():
+    """Launch the locker viewer GUI with proper isolation from other GUI frameworks"""
 
     # Store the current foreground window to restore focus later
     current_window = ctypes.windll.user32.GetForegroundWindow()
+
+    # Determine cache file path
+    cache_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "fortnite_locker_cache.json")
+
+    if not os.path.exists(cache_file):
+        logger.warning(f"No cached locker data found at {cache_file}")
+        speaker.speak("No cached locker data found. Please authenticate first.")
+        messageBox(
+            "No cached locker data found. Please authenticate with Epic Games first to download your locker data.",
+            "No Data",
+            wx.OK | wx.ICON_WARNING
+        )
+        return None
 
     app = None
     app_created = False
 
     try:
+        # Load cosmetics data
+        with open(cache_file, 'r', encoding='utf-8') as f:
+            cosmetics_data = json.load(f)
+
+        if not cosmetics_data:
+            logger.warning("Cached locker data is empty")
+            speaker.speak("Cached locker data is empty")
+            messageBox(
+                "Cached locker data is empty.",
+                "No Data",
+                wx.OK | wx.ICON_WARNING
+            )
+            return None
+
+        logger.info(f"Loaded {len(cosmetics_data)} cosmetics from cache")
+
         # Check if wx.App already exists and is usable
         existing_app = wx.GetApp()
         if existing_app is None:
@@ -496,14 +641,19 @@ def launch_locker_selector():
             app_created = False
 
         # Create main dialog
-        dlg = LockerGUI()
+        dlg = LockerDialog(None, cosmetics_data)
 
         try:
             # Ensure proper focus and mouse centering
             ensure_window_focus_and_center_mouse(dlg)
 
+            # Announce dialog opening
+            speaker.speak(f"Fortnite Locker Viewer. {len(cosmetics_data)} cosmetics loaded.")
+
             # Show modal dialog
             result = dlg.ShowModal()
+
+            return result
 
         finally:
             # Ensure dialog cleanup
@@ -519,14 +669,14 @@ def launch_locker_selector():
                     app.Yield()
 
     except Exception as e:
-        # Use error handling
-        error = DisplayableError(
-            f"Error launching locker selector: {str(e)}",
-            "Application Error"
+        logger.error(f"Error launching locker viewer: {e}")
+        speaker.speak("Error opening locker viewer")
+        messageBox(
+            f"Failed to load locker data: {e}",
+            "Error",
+            wx.OK | wx.ICON_ERROR
         )
-        error.displayError()
-        logger.error(f"Error launching locker selector: {e}")
-        speaker.speak("Error opening locker selector")
+        return None
 
     finally:
         # Enhanced cleanup to prevent conflicts with tkinter
