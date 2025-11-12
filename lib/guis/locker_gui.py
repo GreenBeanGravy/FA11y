@@ -630,15 +630,15 @@ class LockerGUI(AccessibleDialog):
             speaker.speak(f"Equipping {name}")
             logger.info(f"Equipping {name} to {category} slot {slot}")
 
-            # Hide dialog before automation
-            self.Hide()
-            time.sleep(0.1)  # Brief pause to ensure hide completes
+            # Minimize dialog before automation (not hide - stays in taskbar)
+            self.Iconize(True)
+            time.sleep(0.1)  # Brief pause to ensure minimize completes
 
             try:
                 # Perform the equip automation
                 success = self.perform_equip_automation(category, slot, name)
 
-                # Use CallLater to show dialog after a delay (prevents hanging)
+                # Use CallLater to restore dialog after a delay (prevents hanging)
                 wx.CallLater(100, self._show_after_equip, success, name)
 
             except Exception as automation_error:
