@@ -170,22 +170,61 @@ class LockerGUI(AccessibleDialog):
         # Create notebook (tabbed interface)
         self.notebook = wx.Notebook(self)
 
-        # Add main category tabs
-        for category in ['Character', 'Emotes', 'Sidekicks', 'Wraps', 'Lobby', 'Cars', 'Instruments', 'Music']:
-            panel = self.create_category_panel(category, self.notebook)
-            self.notebook.AddPage(panel, category)
+        # Add tabs in order with sub-categories next to their parent categories
+        # Character
+        panel = self.create_category_panel('Character', self.notebook)
+        self.notebook.AddPage(panel, 'Character')
 
-        # Add sub-category tabs
+        # Emotes
+        panel = self.create_category_panel('Emotes', self.notebook)
+        self.notebook.AddPage(panel, 'Emotes')
+
+        # Sidekicks
+        panel = self.create_category_panel('Sidekicks', self.notebook)
+        self.notebook.AddPage(panel, 'Sidekicks')
+
+        # Wraps
+        panel = self.create_category_panel('Wraps', self.notebook)
+        self.notebook.AddPage(panel, 'Wraps')
+
+        # Lobby
+        panel = self.create_category_panel('Lobby', self.notebook)
+        self.notebook.AddPage(panel, 'Lobby')
+
+        # Cars + SUV/Truck sub-category
+        panel = self.create_category_panel('Cars', self.notebook)
+        self.notebook.AddPage(panel, 'Cars')
+
         suv_panel = self.create_category_panel('SUV/Truck', self.notebook, parent_category='Cars')
         self.notebook.AddPage(suv_panel, 'SUV/Truck')
+
+        # Instruments
+        panel = self.create_category_panel('Instruments', self.notebook)
+        self.notebook.AddPage(panel, 'Instruments')
+
+        # Music + Game Moments sub-category
+        panel = self.create_category_panel('Music', self.notebook)
+        self.notebook.AddPage(panel, 'Music')
 
         game_moments_panel = self.create_category_panel('Game Moments', self.notebook, parent_category='Music')
         self.notebook.AddPage(game_moments_panel, 'Game Moments')
 
         settingsSizer.addItem(self.notebook, proportion=1, flag=wx.EXPAND)
 
+        # Bind notebook page change event for announcements
+        self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
+
         # Bind key events
         self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
+
+    def onPageChanged(self, event):
+        """Handle notebook page change and announce tab"""
+        page_index = event.GetSelection()
+        if page_index >= 0 and page_index < self.notebook.GetPageCount():
+            tab_text = self.notebook.GetPageText(page_index)
+            total_pages = self.notebook.GetPageCount()
+            speaker.speak(f"Tab {page_index + 1} of {total_pages}: {tab_text}")
+        event.Skip()
 
     def create_category_panel(self, category: str, parent, parent_category: str = None) -> wx.Panel:
         """Create a panel for a category with its items"""
@@ -218,11 +257,7 @@ class LockerGUI(AccessibleDialog):
                     self.EndModal(wx.ID_OK)
 
                     # Perform locker item equip
-                    success = self.equip_item(category, item_name, slot_number, item_to_equip, parent_category)
-                    if success:
-                        speaker.speak(f"{item_to_equip} equipped to {item_name}!")
-                    else:
-                        speaker.speak("Failed to equip item. Please try again.")
+                    self.equip_item(category, item_name, slot_number, item_to_equip, parent_category)
                 else:
                     dlg.Destroy()
             else:
@@ -274,6 +309,11 @@ class LockerGUI(AccessibleDialog):
                     pyautogui.moveTo(sub_coords[0], sub_coords[1], duration=0.05)
                     pyautogui.click()
                     time.sleep(0.3)
+
+                    # Move mouse 500 pixels to the right and wait
+                    current_x, current_y = pyautogui.position()
+                    pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                    time.sleep(1.0)
             else:
                 # Click main category
                 category_coords = self.CATEGORY_COORDS.get(category)
@@ -282,9 +322,13 @@ class LockerGUI(AccessibleDialog):
                     pyautogui.click()
                     time.sleep(0.3)
 
-            # Move to slot position and wait 1 second before clicking
+                    # Move mouse 500 pixels to the right and wait
+                    current_x, current_y = pyautogui.position()
+                    pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                    time.sleep(1.0)
+
+            # Now move to slot position and click
             pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
-            time.sleep(1.0)
             pyautogui.click()
             time.sleep(1.0)
 
