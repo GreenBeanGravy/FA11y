@@ -82,10 +82,12 @@ SORT_OPTIONS = [
 class LockerGUI(AccessibleDialog):
     """Unified Locker GUI for browsing and equipping cosmetics"""
 
-    def __init__(self, parent, cosmetics_data: List[dict]):
+    def __init__(self, parent, cosmetics_data: List[dict], auth_instance=None, owned_only: bool = False):
         super().__init__(parent, title="Fortnite Locker", helpId="LockerGUI")
         self.cosmetics_data = cosmetics_data
         self.filtered_cosmetics = cosmetics_data.copy()
+        self.auth = auth_instance
+        self.owned_only = owned_only
 
         # Current filter/sort state
         self.current_search = ""
@@ -110,17 +112,46 @@ class LockerGUI(AccessibleDialog):
     def makeSettings(self, sizer: BoxSizerHelper):
         """Create the dialog content"""
 
+        # Top bar with login status and button
+        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
         # Header with stats
         header_text = f"Total Cosmetics: {self.stats['total']}"
         if self.stats.get('favorites', 0) > 0:
             header_text += f" | Favorites: {self.stats['favorites']}"
+
+        # Add user info if logged in
+        if self.auth and self.auth.display_name:
+            header_text += f" | Logged in as: {self.auth.display_name}"
 
         header_label = wx.StaticText(self, label=header_text)
         header_font = header_label.GetFont()
         header_font.PointSize += 2
         header_font = header_font.Bold()
         header_label.SetFont(header_font)
-        sizer.addItem(header_label)
+        top_sizer.Add(header_label, flag=wx.ALIGN_CENTER_VERTICAL)
+
+        top_sizer.AddStretchSpacer()
+
+        # Login button
+        if self.auth and self.auth.display_name:
+            self.login_btn = wx.Button(self, label="Logged In", size=(120, -1))
+            self.login_btn.Enable(False)
+        else:
+            self.login_btn = wx.Button(self, label="&Login", size=(120, -1))
+            self.login_btn.Bind(wx.EVT_BUTTON, self.on_login)
+
+        top_sizer.Add(self.login_btn, flag=wx.ALIGN_CENTER_VERTICAL)
+
+        sizer.addItem(top_sizer, flag=wx.EXPAND)
+
+        # Owned only checkbox
+        self.owned_checkbox = wx.CheckBox(self, label="Show Only My Cosmetics")
+        self.owned_checkbox.SetValue(self.owned_only)
+        self.owned_checkbox.Bind(wx.EVT_CHECKBOX, self.on_owned_toggle)
+        if not (self.auth and self.auth.display_name):
+            self.owned_checkbox.Enable(False)
+        sizer.addItem(self.owned_checkbox)
 
         # Instructions
         instructions = wx.StaticText(self, label="Double-click a cosmetic to equip it in Fortnite")
@@ -695,6 +726,107 @@ class LockerGUI(AccessibleDialog):
         """Handle close button"""
         self.EndModal(wx.ID_CLOSE)
 
+    def on_login(self, event):
+        """Handle Login button"""
+        try:
+            from lib.guis.epic_login_dialog import LoginDialog
+
+            # Get auth instance if not available
+            if not self.auth:
+                from lib.utilities.epic_auth import get_epic_auth_instance
+                self.auth = get_epic_auth_instance()
+
+            # Show login dialog
+            dlg = LoginDialog(self, self.auth)
+            result = dlg.ShowModal()
+            dlg.Destroy()
+
+            if result == wx.ID_OK:
+                # Login successful, enable owned checkbox
+                self.owned_checkbox.Enable(True)
+                self.login_btn.SetLabel("Logged In")
+                self.login_btn.Enable(False)
+
+                # Update header to show username
+                speaker.speak(f"Logged in as {self.auth.display_name}")
+
+                # Ask if they want to show owned only
+                result = messageBox(
+                    "Would you like to view only your owned cosmetics?",
+                    "View Owned Cosmetics",
+                    wx.YES_NO | wx.ICON_QUESTION,
+                    self
+                )
+
+                if result == wx.YES:
+                    self.owned_checkbox.SetValue(True)
+                    self.on_owned_toggle(None)
+
+        except Exception as e:
+            logger.error(f"Error during login: {e}")
+            speaker.speak("Error during login")
+            messageBox(f"Error: {e}", "Login Error", wx.OK | wx.ICON_ERROR, self)
+
+    def on_owned_toggle(self, event):
+        """Handle owned cosmetics checkbox toggle"""
+        try:
+            if not self.auth or not self.auth.display_name:
+                speaker.speak("Please log in first")
+                self.owned_checkbox.SetValue(False)
+                return
+
+            self.owned_only = self.owned_checkbox.GetValue()
+
+            if self.owned_only:
+                speaker.speak("Loading your owned cosmetics")
+                logger.info("Switching to owned cosmetics mode")
+
+                from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+
+                # Fetch owned cosmetics
+                owned_data = get_or_create_cosmetics_cache(force_refresh=False, owned_only=True)
+
+                if owned_data:
+                    self.cosmetics_data = owned_data
+                    self.filtered_cosmetics = owned_data.copy()
+                    self.stats = self._calculate_stats()
+                    self.update_list()
+
+                    speaker.speak(f"Showing {len(owned_data)} owned cosmetics")
+                else:
+                    speaker.speak("Failed to load owned cosmetics")
+                    messageBox(
+                        "Failed to load owned cosmetics. Please try refreshing.",
+                        "Error",
+                        wx.OK | wx.ICON_ERROR,
+                        self
+                    )
+                    self.owned_checkbox.SetValue(False)
+            else:
+                speaker.speak("Loading all cosmetics")
+                logger.info("Switching to all cosmetics mode")
+
+                from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+
+                # Fetch all cosmetics
+                all_data = get_or_create_cosmetics_cache(force_refresh=False, owned_only=False)
+
+                if all_data:
+                    self.cosmetics_data = all_data
+                    self.filtered_cosmetics = all_data.copy()
+                    self.stats = self._calculate_stats()
+                    self.update_list()
+
+                    speaker.speak(f"Showing all {len(all_data)} cosmetics")
+                else:
+                    speaker.speak("Failed to load cosmetics")
+
+        except Exception as e:
+            logger.error(f"Error toggling owned mode: {e}")
+            speaker.speak("Error loading cosmetics")
+            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+            self.owned_checkbox.SetValue(not self.owned_only)
+
 
 def launch_locker_gui():
     """Launch the unified locker GUI"""
@@ -714,7 +846,7 @@ def launch_locker_gui():
 
         # Import epic auth module
         try:
-            from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+            from lib.utilities.epic_auth import get_or_create_cosmetics_cache, get_epic_auth_instance
         except ImportError:
             logger.error("Failed to import epic_auth module")
             speaker.speak("Error loading authentication module")
@@ -725,11 +857,14 @@ def launch_locker_gui():
             )
             return None
 
+        # Get auth instance (may have cached login)
+        auth_instance = get_epic_auth_instance()
+
         # Load cosmetics data
         logger.info("Loading cosmetics data...")
         speaker.speak("Loading cosmetics data")
 
-        cosmetics_data = get_or_create_cosmetics_cache(force_refresh=False)
+        cosmetics_data = get_or_create_cosmetics_cache(force_refresh=False, owned_only=False)
 
         if not cosmetics_data:
             logger.error("Failed to load cosmetics data")
@@ -744,7 +879,7 @@ def launch_locker_gui():
             )
 
             if result == wx.YES:
-                cosmetics_data = get_or_create_cosmetics_cache(force_refresh=True)
+                cosmetics_data = get_or_create_cosmetics_cache(force_refresh=True, owned_only=False)
                 if not cosmetics_data:
                     return None
             else:
@@ -752,8 +887,8 @@ def launch_locker_gui():
 
         logger.info(f"Loaded {len(cosmetics_data)} cosmetics")
 
-        # Create and show dialog
-        dlg = LockerGUI(None, cosmetics_data)
+        # Create and show dialog with auth instance
+        dlg = LockerGUI(None, cosmetics_data, auth_instance=auth_instance, owned_only=False)
 
         try:
             ensure_window_focus_and_center_mouse(dlg)

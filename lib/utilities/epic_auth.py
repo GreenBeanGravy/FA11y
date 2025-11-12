@@ -7,6 +7,7 @@ import json
 import logging
 import requests
 import webbrowser
+import base64
 from typing import Optional, Dict, List
 from datetime import datetime, timedelta
 
@@ -22,11 +23,17 @@ class EpicAuth:
         self.account_id = None
         self.display_name = None
 
-        # Epic Games API endpoints
-        self.OAUTH_TOKEN_URL = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
-        self.ACCOUNT_URL = "https://account-public-service-prod.ol.epicgames.com/account/api/public/account"
+        # Epic Games Fortnite client credentials (public)
+        self.CLIENT_ID = "ec684b8c687f479fadea3cb2ad83f5c6"
+        self.CLIENT_SECRET = "e1f31c211f28413186262d37a13fc84d"
 
-        # Fortnite API for cosmetic data
+        # Epic Games API endpoints
+        self.OAUTH_TOKEN_URL = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token"
+        self.OAUTH_DEVICE_AUTH_URL = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/deviceAuthorization"
+        self.ACCOUNT_URL = "https://account-public-service-prod03.ol.epicgames.com/account/api/public/account"
+        self.MCP_URL = "https://fngw-mcp-gc-livefn.ol.epicgames.com/fortnite/api/game/v2/profile"
+
+        # Fortnite API for cosmetic metadata
         self.FORTNITE_API_BASE = "https://fortnite-api.com/v2"
 
         # Load cached auth if available
@@ -72,25 +79,197 @@ class EpicAuth:
         except Exception as e:
             logger.error(f"Error saving auth: {e}")
 
-    def authenticate_device_code(self) -> bool:
+    def authenticate_device_code(self) -> Dict[str, str]:
         """
         Authenticate using device code flow
-        Returns True if successful, False otherwise
+        Returns dict with verification_uri, user_code, or None if failed
         """
         try:
-            # This is a simplified version - in reality you'd need to:
-            # 1. Get device code from Epic
-            # 2. Show user the code and verification URL
-            # 3. Poll for authentication
-            # 4. Get access token
+            # Get basic auth header
+            auth = base64.b64encode(f"{self.CLIENT_ID}:{self.CLIENT_SECRET}".encode()).decode()
 
-            logger.warning("Device code authentication not fully implemented yet")
-            logger.warning("Please use manual authentication or Epic Games Launcher")
-            return False
+            headers = {
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+
+            # Request device code
+            response = requests.post(
+                self.OAUTH_DEVICE_AUTH_URL,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                logger.info("Device code obtained successfully")
+                return {
+                    "device_code": data["device_code"],
+                    "user_code": data["user_code"],
+                    "verification_uri": data["verification_uri_complete"],
+                    "expires_in": data["expires_in"],
+                    "interval": data.get("interval", 5)
+                }
+            else:
+                logger.error(f"Failed to get device code: {response.status_code} - {response.text}")
+                return None
 
         except Exception as e:
             logger.error(f"Authentication error: {e}")
+            return None
+
+    def poll_for_token(self, device_code: str, interval: int = 5, timeout: int = 300) -> bool:
+        """
+        Poll for access token after user authorizes device code
+        Returns True if successful, False otherwise
+        """
+        try:
+            auth = base64.b64encode(f"{self.CLIENT_ID}:{self.CLIENT_SECRET}".encode()).decode()
+
+            headers = {
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+
+            data = {
+                "grant_type": "device_code",
+                "device_code": device_code
+            }
+
+            import time
+            start_time = time.time()
+
+            while time.time() - start_time < timeout:
+                response = requests.post(
+                    self.OAUTH_TOKEN_URL,
+                    headers=headers,
+                    data=data,
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    token_data = response.json()
+                    self.access_token = token_data["access_token"]
+                    self.account_id = token_data["account_id"]
+
+                    # Get display name
+                    account_info = self.get_account_info()
+                    if account_info:
+                        self.display_name = account_info.get("displayName", "Unknown")
+
+                    # Save auth
+                    self.save_auth(
+                        self.access_token,
+                        self.account_id,
+                        self.display_name,
+                        token_data["expires_in"]
+                    )
+
+                    logger.info(f"Successfully authenticated as {self.display_name}")
+                    return True
+
+                elif response.status_code == 400:
+                    error = response.json()
+                    error_code = error.get("errorCode", "")
+
+                    if error_code == "errors.com.epicgames.account.oauth.authorization_pending":
+                        # Still waiting for user to authorize
+                        time.sleep(interval)
+                        continue
+                    elif error_code == "errors.com.epicgames.account.oauth.slow_down":
+                        # Polling too fast
+                        interval += 1
+                        time.sleep(interval)
+                        continue
+                    else:
+                        logger.error(f"Authentication failed: {error}")
+                        return False
+                else:
+                    logger.error(f"Unexpected response: {response.status_code} - {response.text}")
+                    return False
+
+            logger.error("Authentication timeout")
             return False
+
+        except Exception as e:
+            logger.error(f"Error polling for token: {e}")
+            return False
+
+    def get_account_info(self) -> Optional[Dict]:
+        """Get account information"""
+        try:
+            if not self.access_token:
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}"
+            }
+
+            response = requests.get(
+                f"{self.ACCOUNT_URL}/{self.account_id}",
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Failed to get account info: {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting account info: {e}")
+            return None
+
+    def fetch_owned_cosmetics(self) -> Optional[List[str]]:
+        """
+        Fetch list of owned cosmetic IDs from Epic Games
+        Returns list of template IDs for owned items
+        """
+        try:
+            if not self.access_token or not self.account_id:
+                logger.error("Not authenticated")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}",
+                "Content-Type": "application/json"
+            }
+
+            # Query the athena profile (Fortnite locker)
+            url = f"{self.MCP_URL}/{self.account_id}/client/QueryProfile?profileId=athena"
+
+            response = requests.post(
+                url,
+                headers=headers,
+                json={},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                profile_data = response.json()
+                items = profile_data.get("profileChanges", [{}])[0].get("profile", {}).get("items", {})
+
+                # Extract template IDs (these are the cosmetic IDs)
+                owned_ids = []
+                for item_id, item_data in items.items():
+                    template_id = item_data.get("templateId", "")
+                    if template_id:
+                        # Template IDs are like "AthenaCharacter:CID_123_Athena"
+                        # We want just the ID part
+                        if ":" in template_id:
+                            cosmetic_id = template_id.split(":")[1]
+                            owned_ids.append(cosmetic_id)
+
+                logger.info(f"Found {len(owned_ids)} owned cosmetics")
+                return owned_ids
+            else:
+                logger.error(f"Failed to fetch owned cosmetics: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error fetching owned cosmetics: {e}")
+            return None
 
     def fetch_cosmetics_from_api(self) -> Optional[List[Dict]]:
         """
@@ -189,19 +368,61 @@ class EpicAuth:
             return self.save_cosmetics_cache(cosmetics)
         return False
 
+    def get_owned_cosmetics_data(self) -> Optional[List[Dict]]:
+        """
+        Get cosmetics data filtered to only owned items
+        Requires authentication
+        """
+        try:
+            # Get owned item IDs
+            owned_ids = self.fetch_owned_cosmetics()
+            if not owned_ids:
+                return None
 
-def get_or_create_cosmetics_cache(force_refresh: bool = False) -> Optional[List[Dict]]:
+            # Get all cosmetics metadata
+            all_cosmetics = self.fetch_cosmetics_from_api()
+            if not all_cosmetics:
+                return None
+
+            # Filter to only owned cosmetics
+            owned_cosmetics = []
+            for cosmetic in all_cosmetics:
+                cosmetic_id = cosmetic.get("id", "")
+                # Check if this cosmetic is owned
+                if cosmetic_id in owned_ids:
+                    owned_cosmetics.append(cosmetic)
+
+            logger.info(f"Matched {len(owned_cosmetics)} owned cosmetics with metadata")
+            return owned_cosmetics
+
+        except Exception as e:
+            logger.error(f"Error getting owned cosmetics: {e}")
+            return None
+
+
+def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool = False) -> Optional[List[Dict]]:
     """
     Get cosmetics data, creating cache if it doesn't exist
 
     Args:
         force_refresh: If True, fetch fresh data even if cache exists
+        owned_only: If True, only return owned cosmetics (requires authentication)
 
     Returns:
         List of cosmetic items or None if failed
     """
     auth = EpicAuth()
 
+    # If owned_only, require authentication
+    if owned_only:
+        if not auth.access_token:
+            logger.error("Authentication required for owned_only mode")
+            return None
+
+        logger.info("Fetching owned cosmetics...")
+        return auth.get_owned_cosmetics_data()
+
+    # Otherwise, return all cosmetics
     # If force refresh or no cache exists, fetch new data
     if force_refresh or not os.path.exists(auth.cache_file):
         logger.info("Fetching cosmetics data from Fortnite-API...")
@@ -211,3 +432,8 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False) -> Optional[List[
 
     # Load and return cached data
     return auth.load_cosmetics_cache()
+
+
+def get_epic_auth_instance() -> EpicAuth:
+    """Get or create Epic auth instance"""
+    return EpicAuth()
