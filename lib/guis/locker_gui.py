@@ -95,6 +95,10 @@ class LockerGUI(AccessibleDialog):
         self.current_type_filter = "All"
         self.current_sort = "Rarity (Highest First)"
 
+        # Check auth and fetch owned IDs on startup if logged in
+        if self.auth and self.auth.display_name:
+            wx.CallAfter(self._check_auth_on_startup)
+
         # Stats
         self.stats = self._calculate_stats()
 
@@ -109,6 +113,58 @@ class LockerGUI(AccessibleDialog):
             "favorites": sum(1 for c in self.cosmetics_data if c.get("favorite", False))
         }
         return stats
+
+    def _check_auth_on_startup(self):
+        """Check auth token validity and fetch owned cosmetics on startup"""
+        try:
+            logger.info("Checking auth token and fetching owned cosmetics...")
+            fetched_ids = self.auth.fetch_owned_cosmetics()
+
+            # Check for auth expiration
+            if fetched_ids == "AUTH_EXPIRED":
+                logger.info("Auth token expired on startup")
+                # Don't prompt immediately, just disable owned checkbox
+                return
+            elif fetched_ids:
+                # Convert to set of lowercase IDs for fast lookup
+                self.owned_ids = set(id.lower() for id in fetched_ids)
+                logger.info(f"Fetched {len(self.owned_ids)} owned cosmetic IDs on startup")
+
+                # Create a set of existing cosmetic IDs
+                existing_ids = {c.get("id", "").lower() for c in self.cosmetics_data}
+
+                # Find owned IDs not in the database
+                missing_ids = self.owned_ids - existing_ids
+
+                if missing_ids:
+                    logger.info(f"Found {len(missing_ids)} owned items not in database, creating placeholders")
+
+                    # Create placeholder entries for missing owned items
+                    for missing_id in missing_ids:
+                        placeholder = {
+                            "id": missing_id,
+                            "name": f"[Unknown Item] {missing_id[:20]}",
+                            "description": "This item is owned but not in the Fortnite-API database",
+                            "type": "Unknown",
+                            "rarity": "common",
+                            "rarity_value": 0,
+                            "introduction_chapter": "?",
+                            "introduction_season": "?",
+                            "image_url": "",
+                            "favorite": False
+                        }
+                        self.cosmetics_data.append(placeholder)
+
+                    # Update stats
+                    self.stats = self._calculate_stats()
+                    logger.info(f"Added {len(missing_ids)} placeholder entries")
+
+                # Enable the owned checkbox
+                if hasattr(self, 'owned_checkbox'):
+                    self.owned_checkbox.Enable(True)
+
+        except Exception as e:
+            logger.error(f"Error checking auth on startup: {e}")
 
     def makeSettings(self, sizer: BoxSizerHelper):
         """Create the dialog content"""
@@ -341,15 +397,41 @@ class LockerGUI(AccessibleDialog):
                 x.get("name", "")
             ))
         elif self.current_sort == "Newest First":
+            def parse_season(val):
+                """Convert season to int, handling special cases"""
+                try:
+                    return int(val)
+                except (ValueError, TypeError):
+                    # Handle special seasons: OG=999, Remix=998, ?=0
+                    if val == "OG":
+                        return 999
+                    elif val == "Remix":
+                        return 998
+                    else:
+                        return 0
+
             return sorted(cosmetics, key=lambda x: (
-                -int(x.get("introduction_chapter", "1")),
-                -int(x.get("introduction_season", "1")),
+                -parse_season(x.get("introduction_chapter", "1")),
+                -parse_season(x.get("introduction_season", "1")),
                 x.get("name", "")
             ))
         elif self.current_sort == "Oldest First":
+            def parse_season(val):
+                """Convert season to int, handling special cases"""
+                try:
+                    return int(val)
+                except (ValueError, TypeError):
+                    # Handle special seasons: OG=999, Remix=998, ?=0
+                    if val == "OG":
+                        return 999
+                    elif val == "Remix":
+                        return 998
+                    else:
+                        return 0
+
             return sorted(cosmetics, key=lambda x: (
-                int(x.get("introduction_chapter", "1")),
-                int(x.get("introduction_season", "1")),
+                parse_season(x.get("introduction_chapter", "1")),
+                parse_season(x.get("introduction_season", "1")),
                 x.get("name", "")
             ))
         elif self.current_sort == "Favorites First":
@@ -870,6 +952,28 @@ class LockerGUI(AccessibleDialog):
                         # Convert to set of lowercase IDs for fast lookup
                         self.owned_ids = set(id.lower() for id in fetched_ids)
                         logger.info(f"Fetched {len(self.owned_ids)} owned cosmetic IDs")
+
+                        # Create placeholders for owned items not in database
+                        existing_ids = {c.get("id", "").lower() for c in self.cosmetics_data}
+                        missing_ids = self.owned_ids - existing_ids
+
+                        if missing_ids:
+                            logger.info(f"Creating {len(missing_ids)} placeholders for unknown owned items")
+                            for missing_id in missing_ids:
+                                placeholder = {
+                                    "id": missing_id,
+                                    "name": f"[Unknown Item] {missing_id[:20]}",
+                                    "description": "This item is owned but not in the Fortnite-API database",
+                                    "type": "Unknown",
+                                    "rarity": "common",
+                                    "rarity_value": 0,
+                                    "introduction_chapter": "?",
+                                    "introduction_season": "?",
+                                    "image_url": "",
+                                    "favorite": False
+                                }
+                                self.cosmetics_data.append(placeholder)
+                            self.stats = self._calculate_stats()
                     else:
                         speaker.speak("Failed to fetch owned cosmetics list")
                         messageBox(
