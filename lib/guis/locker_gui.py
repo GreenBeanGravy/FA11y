@@ -88,6 +88,7 @@ class LockerGUI(AccessibleDialog):
         self.filtered_cosmetics = cosmetics_data.copy()
         self.auth = auth_instance
         self.owned_only = owned_only
+        self.owned_ids = set()  # Will be populated when filtering by owned
 
         # Current filter/sort state
         self.current_search = ""
@@ -262,8 +263,8 @@ class LockerGUI(AccessibleDialog):
         # Bind key events
         self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
 
-        # Initial population
-        self.update_list()
+        # Defer initial population for faster startup
+        wx.CallAfter(self.update_list)
 
     def onKeyEvent(self, event):
         """Handle key events for shortcuts"""
@@ -280,26 +281,29 @@ class LockerGUI(AccessibleDialog):
         """Handle search text changes"""
         self.current_search = self.search_box.GetValue()
         self.update_list()
-        speaker.speak(f"Showing {len(self.filtered_cosmetics)} results")
 
     def on_filter_changed(self, event):
         """Handle type filter changes"""
         self.current_type_filter = self.type_filter.GetStringSelection()
         self.update_list()
-        speaker.speak(f"Filter: {self.current_type_filter}. Showing {len(self.filtered_cosmetics)} results")
 
     def on_sort_changed(self, event):
         """Handle sort option changes"""
         self.current_sort = self.sort_choice.GetStringSelection()
         self.update_list()
-        speaker.speak(f"Sorted by {self.current_sort}")
 
     def filter_cosmetics(self) -> List[dict]:
-        """Filter cosmetics based on current search and type filter"""
+        """Filter cosmetics based on current search, type filter, and owned status"""
         filtered = []
         search_lower = self.current_search.lower()
 
         for cosmetic in self.cosmetics_data:
+            # Owned filter (check first for performance)
+            if self.owned_only:
+                cosmetic_id = cosmetic.get("id", "").lower()
+                if cosmetic_id not in self.owned_ids:
+                    continue
+
             # Type filter
             if self.current_type_filter != "All":
                 cosmetic_type = cosmetic.get("type", "")
@@ -363,39 +367,56 @@ class LockerGUI(AccessibleDialog):
         self.filtered_cosmetics = self.sort_cosmetics(self.filtered_cosmetics)
 
         # Update results label
-        total = len(self.cosmetics_data)
-        showing = len(self.filtered_cosmetics)
-        self.results_label.SetLabel(f"Showing {showing} of {total} cosmetics")
+        if self.owned_only:
+            base_count = len(self.owned_ids)
+            self.results_label.SetLabel(f"Showing {len(self.filtered_cosmetics)} of {base_count} owned cosmetics")
+        else:
+            total = len(self.cosmetics_data)
+            self.results_label.SetLabel(f"Showing {len(self.filtered_cosmetics)} of {total} cosmetics")
 
-        # Clear list
-        self.cosmetics_list.DeleteAllItems()
+        # Freeze to prevent flickering and improve performance
+        self.cosmetics_list.Freeze()
+        try:
+            # Clear list
+            self.cosmetics_list.DeleteAllItems()
 
-        # Populate list
-        for idx, cosmetic in enumerate(self.filtered_cosmetics):
-            name = cosmetic.get("name", "Unknown")
-            if cosmetic.get("favorite", False):
-                name = "⭐ " + name
+            # Populate list (only up to 1000 for performance - virtual list would be better)
+            max_items = min(1000, len(self.filtered_cosmetics))
+            for idx in range(max_items):
+                cosmetic = self.filtered_cosmetics[idx]
 
-            cosmetic_type = cosmetic.get("type", "Unknown")
-            type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
-            friendly_type = type_info.get("name", cosmetic_type)
+                name = cosmetic.get("name", "Unknown")
+                if cosmetic.get("favorite", False):
+                    name = "⭐ " + name
 
-            rarity = cosmetic.get("rarity", "common").title()
-            season = f"C{cosmetic.get('introduction_chapter', '?')}S{cosmetic.get('introduction_season', '?')}"
+                cosmetic_type = cosmetic.get("type", "Unknown")
+                type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+                friendly_type = type_info.get("name", cosmetic_type)
 
-            # Insert item
-            index = self.cosmetics_list.InsertItem(idx, name)
-            self.cosmetics_list.SetItem(index, 1, friendly_type)
-            self.cosmetics_list.SetItem(index, 2, rarity)
-            self.cosmetics_list.SetItem(index, 3, season)
+                rarity = cosmetic.get("rarity", "common").title()
+                season = f"C{cosmetic.get('introduction_chapter', '?')}S{cosmetic.get('introduction_season', '?')}"
 
-            # Set item data to index in filtered list
-            self.cosmetics_list.SetItemData(index, idx)
+                # Insert item
+                index = self.cosmetics_list.InsertItem(idx, name)
+                self.cosmetics_list.SetItem(index, 1, friendly_type)
+                self.cosmetics_list.SetItem(index, 2, rarity)
+                self.cosmetics_list.SetItem(index, 3, season)
 
-            # Color code by rarity
-            color = self.get_rarity_color(rarity.lower())
-            if color:
-                self.cosmetics_list.SetItemTextColour(index, color)
+                # Set item data to index in filtered list
+                self.cosmetics_list.SetItemData(index, idx)
+
+                # Color code by rarity
+                color = self.get_rarity_color(rarity.lower())
+                if color:
+                    self.cosmetics_list.SetItemTextColour(index, color)
+
+            # Warn if showing truncated results
+            if len(self.filtered_cosmetics) > max_items:
+                current_label = self.results_label.GetLabel()
+                self.results_label.SetLabel(f"{current_label} (showing first {max_items} - refine search)")
+
+        finally:
+            self.cosmetics_list.Thaw()
 
         # Auto-select first item if available
         if self.filtered_cosmetics:
@@ -781,36 +802,39 @@ class LockerGUI(AccessibleDialog):
                 speaker.speak("Filtering to owned cosmetics")
                 logger.info("Filtering to owned cosmetics")
 
-                # Fetch list of owned IDs
-                owned_ids = self.auth.fetch_owned_cosmetics()
+                # Fetch list of owned IDs if not already fetched
+                if not self.owned_ids:
+                    fetched_ids = self.auth.fetch_owned_cosmetics()
+                    if fetched_ids:
+                        # Convert to set of lowercase IDs for fast lookup
+                        self.owned_ids = set(id.lower() for id in fetched_ids)
+                        logger.info(f"Fetched {len(self.owned_ids)} owned cosmetic IDs")
+                    else:
+                        speaker.speak("Failed to fetch owned cosmetics list")
+                        messageBox(
+                            "Failed to fetch your owned cosmetics from Epic Games. Please check your connection and try again.",
+                            "Error",
+                            wx.OK | wx.ICON_ERROR,
+                            self
+                        )
+                        self.owned_checkbox.SetValue(False)
+                        return
 
-                if owned_ids:
-                    # Filter existing cosmetics data to only owned items
-                    owned_cosmetics = [c for c in self.cosmetics_data if c.get('id', '') in owned_ids]
+                # Update list - filter_cosmetics() will now use owned_ids
+                self.update_list()
 
-                    self.filtered_cosmetics = owned_cosmetics.copy()
-                    self.update_list()
-
-                    speaker.speak(f"Showing {len(owned_cosmetics)} owned cosmetics")
-                    logger.info(f"Filtered to {len(owned_cosmetics)} owned cosmetics")
-                else:
-                    speaker.speak("Failed to fetch owned cosmetics list")
-                    messageBox(
-                        "Failed to fetch your owned cosmetics from Epic Games. Please check your connection and try again.",
-                        "Error",
-                        wx.OK | wx.ICON_ERROR,
-                        self
-                    )
-                    self.owned_checkbox.SetValue(False)
+                # Count how many owned cosmetics matched
+                owned_count = len(self.filtered_cosmetics)
+                speaker.speak(f"Showing {owned_count} owned cosmetics")
+                logger.info(f"Filtered to {owned_count} owned cosmetics")
             else:
                 speaker.speak("Showing all cosmetics")
                 logger.info("Showing all cosmetics")
 
-                # Reset to show all cosmetics
-                self.filtered_cosmetics = self.cosmetics_data.copy()
+                # Update list - filter_cosmetics() will ignore owned filter
                 self.update_list()
 
-                speaker.speak(f"Showing all {len(self.cosmetics_data)} cosmetics")
+                speaker.speak(f"Showing all {len(self.filtered_cosmetics)} cosmetics")
 
         except Exception as e:
             logger.error(f"Error toggling owned mode: {e}")
