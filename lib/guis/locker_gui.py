@@ -599,20 +599,32 @@ def launch_locker_viewer():
     # Determine cache file path
     cache_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "fortnite_locker_cache.json")
 
-    if not os.path.exists(cache_file):
-        logger.warning(f"No cached locker data found at {cache_file}")
-        speaker.speak("No cached locker data found. Please authenticate first.")
-        messageBox(
-            "No cached locker data found. Please authenticate with Epic Games first to download your locker data.",
-            "No Data",
-            wx.OK | wx.ICON_WARNING
-        )
-        return None
-
     app = None
     app_created = False
 
     try:
+        # Check if wx.App already exists and is usable
+        existing_app = wx.GetApp()
+        if existing_app is None:
+            # Create new app only if none exists
+            app = wx.App(False)  # False = don't redirect stdout/stderr
+            app_created = True
+        else:
+            # Use existing app
+            app = existing_app
+            app_created = False
+
+        # Check for cache file
+        if not os.path.exists(cache_file):
+            logger.warning(f"No cached locker data found at {cache_file}")
+            speaker.speak("No cached locker data found. Please authenticate first.")
+            messageBox(
+                "No cached locker data found. Please authenticate with Epic Games first to download your locker data.",
+                "No Data",
+                wx.OK | wx.ICON_WARNING
+            )
+            return None
+
         # Load cosmetics data
         with open(cache_file, 'r', encoding='utf-8') as f:
             cosmetics_data = json.load(f)
@@ -628,17 +640,6 @@ def launch_locker_viewer():
             return None
 
         logger.info(f"Loaded {len(cosmetics_data)} cosmetics from cache")
-
-        # Check if wx.App already exists and is usable
-        existing_app = wx.GetApp()
-        if existing_app is None:
-            # Create new app only if none exists
-            app = wx.App(False)  # False = don't redirect stdout/stderr
-            app_created = True
-        else:
-            # Use existing app
-            app = existing_app
-            app_created = False
 
         # Create main dialog
         dlg = LockerDialog(None, cosmetics_data)
