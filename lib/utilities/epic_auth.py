@@ -79,6 +79,15 @@ class EpicAuth:
         except Exception as e:
             logger.error(f"Error saving auth: {e}")
 
+    def clear_auth(self):
+        """Clear cached authentication data"""
+        try:
+            if os.path.exists(self.auth_file):
+                os.remove(self.auth_file)
+                logger.info("Cleared cached auth")
+        except Exception as e:
+            logger.error(f"Error clearing auth: {e}")
+
     def get_authorization_url(self) -> str:
         """
         Get the authorization URL for manual login
