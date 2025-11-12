@@ -463,7 +463,7 @@ def get_gameobject_positioning_info(poi_name: str, poi_coordinates: Tuple[float,
         
         # Try to import POI data to find closest POI for reference
         try:
-            from lib.guis.poi_selector_gui import POIData
+            from lib.managers.poi_data_manager import POIData
             poi_data = POIData()
             
             # Get POIs for current map

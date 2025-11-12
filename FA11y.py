@@ -89,7 +89,7 @@ from lib.utilities.input import (
     is_key_combination_pressed, parse_key_combination, get_pressed_key_combination, is_key_combination_pressed_ignore_extra_mods
 )
 
-from lib.guis.poi_selector_gui import POIData
+from lib.managers.poi_data_manager import POIData
 from lib.detection.exit_match import exit_match
 from lib.detection.player_position import (
     announce_current_direction as speak_minimap_direction, 
@@ -366,8 +366,9 @@ def reload_config() -> None:
             'announce direction faced': speak_minimap_direction,
             'check health shields': check_health_shields,
             'check rarity': check_rarity,
-            'open p o i selector': open_poi_selector,
             'open gamemode selector': open_gamemode_selector,
+            'open locker selector': open_locker_selector,
+            'open locker viewer': open_locker_viewer,
             'open configuration menu': open_config_gui,
             'exit match': exit_match,
             'create custom p o i': handle_custom_poi_gui,
@@ -859,25 +860,7 @@ def open_config_gui() -> None:
         print(f"Error opening config GUI: {e}")
         speaker.speak("Error opening configuration GUI")
 
-def open_poi_selector() -> None:
-    """Open the POI selector GUI."""
-    global active_pinger
-    if active_pinger:
-        active_pinger.stop()
-        active_pinger = None
-        speaker.speak("Continuous ping disabled.")
-    try:
-        from lib.guis.poi_selector_gui import launch_poi_selector, POIData
-        
-        # Initialize POI data
-        poi_data = POIData()
-        
-        # Launch the POI selector
-        launch_poi_selector(poi_data)
-        
-    except Exception as e:
-        print(f"Error opening POI selector: {e}") 
-        speaker.speak("Error opening POI selector")
+# POI selector GUI has been removed - use virtual POI selector with cycle_poi() instead
 
 def handle_custom_poi_gui(use_ppi=False) -> None:
     """Handle custom POI GUI creation with map-specific support"""
@@ -905,10 +888,40 @@ def open_gamemode_selector() -> None:
     try:
         from lib.guis.gamemode_gui import launch_gamemode_selector
         launch_gamemode_selector()
-        
+
     except Exception as e:
         print(f"Error opening gamemode selector: {e}")
         speaker.speak("Error opening gamemode selector")
+
+def open_locker_selector() -> None:
+    """Open the unified locker GUI for browsing and equipping cosmetics."""
+    global active_pinger
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
+    try:
+        from lib.guis.locker_gui import launch_locker_gui
+        launch_locker_gui()
+
+    except Exception as e:
+        print(f"Error opening locker: {e}")
+        speaker.speak("Error opening locker")
+
+def open_locker_viewer() -> None:
+    """Open the unified locker GUI for browsing and equipping cosmetics."""
+    global active_pinger
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
+    try:
+        from lib.guis.locker_gui import launch_locker_gui
+        launch_locker_gui()
+
+    except Exception as e:
+        print(f"Error opening locker: {e}")
+        speaker.speak("Error opening locker")
 
 def get_poi_category(poi_name: str) -> str:
     """

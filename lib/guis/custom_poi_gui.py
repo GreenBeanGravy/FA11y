@@ -15,7 +15,7 @@ from lib.guis.gui_utilities import (
     messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
     BORDER_FOR_DIALOGS
 )
-from lib.guis.poi_selector_gui import POIData
+from lib.managers.poi_data_manager import POIData
 from lib.utilities.utilities import read_config
 
 logger = logging.getLogger(__name__)

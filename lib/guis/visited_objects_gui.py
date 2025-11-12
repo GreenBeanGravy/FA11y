@@ -498,7 +498,7 @@ class VisitedObjectsGUI(AccessibleDialog):
             coordinates = (float(x_str), float(y_str))
             
             try:
-                from lib.guis.poi_selector_gui import POIData
+                from lib.managers.poi_data_manager import POIData
                 poi_data = POIData()
                 
                 if self.current_map == 'main':
