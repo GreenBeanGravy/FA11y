@@ -222,9 +222,20 @@ class LockerGUI(AccessibleDialog):
         page_index = event.GetSelection()
         if page_index >= 0 and page_index < self.notebook.GetPageCount():
             tab_text = self.notebook.GetPageText(page_index)
-            total_pages = self.notebook.GetPageCount()
-            speaker.speak(f"Tab {page_index + 1} of {total_pages}: {tab_text}")
+            speaker.speak(tab_text)
         event.Skip()
+
+    def onButtonFocus(self, event):
+        """Handle button focus to announce with index"""
+        button = event.GetEventObject()
+        wx.CallAfter(self.announceButtonWithIndex, button)
+        event.Skip()
+
+    def announceButtonWithIndex(self, button):
+        """Announce button with index after focus"""
+        if hasattr(button, 'index') and hasattr(button, 'total'):
+            label = button.GetLabel()
+            wx.CallLater(150, lambda: speaker.speak(f"Option {button.index} of {button.total}: {label}"))
 
     def create_category_panel(self, category: str, parent, parent_category: str = None) -> wx.Panel:
         """Create a panel for a category with its items"""
@@ -232,11 +243,20 @@ class LockerGUI(AccessibleDialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         items = self.CATEGORY_ITEMS.get(category, [])
+        total_items = len(items)
 
-        for item_name, slot_number in items:
+        for index, (item_name, slot_number) in enumerate(items, 1):
             button = wx.Button(panel, label=item_name)
             button.Bind(wx.EVT_BUTTON, lambda evt, cat=category, name=item_name, slot=slot_number, parent_cat=parent_category:
                         self.onSelectSlot(evt, cat, name, slot, parent_cat))
+
+            # Store index information for focus announcements
+            button.index = index
+            button.total = total_items
+
+            # Bind focus event for index announcements
+            button.Bind(wx.EVT_SET_FOCUS, self.onButtonFocus)
+
             sizer.Add(button, 0, wx.ALL | wx.EXPAND, 5)
 
         panel.SetSizer(sizer)
@@ -257,7 +277,9 @@ class LockerGUI(AccessibleDialog):
                     self.EndModal(wx.ID_OK)
 
                     # Perform locker item equip
-                    self.equip_item(category, item_name, slot_number, item_to_equip, parent_category)
+                    success = self.equip_item(category, item_name, slot_number, item_to_equip, parent_category)
+                    if success:
+                        speaker.speak(f"{item_to_equip} selected!")
                 else:
                     dlg.Destroy()
             else:
