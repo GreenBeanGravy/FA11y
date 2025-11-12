@@ -180,16 +180,19 @@ class LockerGUI(AccessibleDialog):
                 return False
 
             # Click initial position
-            pyautogui.click(420, 69)
-            time.sleep(0.2)
+            pyautogui.moveTo(420, 69, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.3)
 
             # Click the specific slot
-            pyautogui.click(slot_coords[0], slot_coords[1])
+            pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
+            pyautogui.click()
             time.sleep(1.0)
 
             # Click search bar
-            pyautogui.click(1030, 210)
-            time.sleep(0.1)
+            pyautogui.moveTo(1030, 210, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.5)
 
             # Type the item name
             pyautogui.typewrite(item_name)
@@ -197,17 +200,19 @@ class LockerGUI(AccessibleDialog):
             time.sleep(0.1)
 
             # Click the item (twice)
-            pyautogui.click(1020, 350)
+            pyautogui.moveTo(1020, 350, duration=0.05)
+            pyautogui.click()
             time.sleep(0.05)
-            pyautogui.click(1020, 350)
+            pyautogui.click()
             time.sleep(0.1)
 
             # Press escape
             pyautogui.press('escape')
-            time.sleep(0.15)
+            time.sleep(1)
 
             # Click final position
-            pyautogui.click(200, 69)
+            pyautogui.moveTo(200, 69, duration=0.05)
+            pyautogui.click()
 
             return True
 
