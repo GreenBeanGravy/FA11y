@@ -367,6 +367,7 @@ def reload_config() -> None:
             'check health shields': check_health_shields,
             'check rarity': check_rarity,
             'open gamemode selector': open_gamemode_selector,
+            'open locker selector': open_locker_selector,
             'open configuration menu': open_config_gui,
             'exit match': exit_match,
             'create custom p o i': handle_custom_poi_gui,
@@ -886,10 +887,25 @@ def open_gamemode_selector() -> None:
     try:
         from lib.guis.gamemode_gui import launch_gamemode_selector
         launch_gamemode_selector()
-        
+
     except Exception as e:
         print(f"Error opening gamemode selector: {e}")
         speaker.speak("Error opening gamemode selector")
+
+def open_locker_selector() -> None:
+    """Open the locker selector GUI."""
+    global active_pinger
+    if active_pinger:
+        active_pinger.stop()
+        active_pinger = None
+        speaker.speak("Continuous ping disabled.")
+    try:
+        from lib.guis.locker_gui import launch_locker_selector
+        launch_locker_selector()
+
+    except Exception as e:
+        print(f"Error opening locker selector: {e}")
+        speaker.speak("Error opening locker selector")
 
 def get_poi_category(poi_name: str) -> str:
     """
