@@ -844,7 +844,29 @@ class LockerGUI(AccessibleDialog):
                 # Fetch list of owned IDs if not already fetched
                 if not self.owned_ids:
                     fetched_ids = self.auth.fetch_owned_cosmetics()
-                    if fetched_ids:
+
+                    # Check for auth expiration
+                    if fetched_ids == "AUTH_EXPIRED":
+                        speaker.speak("Your login has expired. Please log in again.")
+                        result = messageBox(
+                            "Your Epic Games login has expired.\n\nWould you like to log in again?",
+                            "Login Expired",
+                            wx.YES_NO | wx.ICON_WARNING,
+                            self
+                        )
+
+                        if result == wx.YES:
+                            # Reset auth state
+                            self.owned_checkbox.SetValue(False)
+                            self.owned_checkbox.Enable(False)
+                            self.login_btn.SetLabel("&Login")
+                            self.login_btn.Enable(True)
+                            # Trigger login
+                            wx.CallAfter(self.on_login, None)
+                        else:
+                            self.owned_checkbox.SetValue(False)
+                        return
+                    elif fetched_ids:
                         # Convert to set of lowercase IDs for fast lookup
                         self.owned_ids = set(id.lower() for id in fetched_ids)
                         logger.info(f"Fetched {len(self.owned_ids)} owned cosmetic IDs")

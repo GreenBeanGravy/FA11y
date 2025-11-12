@@ -213,6 +213,16 @@ class EpicAuth:
 
                 logger.info(f"Found {len(owned_ids)} owned cosmetics")
                 return owned_ids
+            elif response.status_code == 401:
+                # Token expired or invalid
+                logger.error(f"Auth token expired: {response.text}")
+                # Clear cached auth
+                self.clear_auth()
+                self.access_token = None
+                self.account_id = None
+                self.display_name = None
+                # Return special marker to indicate auth expired
+                return "AUTH_EXPIRED"
             else:
                 logger.error(f"Failed to fetch owned cosmetics: {response.status_code} - {response.text}")
                 return None
