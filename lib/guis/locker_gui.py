@@ -368,8 +368,17 @@ class LockerGUI(AccessibleDialog):
 
         # Update results label
         if self.owned_only:
-            base_count = len(self.owned_ids)
-            self.results_label.SetLabel(f"Showing {len(self.filtered_cosmetics)} of {base_count} owned cosmetics")
+            displayed = len(self.filtered_cosmetics)
+            total_owned = len(self.owned_ids)
+            if displayed < total_owned:
+                # Some owned items aren't in the API database
+                missing = total_owned - displayed
+                self.results_label.SetLabel(
+                    f"Showing {displayed} owned cosmetics "
+                    f"({missing} owned items not in database)"
+                )
+            else:
+                self.results_label.SetLabel(f"Showing {displayed} owned cosmetics")
         else:
             total = len(self.cosmetics_data)
             self.results_label.SetLabel(f"Showing {len(self.filtered_cosmetics)} of {total} cosmetics")
@@ -541,14 +550,14 @@ class LockerGUI(AccessibleDialog):
 
             # Hide dialog before automation
             self.Hide()
-            wx.SafeYield()  # Process any pending UI events
+            time.sleep(0.1)  # Brief pause to ensure hide completes
 
             try:
                 # Perform the equip automation
                 success = self.perform_equip_automation(category, slot, name)
 
-                # Always show dialog again on UI thread
-                wx.CallAfter(self._show_after_equip, success, name)
+                # Use CallLater to show dialog after a delay (prevents hanging)
+                wx.CallLater(100, self._show_after_equip, success, name)
 
             except Exception as automation_error:
                 logger.error(f"Error during automation: {automation_error}")
@@ -566,15 +575,20 @@ class LockerGUI(AccessibleDialog):
     def _show_after_equip(self, success: bool, name: str):
         """Show dialog after equip automation completes"""
         try:
+            # Small delay to let Fortnite settle
+            time.sleep(0.2)
+
+            # Show and raise dialog
             self.Show()
             self.Raise()
-            wx.SafeYield()
+            self.SetFocus()
 
             if success:
                 speaker.speak(f"{name} equipped!")
             else:
                 speaker.speak("Equip failed")
-                messageBox("Failed to equip cosmetic. Make sure Fortnite is open and in the locker.", "Equip Failed", wx.OK | wx.ICON_ERROR, self)
+                # Use CallAfter for messageBox to avoid blocking
+                wx.CallAfter(lambda: messageBox("Failed to equip cosmetic. Make sure Fortnite is open and in the locker.", "Equip Failed", wx.OK | wx.ICON_ERROR, self))
         except Exception as e:
             logger.error(f"Error showing dialog after equip: {e}")
 
