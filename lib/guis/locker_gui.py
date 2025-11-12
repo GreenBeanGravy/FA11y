@@ -660,8 +660,8 @@ class LockerGUI(AccessibleDialog):
             # Small delay to let Fortnite settle
             time.sleep(0.2)
 
-            # Show and raise dialog
-            self.Show()
+            # Restore from minimized state and bring to front
+            self.Iconize(False)  # Un-minimize
             self.Raise()
             self.SetFocus()
 
