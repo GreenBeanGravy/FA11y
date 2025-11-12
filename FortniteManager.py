@@ -573,15 +573,37 @@ class FortniteManagerDialog(AccessibleDialog):
         except ValueError:
             return time_str
 
+    def is_window_focused(self) -> bool:
+        """
+        Check if the FortniteManager window is currently focused.
+
+        Returns:
+            True if window is focused, False otherwise
+        """
+        try:
+            # Get the handle of the foreground window
+            foreground_hwnd = ctypes.windll.user32.GetForegroundWindow()
+            # Get our window handle
+            our_hwnd = self.GetHandle()
+            return foreground_hwnd == our_hwnd
+        except Exception:
+            # If we can't determine focus, assume it's focused to not miss announcements
+            return True
+
     def update_progress_state(self, result: Tuple[float, str, str]):
         """
-        Update progress state and announce it.
+        Update progress state and announce it only if window is focused.
 
         Args:
             result: Tuple of (progress, elapsed, eta)
         """
         progress, elapsed, eta = result
         self.last_progress_state = {'progress': progress, 'elapsed': elapsed, 'eta': eta}
+
+        # Only announce progress if the window is focused
+        if not self.is_window_focused():
+            logger.debug("Window not focused, skipping progress announcement")
+            return
 
         elapsed_speech = self.format_time_for_speech(elapsed)
         eta_speech = self.format_time_for_speech(eta)

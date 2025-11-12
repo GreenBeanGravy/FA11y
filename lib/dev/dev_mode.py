@@ -272,6 +272,10 @@ class PixelInspector:
                    font, 0.5, color, thickness)
 
         y_pos += line_height - 5
+        cv2.putText(panel, "- Yellow highlight = current pixel", (10, y_pos),
+                   font, 0.5, color, thickness)
+
+        y_pos += line_height - 5
         cv2.putText(panel, "- Press 'q' or ESC to exit", (10, y_pos),
                    font, 0.5, color, thickness)
 
@@ -297,18 +301,23 @@ class PixelInspector:
 
         self.running = True
 
-        # Create windows
+        # Create resizable windows with 16:9 aspect ratio
         cv2.namedWindow(self.main_window, cv2.WINDOW_NORMAL)
         cv2.namedWindow(self.zoom_window, cv2.WINDOW_NORMAL)
         cv2.namedWindow(self.info_window, cv2.WINDOW_NORMAL)
+
+        # Set window sizes with 16:9 aspect ratio
+        cv2.resizeWindow(self.main_window, 1280, 720)  # 16:9 ratio
+        cv2.resizeWindow(self.zoom_window, 640, 360)   # 16:9 ratio
+        cv2.resizeWindow(self.info_window, 640, 360)   # 16:9 ratio
 
         # Set mouse callback
         cv2.setMouseCallback(self.main_window, self.mouse_callback)
 
         # Position windows
         cv2.moveWindow(self.main_window, 50, 50)
-        cv2.moveWindow(self.zoom_window, 900, 50)
-        cv2.moveWindow(self.info_window, 900, 400)
+        cv2.moveWindow(self.zoom_window, 1350, 50)
+        cv2.moveWindow(self.info_window, 1350, 440)
 
         try:
             while self.running:
@@ -327,13 +336,26 @@ class PixelInspector:
                 # For display, convert back to BGR (OpenCV displays in BGR)
                 display_screenshot = screenshot_bgr.copy()
 
-                # Draw crosshair at mouse position on main view
+                # Highlight the current pixel in yellow instead of using a crosshair
                 if 0 <= self.mouse_x < display_screenshot.shape[1] and \
                    0 <= self.mouse_y < display_screenshot.shape[0]:
-                    crosshair_color = (0, 255, 0)  # Green in BGR
-                    crosshair_size = 20
-                    cv2.drawMarker(display_screenshot, (self.mouse_x, self.mouse_y),
-                                  crosshair_color, cv2.MARKER_CROSS, crosshair_size, 2)
+                    # Draw a yellow filled rectangle over the current pixel
+                    # Make it slightly larger (3x3) so it's visible
+                    highlight_color = (0, 255, 255)  # Yellow in BGR
+                    highlight_size = 3  # Size of the highlight square
+
+                    # Calculate highlight bounds
+                    x1 = max(0, self.mouse_x - highlight_size // 2)
+                    y1 = max(0, self.mouse_y - highlight_size // 2)
+                    x2 = min(display_screenshot.shape[1], self.mouse_x + highlight_size // 2 + 1)
+                    y2 = min(display_screenshot.shape[0], self.mouse_y + highlight_size // 2 + 1)
+
+                    # Create a yellow highlight overlay with transparency
+                    overlay = display_screenshot.copy()
+                    cv2.rectangle(overlay, (x1, y1), (x2, y2), highlight_color, -1)
+
+                    # Blend the overlay with the original image (50% transparency)
+                    cv2.addWeighted(overlay, 0.5, display_screenshot, 0.5, 0, display_screenshot)
 
                     # Draw box showing zoom area
                     half_box = self.zoom_box_size // 2
