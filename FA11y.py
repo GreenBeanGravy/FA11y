@@ -894,34 +894,34 @@ def open_gamemode_selector() -> None:
         speaker.speak("Error opening gamemode selector")
 
 def open_locker_selector() -> None:
-    """Open the locker selector GUI for equipping cosmetics."""
+    """Open the unified locker GUI for browsing and equipping cosmetics."""
     global active_pinger
     if active_pinger:
         active_pinger.stop()
         active_pinger = None
         speaker.speak("Continuous ping disabled.")
     try:
-        from lib.guis.locker_selector_gui import launch_locker_selector
-        launch_locker_selector()
+        from lib.guis.locker_gui import launch_locker_gui
+        launch_locker_gui()
 
     except Exception as e:
-        print(f"Error opening locker selector: {e}")
-        speaker.speak("Error opening locker selector")
+        print(f"Error opening locker: {e}")
+        speaker.speak("Error opening locker")
 
 def open_locker_viewer() -> None:
-    """Open the locker viewer GUI for browsing cosmetics."""
+    """Open the unified locker GUI for browsing and equipping cosmetics."""
     global active_pinger
     if active_pinger:
         active_pinger.stop()
         active_pinger = None
         speaker.speak("Continuous ping disabled.")
     try:
-        from lib.guis.locker_gui import launch_locker_viewer
-        launch_locker_viewer()
+        from lib.guis.locker_gui import launch_locker_gui
+        launch_locker_gui()
 
     except Exception as e:
-        print(f"Error opening locker viewer: {e}")
-        speaker.speak("Error opening locker viewer")
+        print(f"Error opening locker: {e}")
+        speaker.speak("Error opening locker")
 
 def get_poi_category(poi_name: str) -> str:
     """

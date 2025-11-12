@@ -1,6 +1,6 @@
 """
-Locker GUI for FA11y
-Provides an interface for viewing Fortnite cosmetics
+Unified Locker GUI for FA11y
+Browse your cosmetics collection and equip them in Fortnite
 """
 import os
 import sys
@@ -13,6 +13,7 @@ import ctypes
 import ctypes.wintypes
 
 import wx
+import pyautogui
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
@@ -26,20 +27,44 @@ logger = logging.getLogger(__name__)
 # Global speaker instance
 speaker = Auto()
 
-# Map backend types to friendly names
+# Map backend types to friendly names and slot info
 COSMETIC_TYPE_MAP = {
-    "AthenaCharacter": "Outfit",
-    "AthenaBackpack": "Back Bling",
-    "AthenaDance": "Emote",
-    "AthenaPickaxe": "Pickaxe",
-    "AthenaGlider": "Glider",
-    "AthenaItemWrap": "Wrap",
-    "AthenaLoadingScreen": "Loading Screen",
-    "AthenaMusicPack": "Music",
-    "AthenaSkyDiveContrail": "Contrail",
-    "VehicleCosmetics_Body": "Car Body",
-    "AthenaShoes": "Kicks",
-    "AthenaPetCarrier": "Pet"
+    "AthenaCharacter": {"name": "Outfit", "category": "Character", "slot": 1},
+    "AthenaBackpack": {"name": "Back Bling", "category": "Character", "slot": 2},
+    "AthenaPickaxe": {"name": "Pickaxe", "category": "Character", "slot": 3},
+    "AthenaGlider": {"name": "Glider", "category": "Character", "slot": 4},
+    "AthenaShoes": {"name": "Kicks", "category": "Character", "slot": 5},
+    "AthenaSkyDiveContrail": {"name": "Contrail", "category": "Character", "slot": 6},
+    "AthenaDance": {"name": "Emote", "category": "Emotes", "slot": None},  # Multiple slots
+    "AthenaPetCarrier": {"name": "Pet", "category": "Sidekicks", "slot": 1},
+    "AthenaItemWrap": {"name": "Wrap", "category": "Wraps", "slot": None},  # Multiple slots
+    "AthenaLoadingScreen": {"name": "Loading Screen", "category": "Lobby", "slot": 3},
+    "AthenaMusicPack": {"name": "Music", "category": "Lobby", "slot": 2},
+    "VehicleCosmetics_Body": {"name": "Car Body", "category": "Cars", "slot": 1}
+}
+
+# Slot coordinates for automation
+SLOT_COORDS = {
+    1: (260, 400),
+    2: (420, 400),
+    3: (570, 400),
+    4: (720, 400),
+    5: (260, 560),
+    6: (420, 560),
+    7: (560, 550),
+    8: (720, 550)
+}
+
+# Category positions in Fortnite UI
+CATEGORY_COORDS = {
+    'Character': (110, 280),
+    'Emotes': (110, 335),
+    'Sidekicks': (110, 390),
+    'Wraps': (110, 445),
+    'Lobby': (110, 500),
+    'Cars': (110, 555),
+    'Instruments': (110, 610),
+    'Music': (110, 665)
 }
 
 SORT_OPTIONS = [
@@ -54,11 +79,11 @@ SORT_OPTIONS = [
 ]
 
 
-class LockerDialog(AccessibleDialog):
-    """Dialog for viewing Fortnite cosmetics locker"""
+class LockerGUI(AccessibleDialog):
+    """Unified Locker GUI for browsing and equipping cosmetics"""
 
     def __init__(self, parent, cosmetics_data: List[dict]):
-        super().__init__(parent, title="Fortnite Locker Viewer", helpId="LockerViewer")
+        super().__init__(parent, title="Fortnite Locker", helpId="LockerGUI")
         self.cosmetics_data = cosmetics_data
         self.filtered_cosmetics = cosmetics_data.copy()
 
@@ -80,20 +105,6 @@ class LockerDialog(AccessibleDialog):
             "total": len(self.cosmetics_data),
             "favorites": sum(1 for c in self.cosmetics_data if c.get("favorite", False))
         }
-
-        # Count by type
-        for cosmetic in self.cosmetics_data:
-            cosmetic_type = cosmetic.get("type", "Unknown")
-            friendly_name = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
-            key = f"type_{friendly_name}"
-            stats[key] = stats.get(key, 0) + 1
-
-        # Count by rarity
-        for cosmetic in self.cosmetics_data:
-            rarity = cosmetic.get("rarity", "common").title()
-            key = f"rarity_{rarity}"
-            stats[key] = stats.get(key, 0) + 1
-
         return stats
 
     def makeSettings(self, sizer: BoxSizerHelper):
@@ -111,6 +122,10 @@ class LockerDialog(AccessibleDialog):
         header_label.SetFont(header_font)
         sizer.addItem(header_label)
 
+        # Instructions
+        instructions = wx.StaticText(self, label="Double-click a cosmetic to equip it in Fortnite")
+        sizer.addItem(instructions)
+
         # Search box
         self.search_box = sizer.addLabeledControl(
             "Search:",
@@ -127,7 +142,7 @@ class LockerDialog(AccessibleDialog):
         filter_sizer.Add(filter_label, flag=wx.ALIGN_CENTER_VERTICAL)
         filter_sizer.AddSpacer(10)
 
-        type_choices = ["All"] + sorted(set(COSMETIC_TYPE_MAP.values()))
+        type_choices = ["All"] + sorted(set(info["name"] for info in COSMETIC_TYPE_MAP.values()))
         self.type_filter = wx.Choice(self, choices=type_choices)
         self.type_filter.SetSelection(0)
         self.type_filter.Bind(wx.EVT_CHOICE, self.on_filter_changed)
@@ -158,11 +173,10 @@ class LockerDialog(AccessibleDialog):
         )
 
         # Setup columns
-        self.cosmetics_list.InsertColumn(0, "Name", width=250)
-        self.cosmetics_list.InsertColumn(1, "Type", width=120)
+        self.cosmetics_list.InsertColumn(0, "Name", width=300)
+        self.cosmetics_list.InsertColumn(1, "Type", width=150)
         self.cosmetics_list.InsertColumn(2, "Rarity", width=100)
         self.cosmetics_list.InsertColumn(3, "Season", width=100)
-        self.cosmetics_list.InsertColumn(4, "Variants", width=80)
 
         self.cosmetics_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_item_selected)
         self.cosmetics_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_item_activated)
@@ -181,7 +195,7 @@ class LockerDialog(AccessibleDialog):
         self.details_text = wx.TextCtrl(
             self,
             style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP,
-            size=(-1, 120)
+            size=(-1, 100)
         )
         details_sizer.Add(self.details_text, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
 
@@ -190,13 +204,19 @@ class LockerDialog(AccessibleDialog):
         # Buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
+        self.equip_btn = wx.Button(self, label="&Equip Selected")
+        self.equip_btn.Bind(wx.EVT_BUTTON, self.on_equip_clicked)
+        button_sizer.Add(self.equip_btn)
+
+        button_sizer.AddSpacer(10)
+
         self.refresh_btn = wx.Button(self, label="&Refresh Data")
         self.refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh)
         button_sizer.Add(self.refresh_btn)
 
         button_sizer.AddSpacer(10)
 
-        self.export_btn = wx.Button(self, label="&Export List")
+        self.export_btn = wx.Button(self, label="E&xport List")
         self.export_btn.Bind(wx.EVT_BUTTON, self.on_export)
         button_sizer.Add(self.export_btn)
 
@@ -246,14 +266,14 @@ class LockerDialog(AccessibleDialog):
     def filter_cosmetics(self) -> List[dict]:
         """Filter cosmetics based on current search and type filter"""
         filtered = []
-
         search_lower = self.current_search.lower()
 
         for cosmetic in self.cosmetics_data:
             # Type filter
             if self.current_type_filter != "All":
                 cosmetic_type = cosmetic.get("type", "")
-                friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
+                type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+                friendly_type = type_info.get("name", cosmetic_type)
                 if friendly_type != self.current_type_filter:
                     continue
 
@@ -261,14 +281,9 @@ class LockerDialog(AccessibleDialog):
             if search_lower:
                 name = cosmetic.get("name", "").lower()
                 description = cosmetic.get("description", "").lower()
-                cosmetic_type = cosmetic.get("type", "")
-                friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type).lower()
                 rarity = cosmetic.get("rarity", "").lower()
 
-                if not (search_lower in name or
-                       search_lower in description or
-                       search_lower in friendly_type or
-                       search_lower in rarity):
+                if not (search_lower in name or search_lower in description or search_lower in rarity):
                     continue
 
             filtered.append(cosmetic)
@@ -279,43 +294,35 @@ class LockerDialog(AccessibleDialog):
         """Sort cosmetics based on current sort option"""
         if self.current_sort == "Rarity (Highest First)":
             return sorted(cosmetics, key=lambda x: (-x.get("rarity_value", 0), x.get("name", "")))
-
         elif self.current_sort == "Rarity (Lowest First)":
             return sorted(cosmetics, key=lambda x: (x.get("rarity_value", 0), x.get("name", "")))
-
         elif self.current_sort == "Name (A-Z)":
             return sorted(cosmetics, key=lambda x: x.get("name", "").lower())
-
         elif self.current_sort == "Name (Z-A)":
             return sorted(cosmetics, key=lambda x: x.get("name", "").lower(), reverse=True)
-
         elif self.current_sort == "Type":
             return sorted(cosmetics, key=lambda x: (
-                COSMETIC_TYPE_MAP.get(x.get("type", ""), x.get("type", "")),
+                COSMETIC_TYPE_MAP.get(x.get("type", ""), {}).get("name", x.get("type", "")),
                 x.get("name", "")
             ))
-
         elif self.current_sort == "Newest First":
             return sorted(cosmetics, key=lambda x: (
                 -int(x.get("introduction_chapter", "1")),
                 -int(x.get("introduction_season", "1")),
                 x.get("name", "")
             ))
-
         elif self.current_sort == "Oldest First":
             return sorted(cosmetics, key=lambda x: (
                 int(x.get("introduction_chapter", "1")),
                 int(x.get("introduction_season", "1")),
                 x.get("name", "")
             ))
-
         elif self.current_sort == "Favorites First":
             return sorted(cosmetics, key=lambda x: (
                 not x.get("favorite", False),
                 -x.get("rarity_value", 0),
                 x.get("name", "")
             ))
-
         return cosmetics
 
     def update_list(self):
@@ -334,27 +341,22 @@ class LockerDialog(AccessibleDialog):
 
         # Populate list
         for idx, cosmetic in enumerate(self.filtered_cosmetics):
-            # Determine display values
             name = cosmetic.get("name", "Unknown")
             if cosmetic.get("favorite", False):
                 name = "⭐ " + name
 
             cosmetic_type = cosmetic.get("type", "Unknown")
-            friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
+            type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+            friendly_type = type_info.get("name", cosmetic_type)
 
             rarity = cosmetic.get("rarity", "common").title()
-
             season = f"C{cosmetic.get('introduction_chapter', '?')}S{cosmetic.get('introduction_season', '?')}"
-
-            variant_count = len(cosmetic.get("owned_variants", []))
-            variants_str = str(variant_count) if variant_count > 0 else "-"
 
             # Insert item
             index = self.cosmetics_list.InsertItem(idx, name)
             self.cosmetics_list.SetItem(index, 1, friendly_type)
             self.cosmetics_list.SetItem(index, 2, rarity)
             self.cosmetics_list.SetItem(index, 3, season)
-            self.cosmetics_list.SetItem(index, 4, variants_str)
 
             # Set item data to index in filtered list
             self.cosmetics_list.SetItemData(index, idx)
@@ -383,11 +385,6 @@ class LockerDialog(AccessibleDialog):
             "starwars": wx.Colour(231, 196, 19),
             "icon": wx.Colour(0, 217, 217),
             "gaminglegends": wx.Colour(137, 86, 255),
-            "dark": wx.Colour(138, 43, 226),
-            "frozen": wx.Colour(148, 211, 246),
-            "lava": wx.Colour(232, 64, 7),
-            "shadow": wx.Colour(74, 74, 74),
-            "slurp": wx.Colour(0, 228, 255)
         }
         return colors.get(rarity.lower())
 
@@ -399,12 +396,14 @@ class LockerDialog(AccessibleDialog):
         if 0 <= cosmetic_idx < len(self.filtered_cosmetics):
             cosmetic = self.filtered_cosmetics[cosmetic_idx]
             name = cosmetic.get("name", "Unknown")
-            cosmetic_type = COSMETIC_TYPE_MAP.get(cosmetic.get("type", ""), "Unknown")
+            cosmetic_type = cosmetic.get("type", "")
+            type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+            friendly_type = type_info.get("name", "Unknown")
             rarity = cosmetic.get("rarity", "common").title()
 
             # Announce with index
             total = len(self.filtered_cosmetics)
-            announcement = f"Item {index + 1} of {total}: {name}, {cosmetic_type}, {rarity}"
+            announcement = f"Item {index + 1} of {total}: {name}, {friendly_type}, {rarity}"
             wx.CallLater(150, lambda: speaker.speak(announcement))
 
     def on_item_selected(self, event):
@@ -417,50 +416,185 @@ class LockerDialog(AccessibleDialog):
             self.show_cosmetic_details(cosmetic)
 
     def on_item_activated(self, event):
-        """Handle item double-click/activation"""
+        """Handle item double-click/activation - equip the cosmetic"""
         index = event.GetIndex()
         cosmetic_idx = self.cosmetics_list.GetItemData(index)
 
         if 0 <= cosmetic_idx < len(self.filtered_cosmetics):
             cosmetic = self.filtered_cosmetics[cosmetic_idx]
-            self.show_detailed_info(cosmetic)
+            self.equip_cosmetic(cosmetic)
+
+    def on_equip_clicked(self, event):
+        """Handle Equip button click"""
+        index = self.cosmetics_list.GetFirstSelected()
+        if index == -1:
+            speaker.speak("No cosmetic selected")
+            messageBox("Please select a cosmetic to equip", "No Selection", wx.OK | wx.ICON_WARNING, self)
+            return
+
+        cosmetic_idx = self.cosmetics_list.GetItemData(index)
+        if 0 <= cosmetic_idx < len(self.filtered_cosmetics):
+            cosmetic = self.filtered_cosmetics[cosmetic_idx]
+            self.equip_cosmetic(cosmetic)
 
     def show_cosmetic_details(self, cosmetic: dict):
         """Show cosmetic details in the details panel"""
         details = []
 
         details.append(f"Name: {cosmetic.get('name', 'Unknown')}")
-        details.append(f"ID: {cosmetic.get('id', 'Unknown')}")
 
         cosmetic_type = cosmetic.get("type", "Unknown")
-        friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
-        details.append(f"Type: {friendly_type} ({cosmetic_type})")
+        type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+        friendly_type = type_info.get("name", cosmetic_type)
+        details.append(f"Type: {friendly_type}")
 
         details.append(f"Rarity: {cosmetic.get('rarity', 'common').title()}")
-
         details.append(f"Season: Chapter {cosmetic.get('introduction_chapter', '?')}, Season {cosmetic.get('introduction_season', '?')}")
 
         if cosmetic.get("description"):
             details.append(f"\nDescription: {cosmetic['description']}")
-
-        variants = cosmetic.get("owned_variants", [])
-        if variants:
-            details.append(f"\nVariants: {len(variants)}")
-            for variant in variants[:5]:  # Show first 5
-                details.append(f"  - {variant.get('channel', '?')}: {variant.get('stage', '?')}")
-            if len(variants) > 5:
-                details.append(f"  ... and {len(variants) - 5} more")
 
         if cosmetic.get("favorite"):
             details.append("\n⭐ FAVORITE")
 
         self.details_text.SetValue("\n".join(details))
 
-    def show_detailed_info(self, cosmetic: dict):
-        """Show detailed information dialog"""
-        dlg = CosmeticDetailDialog(self, cosmetic)
-        dlg.ShowModal()
-        dlg.Destroy()
+    def equip_cosmetic(self, cosmetic: dict):
+        """Equip a cosmetic using UI automation"""
+        try:
+            name = cosmetic.get("name", "Unknown")
+            cosmetic_type = cosmetic.get("type", "")
+            type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+            category = type_info.get("category")
+            slot = type_info.get("slot")
+
+            if not category:
+                speaker.speak(f"Cannot equip {name}. Unknown category.")
+                messageBox(f"Cannot equip {name}.\nUnknown cosmetic category.", "Cannot Equip", wx.OK | wx.ICON_WARNING, self)
+                return
+
+            # For items with multiple slots (emotes, wraps), ask user
+            if slot is None:
+                slot = self.ask_for_slot(cosmetic_type, name)
+                if slot is None:
+                    return
+
+            speaker.speak(f"Equipping {name}")
+            logger.info(f"Equipping {name} to {category} slot {slot}")
+
+            # Close dialog and perform automation
+            self.Hide()
+
+            # Perform the equip automation
+            success = self.perform_equip_automation(category, slot, name)
+
+            if success:
+                speaker.speak(f"{name} equipped!")
+                self.Show()
+            else:
+                speaker.speak("Equip failed")
+                self.Show()
+                messageBox("Failed to equip cosmetic. Make sure Fortnite is in focus.", "Equip Failed", wx.OK | wx.ICON_ERROR, self)
+
+        except Exception as e:
+            logger.error(f"Error equipping cosmetic: {e}")
+            speaker.speak("Error equipping cosmetic")
+            self.Show()
+            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+
+    def ask_for_slot(self, cosmetic_type: str, name: str) -> Optional[int]:
+        """Ask user which slot to equip to (for emotes, wraps, etc.)"""
+        if cosmetic_type == "AthenaDance":
+            # Emotes: slots 1-6
+            dlg = wx.SingleChoiceDialog(
+                self,
+                f"Select which emote slot to equip '{name}' to:",
+                "Select Emote Slot",
+                ["Emote 1", "Emote 2", "Emote 3", "Emote 4", "Emote 5", "Emote 6"]
+            )
+        elif cosmetic_type == "AthenaItemWrap":
+            # Wraps: slots 1-7
+            dlg = wx.SingleChoiceDialog(
+                self,
+                f"Select which wrap slot to equip '{name}' to:",
+                "Select Wrap Slot",
+                ["Rifles", "Shotguns", "Submachine Guns", "Snipers", "Pistols", "Utility", "Vehicles"]
+            )
+        else:
+            return None
+
+        if dlg.ShowModal() == wx.ID_OK:
+            slot = dlg.GetSelection() + 1
+            dlg.Destroy()
+            return slot
+        else:
+            dlg.Destroy()
+            return None
+
+    def perform_equip_automation(self, category: str, slot: int, item_name: str) -> bool:
+        """Perform the UI automation to equip an item"""
+        try:
+            # Get slot coordinates
+            slot_coords = SLOT_COORDS.get(slot)
+            if not slot_coords:
+                logger.error(f"Unknown slot number: {slot}")
+                return False
+
+            # Wait a moment for dialog to hide
+            time.sleep(0.5)
+
+            # Click locker button
+            pyautogui.moveTo(420, 69, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.3)
+
+            # Click category
+            category_coords = CATEGORY_COORDS.get(category)
+            if category_coords:
+                pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
+                pyautogui.click()
+                time.sleep(0.3)
+
+                # Move mouse 500 pixels right and wait
+                current_x, current_y = pyautogui.position()
+                pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                time.sleep(1.0)
+
+            # Click slot
+            pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
+            pyautogui.click()
+            time.sleep(1.0)
+
+            # Click search bar
+            pyautogui.moveTo(1030, 210, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.5)
+
+            # Type the item name
+            pyautogui.typewrite(item_name)
+            pyautogui.press('enter')
+            time.sleep(0.1)
+
+            # Click the item (twice to equip)
+            pyautogui.moveTo(1020, 350, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.05)
+            pyautogui.click()
+            time.sleep(0.1)
+
+            # Press escape to exit
+            pyautogui.press('escape')
+            time.sleep(1)
+
+            # Click final position
+            pyautogui.moveTo(200, 69, duration=0.05)
+            pyautogui.click()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error in automation: {e}")
+            return False
 
     def on_refresh(self, event):
         """Handle refresh button"""
@@ -478,16 +612,12 @@ class LockerDialog(AccessibleDialog):
                 speaker.speak("Refreshing cosmetics data")
                 logger.info("Fetching fresh cosmetics data...")
 
-                # Fetch fresh data
                 fresh_data = get_or_create_cosmetics_cache(force_refresh=True)
 
                 if fresh_data:
-                    # Update the dialog with fresh data
                     self.cosmetics_data = fresh_data
                     self.filtered_cosmetics = fresh_data.copy()
                     self.stats = self._calculate_stats()
-
-                    # Update the display
                     self.update_list()
 
                     speaker.speak(f"Refreshed. {len(fresh_data)} cosmetics loaded.")
@@ -534,21 +664,24 @@ class LockerDialog(AccessibleDialog):
                         json.dump(self.filtered_cosmetics, f, indent=2)
                 elif path.endswith(".csv"):
                     with open(path, 'w', encoding='utf-8') as f:
-                        f.write("Name,Type,Rarity,Season,Variants\n")
+                        f.write("Name,Type,Rarity,Season\n")
                         for cosmetic in self.filtered_cosmetics:
                             name = cosmetic.get('name', 'Unknown')
-                            cosmetic_type = COSMETIC_TYPE_MAP.get(cosmetic.get('type', ''), 'Unknown')
+                            cosmetic_type = cosmetic.get('type', '')
+                            type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+                            friendly_type = type_info.get('name', 'Unknown')
                             rarity = cosmetic.get('rarity', 'common')
                             season = f"C{cosmetic.get('introduction_chapter', '?')}S{cosmetic.get('introduction_season', '?')}"
-                            variants = len(cosmetic.get('owned_variants', []))
-                            f.write(f'"{name}",{cosmetic_type},{rarity},{season},{variants}\n')
+                            f.write(f'"{name}",{friendly_type},{rarity},{season}\n')
                 else:
                     with open(path, 'w', encoding='utf-8') as f:
                         for cosmetic in self.filtered_cosmetics:
                             name = cosmetic.get('name', 'Unknown')
-                            cosmetic_type = COSMETIC_TYPE_MAP.get(cosmetic.get('type', ''), 'Unknown')
+                            cosmetic_type = cosmetic.get('type', '')
+                            type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+                            friendly_type = type_info.get('name', 'Unknown')
                             rarity = cosmetic.get('rarity', 'common')
-                            f.write(f"{name} - {cosmetic_type} ({rarity})\n")
+                            f.write(f"{name} - {friendly_type} ({rarity})\n")
 
                 speaker.speak(f"Exported {len(self.filtered_cosmetics)} cosmetics")
                 messageBox(f"Exported {len(self.filtered_cosmetics)} cosmetics to {path}", "Export Successful", wx.OK | wx.ICON_INFORMATION, self)
@@ -563,92 +696,19 @@ class LockerDialog(AccessibleDialog):
         self.EndModal(wx.ID_CLOSE)
 
 
-class CosmeticDetailDialog(AccessibleDialog):
-    """Dialog showing detailed cosmetic information"""
-
-    def __init__(self, parent, cosmetic: dict):
-        super().__init__(parent, title=f"Cosmetic Details: {cosmetic.get('name', 'Unknown')}", helpId="CosmeticDetails")
-        self.cosmetic = cosmetic
-        self.setupDialog()
-        self.SetSize((600, 500))
-        self.CentreOnParent()
-
-    def makeSettings(self, sizer: BoxSizerHelper):
-        """Create the dialog content"""
-
-        # Name
-        name = self.cosmetic.get('name', 'Unknown')
-        if self.cosmetic.get("favorite"):
-            name = "⭐ " + name
-
-        name_label = wx.StaticText(self, label=name)
-        name_font = name_label.GetFont()
-        name_font.PointSize += 3
-        name_font = name_font.Bold()
-        name_label.SetFont(name_font)
-        sizer.addItem(name_label)
-
-        # Details in a text control for easy reading
-        details = []
-
-        details.append(f"ID: {self.cosmetic.get('id', 'Unknown')}")
-
-        cosmetic_type = self.cosmetic.get("type", "Unknown")
-        friendly_type = COSMETIC_TYPE_MAP.get(cosmetic_type, cosmetic_type)
-        details.append(f"Type: {friendly_type}")
-        details.append(f"Backend Type: {cosmetic_type}")
-
-        rarity = self.cosmetic.get('rarity', 'common').title()
-        details.append(f"Rarity: {rarity}")
-
-        chapter = self.cosmetic.get('introduction_chapter', '?')
-        season = self.cosmetic.get('introduction_season', '?')
-        details.append(f"Introduction: Chapter {chapter}, Season {season}")
-
-        if self.cosmetic.get("description"):
-            details.append(f"\nDescription:\n{self.cosmetic['description']}")
-
-        # Variants
-        variants = self.cosmetic.get("owned_variants", [])
-        if variants:
-            details.append(f"\n--- Owned Variants ({len(variants)}) ---")
-            for variant in variants:
-                details.append(f"Channel: {variant.get('channel', 'Unknown')}")
-                details.append(f"  Stage: {variant.get('stage', 'Unknown')}")
-                details.append("")
-
-        details_text = wx.TextCtrl(
-            self,
-            value="\n".join(details),
-            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP
-        )
-
-        sizer.addItem(details_text, flag=wx.EXPAND, proportion=1)
-
-        # Close button
-        close_btn = wx.Button(self, label="&Close")
-        close_btn.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_CLOSE))
-        sizer.addItem(close_btn)
-
-
-def launch_locker_viewer():
-    """Launch the locker viewer GUI with proper isolation from other GUI frameworks"""
-
-    # Store the current foreground window to restore focus later
+def launch_locker_gui():
+    """Launch the unified locker GUI"""
     current_window = ctypes.windll.user32.GetForegroundWindow()
-
     app = None
     app_created = False
 
     try:
-        # Check if wx.App already exists and is usable
+        # Check if wx.App already exists
         existing_app = wx.GetApp()
         if existing_app is None:
-            # Create new app only if none exists
-            app = wx.App(False)  # False = don't redirect stdout/stderr
+            app = wx.App(False)
             app_created = True
         else:
-            # Use existing app
             app = existing_app
             app_created = False
 
@@ -665,7 +725,7 @@ def launch_locker_viewer():
             )
             return None
 
-        # Try to load or fetch cosmetics data
+        # Load cosmetics data
         logger.info("Loading cosmetics data...")
         speaker.speak("Loading cosmetics data")
 
@@ -690,70 +750,47 @@ def launch_locker_viewer():
             else:
                 return None
 
-        logger.info(f"Loaded {len(cosmetics_data)} cosmetics from cache")
+        logger.info(f"Loaded {len(cosmetics_data)} cosmetics")
 
-        # Create main dialog
-        dlg = LockerDialog(None, cosmetics_data)
+        # Create and show dialog
+        dlg = LockerGUI(None, cosmetics_data)
 
         try:
-            # Ensure proper focus and mouse centering
             ensure_window_focus_and_center_mouse(dlg)
-
-            # Announce dialog opening
-            speaker.speak(f"Fortnite Locker Viewer. {len(cosmetics_data)} cosmetics loaded.")
-
-            # Show modal dialog
+            speaker.speak(f"Fortnite Locker. {len(cosmetics_data)} cosmetics loaded.")
             result = dlg.ShowModal()
-
             return result
 
         finally:
-            # Ensure dialog cleanup
             if dlg:
                 dlg.Destroy()
-
-            # Process any remaining events but don't destroy the app
             if app:
                 app.ProcessPendingEvents()
-
-                # Only yield if we have pending events
                 while app.HasPendingEvents():
                     app.Yield()
 
     except Exception as e:
-        logger.error(f"Error launching locker viewer: {e}")
-        speaker.speak("Error opening locker viewer")
-        messageBox(
-            f"Failed to load locker data: {e}",
-            "Error",
-            wx.OK | wx.ICON_ERROR
-        )
+        logger.error(f"Error launching locker: {e}")
+        speaker.speak("Error opening locker")
+        messageBox(f"Failed to launch locker: {e}", "Error", wx.OK | wx.ICON_ERROR)
         return None
 
     finally:
-        # Enhanced cleanup to prevent conflicts with tkinter
         try:
-            # Force garbage collection to clean up dialog objects
             gc.collect()
-
-            # Reset display/window manager state that might interfere with tkinter
             try:
-                # Force release of any remaining window handles
                 ctypes.windll.user32.SetFocus(0)
-
-                # Clear any remaining clipboard ownership that wx might hold
                 if ctypes.windll.user32.OpenClipboard(0):
                     ctypes.windll.user32.EmptyClipboard()
                     ctypes.windll.user32.CloseClipboard()
-
             except Exception:
                 pass
-
-            # Small delay to allow cleanup to complete
             time.sleep(0.05)
-
-            # One more garbage collection
             gc.collect()
-
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
+
+
+# Alias for backward compatibility
+launch_locker_viewer = launch_locker_gui
+launch_locker_selector = launch_locker_gui
