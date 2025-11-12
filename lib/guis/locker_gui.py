@@ -465,15 +465,56 @@ class LockerDialog(AccessibleDialog):
     def on_refresh(self, event):
         """Handle refresh button"""
         result = messageBox(
-            "This will re-authenticate with Epic Games and download fresh cosmetic data. Continue?",
+            "This will download fresh cosmetic data from Fortnite-API.com. Continue?",
             "Refresh Locker Data",
             wx.YES_NO | wx.ICON_QUESTION,
             self
         )
 
         if result == wx.YES:
-            speaker.speak("Refreshing locker data")
-            self.EndModal(wx.ID_REFRESH)
+            try:
+                from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+
+                speaker.speak("Refreshing cosmetics data")
+                logger.info("Fetching fresh cosmetics data...")
+
+                # Fetch fresh data
+                fresh_data = get_or_create_cosmetics_cache(force_refresh=True)
+
+                if fresh_data:
+                    # Update the dialog with fresh data
+                    self.cosmetics_data = fresh_data
+                    self.filtered_cosmetics = fresh_data.copy()
+                    self.stats = self._calculate_stats()
+
+                    # Update the display
+                    self.update_list()
+
+                    speaker.speak(f"Refreshed. {len(fresh_data)} cosmetics loaded.")
+                    messageBox(
+                        f"Successfully refreshed cosmetics data.\nLoaded {len(fresh_data)} items.",
+                        "Refresh Complete",
+                        wx.OK | wx.ICON_INFORMATION,
+                        self
+                    )
+                else:
+                    speaker.speak("Failed to refresh data")
+                    messageBox(
+                        "Failed to fetch fresh cosmetics data. Please check your internet connection.",
+                        "Refresh Failed",
+                        wx.OK | wx.ICON_ERROR,
+                        self
+                    )
+
+            except Exception as e:
+                logger.error(f"Error refreshing data: {e}")
+                speaker.speak("Error refreshing data")
+                messageBox(
+                    f"Error refreshing data: {e}",
+                    "Error",
+                    wx.OK | wx.ICON_ERROR,
+                    self
+                )
 
     def on_export(self, event):
         """Handle export button"""
@@ -596,9 +637,6 @@ def launch_locker_viewer():
     # Store the current foreground window to restore focus later
     current_window = ctypes.windll.user32.GetForegroundWindow()
 
-    # Determine cache file path
-    cache_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "fortnite_locker_cache.json")
-
     app = None
     app_created = False
 
@@ -614,30 +652,43 @@ def launch_locker_viewer():
             app = existing_app
             app_created = False
 
-        # Check for cache file
-        if not os.path.exists(cache_file):
-            logger.warning(f"No cached locker data found at {cache_file}")
-            speaker.speak("No cached locker data found. Please authenticate first.")
+        # Import epic auth module
+        try:
+            from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+        except ImportError:
+            logger.error("Failed to import epic_auth module")
+            speaker.speak("Error loading authentication module")
             messageBox(
-                "No cached locker data found. Please authenticate with Epic Games first to download your locker data.",
-                "No Data",
-                wx.OK | wx.ICON_WARNING
+                "Failed to load authentication module. Please check installation.",
+                "Error",
+                wx.OK | wx.ICON_ERROR
             )
             return None
 
-        # Load cosmetics data
-        with open(cache_file, 'r', encoding='utf-8') as f:
-            cosmetics_data = json.load(f)
+        # Try to load or fetch cosmetics data
+        logger.info("Loading cosmetics data...")
+        speaker.speak("Loading cosmetics data")
+
+        cosmetics_data = get_or_create_cosmetics_cache(force_refresh=False)
 
         if not cosmetics_data:
-            logger.warning("Cached locker data is empty")
-            speaker.speak("Cached locker data is empty")
-            messageBox(
-                "Cached locker data is empty.",
-                "No Data",
-                wx.OK | wx.ICON_WARNING
+            logger.error("Failed to load cosmetics data")
+            speaker.speak("Failed to load cosmetics data")
+            result = messageBox(
+                "Failed to load cosmetics data. This could be due to:\n\n"
+                "1. No internet connection\n"
+                "2. Fortnite-API.com is unavailable\n\n"
+                "Would you like to retry?",
+                "Error Loading Data",
+                wx.YES_NO | wx.ICON_ERROR
             )
-            return None
+
+            if result == wx.YES:
+                cosmetics_data = get_or_create_cosmetics_cache(force_refresh=True)
+                if not cosmetics_data:
+                    return None
+            else:
+                return None
 
         logger.info(f"Loaded {len(cosmetics_data)} cosmetics from cache")
 
