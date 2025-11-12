@@ -127,30 +127,27 @@ FA11y's built-in POI cycling system (accessed via keybinds) remains fully functi
 - Cycle through POI categories
 - Cycle through maps
 
-### New GUI System
+### FortniteManager Rewrite
 
-A new accessible UI framework has been created for tkinter-based applications:
+The FortniteManager has been completely rewritten using FA11y's existing wxPython GUI framework (`lib/guis/gui_utilities.py`):
 
-**`lib/guis/base_ui.py`**
-- `AccessibleUI`: Base class for accessible tkinter applications
-- `AccessibleDialog`: Dialog-style windows
-- Helper functions: `message_box()`, `ask_yes_no()`
-
-The FortniteManager has been completely rewritten to use this new system with:
-- Improved error handling
-- Better logging
-- Enhanced accessibility
-- More robust process management
-- Better user feedback
+**Features:**
+- Uses `AccessibleDialog` base class
+- `BoxSizerHelper` for layout management
+- Grouped sections (Management, Authentication, Launch)
+- Improved error handling with logging
+- Better process management with thread safety
+- Comprehensive keyboard shortcuts
+- Confirmation dialogs for destructive actions
+- Real-time progress monitoring with configurable intervals
 
 ## Files Modified
 
 ### New Files
 - `lib/dev/dev_mode.py` - Developer mode tools
 - `lib/dev/__init__.py` - Dev module init
-- `lib/guis/base_ui.py` - New GUI framework
 - `lib/managers/poi_data_manager.py` - POI data management
-- `FortniteManager.py` - Rewritten Fortnite manager
+- `FortniteManager.py` - Rewritten Fortnite manager (wxPython)
 - `FA11y_dev.py` - Dev mode launcher
 - `FA11y_dev.bat` - Windows launcher
 - `DEV_MODE_README.md` - This file
@@ -160,6 +157,7 @@ The FortniteManager has been completely rewritten to use this new system with:
 - `lib/guis/visited_objects_gui.py` - Updated imports
 - `lib/guis/custom_poi_gui.py` - Updated imports
 - `lib/detection/player_position.py` - Updated imports
+- `.gitignore` - Added Python cache and dev mode exclusions
 
 ### Deleted Files
 - `lib/guis/poi_selector_gui.py` - Replaced by poi_data_manager.py

@@ -34,11 +34,20 @@ if sys.version_info >= (3, 12):
 
     sys.modules['imp'] = MockImp()
 
-from lib.guis.base_ui import AccessibleUI, message_box, ask_yes_no
+import wx
+from accessible_output2.outputs.auto import Auto
+
+from lib.guis.gui_utilities import (
+    AccessibleDialog, BoxSizerHelper, ButtonHelper,
+    messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
+    BORDER_FOR_DIALOGS
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+speaker = Auto()
 
 # Hide console window on Windows
 if sys.platform.startswith('win'):
@@ -48,17 +57,17 @@ if sys.platform.startswith('win'):
         pass
 
 
-class FortniteManager(AccessibleUI):
+class FortniteManagerDialog(AccessibleDialog):
     """
-    Fortnite Manager GUI using the AccessibleUI base class.
+    Fortnite Manager GUI using wxPython AccessibleDialog base class.
 
     Provides an accessible interface for managing Fortnite installation
     and configuration using Legendary launcher.
     """
 
-    def __init__(self):
+    def __init__(self, parent=None):
         """Initialize the Fortnite Manager GUI."""
-        super().__init__(title="Fortnite Manager", width=700, height=500)
+        super().__init__(parent, title="Fortnite Manager", helpId="FortniteManager")
 
         # Process management
         self.current_process: Optional[subprocess.Popen] = None
@@ -76,8 +85,14 @@ class FortniteManager(AccessibleUI):
 
         logger.info("Fortnite Manager initialized")
 
-        # Set up the UI
-        self.setup()
+        # Set up the dialog
+        self.setupDialog()
+
+        # Bind window close event
+        self.Bind(wx.EVT_CLOSE, self.onClose)
+
+        # Bind hotkeys
+        self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
 
     def _find_legendary_executable(self) -> str:
         """
@@ -118,119 +133,127 @@ class FortniteManager(AccessibleUI):
         except FileNotFoundError:
             return False
 
-    def setup(self):
-        """Set up the main UI elements."""
-        # Add main tab
-        self.add_tab("Main")
-
-        # Add information label
-        self.add_label(
-            "Main",
-            "Fortnite Manager - Manage your Fortnite installation",
-            font=("Arial", 14, "bold")
+    def makeSettings(self, settingsSizer: BoxSizerHelper):
+        """Create dialog content."""
+        # Add title/info label
+        titleLabel = wx.StaticText(
+            self,
+            label="Fortnite Manager - Manage your Fortnite installation",
         )
+        font = titleLabel.GetFont()
+        font.PointSize += 2
+        font = font.Bold()
+        titleLabel.SetFont(font)
+        settingsSizer.addItem(titleLabel)
 
-        self.add_label("Main", "")  # Spacer
+        # Add management section
+        mgmtBox = wx.StaticBoxSizer(wx.VERTICAL, self, label="Fortnite Management")
+        mgmtHelper = BoxSizerHelper(self, sizer=mgmtBox)
 
-        # Add management buttons
-        self.add_button(
-            "Main",
-            "Install/Update Fortnite",
-            self.install_or_update_fortnite,
-            "Install or update Fortnite. Press Enter to start."
-        )
+        # Install/Update button
+        self.installBtn = wx.Button(self, label="Install/Update Fortnite")
+        self.installBtn.Bind(wx.EVT_BUTTON, lambda e: self.install_or_update_fortnite())
+        mgmtHelper.addItem(self.installBtn)
 
-        self.add_button(
-            "Main",
-            "Verify Fortnite",
-            self.verify_fortnite,
-            "Verify Fortnite installation. Press Enter to start verification."
-        )
+        # Verify button
+        self.verifyBtn = wx.Button(self, label="Verify Fortnite")
+        self.verifyBtn.Bind(wx.EVT_BUTTON, lambda e: self.verify_fortnite())
+        mgmtHelper.addItem(self.verifyBtn)
 
-        self.add_button(
-            "Main",
-            "Uninstall Fortnite",
-            self.uninstall_fortnite,
-            "Uninstall Fortnite. Press Enter to confirm."
-        )
+        # Uninstall button
+        self.uninstallBtn = wx.Button(self, label="Uninstall Fortnite")
+        self.uninstallBtn.Bind(wx.EVT_BUTTON, lambda e: self.uninstall_fortnite())
+        mgmtHelper.addItem(self.uninstallBtn)
 
-        # Add authentication buttons
-        self.add_button(
-            "Main",
-            "Login to Legendary",
-            self.login,
-            "Login to Legendary. Press Enter to start login process."
-        )
+        settingsSizer.addItem(mgmtBox, flag=wx.EXPAND)
 
-        self.add_button(
-            "Main",
-            "Logout from Legendary",
-            self.logout,
-            "Logout from Legendary. Press Enter to logout."
-        )
+        # Add authentication section
+        authBox = wx.StaticBoxSizer(wx.VERTICAL, self, label="Authentication")
+        authHelper = BoxSizerHelper(self, sizer=authBox)
 
-        # Add launch buttons
-        self.add_button(
-            "Main",
-            "Launch Fortnite (DX11)",
-            self.launch_fortnite_dx11,
-            "Launch Fortnite in DirectX 11 mode. Press Enter to launch."
-        )
+        # Login button
+        self.loginBtn = wx.Button(self, label="Login to Legendary")
+        self.loginBtn.Bind(wx.EVT_BUTTON, lambda e: self.login())
+        authHelper.addItem(self.loginBtn)
 
-        self.add_button(
-            "Main",
-            "Launch Fortnite (Performance Mode)",
-            self.launch_fortnite_performance,
-            "Launch Fortnite in Performance mode. Press Enter to launch."
-        )
+        # Logout button
+        self.logoutBtn = wx.Button(self, label="Logout from Legendary")
+        self.logoutBtn.Bind(wx.EVT_BUTTON, lambda e: self.logout())
+        authHelper.addItem(self.logoutBtn)
 
-        self.add_label("Main", "")  # Spacer
+        settingsSizer.addItem(authBox, flag=wx.EXPAND)
+
+        # Add launch section
+        launchBox = wx.StaticBoxSizer(wx.VERTICAL, self, label="Launch Fortnite")
+        launchHelper = BoxSizerHelper(self, sizer=launchBox)
+
+        # DX11 button
+        self.dx11Btn = wx.Button(self, label="Launch Fortnite (DX11)")
+        self.dx11Btn.Bind(wx.EVT_BUTTON, lambda e: self.launch_fortnite_dx11())
+        launchHelper.addItem(self.dx11Btn)
+
+        # Performance mode button
+        self.perfBtn = wx.Button(self, label="Launch Fortnite (Performance Mode)")
+        self.perfBtn.Bind(wx.EVT_BUTTON, lambda e: self.launch_fortnite_performance())
+        launchHelper.addItem(self.perfBtn)
+
+        settingsSizer.addItem(launchBox, flag=wx.EXPAND)
 
         # Add keybind information
-        self.add_label(
-            "Main",
-            "Keyboard Shortcuts:",
-            font=("Arial", 11, "bold")
-        )
+        keybindBox = wx.StaticBoxSizer(wx.VERTICAL, self, label="Keyboard Shortcuts")
+        keybindHelper = BoxSizerHelper(self, sizer=keybindBox)
 
         keybind_info = [
-            "• Escape - Stop current operation",
-            "• Spacebar - Pause/Resume progress announcements",
-            "• Minus (-) - Decrease progress update interval",
-            "• Plus (=) - Increase progress update interval",
-            "• P - Repeat last progress update",
-            "• H - List all keybinds"
+            "Escape - Stop current operation",
+            "Spacebar - Pause/Resume progress announcements",
+            "Minus (-) - Decrease progress update interval",
+            "Plus (=) - Increase progress update interval",
+            "P - Repeat last progress update",
+            "H - List all keybinds",
         ]
 
         for info in keybind_info:
-            self.add_label("Main", info, font=("Arial", 9))
+            label = wx.StaticText(self, label=info)
+            keybindHelper.addItem(label)
 
-        # Bind hotkeys
-        self.root.bind('<Escape>', lambda e: self.stop_installation())
-        self.root.bind('<space>', lambda e: self.toggle_pause())
-        self.root.bind('-', lambda e: self.decrease_interval())
-        self.root.bind('=', lambda e: self.increase_interval())
-        self.root.bind('+', lambda e: self.increase_interval())
-        self.root.bind('p', lambda e: self.read_last_progress())
-        self.root.bind('P', lambda e: self.read_last_progress())
-        self.root.bind('h', lambda e: self.list_keybinds())
-        self.root.bind('H', lambda e: self.list_keybinds())
+        settingsSizer.addItem(keybindBox, flag=wx.EXPAND)
 
-        # Override the default window close behavior
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+    def onKeyEvent(self, event):
+        """Handle keyboard shortcuts."""
+        key_code = event.GetKeyCode()
 
-    def on_close(self):
+        if key_code == wx.WXK_ESCAPE:
+            self.stop_installation()
+        elif key_code == wx.WXK_SPACE:
+            self.toggle_pause()
+        elif key_code == ord('-'):
+            self.decrease_interval()
+        elif key_code == ord('=') or key_code == ord('+'):
+            self.increase_interval()
+        elif key_code == ord('p') or key_code == ord('P'):
+            self.read_last_progress()
+        elif key_code == ord('h') or key_code == ord('H'):
+            self.list_keybinds()
+        else:
+            event.Skip()
+
+    def onClose(self, event):
         """Handle window close event."""
         # Stop any running process
         if self.current_process and self.current_process.poll() is None:
-            if ask_yes_no(
+            result = messageBox(
+                "An operation is still running. Are you sure you want to close?",
                 "Process Running",
-                "An operation is still running. Are you sure you want to close?"
-            ):
+                wx.YES_NO | wx.ICON_QUESTION,
+                self
+            )
+            if result == wx.YES:
                 self.stop_installation()
-                self.close()
+                self.Destroy()
+            else:
+                event.Veto()
         else:
-            self.close()
+            self.Destroy()
 
     def run_command(self, command: list) -> subprocess.Popen:
         """
@@ -280,16 +303,16 @@ class FortniteManager(AccessibleUI):
             return is_logged_in
         except subprocess.TimeoutExpired:
             logger.error("Timeout checking login status")
-            message_box("Error", "Timeout checking login status", "error")
+            wx.CallAfter(messageBox, "Timeout checking login status", "Error", wx.OK | wx.ICON_ERROR, self)
             return False
         except Exception as e:
             logger.error(f"Error checking login status: {e}")
-            self.speak(f"Error checking login status: {str(e)}")
+            speaker.speak(f"Error checking login status: {str(e)}")
             return False
 
     def login(self):
         """Start login process to Legendary."""
-        self.speak("Opening login process. Please follow the instructions in the console window.")
+        speaker.speak("Opening login process. Please follow the instructions in the console window.")
         logger.info("Starting login process")
 
         try:
@@ -298,41 +321,48 @@ class FortniteManager(AccessibleUI):
 
             # Check if login was successful
             if self.check_login_status():
-                self.speak("Logged in successfully.")
-                message_box("Success", "You have been logged in successfully.", "info")
+                speaker.speak("Logged in successfully.")
+                wx.CallAfter(messageBox, "You have been logged in successfully.", "Success", wx.OK | wx.ICON_INFORMATION, self)
             else:
-                self.speak("Login failed. Please try again.")
-                message_box("Login Failed", "Login was not successful. Please try again.", "warning")
+                speaker.speak("Login failed. Please try again.")
+                wx.CallAfter(messageBox, "Login was not successful. Please try again.", "Login Failed", wx.OK | wx.ICON_WARNING, self)
         except Exception as e:
             logger.error(f"Error during login: {e}")
-            self.speak(f"Error during login: {str(e)}")
-            message_box("Error", f"An error occurred during login: {str(e)}", "error")
+            speaker.speak(f"Error during login: {str(e)}")
+            wx.CallAfter(messageBox, f"An error occurred during login: {str(e)}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def logout(self):
         """Logout from Legendary."""
         if not self.check_login_status():
-            self.speak("You are not currently logged in.")
-            message_box("Info", "You are not currently logged in.", "info")
+            speaker.speak("You are not currently logged in.")
+            wx.CallAfter(messageBox, "You are not currently logged in.", "Info", wx.OK | wx.ICON_INFORMATION, self)
             return
 
-        if not ask_yes_no("Confirm Logout", "Are you sure you want to logout?"):
+        result = messageBox(
+            "Are you sure you want to logout?",
+            "Confirm Logout",
+            wx.YES_NO | wx.ICON_QUESTION,
+            self
+        )
+
+        if result != wx.YES:
             return
 
-        self.speak("Logging out...")
+        speaker.speak("Logging out...")
         logger.info("Logging out")
 
         try:
             subprocess.run([self.legendary_exe, "auth", "logout"], check=True, timeout=10)
-            self.speak("Logged out successfully.")
-            message_box("Success", "You have been logged out successfully.", "info")
+            speaker.speak("Logged out successfully.")
+            wx.CallAfter(messageBox, "You have been logged out successfully.", "Success", wx.OK | wx.ICON_INFORMATION, self)
             logger.info("Logout successful")
         except subprocess.TimeoutExpired:
             logger.error("Timeout during logout")
-            message_box("Error", "Logout operation timed out.", "error")
+            wx.CallAfter(messageBox, "Logout operation timed out.", "Error", wx.OK | wx.ICON_ERROR, self)
         except Exception as e:
             logger.error(f"Error during logout: {e}")
-            self.speak(f"Error during logout: {str(e)}")
-            message_box("Error", f"An error occurred during logout: {str(e)}", "error")
+            speaker.speak(f"Error during logout: {str(e)}")
+            wx.CallAfter(messageBox, f"An error occurred during logout: {str(e)}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def check_fortnite_installed(self) -> bool:
         """
@@ -361,14 +391,20 @@ class FortniteManager(AccessibleUI):
     def install_or_update_fortnite(self):
         """Install or update Fortnite based on current installation status."""
         if self.current_process is not None and self.current_process.poll() is None:
-            self.speak("An operation is already in progress. Please wait or press Escape to cancel.")
-            message_box("Info", "An operation is already in progress.", "info")
+            speaker.speak("An operation is already in progress. Please wait or press Escape to cancel.")
+            wx.CallAfter(messageBox, "An operation is already in progress.", "Info", wx.OK | wx.ICON_INFORMATION, self)
             return
 
         # Check login status first
         if not self.check_login_status():
-            self.speak("You must be logged in to install or update Fortnite.")
-            if ask_yes_no("Login Required", "You must be logged in first. Would you like to login now?"):
+            speaker.speak("You must be logged in to install or update Fortnite.")
+            result = messageBox(
+                "You must be logged in first. Would you like to login now?",
+                "Login Required",
+                wx.YES_NO | wx.ICON_QUESTION,
+                self
+            )
+            if result == wx.YES:
                 self.login()
             return
 
@@ -376,32 +412,32 @@ class FortniteManager(AccessibleUI):
         is_installed = self.check_fortnite_installed()
 
         if is_installed:
-            self.speak("Fortnite is already installed. Starting update check...")
+            speaker.speak("Fortnite is already installed. Starting update check...")
             logger.info("Starting Fortnite update")
             process = self.run_command([self.legendary_exe, "update", "fortnite", "--yes", "-y"])
         else:
-            self.speak("Starting Fortnite installation. This may take a while...")
+            speaker.speak("Starting Fortnite installation. This may take a while...")
             logger.info("Starting Fortnite installation")
             process = self.run_command([self.legendary_exe, "install", "fortnite", "--yes", "--skip-sdl", "-y"])
 
         # Start monitoring in background thread
         threading.Thread(target=self.monitor_output, args=(process,), daemon=True).start()
 
-        self.speak("Operation started. Press Escape to cancel at any time, or H to hear all keybinds.")
+        speaker.speak("Operation started. Press Escape to cancel at any time, or H to hear all keybinds.")
 
     def verify_fortnite(self):
         """Verify Fortnite installation."""
         if not self.check_fortnite_installed():
-            self.speak("Fortnite is not installed.")
-            message_box("Error", "Fortnite is not installed. Please install it first.", "error")
+            speaker.speak("Fortnite is not installed.")
+            wx.CallAfter(messageBox, "Fortnite is not installed. Please install it first.", "Error", wx.OK | wx.ICON_ERROR, self)
             return
 
         if self.current_process is not None and self.current_process.poll() is None:
-            self.speak("An operation is already in progress.")
-            message_box("Info", "An operation is already in progress.", "info")
+            speaker.speak("An operation is already in progress.")
+            wx.CallAfter(messageBox, "An operation is already in progress.", "Info", wx.OK | wx.ICON_INFORMATION, self)
             return
 
-        self.speak("Starting Fortnite verification. This may take a while...")
+        speaker.speak("Starting Fortnite verification. This may take a while...")
         logger.info("Starting Fortnite verification")
 
         process = self.run_command([self.legendary_exe, "verify", "fortnite"])
@@ -410,23 +446,27 @@ class FortniteManager(AccessibleUI):
     def uninstall_fortnite(self):
         """Uninstall Fortnite with confirmation."""
         if not self.check_fortnite_installed():
-            self.speak("Fortnite is not installed.")
-            message_box("Info", "Fortnite is not currently installed.", "info")
+            speaker.speak("Fortnite is not installed.")
+            wx.CallAfter(messageBox, "Fortnite is not currently installed.", "Info", wx.OK | wx.ICON_INFORMATION, self)
             return
 
-        if not ask_yes_no(
+        result = messageBox(
+            "Are you sure you want to uninstall Fortnite? This cannot be undone.",
             "Confirm Uninstall",
-            "Are you sure you want to uninstall Fortnite? This cannot be undone."
-        ):
-            self.speak("Uninstall cancelled.")
+            wx.YES_NO | wx.ICON_QUESTION,
+            self
+        )
+
+        if result != wx.YES:
+            speaker.speak("Uninstall cancelled.")
             return
 
         if self.current_process is not None and self.current_process.poll() is None:
-            self.speak("An operation is already in progress.")
-            message_box("Info", "An operation is already in progress.", "info")
+            speaker.speak("An operation is already in progress.")
+            wx.CallAfter(messageBox, "An operation is already in progress.", "Info", wx.OK | wx.ICON_INFORMATION, self)
             return
 
-        self.speak("Uninstalling Fortnite...")
+        speaker.speak("Uninstalling Fortnite...")
         logger.info("Starting Fortnite uninstall")
 
         process = self.run_command([self.legendary_exe, "uninstall", "fortnite", "--yes"])
@@ -435,11 +475,11 @@ class FortniteManager(AccessibleUI):
     def launch_fortnite_dx11(self):
         """Launch Fortnite in DirectX 11 mode."""
         if not self.check_fortnite_installed():
-            self.speak("Fortnite is not installed.")
-            message_box("Error", "Fortnite is not installed. Please install it first.", "error")
+            speaker.speak("Fortnite is not installed.")
+            wx.CallAfter(messageBox, "Fortnite is not installed. Please install it first.", "Error", wx.OK | wx.ICON_ERROR, self)
             return
 
-        self.speak("Launching Fortnite in DirectX 11 mode...")
+        speaker.speak("Launching Fortnite in DirectX 11 mode...")
         logger.info("Launching Fortnite in DX11 mode")
 
         try:
@@ -447,21 +487,21 @@ class FortniteManager(AccessibleUI):
                 [self.legendary_exe, "launch", "fortnite", "--dx11"],
                 startupinfo=subprocess.STARTUPINFO()
             )
-            self.speak("Fortnite is launching.")
-            message_box("Success", "Fortnite is launching in DirectX 11 mode.", "info")
+            speaker.speak("Fortnite is launching.")
+            wx.CallAfter(messageBox, "Fortnite is launching in DirectX 11 mode.", "Success", wx.OK | wx.ICON_INFORMATION, self)
         except Exception as e:
             logger.error(f"Error launching Fortnite: {e}")
-            self.speak(f"Error launching Fortnite: {str(e)}")
-            message_box("Error", f"Failed to launch Fortnite: {str(e)}", "error")
+            speaker.speak(f"Error launching Fortnite: {str(e)}")
+            wx.CallAfter(messageBox, f"Failed to launch Fortnite: {str(e)}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def launch_fortnite_performance(self):
         """Launch Fortnite in Performance mode."""
         if not self.check_fortnite_installed():
-            self.speak("Fortnite is not installed.")
-            message_box("Error", "Fortnite is not installed. Please install it first.", "error")
+            speaker.speak("Fortnite is not installed.")
+            wx.CallAfter(messageBox, "Fortnite is not installed. Please install it first.", "Error", wx.OK | wx.ICON_ERROR, self)
             return
 
-        self.speak("Launching Fortnite in Performance mode...")
+        speaker.speak("Launching Fortnite in Performance mode...")
         logger.info("Launching Fortnite in Performance mode")
 
         try:
@@ -469,12 +509,12 @@ class FortniteManager(AccessibleUI):
                 [self.legendary_exe, "launch", "Fortnite", "-FeatureLevelES31"],
                 startupinfo=subprocess.STARTUPINFO()
             )
-            self.speak("Fortnite is launching.")
-            message_box("Success", "Fortnite is launching in Performance mode.", "info")
+            speaker.speak("Fortnite is launching.")
+            wx.CallAfter(messageBox, "Fortnite is launching in Performance mode.", "Success", wx.OK | wx.ICON_INFORMATION, self)
         except Exception as e:
             logger.error(f"Error launching Fortnite: {e}")
-            self.speak(f"Error launching Fortnite: {str(e)}")
-            message_box("Error", f"Failed to launch Fortnite: {str(e)}", "error")
+            speaker.speak(f"Error launching Fortnite: {str(e)}")
+            wx.CallAfter(messageBox, f"Failed to launch Fortnite: {str(e)}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def parse_progress(self, line: str) -> Optional[Tuple[float, str, str]]:
         """
@@ -546,7 +586,7 @@ class FortniteManager(AccessibleUI):
         elapsed_speech = self.format_time_for_speech(elapsed)
         eta_speech = self.format_time_for_speech(eta)
 
-        self.speak(
+        speaker.speak(
             f"Progress: {progress:.1f} percent. "
             f"Time Elapsed: {elapsed_speech}. "
             f"Time Remaining: {eta_speech}."
@@ -596,7 +636,7 @@ class FortniteManager(AccessibleUI):
                    "Fortnite update completed" in line or \
                    "Verification complete" in line or \
                    "Uninstall complete" in line:
-                    self.speak("Operation completed successfully.")
+                    speaker.speak("Operation completed successfully.")
                     logger.info("Operation completed successfully")
                     break
 
@@ -606,16 +646,18 @@ class FortniteManager(AccessibleUI):
 
             if return_code != 0 and not self.installation_stopped:
                 logger.warning(f"Process ended with return code {return_code}")
-                self.speak("The process ended with errors. Please check the logs for details.")
-                message_box(
-                    "Operation Complete",
+                speaker.speak("The process ended with errors. Please check the logs for details.")
+                wx.CallAfter(
+                    messageBox,
                     "The operation completed but may have encountered errors. Check the logs for details.",
-                    "warning"
+                    "Operation Complete",
+                    wx.OK | wx.ICON_WARNING,
+                    self
                 )
 
         except Exception as e:
             logger.error(f"Error monitoring output: {e}")
-            self.speak(f"Error monitoring process: {str(e)}")
+            speaker.speak(f"Error monitoring process: {str(e)}")
 
         finally:
             with self.process_lock:
@@ -625,21 +667,21 @@ class FortniteManager(AccessibleUI):
     def toggle_pause(self):
         """Toggle pause state of progress announcements."""
         if self.current_process is None or self.current_process.poll() is not None:
-            self.speak("No process is currently running to pause.")
+            speaker.speak("No process is currently running to pause.")
             return
 
         self.is_paused = not self.is_paused
-        self.speak("Progress announcements paused." if self.is_paused else "Progress announcements resumed.")
+        speaker.speak("Progress announcements paused." if self.is_paused else "Progress announcements resumed.")
         logger.info(f"Progress announcements {'paused' if self.is_paused else 'resumed'}")
 
     def stop_installation(self):
         """Stop the current process."""
         with self.process_lock:
             if self.current_process is None or self.current_process.poll() is not None:
-                self.speak("No process is currently running to stop.")
+                speaker.speak("No process is currently running to stop.")
                 return
 
-            self.speak("Stopping the current process...")
+            speaker.speak("Stopping the current process...")
             logger.info("Stopping current process")
             self.installation_stopped = True
 
@@ -653,41 +695,41 @@ class FortniteManager(AccessibleUI):
                 logger.error(f"Error stopping process: {e}")
 
             self.current_process = None
-            self.speak("Process stopped successfully.")
+            speaker.speak("Process stopped successfully.")
 
     def decrease_interval(self):
         """Decrease progress update interval."""
         if self.progress_interval > 1:
             self.progress_interval -= 1
-            self.speak(f"Progress update interval set to {self.progress_interval} seconds")
+            speaker.speak(f"Progress update interval set to {self.progress_interval} seconds")
             logger.info(f"Progress interval decreased to {self.progress_interval}")
         else:
-            self.speak("Already at minimum update interval of 1 second")
+            speaker.speak("Already at minimum update interval of 1 second")
 
     def increase_interval(self):
         """Increase progress update interval."""
         if self.progress_interval < 30:
             self.progress_interval += 1
-            self.speak(f"Progress update interval set to {self.progress_interval} seconds")
+            speaker.speak(f"Progress update interval set to {self.progress_interval} seconds")
             logger.info(f"Progress interval increased to {self.progress_interval}")
         else:
-            self.speak("Already at maximum update interval of 30 seconds")
+            speaker.speak("Already at maximum update interval of 30 seconds")
 
     def read_last_progress(self):
         """Read the last progress update."""
         if self.last_progress_state:
-            self.speak("Reading last progress update:")
+            speaker.speak("Reading last progress update:")
             self.update_progress_state((
                 self.last_progress_state['progress'],
                 self.last_progress_state['elapsed'],
                 self.last_progress_state['eta']
             ))
         else:
-            self.speak("No progress update available yet")
+            speaker.speak("No progress update available yet")
 
     def list_keybinds(self):
         """Announce available keybinds."""
-        self.speak(
+        speaker.speak(
             "Available keyboard shortcuts: "
             "Press Escape to stop the current operation. "
             "Press Spacebar to pause or resume progress announcements. "
@@ -697,22 +739,22 @@ class FortniteManager(AccessibleUI):
             "Press H to hear this list again."
         )
 
-    def run(self):
-        """Run the application."""
-        # Check login status on startup
-        if not self.check_login_status():
-            self.speak("You are not logged in to Legendary. Please login before installing or updating Fortnite.")
-            logger.info("User not logged in on startup")
-
-        # Start the main loop
-        super().run()
-
 
 def main():
     """Main function to start the application."""
     try:
-        app = FortniteManager()
-        app.run()
+        app = wx.App()
+        dialog = FortniteManagerDialog()
+
+        # Check login status on startup
+        if not dialog.check_login_status():
+            speaker.speak("You are not logged in to Legendary. Please login before installing or updating Fortnite.")
+            logger.info("User not logged in on startup")
+
+        dialog.ShowModal()
+        dialog.Destroy()
+        app.MainLoop()
+
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         print(f"Error starting Fortnite Manager: {e}")
