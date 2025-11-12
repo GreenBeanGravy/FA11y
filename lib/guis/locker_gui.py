@@ -7,7 +7,7 @@ import sys
 import time
 import logging
 import gc
-from typing import Optional
+from typing import Optional, Tuple, Dict, List
 
 import wx
 import pyautogui
@@ -46,33 +46,120 @@ class DisplayableError(Exception):
 class LockerGUI(AccessibleDialog):
     """Locker selector GUI for equipping cosmetic items"""
 
-    # Coordinates for each locker slot
-    LOCKER_SLOTS = {
-        'Outfit': (260, 400),
-        'Backbling': (420, 400),
-        'Pickaxe': (570, 400),
-        'Glider': (720, 400),
-        'Kicks': (260, 560),
-        'Contrail': (420, 560)
+    # Slot coordinates (reused across categories)
+    SLOT_COORDS = {
+        1: (260, 400),
+        2: (420, 400),
+        3: (570, 400),
+        4: (720, 400),
+        5: (260, 560),
+        6: (420, 560),
+        7: (560, 550),
+        8: (720, 550)
+    }
+
+    # Category positions
+    CATEGORY_COORDS = {
+        'Character': (110, 280),
+        'Emotes': (110, 335),
+        'Sidekicks': (110, 390),
+        'Wraps': (110, 445),
+        'Lobby': (110, 500),
+        'Cars': (110, 555),
+        'Instruments': (110, 610),
+        'Music': (110, 665)
+    }
+
+    # Sub-category positions (clicked after main category)
+    SUBCATEGORY_COORDS = {
+        'SUV/Truck': (120, 670),  # Under Cars
+        'Game Moments': (110, 790)  # Under Music
+    }
+
+    # Category structure: {category: [(slot_name, slot_number), ...]}
+    CATEGORY_ITEMS = {
+        'Character': [
+            ('Outfit', 1),
+            ('Backbling', 2),
+            ('Pickaxe', 3),
+            ('Glider', 4),
+            ('Kicks', 5),
+            ('Contrail', 6)
+        ],
+        'Emotes': [
+            ('Emote 1', 1),
+            ('Emote 2', 2),
+            ('Emote 3', 3),
+            ('Emote 4', 4),
+            ('Emote 5', 5),
+            ('Emote 6', 6)
+        ],
+        'Sidekicks': [
+            ('Pet', 1)
+        ],
+        'Wraps': [
+            ('Rifles', 1),
+            ('Shotguns', 2),
+            ('Submachine Guns', 3),
+            ('Snipers', 4),
+            ('Pistols', 5),
+            ('Utility', 6),
+            ('Vehicles', 7)
+        ],
+        'Lobby': [
+            ('Homebase Icon', 1),
+            ('Lobby Music', 2),
+            ('Loading Screen', 3)
+        ],
+        'Cars': [
+            ('Car Body', 1),
+            ('Car Decal', 2),
+            ('Car Tires', 3),
+            ('Car Trail', 4),
+            ('Car Boost', 5)
+        ],
+        'Instruments': [
+            ('Bass', 1),
+            ('Guitar', 2),
+            ('Drums', 3),
+            ('Keytar', 4),
+            ('Microphone', 5)
+        ],
+        'Music': [
+            ('Jam Track 1', 1),
+            ('Jam Track 2', 2),
+            ('Jam Track 3', 3),
+            ('Jam Track 4', 4),
+            ('Jam Track 5', 5),
+            ('Jam Track 6', 6),
+            ('Jam Track 7', 7),
+            ('Jam Track 8', 8)
+        ],
+        'SUV/Truck': [  # Sub-category under Cars
+            ('SUV Body', 1),
+            ('SUV Decal', 2),
+            ('SUV Tires', 3),
+            ('SUV Trail', 4),
+            ('SUV Boost', 5)
+        ],
+        'Game Moments': [  # Sub-category under Music
+            ('Intro Music', 1),
+            ('Celebration Music', 2)
+        ]
     }
 
     def __init__(self, parent=None):
         super().__init__(parent, title="Locker Selector", helpId="LockerSelector")
-
-        # Button tracking for navigation
-        self.current_buttons = []
-        self.current_button_index = 0
-
-        # Setup dialog
+        self.notebook = None
         self.setupDialog()
 
     def makeSettings(self, settingsSizer: BoxSizerHelper):
-        """Create dialog content"""
+        """Create dialog content with tabbed interface"""
 
         # Add title label
         titleLabel = wx.StaticText(
             self,
-            label="Select a cosmetic slot to equip an item",
+            label="Select a category and cosmetic slot to equip an item",
         )
         font = titleLabel.GetFont()
         font.PointSize += 1
@@ -80,72 +167,60 @@ class LockerGUI(AccessibleDialog):
         titleLabel.SetFont(font)
         settingsSizer.addItem(titleLabel)
 
-        # Add buttons for each locker slot
-        for slot_name in self.LOCKER_SLOTS.keys():
-            button = wx.Button(self, label=slot_name)
-            button.Bind(wx.EVT_BUTTON, lambda evt, slot=slot_name: self.onSelectSlot(evt, slot))
-            button.Bind(wx.EVT_CHAR_HOOK, self.onButtonCharHook)
-            settingsSizer.addItem(button)
-            self.current_buttons.append(button)
+        # Create notebook (tabbed interface)
+        self.notebook = wx.Notebook(self)
+
+        # Add main category tabs
+        for category in ['Character', 'Emotes', 'Sidekicks', 'Wraps', 'Lobby', 'Cars', 'Instruments', 'Music']:
+            panel = self.create_category_panel(category, self.notebook)
+            self.notebook.AddPage(panel, category)
+
+        # Add sub-category tabs
+        suv_panel = self.create_category_panel('SUV/Truck', self.notebook, parent_category='Cars')
+        self.notebook.AddPage(suv_panel, 'SUV/Truck')
+
+        game_moments_panel = self.create_category_panel('Game Moments', self.notebook, parent_category='Music')
+        self.notebook.AddPage(game_moments_panel, 'Game Moments')
+
+        settingsSizer.addItem(self.notebook, proportion=1, flag=wx.EXPAND)
 
         # Bind key events
         self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
 
-    def onButtonCharHook(self, event):
-        """Handle char events for buttons to implement custom navigation"""
-        key_code = event.GetKeyCode()
+    def create_category_panel(self, category: str, parent, parent_category: str = None) -> wx.Panel:
+        """Create a panel for a category with its items"""
+        panel = wx.Panel(parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # TAB for navigation between areas
-        if key_code == wx.WXK_TAB:
-            event.Skip()
-            return
+        items = self.CATEGORY_ITEMS.get(category, [])
 
-        # Arrow keys for button navigation
-        elif key_code == wx.WXK_UP:
-            self.navigate_buttons(-1)
-        elif key_code == wx.WXK_DOWN:
-            self.navigate_buttons(1)
+        for item_name, slot_number in items:
+            button = wx.Button(panel, label=item_name)
+            button.Bind(wx.EVT_BUTTON, lambda evt, cat=category, name=item_name, slot=slot_number, parent_cat=parent_category:
+                        self.onSelectSlot(evt, cat, name, slot, parent_cat))
+            sizer.Add(button, 0, wx.ALL | wx.EXPAND, 5)
 
-        # Enter to activate button
-        elif key_code in [wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER]:
-            focused = self.FindFocus()
-            if isinstance(focused, wx.Button):
-                event = wx.CommandEvent(wx.wxEVT_BUTTON)
-                event.SetEventObject(focused)
-                focused.GetEventHandler().ProcessEvent(event)
+        panel.SetSizer(sizer)
+        return panel
 
-        else:
-            event.Skip()
-
-    def navigate_buttons(self, direction: int):
-        """Navigate through buttons with arrow keys"""
-        focused = self.FindFocus()
-
-        if isinstance(focused, wx.Button) and focused in self.current_buttons:
-            current_index = self.current_buttons.index(focused)
-            new_index = (current_index + direction) % len(self.current_buttons)
-            self.current_buttons[new_index].SetFocus()
-        elif self.current_buttons:
-            self.current_buttons[0].SetFocus()
-
-    def onSelectSlot(self, evt, slot_name: str):
+    def onSelectSlot(self, evt, category: str, item_name: str, slot_number: int, parent_category: str = None):
         """Handle locker slot button click"""
         try:
-            dlg = SearchDialog(self, slot_name)
+            dlg = SearchDialog(self, item_name)
 
             # Ensure search dialog gets proper focus and mouse centering
             wx.CallAfter(lambda: ensure_window_focus_and_center_mouse(dlg))
 
             if dlg.ShowModal() == wx.ID_OK:
-                item_name = dlg.getSearchText()
-                if item_name.strip():
+                item_to_equip = dlg.getSearchText()
+                if item_to_equip.strip():
                     dlg.Destroy()
                     self.EndModal(wx.ID_OK)
 
                     # Perform locker item equip
-                    success = self.equip_item(slot_name, item_name)
+                    success = self.equip_item(category, item_name, slot_number, item_to_equip, parent_category)
                     if success:
-                        speaker.speak(f"{item_name} equipped!")
+                        speaker.speak(f"{item_to_equip} equipped to {item_name}!")
                     else:
                         speaker.speak("Failed to equip item. Please try again.")
                 else:
@@ -170,22 +245,46 @@ class LockerGUI(AccessibleDialog):
         # Allow normal navigation
         event.Skip()
 
-    def equip_item(self, slot_name: str, item_name: str) -> bool:
+    def equip_item(self, category: str, item_name: str, slot_number: int, item_to_equip: str, parent_category: str = None) -> bool:
         """Equip a cosmetic item by automating UI interactions"""
         try:
-            # Get coordinates for the selected slot
-            slot_coords = self.LOCKER_SLOTS.get(slot_name)
+            # Get slot coordinates
+            slot_coords = self.SLOT_COORDS.get(slot_number)
             if not slot_coords:
-                logger.error(f"Unknown slot: {slot_name}")
+                logger.error(f"Unknown slot number: {slot_number}")
                 return False
 
-            # Click initial position
+            # Click initial locker button position
             pyautogui.moveTo(420, 69, duration=0.05)
             pyautogui.click()
             time.sleep(0.3)
 
-            # Click the specific slot
+            # Handle sub-categories (need to click parent category first)
+            if parent_category:
+                # Click parent category
+                parent_coords = self.CATEGORY_COORDS.get(parent_category)
+                if parent_coords:
+                    pyautogui.moveTo(parent_coords[0], parent_coords[1], duration=0.05)
+                    pyautogui.click()
+                    time.sleep(0.5)
+
+                # Click sub-category
+                sub_coords = self.SUBCATEGORY_COORDS.get(category)
+                if sub_coords:
+                    pyautogui.moveTo(sub_coords[0], sub_coords[1], duration=0.05)
+                    pyautogui.click()
+                    time.sleep(0.3)
+            else:
+                # Click main category
+                category_coords = self.CATEGORY_COORDS.get(category)
+                if category_coords:
+                    pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
+                    pyautogui.click()
+                    time.sleep(0.3)
+
+            # Move to slot position and wait 1 second before clicking
             pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
+            time.sleep(1.0)
             pyautogui.click()
             time.sleep(1.0)
 
@@ -195,7 +294,7 @@ class LockerGUI(AccessibleDialog):
             time.sleep(0.5)
 
             # Type the item name
-            pyautogui.typewrite(item_name)
+            pyautogui.typewrite(item_to_equip)
             pyautogui.press('enter')
             time.sleep(0.1)
 
@@ -235,7 +334,7 @@ class SearchDialog(AccessibleDialog):
         # Instruction label
         instructionLabel = wx.StaticText(
             self,
-            label=f"Enter the name of the {self.slot_name.lower()} to equip:",
+            label=f"Enter the name of the item to equip to {self.slot_name}:",
         )
         settingsSizer.addItem(instructionLabel)
 
