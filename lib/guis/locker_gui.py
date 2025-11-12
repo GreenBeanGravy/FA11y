@@ -789,7 +789,7 @@ class LockerGUI(AccessibleDialog):
                     owned_cosmetics = [c for c in self.cosmetics_data if c.get('id', '') in owned_ids]
 
                     self.filtered_cosmetics = owned_cosmetics.copy()
-                    self.apply_filters()
+                    self.update_list()
 
                     speaker.speak(f"Showing {len(owned_cosmetics)} owned cosmetics")
                     logger.info(f"Filtered to {len(owned_cosmetics)} owned cosmetics")
@@ -808,7 +808,7 @@ class LockerGUI(AccessibleDialog):
 
                 # Reset to show all cosmetics
                 self.filtered_cosmetics = self.cosmetics_data.copy()
-                self.apply_filters()
+                self.update_list()
 
                 speaker.speak(f"Showing all {len(self.cosmetics_data)} cosmetics")
 
