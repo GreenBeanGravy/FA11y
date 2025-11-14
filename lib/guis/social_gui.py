@@ -54,16 +54,7 @@ class SocialDialog(AccessibleDialog):
         panel = wx.Panel(self.notebook)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Filter buttons
-        filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.all_friends_btn = wx.RadioButton(panel, label="All Friends", style=wx.RB_GROUP)
-        self.online_friends_btn = wx.RadioButton(panel, label="Online Only")
-        self.all_friends_btn.SetValue(True)
-        filter_sizer.Add(self.all_friends_btn, 0, wx.ALL, 5)
-        filter_sizer.Add(self.online_friends_btn, 0, wx.ALL, 5)
-        sizer.Add(filter_sizer, 0, wx.ALL, 5)
-
-        # Friends list
+        # Friends list (no online filter - presence API not available)
         self.friends_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         sizer.Add(self.friends_list, 1, wx.EXPAND | wx.ALL, 5)
 
@@ -78,8 +69,6 @@ class SocialDialog(AccessibleDialog):
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
 
         # Bind events
-        self.all_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
-        self.online_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
         self.invite_btn.Bind(wx.EVT_BUTTON, self.on_invite_to_party)
         self.request_join_btn.Bind(wx.EVT_BUTTON, self.on_request_to_join)
         self.remove_friend_btn.Bind(wx.EVT_BUTTON, self.on_remove_friend)
@@ -163,24 +152,18 @@ class SocialDialog(AccessibleDialog):
         self.friends_list.Clear()
 
         with self.social_manager.lock:
-            if self.online_friends_btn.GetValue():
-                friends = list(self.social_manager.online_friends)
-            else:
-                friends = list(self.social_manager.all_friends)
+            friends = list(self.social_manager.all_friends)
 
-        # Pre-fetch all display names in one go (cached, fast)
+        # Use cached display names (no status - presence API not available)
         for friend in friends:
             name = friend.display_name or friend.account_id or "Unknown"
-            status = friend.status if friend.status != "offline" else ""
-            label = f"{name} ({status})" if status else name
-            self.friends_list.Append(label, friend)
+            self.friends_list.Append(name, friend)
 
         if friends:
             self.friends_list.SetSelection(0)
             speaker.speak(f"{len(friends)} friends")
         else:
-            filter_type = "online friends" if self.online_friends_btn.GetValue() else "friends"
-            speaker.speak(f"No {filter_type}")
+            speaker.speak("No friends")
 
     def refresh_requests_list(self, event=None):
         """Refresh requests list"""

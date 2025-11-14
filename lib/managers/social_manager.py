@@ -47,9 +47,8 @@ class SocialManager:
         self.current_view = self.VIEW_ALL_FRIENDS
         self.current_index = 0
 
-        # Data storage
+        # Data storage (note: online status not available with current auth)
         self.all_friends: List[Friend] = []
-        self.online_friends: List[Friend] = []
         self.incoming_requests: List[FriendRequest] = []
         self.outgoing_requests: List[FriendRequest] = []
         self.party_members: List[PartyMember] = []
@@ -192,7 +191,6 @@ class SocialManager:
             with self.lock:
                 if friends is not None:
                     self.all_friends = friends
-                    self.online_friends = [f for f in friends if f.status in ["online", "away"]]
 
                 if requests is not None:
                     # Split into incoming and outgoing
@@ -371,8 +369,8 @@ class SocialManager:
         try:
             cache_data = {
                 "all_friends": [f.to_dict() for f in self.all_friends],
-                "online_friends": [f.to_dict() for f in self.online_friends],
-                "pending_requests": [r.to_dict() for r in self.pending_requests],
+                "incoming_requests": [r.to_dict() for r in self.incoming_requests],
+                "outgoing_requests": [r.to_dict() for r in self.outgoing_requests],
                 "party_members": [m.to_dict() for m in self.party_members],
                 "party_invites": [i.to_dict() for i in self.party_invites],
                 "last_updated": datetime.now().isoformat()
@@ -394,8 +392,14 @@ class SocialManager:
                 cache_data = json.load(f)
 
             self.all_friends = [Friend.from_dict(f) for f in cache_data.get("all_friends", [])]
-            self.online_friends = [Friend.from_dict(f) for f in cache_data.get("online_friends", [])]
-            self.pending_requests = [FriendRequest.from_dict(r) for r in cache_data.get("pending_requests", [])]
+            # Load both old "pending_requests" and new split format for backwards compatibility
+            self.incoming_requests = [FriendRequest.from_dict(r) for r in cache_data.get("incoming_requests", [])]
+            self.outgoing_requests = [FriendRequest.from_dict(r) for r in cache_data.get("outgoing_requests", [])]
+            # Fallback to old format if new format not available
+            if not self.incoming_requests and not self.outgoing_requests:
+                pending = [FriendRequest.from_dict(r) for r in cache_data.get("pending_requests", [])]
+                self.incoming_requests = [r for r in pending if r.direction == "inbound"]
+                self.outgoing_requests = [r for r in pending if r.direction == "outbound"]
             self.party_members = [PartyMember.from_dict(m) for m in cache_data.get("party_members", [])]
             self.party_invites = [PartyInvite.from_dict(i) for i in cache_data.get("party_invites", [])]
 
@@ -468,8 +472,6 @@ class SocialManager:
             # Copy list reference (instant, no blocking)
             if self.current_view == self.VIEW_ALL_FRIENDS:
                 return list(self.all_friends)
-            elif self.current_view == self.VIEW_ONLINE_FRIENDS:
-                return list(self.online_friends)
             elif self.current_view == self.VIEW_INCOMING_REQUESTS:
                 return list(self.incoming_requests)
             elif self.current_view == self.VIEW_OUTGOING_REQUESTS:
@@ -502,11 +504,7 @@ class SocialManager:
 
         # Prepare announcement without holding lock
         if self.current_view == self.VIEW_ALL_FRIENDS:
-            with self.lock:
-                online_count = len(self.online_friends)
-            speaker.speak(f"{view_name}. {count} total friends, {online_count} online")
-        elif self.current_view == self.VIEW_ONLINE_FRIENDS:
-            speaker.speak(f"{view_name}. {count} friends online")
+            speaker.speak(f"{view_name}. {count} friends")
         elif self.current_view == self.VIEW_INCOMING_REQUESTS:
             speaker.speak(f"{view_name}. {count} incoming requests")
         elif self.current_view == self.VIEW_OUTGOING_REQUESTS:
@@ -538,25 +536,15 @@ class SocialManager:
             self._announce_party_member(item, position_info)
 
     def _announce_friend(self, friend: Friend, position_info: str = ""):
-        """Announce friend details"""
+        """Announce friend details (online status not available)"""
         # Ensure we have real display name, not account ID
         display_name = self._ensure_display_name(friend.display_name)
-        parts = [display_name]
 
-        if friend.status == "online":
-            parts.append("online")
-            if friend.currently_playing:
-                parts.append(f"playing {friend.currently_playing}")
-        elif friend.status == "away":
-            parts.append("away")
-        else:
-            parts.append("offline")
-
-        # Add position info at the end (e.g., "Thanos, offline, 26 of 160")
+        # Add position info if available (e.g., "Thanos, 26 of 160")
         if position_info:
-            parts.append(position_info.rstrip(", "))
-
-        speaker.speak(", ".join(parts))
+            speaker.speak(f"{display_name}, {position_info.rstrip(', ')}")
+        else:
+            speaker.speak(display_name)
 
     def _announce_friend_request(self, request: FriendRequest, position_info: str = ""):
         """Announce friend request details"""
@@ -956,16 +944,12 @@ class SocialManager:
         """Read current social status summary"""
         with self.lock:
             total_friends = len(self.all_friends)
-            online_friends = len(self.online_friends)
-            pending_in = sum(1 for r in self.pending_requests if r.direction == "inbound")
-            pending_out = sum(1 for r in self.pending_requests if r.direction == "outbound")
+            pending_in = len(self.incoming_requests)
+            pending_out = len(self.outgoing_requests)
             party_size = len(self.party_members)
             party_invites = len(self.party_invites)
 
-            parts = [
-                f"{total_friends} total friends",
-                f"{online_friends} online"
-            ]
+            parts = [f"{total_friends} friends"]
 
             if pending_in > 0:
                 parts.append(f"{pending_in} incoming friend requests")

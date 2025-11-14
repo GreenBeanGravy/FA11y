@@ -348,30 +348,16 @@ class EpicSocial:
         """
         Get presence information for multiple accounts
 
+        Note: Epic's XMPP/presence service requires different auth than web OAuth.
+        This method returns empty dict - online status is not available.
+
         Args:
             account_ids: List of account IDs
 
         Returns:
-            Dictionary mapping account ID to presence data
+            Empty dict (presence not available with current auth method)
         """
-        if not account_ids:
-            return {}
-
-        try:
-            # Epic's presence API is not consistently available
-            # For now, return all friends as offline until we find a reliable endpoint
-            # The XMPP/presence service requires different auth that we don't have
-            if not self._presence_warning_shown:
-                print("Note: Online status not available - all friends show as offline")
-                print("This is a limitation of the current Epic auth method")
-                self._presence_warning_shown = True
-            return {}
-
-        except Exception as e:
-            if not self._presence_warning_shown:
-                logger.debug(f"Presence lookup not available: {e}")
-                self._presence_warning_shown = True
-            return {}
+        return {}
 
     def get_online_friends(self) -> Optional[List[Friend]]:
         """
