@@ -76,7 +76,7 @@ class SocialManager:
 
     def _validate_auth_token(self) -> bool:
         """
-        Validate that the auth token is still valid
+        Validate that the auth token is still valid by making a test API request
 
         Returns:
             True if valid, False if expired or invalid
@@ -85,7 +85,7 @@ class SocialManager:
             logger.debug("No auth or access token")
             return False
 
-        # Check token expiration
+        # First, check expiration time if available
         try:
             from datetime import datetime, timezone
             if hasattr(self.auth, 'expires_at') and self.auth.expires_at:
@@ -106,17 +106,36 @@ class SocialManager:
 
                 # Check if token expired
                 if now >= expires_at:
-                    logger.warning("Auth token expired")
+                    logger.warning("Auth token expired (expiration time check)")
                     return False
-            else:
-                # No expiration info - assume token might be invalid, return False to be safe
-                logger.warning("No expiration info for auth token")
+        except Exception as e:
+            logger.debug(f"Could not check expiration time: {e}")
+
+        # If no expiration info or check failed, validate with a simple API request
+        # Try to get account info - lightweight endpoint
+        try:
+            import requests
+            response = requests.get(
+                f"{self.social_api.ACCOUNT_BASE}/{self.auth.account_id}",
+                headers={'Authorization': f'Bearer {self.auth.access_token}'},
+                timeout=5
+            )
+
+            if response.status_code == 401:
+                logger.warning("Auth token expired (401 from API)")
                 return False
+            elif response.status_code == 200:
+                logger.debug("Auth token validated successfully")
+                return True
+            else:
+                logger.warning(f"Unexpected status code during token validation: {response.status_code}")
+                # For other errors, assume token might still be valid
+                return True
 
         except Exception as e:
-            logger.error(f"Error validating token expiration: {e}")
-            # If we can't validate, assume invalid to be safe
-            return False
+            logger.error(f"Error validating token with API request: {e}")
+            # If we can't validate, assume valid to avoid blocking unnecessarily
+            return True
 
         return True
 
