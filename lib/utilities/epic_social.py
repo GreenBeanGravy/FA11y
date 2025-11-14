@@ -809,9 +809,7 @@ class EpicSocial:
             True if successful, False otherwise
         """
         try:
-            # Build connection ID string (account_id@prod.ol.epicgames.com/V2:Fortnite:WIN::session_id)
-            # The session_id part appears to be a hash - using account_id uppercase as placeholder
-            connection_id = f"{self.auth.account_id}@prod.ol.epicgames.com/V2:Fortnite:WIN::{self.auth.account_id.upper().replace('-', '')}"
+            import json
 
             # Get display name
             display_name = self.auth.display_name or "Player"
@@ -829,18 +827,8 @@ class EpicSocial:
                 }]
             }
 
-            import json
-
-            # Build request body per API spec
+            # Try without connection field first (since we don't have real XMPP session)
             join_body = {
-                "connection": {
-                    "id": connection_id,
-                    "meta": {
-                        "urn:epic:conn:platform_s": "WIN",
-                        "urn:epic:conn:type_s": "game"
-                    },
-                    "yield_leadership": False
-                },
                 "meta": {
                     "urn:epic:member:dn_s": display_name,
                     "urn:epic:member:joinrequestusers_j": json.dumps(join_request_users)
