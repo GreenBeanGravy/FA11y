@@ -258,16 +258,13 @@ Go To Nearest Unvisited = lalt+n "Navigate to the nearest unvisited game object.
 Get Match Stats = lalt+m "Get statistics for the current match including visited objects."
 Check Hotspots = lshift+grave "Check for hotspot POIs on the map (requires map to be open)."
 Open Visited Objects = lalt+v "Open the visited objects manager to view and navigate to visited or all game objects."
-Cycle Social View = slash "Cycle between social views (Friends, Online, Pending Requests, Party, Invites)."
+Cycle Social View = slash "Cycle between social views (Friends, Online, Requests, Party)."
 Navigate Social Up = comma "Navigate up through items in the current social view."
 Navigate Social Down = period "Navigate down through items in the current social view."
-Accept Request = lalt+y "Accept the current friend request or party invite."
-Decline Request = lalt+d "Decline or remove the current friend request, party invite, or friend."
-Send Friend Request = lalt+s "Send a friend request (prompts for Epic username)."
-Invite To Party = lalt+i "Invite the selected friend to your party."
+Social Select = return "Select/open options for current item (context-based action)."
+Social Accept = lalt+y "Quick accept/confirm action (context: accept request, promote member, etc)."
+Social Decline = lalt+d "Quick decline/remove action (context: decline request, remove friend, leave party)."
 Read Social Status = lalt+r "Read a summary of your social status (friends, requests, party)."
-Promote Party Member = lalt+p "Promote the selected party member to leader."
-Leave Party = lalt+l "Leave the current party."
 
 [POI]
 selected_poi = closest, 0, 0

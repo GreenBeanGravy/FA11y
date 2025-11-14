@@ -395,13 +395,10 @@ def reload_config() -> None:
             'cycle social view': social_cycle_view,
             'navigate social up': social_navigate_up,
             'navigate social down': social_navigate_down,
-            'accept request': social_accept,
-            'decline request': social_decline,
-            'send friend request': social_send_request,
-            'invite to party': social_invite_party,
+            'social select': social_select,
+            'social accept': social_accept,
+            'social decline': social_decline,
             'read social status': social_read_status,
-            'promote party member': social_promote_member,
-            'leave party': social_leave_party,
         })
 
         for i in range(1, 6):
@@ -616,19 +613,11 @@ def social_decline():
     else:
         logger.debug("Social manager not initialized")
 
-def social_send_request():
-    """Wrapper to send friend request"""
+def social_select():
+    """Wrapper to select/action current item (context-based)"""
     global social_manager
     if social_manager:
-        social_manager.send_friend_request_prompt()
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_invite_party():
-    """Wrapper to invite to party"""
-    global social_manager
-    if social_manager:
-        social_manager.invite_to_party()
+        social_manager.select_current()
     else:
         logger.debug("Social manager not initialized")
 
@@ -637,22 +626,6 @@ def social_read_status():
     global social_manager
     if social_manager:
         social_manager.read_status()
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_promote_member():
-    """Wrapper to promote party member"""
-    global social_manager
-    if social_manager:
-        social_manager.promote_party_member()
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_leave_party():
-    """Wrapper to leave party"""
-    global social_manager
-    if social_manager:
-        social_manager.leave_party()
     else:
         logger.debug("Social manager not initialized")
 

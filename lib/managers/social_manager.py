@@ -301,6 +301,9 @@ class SocialManager:
             # Announce view change
             self._announce_view_switch()
 
+            # Announce first item in new view
+            self._announce_current_item()
+
         except Exception as e:
             logger.error(f"Error cycling view: {e}")
             speaker.speak("Error switching view")
@@ -472,8 +475,11 @@ class SocialManager:
 
     # ========== Action Methods ==========
 
-    def accept_current(self):
-        """Accept current item (friend request or party invite)"""
+    def select_current(self):
+        """
+        Context-based select action (Enter key)
+        Performs the primary action for the current view
+        """
         items = self._get_current_view_items()
 
         if not items or self.current_index >= len(items):
@@ -482,15 +488,72 @@ class SocialManager:
 
         item = items[self.current_index]
 
-        if isinstance(item, FriendRequest) and item.direction == "inbound":
-            self._accept_friend_request(item)
-        elif isinstance(item, PartyInvite):
-            self._accept_party_invite(item)
+        # Context-based actions
+        if self.current_view in [self.VIEW_ALL_FRIENDS, self.VIEW_ONLINE_FRIENDS]:
+            # Friends view: Invite to party
+            if isinstance(item, Friend):
+                self._invite_friend_to_party(item)
+        elif self.current_view == self.VIEW_INCOMING_REQUESTS:
+            # Incoming requests: Accept
+            if isinstance(item, FriendRequest):
+                self._accept_friend_request(item)
+        elif self.current_view == self.VIEW_OUTGOING_REQUESTS:
+            # Outgoing requests: Cancel
+            if isinstance(item, FriendRequest):
+                self._decline_friend_request(item)
+        elif self.current_view == self.VIEW_PARTY_MEMBERS:
+            # Party members: Promote to leader
+            if isinstance(item, PartyMember):
+                if not item.is_leader:
+                    self._promote_party_member(item)
+                else:
+                    speaker.speak("This member is already the party leader")
+        elif self.current_view == self.VIEW_PARTY_INVITES:
+            # Party invites: Accept
+            if isinstance(item, PartyInvite):
+                self._accept_party_invite(item)
+
+    def accept_current(self):
+        """
+        Context-based accept/confirm action (Alt+Y)
+        Quick accept for requests, promote for party, invite for friends
+        """
+        items = self._get_current_view_items()
+
+        if not items or self.current_index >= len(items):
+            speaker.speak("No item selected")
+            return
+
+        item = items[self.current_index]
+
+        # Context-based accept actions
+        if self.current_view in [self.VIEW_ALL_FRIENDS, self.VIEW_ONLINE_FRIENDS]:
+            # Friends: Invite to party
+            if isinstance(item, Friend):
+                self._invite_friend_to_party(item)
+        elif self.current_view == self.VIEW_INCOMING_REQUESTS:
+            # Incoming requests: Accept
+            if isinstance(item, FriendRequest):
+                self._accept_friend_request(item)
+        elif self.current_view == self.VIEW_PARTY_MEMBERS:
+            # Party members: Promote
+            if isinstance(item, PartyMember):
+                if not item.is_leader:
+                    self._promote_party_member(item)
+                else:
+                    speaker.speak("This member is already the party leader")
+        elif self.current_view == self.VIEW_PARTY_INVITES:
+            # Party invites: Accept
+            if isinstance(item, PartyInvite):
+                self._accept_party_invite(item)
         else:
-            speaker.speak("Cannot accept this item")
+            speaker.speak("No accept action for this view")
 
     def decline_current(self):
-        """Decline/remove current item"""
+        """
+        Context-based decline/remove action (Alt+D)
+        Decline requests, remove friends, leave party, etc
+        """
         items = self._get_current_view_items()
 
         if not items or self.current_index >= len(items):
@@ -499,14 +562,24 @@ class SocialManager:
 
         item = items[self.current_index]
 
-        if isinstance(item, FriendRequest):
-            self._decline_friend_request(item)
-        elif isinstance(item, PartyInvite):
-            self._decline_party_invite(item)
-        elif isinstance(item, Friend):
-            self._remove_friend(item)
+        # Context-based decline actions
+        if self.current_view in [self.VIEW_ALL_FRIENDS, self.VIEW_ONLINE_FRIENDS]:
+            # Friends: Remove friend
+            if isinstance(item, Friend):
+                self._remove_friend(item)
+        elif self.current_view in [self.VIEW_INCOMING_REQUESTS, self.VIEW_OUTGOING_REQUESTS]:
+            # Any requests: Decline/cancel
+            if isinstance(item, FriendRequest):
+                self._decline_friend_request(item)
+        elif self.current_view == self.VIEW_PARTY_MEMBERS:
+            # Party members: Leave party
+            self.leave_party()
+        elif self.current_view == self.VIEW_PARTY_INVITES:
+            # Party invites: Decline
+            if isinstance(item, PartyInvite):
+                self._decline_party_invite(item)
         else:
-            speaker.speak("Cannot decline or remove this item")
+            speaker.speak("No decline action for this view")
 
     def _accept_friend_request(self, request: FriendRequest):
         """Accept a friend request"""
@@ -644,23 +717,8 @@ class SocialManager:
             logger.error(f"Error sending friend request: {e}")
             speaker.speak("Error sending friend request")
 
-    def invite_to_party(self):
-        """Invite current friend to party"""
-        if self.current_view not in [self.VIEW_ALL_FRIENDS, self.VIEW_ONLINE_FRIENDS]:
-            speaker.speak("Switch to friends view first")
-            return
-
-        items = self._get_current_view_items()
-
-        if not items or self.current_index >= len(items):
-            speaker.speak("No friend selected")
-            return
-
-        friend = items[self.current_index]
-
-        if not isinstance(friend, Friend):
-            return
-
+    def _invite_friend_to_party(self, friend: Friend):
+        """Invite a friend to party"""
         # Ensure real display name
         display_name = self._ensure_display_name(friend.display_name)
         speaker.speak(f"Inviting {display_name} to party")
@@ -677,27 +735,8 @@ class SocialManager:
             logger.error(f"Error sending party invite: {e}")
             speaker.speak("Error sending party invite")
 
-    def promote_party_member(self):
-        """Promote current party member to leader"""
-        if self.current_view != self.VIEW_PARTY_MEMBERS:
-            speaker.speak("Switch to party members view first")
-            return
-
-        items = self._get_current_view_items()
-
-        if not items or self.current_index >= len(items):
-            speaker.speak("No party member selected")
-            return
-
-        member = items[self.current_index]
-
-        if not isinstance(member, PartyMember):
-            return
-
-        if member.is_leader:
-            speaker.speak("This member is already the party leader")
-            return
-
+    def _promote_party_member(self, member: PartyMember):
+        """Promote a party member to leader"""
         # Ensure real display name
         display_name = self._ensure_display_name(member.display_name)
         speaker.speak(f"Promoting {display_name} to party leader")
