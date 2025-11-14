@@ -578,7 +578,7 @@ def open_social_menu():
 
     try:
         from lib.guis.social_gui import show_social_gui
-        threading.Thread(target=show_social_gui, args=(social_manager,), daemon=True).start()
+        show_social_gui(social_manager)
     except Exception as e:
         logger.error(f"Error opening social menu: {e}")
         speaker.speak("Error opening social menu")

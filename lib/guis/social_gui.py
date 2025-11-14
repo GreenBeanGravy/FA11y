@@ -161,8 +161,9 @@ class SocialDialog(AccessibleDialog):
             else:
                 friends = list(self.social_manager.all_friends)
 
+        # Pre-fetch all display names in one go (cached, fast)
         for friend in friends:
-            name = self.social_manager._ensure_display_name(friend.display_name)
+            name = friend.display_name
             status = friend.status if friend.status != "offline" else ""
             label = f"{name} ({status})" if status else name
             self.friends_list.Append(label, friend)
@@ -181,8 +182,9 @@ class SocialDialog(AccessibleDialog):
             else:
                 requests = list(self.social_manager.outgoing_requests)
 
+        # Use cached display names (already fetched by background monitor)
         for req in requests:
-            name = self.social_manager._ensure_display_name(req.display_name)
+            name = req.display_name
             direction = "from" if req.direction == "inbound" else "to"
             label = f"Request {direction} {name}"
             self.requests_list.Append(label, req)
@@ -198,8 +200,9 @@ class SocialDialog(AccessibleDialog):
         with self.social_manager.lock:
             members = list(self.social_manager.party_members)
 
+        # Use cached display names
         for member in members:
-            name = self.social_manager._ensure_display_name(member.display_name)
+            name = member.display_name
             label = f"{name} (Leader)" if member.is_leader else name
             self.party_list.Append(label, member)
 
@@ -306,15 +309,25 @@ class SocialDialog(AccessibleDialog):
 def show_social_gui(social_manager):
     """Show the social menu GUI"""
     try:
-        app = wx.App()
+        # Get or create wx App
+        app = wx.GetApp()
+        if app is None:
+            app = wx.App(False)
+
         dialog = SocialDialog(None, social_manager)
+
+        # Focus window and center mouse
+        try:
+            from lib.guis.gui_utilities import ensure_window_focus_and_center_mouse
+            ensure_window_focus_and_center_mouse(dialog)
+        except Exception as e:
+            logger.debug(f"Could not focus window: {e}")
 
         # Refresh the initial tab
         dialog.refresh_friends_list()
 
         dialog.ShowModal()
         dialog.Destroy()
-        app.Destroy()
     except Exception as e:
         logger.error(f"Error showing social GUI: {e}")
         speaker.speak("Error opening social menu")
