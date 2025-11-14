@@ -952,6 +952,25 @@ class EpicSocial:
 
             if response.status_code in [200, 201, 204]:
                 logger.info(f"Successfully joined party {party_id}")
+
+                # Confirm our membership (HTTP equivalent of XMPP confirmation)
+                try:
+                    confirm_response = requests.post(
+                        f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}/confirm",
+                        headers=self._get_headers(),
+                        json={},
+                        timeout=5
+                    )
+
+                    if confirm_response.status_code in [200, 201, 204]:
+                        logger.info("Successfully confirmed party membership")
+                    else:
+                        logger.warning(f"Failed to confirm party membership: {confirm_response.status_code}")
+                        if confirm_response.text:
+                            logger.warning(f"Confirm response: {confirm_response.text}")
+                except Exception as e:
+                    logger.warning(f"Error confirming party membership: {e}")
+
                 return True
             else:
                 logger.error(f"Failed to join party: {response.status_code}")
