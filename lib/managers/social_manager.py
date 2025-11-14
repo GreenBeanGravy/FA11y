@@ -60,24 +60,48 @@ class SocialManager:
         self.prev_outgoing_count = 0
         self.prev_party_invite_count = 0
 
+        # Notification system
+        self.pending_notification = None  # Current notification awaiting action
+        self.notification_timer = None  # Timer for 15-second auto-decline
+        self.notification_lock = threading.Lock()
+
         # Background monitoring
         self.running = False
         self.monitor_thread: Optional[threading.Thread] = None
         self.update_interval = 7  # seconds
         self.lock = threading.Lock()
 
-        # View order for cycling
-        self.view_order = [
-            self.VIEW_ALL_FRIENDS,
-            self.VIEW_ONLINE_FRIENDS,
-            self.VIEW_INCOMING_REQUESTS,
-            self.VIEW_OUTGOING_REQUESTS,
-            self.VIEW_PARTY_MEMBERS,
-            self.VIEW_PARTY_INVITES
-        ]
-
         # Load cached data
         self.load_cache()
+
+    def _validate_auth_token(self) -> bool:
+        """
+        Validate that the auth token is still valid
+
+        Returns:
+            True if valid, False if expired or invalid
+        """
+        if not self.auth or not self.auth.access_token:
+            return False
+
+        # Check token expiration
+        try:
+            from datetime import datetime, timedelta
+            if hasattr(self.auth, 'expires_at'):
+                if isinstance(self.auth.expires_at, str):
+                    expires_at = datetime.fromisoformat(self.auth.expires_at.replace('Z', '+00:00'))
+                else:
+                    expires_at = self.auth.expires_at
+
+                # Check if token expired
+                if expires_at and datetime.now() > expires_at:
+                    logger.warning("Auth token expired")
+                    speaker.speak("Epic Games authentication expired. Please re-authenticate.")
+                    return False
+        except Exception as e:
+            logger.debug(f"Error validating token expiration: {e}")
+
+        return True
 
     def _is_account_id(self, text: str) -> bool:
         """
@@ -177,6 +201,11 @@ class SocialManager:
         if not self.social_api:
             return
 
+        # Validate auth token first
+        if not self._validate_auth_token():
+            logger.warning("Skipping social data refresh due to invalid auth token")
+            return
+
         try:
             # Make ALL API calls WITHOUT holding lock (can take 60+ seconds)
             friends = self.social_api.get_friends_list()
@@ -208,18 +237,18 @@ class SocialManager:
             logger.error(f"Error refreshing social data: {e}")
 
     def _check_for_new_items(self):
-        """Check for new friend requests or party invites and announce them"""
+        """Check for new friend requests or party invites and show notifications"""
         with self.lock:
             # Check for new incoming friend requests
             current_incoming_count = len(self.incoming_requests)
             if current_incoming_count > self.prev_incoming_count:
                 new_count = current_incoming_count - self.prev_incoming_count
-                if new_count == 1:
-                    # Announce the specific new request
+                if new_count == 1 and self.incoming_requests:
+                    # Show notification for single new request
                     latest_request = self.incoming_requests[0]  # Assuming newest first
-                    speaker.speak(f"New friend request from {latest_request.display_name}")
-                else:
-                    speaker.speak(f"{new_count} new incoming friend requests")
+                    self._show_notification(latest_request, "friend_request")
+                elif new_count > 1:
+                    speaker.speak(f"{new_count} new incoming friend requests. Open social menu to review.")
 
             self.prev_incoming_count = current_incoming_count
 
@@ -231,13 +260,96 @@ class SocialManager:
             current_invite_count = len(self.party_invites)
             if current_invite_count > self.prev_party_invite_count:
                 new_count = current_invite_count - self.prev_party_invite_count
-                if new_count == 1:
+                if new_count == 1 and self.party_invites:
                     latest_invite = self.party_invites[0]
-                    speaker.speak(f"New party invite from {latest_invite.from_display_name}")
-                else:
-                    speaker.speak(f"{new_count} new party invites")
+                    self._show_notification(latest_invite, "party_invite")
+                elif new_count > 1:
+                    speaker.speak(f"{new_count} new party invites. Open social menu to review.")
 
             self.prev_party_invite_count = current_invite_count
+
+    def _show_notification(self, item, item_type):
+        """
+        Show notification with 15-second timer
+
+        Args:
+            item: FriendRequest or PartyInvite object
+            item_type: "friend_request" or "party_invite"
+        """
+        with self.notification_lock:
+            # Cancel existing notification timer
+            if self.notification_timer:
+                self.notification_timer.cancel()
+
+            # Store pending notification
+            self.pending_notification = (item, item_type)
+
+            # Announce notification
+            name = self._ensure_display_name(
+                item.display_name if item_type == "friend_request" else item.from_display_name
+            )
+
+            if item_type == "friend_request":
+                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt D to decline. Auto-declines in 15 seconds.")
+            else:  # party_invite
+                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt D to decline. Auto-declines in 15 seconds.")
+
+            # Start 15-second timer
+            self.notification_timer = threading.Timer(15.0, self._notification_timeout)
+            self.notification_timer.start()
+
+    def _notification_timeout(self):
+        """Auto-decline notification after 15 seconds"""
+        with self.notification_lock:
+            if self.pending_notification:
+                item, item_type = self.pending_notification
+                name = self._ensure_display_name(
+                    item.display_name if item_type == "friend_request" else item.from_display_name
+                )
+                speaker.speak(f"Notification from {name} auto-declined.")
+                self.pending_notification = None
+
+    def accept_notification(self):
+        """Accept pending notification (Alt+Y)"""
+        with self.notification_lock:
+            if not self.pending_notification:
+                speaker.speak("No pending notification")
+                return
+
+            item, item_type = self.pending_notification
+            self.pending_notification = None
+
+            # Cancel timer
+            if self.notification_timer:
+                self.notification_timer.cancel()
+                self.notification_timer = None
+
+        # Perform accept action (outside lock)
+        if item_type == "friend_request":
+            self._accept_friend_request(item)
+        else:  # party_invite
+            self._accept_party_invite(item)
+
+    def decline_notification(self):
+        """Decline pending notification (Alt+D)"""
+        with self.notification_lock:
+            if not self.pending_notification:
+                speaker.speak("No pending notification")
+                return
+
+            item, item_type = self.pending_notification
+            self.pending_notification = None
+
+            # Cancel timer
+            if self.notification_timer:
+                self.notification_timer.cancel()
+                self.notification_timer = None
+
+        # Perform decline action (outside lock)
+        if item_type == "friend_request":
+            self._decline_friend_request(item)
+        else:  # party_invite
+            self._decline_party_invite(item)
 
     def save_cache(self):
         """Save social data to cache file"""

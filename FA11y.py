@@ -392,13 +392,9 @@ def reload_config() -> None:
             'get match stats': get_match_stats,
             'check hotspots': check_hotspots,
             'open visited objects': open_visited_objects,
-            'cycle social view': social_cycle_view,
-            'navigate social up': social_navigate_up,
-            'navigate social down': social_navigate_down,
-            'social select': social_select,
-            'social accept': social_accept,
-            'social decline': social_decline,
-            'read social status': social_read_status,
+            'open social menu': open_social_menu,
+            'accept notification': accept_notification,
+            'decline notification': decline_notification,
         })
 
         for i in range(1, 6):
@@ -572,60 +568,34 @@ def mark_last_reached_object_as_bad() -> None:
         print(f"Error marking object as bad: {e}")
         speaker.speak("Error marking last reached object as bad")
 
-# Social manager wrapper functions (look up global at runtime)
-def social_cycle_view():
-    """Wrapper to cycle social view"""
+# Social manager wrapper functions
+def open_social_menu():
+    """Open social menu GUI"""
+    global social_manager
+    if not social_manager:
+        speaker.speak("Social features not enabled")
+        return
+
+    try:
+        from lib.guis.social_gui import show_social_gui
+        threading.Thread(target=show_social_gui, args=(social_manager,), daemon=True).start()
+    except Exception as e:
+        logger.error(f"Error opening social menu: {e}")
+        speaker.speak("Error opening social menu")
+
+def accept_notification():
+    """Accept pending notification (Alt+Y)"""
     global social_manager
     if social_manager:
-        social_manager.cycle_view("forwards")
+        social_manager.accept_notification()
     else:
         logger.debug("Social manager not initialized")
 
-def social_navigate_up():
-    """Wrapper to navigate up in social view"""
+def decline_notification():
+    """Decline pending notification (Alt+D)"""
     global social_manager
     if social_manager:
-        social_manager.navigate("up")
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_navigate_down():
-    """Wrapper to navigate down in social view"""
-    global social_manager
-    if social_manager:
-        social_manager.navigate("down")
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_accept():
-    """Wrapper to accept current social item"""
-    global social_manager
-    if social_manager:
-        social_manager.accept_current()
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_decline():
-    """Wrapper to decline current social item"""
-    global social_manager
-    if social_manager:
-        social_manager.decline_current()
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_select():
-    """Wrapper to select/action current item (context-based)"""
-    global social_manager
-    if social_manager:
-        social_manager.select_current()
-    else:
-        logger.debug("Social manager not initialized")
-
-def social_read_status():
-    """Wrapper to read social status"""
-    global social_manager
-    if social_manager:
-        social_manager.read_status()
+        social_manager.decline_notification()
     else:
         logger.debug("Social manager not initialized")
 

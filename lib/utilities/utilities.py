@@ -258,13 +258,9 @@ Go To Nearest Unvisited = lalt+n "Navigate to the nearest unvisited game object.
 Get Match Stats = lalt+m "Get statistics for the current match including visited objects."
 Check Hotspots = lshift+grave "Check for hotspot POIs on the map (requires map to be open)."
 Open Visited Objects = lalt+v "Open the visited objects manager to view and navigate to visited or all game objects."
-Cycle Social View = slash "Cycle between social views (Friends, Online, Requests, Party)."
-Navigate Social Up = comma "Navigate up through items in the current social view."
-Navigate Social Down = period "Navigate down through items in the current social view."
-Social Select = return "Select/open options for current item (context-based action)."
-Social Accept = lalt+y "Quick accept/confirm action (context: accept request, promote member, etc)."
-Social Decline = lalt+d "Quick decline/remove action (context: decline request, remove friend, leave party)."
-Read Social Status = lalt+r "Read a summary of your social status (friends, requests, party)."
+Open Social Menu = period "Open the social menu (friends, party, requests)."
+Accept Notification = lalt+y "Accept pending notification (friend request, party invite)."
+Decline Notification = lalt+d "Decline pending notification (friend request, party invite)."
 
 [POI]
 selected_poi = closest, 0, 0
