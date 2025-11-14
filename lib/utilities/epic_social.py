@@ -168,7 +168,7 @@ class EpicSocial:
 
             if response.status_code == 200:
                 data = response.json()
-                display_name = data.get("displayName")
+                display_name = data.get("displayName", "").strip()
 
                 if display_name:
                     # Success! Cache it and save to file
@@ -176,6 +176,9 @@ class EpicSocial:
                     self.display_cache.save_cache()
                     logger.info(f"Fetched and cached display name for {account_id}: {display_name}")
                     return display_name
+                else:
+                    # User exists but has no display name set
+                    logger.debug(f"User {account_id} has no display name in Epic profile")
 
             # API call failed - log and return placeholder
             logger.debug(f"Failed to get display name for {account_id}: HTTP {response.status_code}")
@@ -305,8 +308,8 @@ class EpicSocial:
                 # Extract account IDs
                 account_ids = [f.get("accountId") for f in friends_data]
 
-                # Get actual display names using bulk account lookup
-                name_map = self._get_bulk_display_names(account_ids, use_placeholders=False)
+                # Get actual display names using bulk account lookup (with friendly placeholders for missing names)
+                name_map = self._get_bulk_display_names(account_ids, use_placeholders=True)
 
                 # Get presence data for all friends
                 presence_map = self._get_bulk_presence(account_ids)
@@ -419,8 +422,8 @@ class EpicSocial:
                 for req in outgoing:
                     all_request_ids.append(req.get("accountId"))
 
-                # Get display names (from cache or API, in bulk)
-                name_map = self._get_bulk_display_names(all_request_ids, use_placeholders=False)
+                # Get display names (from cache or API, in bulk with friendly placeholders)
+                name_map = self._get_bulk_display_names(all_request_ids, use_placeholders=True)
 
                 # Process incoming requests
                 for req in incoming:
