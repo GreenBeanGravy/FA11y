@@ -806,16 +806,38 @@ class SocialManager:
         speaker.speak(f"Inviting {display_name} to party")
 
         try:
-            success = self.social_api.send_party_invite(friend.account_id)
+            result = self.social_api.send_party_invite(friend.account_id)
 
-            if success:
+            if result == True:
                 speaker.speak(f"Party invite sent to {display_name}")
+            elif result == "already_sent":
+                speaker.speak(f"Party invite already sent to {display_name}")
             else:
                 speaker.speak("Failed to send party invite. Make sure you're in a party")
 
         except Exception as e:
             logger.error(f"Error sending party invite: {e}")
             speaker.speak("Error sending party invite")
+
+    def _request_to_join_party(self, friend: Friend):
+        """Request to join a friend's party"""
+        # Ensure real display name
+        display_name = self._ensure_display_name(friend.display_name)
+        speaker.speak(f"Requesting to join {display_name}'s party")
+
+        try:
+            result = self.social_api.request_to_join_party(friend.account_id)
+
+            if result == True:
+                speaker.speak(f"Join request sent to {display_name}")
+            elif result == "already_sent":
+                speaker.speak(f"Join request already sent to {display_name}")
+            else:
+                speaker.speak("Failed to send join request")
+
+        except Exception as e:
+            logger.error(f"Error sending join request: {e}")
+            speaker.speak("Error sending join request")
 
     def _promote_party_member(self, member: PartyMember):
         """Promote a party member to leader"""

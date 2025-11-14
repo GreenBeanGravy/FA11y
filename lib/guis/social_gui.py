@@ -27,6 +27,9 @@ class SocialDialog(AccessibleDialog):
         self.SetSize((800, 600))
         self.CentreOnParent()
 
+        # Bind Escape key to close dialog
+        self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
+
     def makeSettings(self, sizer: BoxSizerHelper):
         """Create dialog content"""
 
@@ -67,8 +70,10 @@ class SocialDialog(AccessibleDialog):
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.invite_btn = wx.Button(panel, label="Invite to Party")
+        self.request_join_btn = wx.Button(panel, label="Request to Join")
         self.remove_friend_btn = wx.Button(panel, label="Remove Friend")
         btn_sizer.Add(self.invite_btn, 0, wx.ALL, 5)
+        btn_sizer.Add(self.request_join_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.remove_friend_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
 
@@ -76,8 +81,10 @@ class SocialDialog(AccessibleDialog):
         self.all_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
         self.online_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
         self.invite_btn.Bind(wx.EVT_BUTTON, self.on_invite_to_party)
+        self.request_join_btn.Bind(wx.EVT_BUTTON, self.on_request_to_join)
         self.remove_friend_btn.Bind(wx.EVT_BUTTON, self.on_remove_friend)
         self.friends_list.Bind(wx.EVT_KEY_DOWN, self.on_friends_key_down)
+        self.friends_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_friends_double_click)
 
         panel.SetSizer(sizer)
         return panel
@@ -229,6 +236,18 @@ class SocialDialog(AccessibleDialog):
         else:
             event.Skip()  # Allow other keys to be processed normally
 
+    def on_char_hook(self, event):
+        """Handle key press for dialog (Escape to close)"""
+        keycode = event.GetKeyCode()
+        if keycode == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CANCEL)
+        else:
+            event.Skip()
+
+    def on_friends_double_click(self, event):
+        """Handle double-click on friend - sends party invite"""
+        self.on_invite_to_party(event)
+
     def on_invite_to_party(self, event):
         """Invite selected friend to party"""
         sel = self.friends_list.GetSelection()
@@ -238,6 +257,16 @@ class SocialDialog(AccessibleDialog):
 
         friend = self.friends_list.GetClientData(sel)
         self.social_manager._invite_friend_to_party(friend)
+
+    def on_request_to_join(self, event):
+        """Request to join selected friend's party"""
+        sel = self.friends_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No friend selected")
+            return
+
+        friend = self.friends_list.GetClientData(sel)
+        self.social_manager._request_to_join_party(friend)
 
     def on_remove_friend(self, event):
         """Remove selected friend"""

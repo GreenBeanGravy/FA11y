@@ -753,6 +753,10 @@ class EpicSocial:
                 if response.status_code in [200, 201, 204]:
                     logger.info(f"Successfully sent party invite to {account_id}")
                     return True
+                elif response.status_code == 409:
+                    # Invite already exists - treat as success
+                    logger.info(f"Party invite already sent to {account_id}")
+                    return "already_sent"
                 else:
                     logger.error(f"Failed to send party invite: {response.status_code}")
                     if response.text:
@@ -764,6 +768,46 @@ class EpicSocial:
 
         except Exception as e:
             logger.error(f"Error sending party invite: {e}")
+            return False
+
+    def request_to_join_party(self, friend_account_id: str) -> bool:
+        """
+        Send request to join a friend's party
+
+        Args:
+            friend_account_id: Epic account ID of friend whose party to join
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Send request to join
+            request_body = {
+                "urn:epic:invite:platformdata_s": ""
+            }
+
+            response = requests.post(
+                f"{self.PARTY_BASE}/members/{friend_account_id}/intentions/{self.auth.account_id}",
+                headers=self._get_headers(),
+                json=request_body,
+                timeout=5
+            )
+
+            if response.status_code in [200, 201, 204]:
+                logger.info(f"Successfully sent join request to {friend_account_id}")
+                return True
+            elif response.status_code == 409:
+                # Request already exists
+                logger.info(f"Join request already sent to {friend_account_id}")
+                return "already_sent"
+            else:
+                logger.error(f"Failed to send join request: {response.status_code}")
+                if response.text:
+                    logger.error(f"Response: {response.text}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error sending join request: {e}")
             return False
 
     def accept_party_invite(self, party_id: str) -> bool:
