@@ -74,71 +74,6 @@ class SocialManager:
         # Load cached data
         self.load_cache()
 
-    def _validate_auth_token(self) -> bool:
-        """
-        Validate that the auth token is still valid by making a test API request
-
-        Returns:
-            True if valid, False if expired or invalid
-        """
-        if not self.auth or not self.auth.access_token:
-            logger.debug("No auth or access token")
-            return False
-
-        # First, check expiration time if available
-        try:
-            from datetime import datetime, timezone
-            if hasattr(self.auth, 'expires_at') and self.auth.expires_at:
-                # Parse expires_at to datetime
-                if isinstance(self.auth.expires_at, str):
-                    # Handle ISO format with Z or timezone offset
-                    expires_at_str = self.auth.expires_at.replace('Z', '+00:00')
-                    expires_at = datetime.fromisoformat(expires_at_str)
-                else:
-                    expires_at = self.auth.expires_at
-
-                # Get current time in UTC for comparison
-                now = datetime.now(timezone.utc)
-
-                # Make expires_at timezone-aware if it isn't already
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-
-                # Check if token expired
-                if now >= expires_at:
-                    logger.warning("Auth token expired (expiration time check)")
-                    return False
-        except Exception as e:
-            logger.debug(f"Could not check expiration time: {e}")
-
-        # If no expiration info or check failed, validate with a simple API request
-        # Try to get account info - lightweight endpoint
-        try:
-            import requests
-            response = requests.get(
-                f"{self.social_api.ACCOUNT_BASE}/{self.auth.account_id}",
-                headers={'Authorization': f'Bearer {self.auth.access_token}'},
-                timeout=5
-            )
-
-            if response.status_code == 401:
-                logger.warning("Auth token expired (401 from API)")
-                return False
-            elif response.status_code == 200:
-                logger.debug("Auth token validated successfully")
-                return True
-            else:
-                logger.warning(f"Unexpected status code during token validation: {response.status_code}")
-                # For other errors, assume token might still be valid
-                return True
-
-        except Exception as e:
-            logger.error(f"Error validating token with API request: {e}")
-            # If we can't validate, assume valid to avoid blocking unnecessarily
-            return True
-
-        return True
-
     def _is_account_id(self, text: str) -> bool:
         """
         Check if a string looks like an Epic account ID (UUID format)
@@ -182,19 +117,17 @@ class SocialManager:
         return display_name
 
     def start_monitoring(self):
-        """Start background monitoring thread"""
+        """
+        Start background monitoring thread
+
+        Note: Assumes auth token has already been validated by FA11y.py before calling this
+        """
         if self.running:
             logger.warning("Social monitoring already running")
             return
 
         if not self.auth or not self.auth.access_token:
             logger.warning("Cannot start social monitoring: not authenticated")
-            return
-
-        # Validate token before starting monitoring
-        if not self._validate_auth_token():
-            logger.warning("Cannot start social monitoring: auth token expired")
-            speaker.speak("Cannot start social features: authentication expired. Please re-authenticate.")
             return
 
         self.running = True
@@ -241,11 +174,6 @@ class SocialManager:
     def refresh_all_data(self):
         """Refresh all social data from API"""
         if not self.social_api:
-            return
-
-        # Validate auth token first
-        if not self._validate_auth_token():
-            logger.warning("Skipping social data refresh due to invalid auth token")
             return
 
         try:

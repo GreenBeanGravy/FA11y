@@ -1692,6 +1692,44 @@ def get_legendary_username() -> str:
         print(f"Failed to run 'legendary status': {str(e)}")
         return None
 
+def validate_epic_auth(epic_auth) -> bool:
+    """
+    Validate Epic auth token with a test API request
+
+    Args:
+        epic_auth: EpicAuth instance to validate
+
+    Returns:
+        True if token is valid, False otherwise
+    """
+    if not epic_auth or not epic_auth.access_token:
+        return False
+
+    try:
+        import requests
+        # Make a lightweight API request to test the token
+        response = requests.get(
+            f"https://account-public-service-prod.ol.epicgames.com/account/api/public/account/{epic_auth.account_id}",
+            headers={'Authorization': f'Bearer {epic_auth.access_token}'},
+            timeout=5
+        )
+
+        if response.status_code == 401:
+            logger.info("Epic auth token expired (401 response)")
+            return False
+        elif response.status_code == 200:
+            logger.info("Epic auth token validated successfully")
+            return True
+        else:
+            logger.warning(f"Unexpected status during auth validation: {response.status_code}")
+            # For other errors, assume token might still be valid
+            return True
+
+    except Exception as e:
+        logger.warning(f"Error validating Epic auth token: {e}")
+        # If we can't validate, assume valid to avoid blocking
+        return True
+
 def main() -> None:
     """Main entry point for FA11y with instant shutdown capability."""
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener, social_manager
@@ -1759,8 +1797,8 @@ def main() -> None:
 
             epic_auth = get_epic_auth_instance()
 
-            # Check if already authenticated
-            if not epic_auth or not epic_auth.access_token:
+            # Validate auth token (checks if exists and if valid via API request)
+            if not validate_epic_auth(epic_auth):
                 print("Epic Games authentication required for social features")
                 speaker.speak("Epic Games authentication required. Opening login dialog.")
 
@@ -1775,11 +1813,12 @@ def main() -> None:
                 if not authenticated:
                     print("Social features disabled: Authentication cancelled")
                     speaker.speak("Social features disabled")
+                    epic_auth = None
                 else:
                     # Refresh auth instance after login
                     epic_auth = get_epic_auth_instance()
 
-            # Start social manager if authenticated
+            # Start social manager and other Epic auth-dependent features
             if epic_auth and epic_auth.access_token:
                 social_manager = get_social_manager(epic_auth)
                 social_manager.start_monitoring()
