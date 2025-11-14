@@ -60,11 +60,10 @@ class EpicXMPP:
             )
 
             # Create client (don't use as context manager)
-            # override_peer expects (host, port, connector) tuples
+            # Let JID domain (prod.ol.epicgames.com) auto-resolve via DNS
             self.client = aioxmpp.PresenceManagedClient(
                 self.jid,
-                security_layer,
-                override_peer=[(self.server_host, self.server_port, None)]
+                security_layer
             )
 
             # Connect using .connected() context manager
@@ -198,12 +197,11 @@ class EpicXMPPManager:
             )
 
             # Create client
-            # Note: JID domain is prod.ol.epicgames.com which should resolve correctly
-            # We can provide override_peer with (host, port, connector) if needed
+            # JID domain (prod.ol.epicgames.com) will auto-resolve via DNS SRV records
+            # No need to override peer - let aioxmpp handle connection
             self.client = aioxmpp.PresenceManagedClient(
                 self.jid,
-                security_layer,
-                override_peer=[(self.server_host, self.server_port, None)]
+                security_layer
             )
 
             # Connect and join MUC
