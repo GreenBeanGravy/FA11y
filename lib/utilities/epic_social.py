@@ -355,35 +355,14 @@ class EpicSocial:
             return {}
 
         try:
-            # Try the bulk presence endpoint (may not be available for all auth types)
-            # Note: This endpoint may require special OAuth scopes or party authentication
-            response = requests.get(
-                f"{self.PRESENCE_BASE}/_/{self.auth.account_id}/settings/subscriptions",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            # If presence API is not available (405 or 403), return empty dict
-            # Friends will still work, just without online status
-            if response.status_code in [403, 405]:
-                if not self._presence_warning_shown:
-                    logger.info("Presence API not available with current authentication - friends will show as offline")
-                    self._presence_warning_shown = True
-                return {}
-
-            if response.status_code == 200:
-                # If we got a valid response, try to parse it
-                # For now, just return empty as the exact format may vary
-                # This can be enhanced later when we have more info about the API
-                if not self._presence_warning_shown:
-                    logger.debug("Presence API available but format unknown, defaulting to offline status")
-                    self._presence_warning_shown = True
-                return {}
-            else:
-                if not self._presence_warning_shown:
-                    logger.debug(f"Presence lookup returned {response.status_code}")
-                    self._presence_warning_shown = True
-                return {}
+            # Epic's presence API is not consistently available
+            # For now, return all friends as offline until we find a reliable endpoint
+            # The XMPP/presence service requires different auth that we don't have
+            if not self._presence_warning_shown:
+                print("Note: Online status not available - all friends show as offline")
+                print("This is a limitation of the current Epic auth method")
+                self._presence_warning_shown = True
+            return {}
 
         except Exception as e:
             if not self._presence_warning_shown:
@@ -907,7 +886,14 @@ class EpicSocial:
 
             if party_response.status_code == 200:
                 party_data = party_response.json()
-                party_id = party_data.get("id")
+
+                # API returns {"current": [...], "pending": [], ...}
+                current_parties = party_data.get("current", [])
+                if not current_parties:
+                    logger.info("Not in a party, nothing to leave")
+                    return True
+
+                party_id = current_parties[0].get("id")
 
                 # Leave party
                 response = requests.delete(

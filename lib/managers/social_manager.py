@@ -188,10 +188,6 @@ class SocialManager:
                 if friends is not None:
                     self.all_friends = friends
                     self.online_friends = [f for f in friends if f.status in ["online", "away"]]
-                    logger.debug(f"Total friends: {len(friends)}, Online: {len(self.online_friends)}")
-                    if friends and len(friends) > 0:
-                        statuses = [(f.display_name[:10], f.status) for f in friends[:5]]  # Sample first 5
-                        logger.debug(f"Sample friend statuses: {statuses}")
 
                 if requests is not None:
                     # Split into incoming and outgoing
