@@ -77,6 +77,7 @@ class SocialDialog(AccessibleDialog):
         self.online_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
         self.invite_btn.Bind(wx.EVT_BUTTON, self.on_invite_to_party)
         self.remove_friend_btn.Bind(wx.EVT_BUTTON, self.on_remove_friend)
+        self.friends_list.Bind(wx.EVT_KEY_DOWN, self.on_friends_key_down)
 
         panel.SetSizer(sizer)
         return panel
@@ -217,6 +218,16 @@ class SocialDialog(AccessibleDialog):
             speaker.speak(f"{len(members)} party members")
         else:
             speaker.speak("Not in a party")
+
+    def on_friends_key_down(self, event):
+        """Handle key press in friends list"""
+        keycode = event.GetKeyCode()
+
+        # Enter key sends party invite
+        if keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_invite_to_party(event)
+        else:
+            event.Skip()  # Allow other keys to be processed normally
 
     def on_invite_to_party(self, event):
         """Invite selected friend to party"""

@@ -724,12 +724,29 @@ class EpicSocial:
 
             if party_response.status_code == 200:
                 party_data = party_response.json()
-                party_id = party_data.get("id")
 
-                # Send invite
+                # Check if in a party - API returns {"current": [...], "pending": [], ...}
+                current_parties = party_data.get("current", [])
+                if not current_parties:
+                    logger.error("Not in a party, cannot send invite")
+                    return False
+
+                party_id = current_parties[0].get("id")
+
+                # Prepare invite payload per API spec
+                invite_body = {
+                    "urn:epic:cfg:build-id_s": "1:3:45178693",
+                    "urn:epic:conn:platform_s": "WIN",
+                    "urn:epic:conn:type_s": "game",
+                    "urn:epic:invite:platformdata_s": "",
+                    "urn:epic:member:dn_s": self.auth.display_name or "Player"
+                }
+
+                # Send invite with query parameter
                 response = requests.post(
-                    f"{self.PARTY_BASE}/parties/{party_id}/invites/{account_id}",
+                    f"{self.PARTY_BASE}/parties/{party_id}/invites/{account_id}?sendPing=true",
                     headers=self._get_headers(),
+                    json=invite_body,
                     timeout=5
                 )
 
@@ -738,9 +755,11 @@ class EpicSocial:
                     return True
                 else:
                     logger.error(f"Failed to send party invite: {response.status_code}")
+                    if response.text:
+                        logger.error(f"Response: {response.text}")
                     return False
             else:
-                logger.error("Not in a party, cannot send invite")
+                logger.error("Could not get party info, cannot send invite")
                 return False
 
         except Exception as e:
