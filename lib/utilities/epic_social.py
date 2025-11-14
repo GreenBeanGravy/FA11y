@@ -899,11 +899,16 @@ class EpicSocial:
         try:
             import json
 
-            # Get our XMPP connection ID from current party
+            # Get our XMPP connection ID from current party (before leaving)
             connection_id = self._get_xmpp_connection_id()
             if not connection_id:
                 logger.error("Cannot join party: No XMPP connection ID available. Make sure you're in Fortnite.")
                 return False
+
+            # Leave current party first (if in one)
+            leave_result = self.leave_party()
+            if not leave_result:
+                logger.warning("Failed to leave current party, attempting join anyway")
 
             # Get display name
             display_name = self.auth.display_name or "Player"
