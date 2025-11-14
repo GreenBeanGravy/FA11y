@@ -952,51 +952,6 @@ class EpicSocial:
 
             if response.status_code in [200, 201, 204]:
                 logger.info(f"Successfully joined party {party_id}")
-
-                # Update member metadata to complete the join
-                # This tells the game client we've fully joined
-                try:
-                    import json
-
-                    # Build member metadata with current state
-                    member_meta = {
-                        "update": {
-                            "Default:PackedState_j": json.dumps({
-                                "PackedState": {
-                                    "subGame": "Athena",
-                                    "location": "PreLobby",
-                                    "gameMode": "None",
-                                    "voiceChatStatus": "Enabled",
-                                    "hasCompletedSTWTutorial": False,
-                                    "hasPurchasedSTW": False,
-                                    "platformSupportsSTW": True,
-                                    "bDownloadOnDemandActive": False,
-                                    "bIsPartyLFG": False,
-                                    "bRecVoice": False,
-                                    "bRecText": False,
-                                    "bIsInAllSelectExperiment": False,
-                                    "bAllowEmoteBeatSyncing": True
-                                }
-                            })
-                        }
-                    }
-
-                    # Update member metadata
-                    meta_response = requests.patch(
-                        f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}/meta",
-                        headers=self._get_headers(),
-                        json=member_meta,
-                        timeout=5
-                    )
-
-                    if meta_response.status_code in [200, 204]:
-                        logger.info("Successfully updated party member metadata")
-                    else:
-                        logger.warning(f"Failed to update member metadata: {meta_response.status_code}")
-
-                except Exception as e:
-                    logger.warning(f"Error updating member metadata: {e}")
-
                 return True
             else:
                 logger.error(f"Failed to join party: {response.status_code}")
