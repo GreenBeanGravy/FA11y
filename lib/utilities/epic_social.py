@@ -631,18 +631,38 @@ class EpicSocial:
                 party_data = response.json()
                 party_members = []
 
-                members = party_data.get("members", [])
-                leader_id = party_data.get("captain_id")
+                # API returns {"current": [...], "pending": [], ...}
+                current_parties = party_data.get("current", [])
+                if not current_parties:
+                    logger.info("Not currently in a party")
+                    return []
 
-                # Get display names for all members
-                member_ids = [m.get("account_id") for m in members]
-                name_map = self._get_bulk_display_names(member_ids)
+                # Get the first (current) party
+                party = current_parties[0]
+                members = party.get("members", [])
 
+                # Find leader - member with role="CAPTAIN"
+                leader_id = None
+                for member in members:
+                    if member.get("role") == "CAPTAIN":
+                        leader_id = member.get("account_id")
+                        break
+
+                # Extract display names from member metadata
                 for member in members:
                     member_id = member.get("account_id")
+
+                    # Try to get display name from meta field
+                    meta = member.get("meta", {})
+                    display_name = meta.get("urn:epic:member:dn_s", "")
+
+                    # Fallback to bulk lookup if not in meta
+                    if not display_name or display_name == "":
+                        display_name = self._get_display_name(member_id)
+
                     party_members.append(PartyMember(
                         account_id=member_id,
-                        display_name=name_map.get(member_id, member_id),
+                        display_name=display_name,
                         is_leader=(member_id == leader_id),
                         joined_at=datetime.fromisoformat(member.get("joined_at", "").replace("Z", "+00:00")) if member.get("joined_at") else datetime.now()
                     ))
