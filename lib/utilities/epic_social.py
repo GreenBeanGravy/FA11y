@@ -1103,34 +1103,43 @@ class EpicSocial:
 
                 # Join party MUC room via XMPP (THIS IS THE KEY STEP!)
                 # This is what makes you actually spawn in-game
+                # Run in background thread to avoid wxPython threading issues
                 try:
                     logger.info("Joining party MUC room via XMPP...")
 
-                    # Run async MUC join in event loop
-                    loop = None
-                    try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        # No event loop running, create a new one
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        muc_success = loop.run_until_complete(self.join_party_muc(party_id))
-                        loop.close()
-                    else:
-                        # Event loop already running, create task
-                        import concurrent.futures
-                        with concurrent.futures.ThreadPoolExecutor() as pool:
-                            muc_success = pool.submit(
-                                lambda: asyncio.run(self.join_party_muc(party_id))
-                            ).result(timeout=10)
+                    import threading
 
-                    if muc_success:
-                        logger.info("Successfully joined party MUC - you should now spawn in-game!")
-                    else:
-                        logger.warning("Failed to join party MUC - you may not spawn in-game")
+                    def run_xmpp_join():
+                        """Run XMPP MUC join in separate thread with its own event loop"""
+                        try:
+                            # Create new event loop for this thread
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+
+                            # Run the async join
+                            success = loop.run_until_complete(self.join_party_muc(party_id))
+
+                            # Clean up
+                            loop.close()
+
+                            if success:
+                                logger.info("Successfully joined party MUC - you should now spawn in-game!")
+                            else:
+                                logger.warning("Failed to join party MUC - you may not spawn in-game")
+
+                        except Exception as e:
+                            logger.warning(f"Error in XMPP join thread: {e}")
+
+                    # Start XMPP join in background thread
+                    xmpp_thread = threading.Thread(target=run_xmpp_join, daemon=True)
+                    xmpp_thread.start()
+
+                    # Give it a moment to start (don't wait for completion to avoid blocking)
+                    import time
+                    time.sleep(0.5)
 
                 except Exception as e:
-                    logger.warning(f"Error joining party MUC: {e}")
+                    logger.warning(f"Error starting XMPP join thread: {e}")
                     logger.warning("HTTP party join succeeded but XMPP MUC join failed")
 
                 return True
