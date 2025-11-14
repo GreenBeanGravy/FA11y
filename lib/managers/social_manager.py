@@ -82,24 +82,41 @@ class SocialManager:
             True if valid, False if expired or invalid
         """
         if not self.auth or not self.auth.access_token:
+            logger.debug("No auth or access token")
             return False
 
         # Check token expiration
         try:
-            from datetime import datetime, timedelta
-            if hasattr(self.auth, 'expires_at'):
+            from datetime import datetime, timezone
+            if hasattr(self.auth, 'expires_at') and self.auth.expires_at:
+                # Parse expires_at to datetime
                 if isinstance(self.auth.expires_at, str):
-                    expires_at = datetime.fromisoformat(self.auth.expires_at.replace('Z', '+00:00'))
+                    # Handle ISO format with Z or timezone offset
+                    expires_at_str = self.auth.expires_at.replace('Z', '+00:00')
+                    expires_at = datetime.fromisoformat(expires_at_str)
                 else:
                     expires_at = self.auth.expires_at
 
+                # Get current time in UTC for comparison
+                now = datetime.now(timezone.utc)
+
+                # Make expires_at timezone-aware if it isn't already
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+
                 # Check if token expired
-                if expires_at and datetime.now() > expires_at:
+                if now >= expires_at:
                     logger.warning("Auth token expired")
-                    speaker.speak("Epic Games authentication expired. Please re-authenticate.")
                     return False
+            else:
+                # No expiration info - assume token might be invalid, return False to be safe
+                logger.warning("No expiration info for auth token")
+                return False
+
         except Exception as e:
-            logger.debug(f"Error validating token expiration: {e}")
+            logger.error(f"Error validating token expiration: {e}")
+            # If we can't validate, assume invalid to be safe
+            return False
 
         return True
 
@@ -153,6 +170,12 @@ class SocialManager:
 
         if not self.auth or not self.auth.access_token:
             logger.warning("Cannot start social monitoring: not authenticated")
+            return
+
+        # Validate token before starting monitoring
+        if not self._validate_auth_token():
+            logger.warning("Cannot start social monitoring: auth token expired")
+            speaker.speak("Cannot start social features: authentication expired. Please re-authenticate.")
             return
 
         self.running = True
