@@ -122,7 +122,6 @@ class SocialDialog(AccessibleDialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Party members list
-        wx.StaticText(panel, label="Party Members:")
         self.party_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         sizer.Add(self.party_list, 1, wx.EXPAND | wx.ALL, 5)
 
@@ -163,7 +162,7 @@ class SocialDialog(AccessibleDialog):
 
         # Pre-fetch all display names in one go (cached, fast)
         for friend in friends:
-            name = friend.display_name
+            name = friend.display_name or friend.account_id or "Unknown"
             status = friend.status if friend.status != "offline" else ""
             label = f"{name} ({status})" if status else name
             self.friends_list.Append(label, friend)
@@ -171,6 +170,9 @@ class SocialDialog(AccessibleDialog):
         if friends:
             self.friends_list.SetSelection(0)
             speaker.speak(f"{len(friends)} friends")
+        else:
+            filter_type = "online friends" if self.online_friends_btn.GetValue() else "friends"
+            speaker.speak(f"No {filter_type}")
 
     def refresh_requests_list(self, event=None):
         """Refresh requests list"""
@@ -179,19 +181,23 @@ class SocialDialog(AccessibleDialog):
         with self.social_manager.lock:
             if self.incoming_req_btn.GetValue():
                 requests = list(self.social_manager.incoming_requests)
+                request_type = "incoming"
             else:
                 requests = list(self.social_manager.outgoing_requests)
+                request_type = "outgoing"
 
         # Use cached display names (already fetched by background monitor)
         for req in requests:
-            name = req.display_name
+            name = req.display_name or req.account_id or "Unknown"
             direction = "from" if req.direction == "inbound" else "to"
             label = f"Request {direction} {name}"
             self.requests_list.Append(label, req)
 
         if requests:
             self.requests_list.SetSelection(0)
-            speaker.speak(f"{len(requests)} requests")
+            speaker.speak(f"{len(requests)} {request_type} requests")
+        else:
+            speaker.speak(f"No {request_type} friend requests")
 
     def refresh_party_list(self, event=None):
         """Refresh party members list"""
@@ -200,9 +206,9 @@ class SocialDialog(AccessibleDialog):
         with self.social_manager.lock:
             members = list(self.social_manager.party_members)
 
-        # Use cached display names
+        # Use cached display names with fallback
         for member in members:
-            name = member.display_name
+            name = member.display_name or member.account_id or "Unknown"
             label = f"{name} (Leader)" if member.is_leader else name
             self.party_list.Append(label, member)
 
