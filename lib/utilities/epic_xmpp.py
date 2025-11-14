@@ -59,14 +59,12 @@ class EpicXMPP:
                 anonymous=False
             )
 
-            # Override with custom server
-            override = (self.server_host, self.server_port)
-
             # Create client (don't use as context manager)
+            # override_peer expects (host, port, connector) tuples
             self.client = aioxmpp.PresenceManagedClient(
                 self.jid,
                 security_layer,
-                override_peer=[override]
+                override_peer=[(self.server_host, self.server_port, None)]
             )
 
             # Connect using .connected() context manager
@@ -200,10 +198,12 @@ class EpicXMPPManager:
             )
 
             # Create client
+            # Note: JID domain is prod.ol.epicgames.com which should resolve correctly
+            # We can provide override_peer with (host, port, connector) if needed
             self.client = aioxmpp.PresenceManagedClient(
                 self.jid,
                 security_layer,
-                override_peer=[(self.server_host, self.server_port)]
+                override_peer=[(self.server_host, self.server_port, None)]
             )
 
             # Connect and join MUC
