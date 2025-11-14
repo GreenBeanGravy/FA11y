@@ -83,6 +83,7 @@ from lib.monitors.storm_monitor import storm_monitor
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.detection.match_tracker import match_tracker
+from lib.managers.social_manager import get_social_manager
 
 from lib.utilities.input import (
     is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS,
@@ -147,6 +148,7 @@ config_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
+social_manager = None
 
 # Global shutdown flag for instant shutdown
 _shutdown_requested = threading.Event()
@@ -180,12 +182,16 @@ def signal_handler(signum, frame):
     try:
         # Stop all monitoring systems without waiting
         monitor.stop_monitoring()
-        material_monitor.stop_monitoring() 
+        material_monitor.stop_monitoring()
         resource_monitor.stop_monitoring()
         # dynamic_object_monitor.stop_monitoring()
         storm_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
-        
+
+        # Stop social manager
+        if social_manager:
+            social_manager.stop_monitoring()
+
         # Clean up pygame mixer
         if pygame.mixer.get_init():
             pygame.mixer.quit()
@@ -385,6 +391,14 @@ def reload_config() -> None:
             'get match stats': get_match_stats,
             'check hotspots': check_hotspots,
             'open visited objects': open_visited_objects,
+            'cycle social view': social_cycle_view,
+            'navigate social up': social_navigate_up,
+            'navigate social down': social_navigate_down,
+            'accept request': social_accept,
+            'decline request': social_decline,
+            'send friend request': social_send_request,
+            'invite to party': social_invite_party,
+            'read social status': social_read_status,
         })
 
         for i in range(1, 6):
@@ -557,6 +571,71 @@ def mark_last_reached_object_as_bad() -> None:
     except Exception as e:
         print(f"Error marking object as bad: {e}")
         speaker.speak("Error marking last reached object as bad")
+
+# Social manager wrapper functions (look up global at runtime)
+def social_cycle_view():
+    """Wrapper to cycle social view"""
+    global social_manager
+    if social_manager:
+        social_manager.cycle_view("forwards")
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_navigate_up():
+    """Wrapper to navigate up in social view"""
+    global social_manager
+    if social_manager:
+        social_manager.navigate("up")
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_navigate_down():
+    """Wrapper to navigate down in social view"""
+    global social_manager
+    if social_manager:
+        social_manager.navigate("down")
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_accept():
+    """Wrapper to accept current social item"""
+    global social_manager
+    if social_manager:
+        social_manager.accept_current()
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_decline():
+    """Wrapper to decline current social item"""
+    global social_manager
+    if social_manager:
+        social_manager.decline_current()
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_send_request():
+    """Wrapper to send friend request"""
+    global social_manager
+    if social_manager:
+        social_manager.send_friend_request_prompt()
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_invite_party():
+    """Wrapper to invite to party"""
+    global social_manager
+    if social_manager:
+        social_manager.invite_to_party()
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_read_status():
+    """Wrapper to read social status"""
+    global social_manager
+    if social_manager:
+        social_manager.read_status()
+    else:
+        logger.debug("Social manager not initialized")
 
 def check_hotspots() -> None:
     """Check for hotspot POIs on the map"""
@@ -1653,7 +1732,7 @@ def get_legendary_username() -> str:
 
 def main() -> None:
     """Main entry point for FA11y with instant shutdown capability."""
-    global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
+    global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener, social_manager
     try:
         print("Starting FA11y...")
         
@@ -1704,12 +1783,28 @@ def main() -> None:
 
         # Start new game object system
         match_tracker.start_monitoring()
-        
+
         # Auto-start a new match
         match_tracker._start_new_match()
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
+
+        # Initialize and start social manager if authenticated
+        try:
+            from lib.utilities.epic_auth import get_epic_auth_instance
+            epic_auth = get_epic_auth_instance()
+
+            # Only start social manager if user is logged in
+            if epic_auth and epic_auth.access_token:
+                social_manager = get_social_manager(epic_auth)
+                social_manager.start_monitoring()
+                print(f"Social features enabled for {epic_auth.display_name}")
+            else:
+                print("Social features disabled: Not logged in to Epic Games")
+        except Exception as e:
+            print(f"Social features disabled: {e}")
+            logger.warning(f"Failed to initialize social features: {e}")
 
         '''
         # Print available dynamic objects for reference (reduced spam)
@@ -1766,7 +1861,11 @@ def main() -> None:
             # dynamic_object_monitor.stop_monitoring()
             storm_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
-            
+
+            # Stop social manager
+            if social_manager:
+                social_manager.stop_monitoring()
+
             # Clean up object detection resources
             cleanup_object_detection()
             
