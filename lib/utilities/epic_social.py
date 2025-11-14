@@ -727,10 +727,20 @@ class EpicSocial:
                 pings = response.json()
                 invites = []
 
+                # Debug: Log the actual response structure
+                if pings:
+                    logger.info(f"Party pings response (first ping): {pings[0] if isinstance(pings, list) else pings}")
+
                 for ping in pings:
                     from_id = ping.get("sent_by")
+                    party_id = ping.get("party_id")
+
+                    # Debug: Log if party_id is missing
+                    if not party_id:
+                        logger.warning(f"Ping missing party_id! Full ping data: {ping}")
+
                     invites.append(PartyInvite(
-                        party_id=ping.get("party_id"),
+                        party_id=party_id,
                         invite_id=ping.get("ping_id"),
                         from_account_id=from_id,
                         from_display_name=self._get_display_name(from_id),
