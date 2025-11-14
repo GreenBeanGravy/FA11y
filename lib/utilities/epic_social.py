@@ -953,23 +953,32 @@ class EpicSocial:
             if response.status_code in [200, 201, 204]:
                 logger.info(f"Successfully joined party {party_id}")
 
-                # Confirm our membership (HTTP equivalent of XMPP confirmation)
+                # Fetch fresh party data after join (FortnitePy does this)
+                # This ensures we have the latest party state
                 try:
-                    confirm_response = requests.post(
-                        f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}/confirm",
+                    import time
+                    # Small delay to let the game client process XMPP notifications
+                    time.sleep(0.5)
+
+                    party_response = requests.get(
+                        f"{self.PARTY_BASE}/parties/{party_id}",
                         headers=self._get_headers(),
-                        json={},
                         timeout=5
                     )
 
-                    if confirm_response.status_code in [200, 201, 204]:
-                        logger.info("Successfully confirmed party membership")
+                    if party_response.status_code == 200:
+                        party_data = party_response.json()
+                        logger.info(f"Fetched fresh party data after join. Members: {len(party_data.get('members', []))}")
+
+                        # Log our member status
+                        for member in party_data.get('members', []):
+                            if member.get('account_id') == self.auth.account_id:
+                                logger.info(f"Our member state: role={member.get('role')}, joined_at={member.get('joined_at')}")
+                                break
                     else:
-                        logger.warning(f"Failed to confirm party membership: {confirm_response.status_code}")
-                        if confirm_response.text:
-                            logger.warning(f"Confirm response: {confirm_response.text}")
+                        logger.warning(f"Failed to fetch fresh party data: {party_response.status_code}")
                 except Exception as e:
-                    logger.warning(f"Error confirming party membership: {e}")
+                    logger.warning(f"Error fetching fresh party data: {e}")
 
                 return True
             else:
