@@ -194,7 +194,7 @@ class EpicSocial:
 
     def _get_bulk_display_names(self, account_ids: List[str], use_placeholders: bool = True) -> Dict[str, str]:
         """
-        Get display names for multiple account IDs in parallel (with persistent cache)
+        Get display names for multiple account IDs using bulk endpoint (with persistent cache)
 
         Args:
             account_ids: List of Epic account IDs
@@ -221,63 +221,52 @@ class EpicSocial:
             # All names were cached!
             return result
 
-        logger.info(f"Fetching {len(uncached_ids)} uncached display names in parallel...")
+        logger.info(f"Fetching {len(uncached_ids)} uncached display names using bulk endpoint...")
 
-        # Second pass: fetch uncached names in parallel
-        def lookup_single_name(account_id: str) -> tuple:
-            """Helper to lookup one display name"""
+        # Second pass: fetch uncached names in batches of 100 (Epic's max)
+        successful_fetches = {}
+
+        for i in range(0, len(uncached_ids), 100):
+            batch = uncached_ids[i:i+100]
+
             try:
+                # Build query string with multiple accountId parameters
+                params = [("accountId", account_id) for account_id in batch]
+
                 response = requests.get(
-                    f"{self.ACCOUNT_BASE}/{account_id}",
+                    f"{self.ACCOUNT_BASE}",
                     headers=self._get_headers(),
-                    timeout=5
+                    params=params,
+                    timeout=10
                 )
 
                 if response.status_code == 200:
-                    account_data = response.json()
-                    display_name = account_data.get("displayName")
-                    if display_name:
-                        return (account_id, display_name, True)  # Success
+                    accounts = response.json()
 
-                logger.debug(f"Failed to get display name for {account_id}: HTTP {response.status_code}")
-                return (account_id, None, False)  # Failed
+                    # Extract display names from response
+                    for account in accounts:
+                        account_id = account.get("id")
+                        display_name = account.get("displayName")
+
+                        if account_id and display_name:
+                            result[account_id] = display_name
+                            successful_fetches[account_id] = display_name
+
+                    logger.info(f"Fetched {len(accounts)} display names from batch of {len(batch)}")
+                else:
+                    logger.warning(f"Bulk lookup failed: HTTP {response.status_code}")
 
             except Exception as e:
-                logger.debug(f"Failed to get display name for {account_id}: {e}")
-                return (account_id, None, False)  # Failed
+                logger.error(f"Error in bulk display name lookup: {e}")
 
-        # Parallel execution with 5 workers
-        successful_fetches = {}
-
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {executor.submit(lookup_single_name, account_id): account_id
-                      for account_id in uncached_ids}
-
-            for future in as_completed(futures):
-                try:
-                    account_id, display_name, success = future.result(timeout=6)
-
-                    if success and display_name:
-                        # Success - add to result and cache
-                        result[account_id] = display_name
-                        successful_fetches[account_id] = display_name
-                    else:
-                        # Failed - use placeholder
-                        if use_placeholders:
-                            self._placeholder_counter += 1
-                            result[account_id] = f"Friend {self._placeholder_counter}"
-                        else:
-                            result[account_id] = account_id
-
-                except Exception as e:
-                    # Future failed completely
-                    account_id = futures[future]
-                    logger.debug(f"Future failed for {account_id}: {e}")
-                    if use_placeholders:
-                        self._placeholder_counter += 1
-                        result[account_id] = f"Friend {self._placeholder_counter}"
-                    else:
-                        result[account_id] = account_id
+        # For any IDs that weren't returned, use placeholders or IDs
+        for account_id in uncached_ids:
+            if account_id not in result:
+                if use_placeholders:
+                    self._placeholder_counter += 1
+                    result[account_id] = f"Friend {self._placeholder_counter}"
+                else:
+                    result[account_id] = account_id
 
         # Save all successful fetches to persistent cache
         if successful_fetches:
@@ -291,7 +280,7 @@ class EpicSocial:
 
     def get_friends_list(self) -> Optional[List[Friend]]:
         """
-        Get list of all friends with display names from summary endpoint
+        Get list of all friends with display names from bulk account lookup
 
         Returns:
             List of Friend objects or None if failed
@@ -302,7 +291,7 @@ class EpicSocial:
                 logger.error("No account ID available")
                 return None
 
-            # Get friends summary (includes display names in 'alias' field)
+            # Get friends summary to get list of friend account IDs
             response = requests.get(
                 f"{self.FRIENDS_BASE}/{account_id}/summary",
                 headers=self._get_headers(),
@@ -313,23 +302,20 @@ class EpicSocial:
                 data = response.json()
                 friends_data = data.get("friends", [])
 
-                # Extract account IDs for presence lookup
+                # Extract account IDs
                 account_ids = [f.get("accountId") for f in friends_data]
+
+                # Get actual display names using bulk account lookup
+                name_map = self._get_bulk_display_names(account_ids, use_placeholders=False)
 
                 # Get presence data for all friends
                 presence_map = self._get_bulk_presence(account_ids)
 
-                # Build display name cache from aliases
-                name_cache_updates = {}
-
                 friends = []
                 for friend_data in friends_data:
                     friend_id = friend_data.get("accountId")
-                    display_name = friend_data.get("alias", friend_id)  # alias = display name!
+                    display_name = name_map.get(friend_id, friend_id)  # Real display name from bulk lookup
                     presence = presence_map.get(friend_id, {})
-
-                    # Cache the display name
-                    name_cache_updates[friend_id] = display_name
 
                     friend = Friend(
                         account_id=friend_id,
@@ -340,12 +326,6 @@ class EpicSocial:
                         platform=presence.get("platform")
                     )
                     friends.append(friend)
-
-                # Save all display names to persistent cache
-                if name_cache_updates:
-                    self.display_cache.set_bulk(name_cache_updates)
-                    self.display_cache.save_cache()
-                    logger.info(f"Cached {len(name_cache_updates)} display names from friends list")
 
                 logger.info(f"Retrieved {len(friends)} friends")
                 return friends

@@ -25,7 +25,8 @@ class SocialManager:
     # Social views (navigation modes)
     VIEW_ALL_FRIENDS = "all_friends"
     VIEW_ONLINE_FRIENDS = "online_friends"
-    VIEW_PENDING_REQUESTS = "pending_requests"
+    VIEW_INCOMING_REQUESTS = "incoming_requests"
+    VIEW_OUTGOING_REQUESTS = "outgoing_requests"
     VIEW_PARTY_MEMBERS = "party_members"
     VIEW_PARTY_INVITES = "party_invites"
 
@@ -49,12 +50,14 @@ class SocialManager:
         # Data storage
         self.all_friends: List[Friend] = []
         self.online_friends: List[Friend] = []
-        self.pending_requests: List[FriendRequest] = []
+        self.incoming_requests: List[FriendRequest] = []
+        self.outgoing_requests: List[FriendRequest] = []
         self.party_members: List[PartyMember] = []
         self.party_invites: List[PartyInvite] = []
 
         # Previous state for change detection
-        self.prev_request_count = 0
+        self.prev_incoming_count = 0
+        self.prev_outgoing_count = 0
         self.prev_party_invite_count = 0
 
         # Background monitoring
@@ -67,7 +70,8 @@ class SocialManager:
         self.view_order = [
             self.VIEW_ALL_FRIENDS,
             self.VIEW_ONLINE_FRIENDS,
-            self.VIEW_PENDING_REQUESTS,
+            self.VIEW_INCOMING_REQUESTS,
+            self.VIEW_OUTGOING_REQUESTS,
             self.VIEW_PARTY_MEMBERS,
             self.VIEW_PARTY_INVITES
         ]
@@ -145,7 +149,9 @@ class SocialManager:
                     self.online_friends = [f for f in friends if f.status in ["online", "away"]]
 
                 if requests is not None:
-                    self.pending_requests = requests
+                    # Split into incoming and outgoing
+                    self.incoming_requests = [r for r in requests if r.direction == "inbound"]
+                    self.outgoing_requests = [r for r in requests if r.direction == "outbound"]
 
                 if party is not None:
                     self.party_members = party
@@ -162,19 +168,22 @@ class SocialManager:
     def _check_for_new_items(self):
         """Check for new friend requests or party invites and announce them"""
         with self.lock:
-            # Check for new friend requests
-            current_request_count = len(self.pending_requests)
-            if current_request_count > self.prev_request_count:
-                new_count = current_request_count - self.prev_request_count
+            # Check for new incoming friend requests
+            current_incoming_count = len(self.incoming_requests)
+            if current_incoming_count > self.prev_incoming_count:
+                new_count = current_incoming_count - self.prev_incoming_count
                 if new_count == 1:
                     # Announce the specific new request
-                    latest_request = self.pending_requests[0]  # Assuming newest first
-                    if latest_request.direction == "inbound":
-                        speaker.speak(f"New friend request from {latest_request.display_name}")
+                    latest_request = self.incoming_requests[0]  # Assuming newest first
+                    speaker.speak(f"New friend request from {latest_request.display_name}")
                 else:
-                    speaker.speak(f"{new_count} new friend requests")
+                    speaker.speak(f"{new_count} new incoming friend requests")
 
-            self.prev_request_count = current_request_count
+            self.prev_incoming_count = current_incoming_count
+
+            # Check for new outgoing friend requests (less common but tracked)
+            current_outgoing_count = len(self.outgoing_requests)
+            self.prev_outgoing_count = current_outgoing_count
 
             # Check for new party invites
             current_invite_count = len(self.party_invites)
@@ -289,8 +298,10 @@ class SocialManager:
                 return list(self.all_friends)
             elif self.current_view == self.VIEW_ONLINE_FRIENDS:
                 return list(self.online_friends)
-            elif self.current_view == self.VIEW_PENDING_REQUESTS:
-                return list(self.pending_requests)
+            elif self.current_view == self.VIEW_INCOMING_REQUESTS:
+                return list(self.incoming_requests)
+            elif self.current_view == self.VIEW_OUTGOING_REQUESTS:
+                return list(self.outgoing_requests)
             elif self.current_view == self.VIEW_PARTY_MEMBERS:
                 return list(self.party_members)
             elif self.current_view == self.VIEW_PARTY_INVITES:
@@ -303,7 +314,8 @@ class SocialManager:
         names = {
             self.VIEW_ALL_FRIENDS: "All Friends",
             self.VIEW_ONLINE_FRIENDS: "Online Friends",
-            self.VIEW_PENDING_REQUESTS: "Pending Requests",
+            self.VIEW_INCOMING_REQUESTS: "Incoming Friend Requests",
+            self.VIEW_OUTGOING_REQUESTS: "Outgoing Friend Requests",
             self.VIEW_PARTY_MEMBERS: "Party Members",
             self.VIEW_PARTY_INVITES: "Party Invites"
         }
@@ -323,10 +335,10 @@ class SocialManager:
             speaker.speak(f"{view_name}. {count} total friends, {online_count} online")
         elif self.current_view == self.VIEW_ONLINE_FRIENDS:
             speaker.speak(f"{view_name}. {count} friends online")
-        elif self.current_view == self.VIEW_PENDING_REQUESTS:
-            inbound = sum(1 for r in items if r.direction == "inbound")
-            outbound = sum(1 for r in items if r.direction == "outbound")
-            speaker.speak(f"{view_name}. {inbound} incoming, {outbound} outgoing")
+        elif self.current_view == self.VIEW_INCOMING_REQUESTS:
+            speaker.speak(f"{view_name}. {count} incoming requests")
+        elif self.current_view == self.VIEW_OUTGOING_REQUESTS:
+            speaker.speak(f"{view_name}. {count} outgoing requests")
         elif self.current_view == self.VIEW_PARTY_MEMBERS:
             speaker.speak(f"{view_name}. {count} members in party")
         elif self.current_view == self.VIEW_PARTY_INVITES:
@@ -355,7 +367,7 @@ class SocialManager:
 
     def _announce_friend(self, friend: Friend, position_info: str = ""):
         """Announce friend details"""
-        parts = [position_info + friend.display_name]
+        parts = [friend.display_name]
 
         if friend.status == "online":
             parts.append("online")
@@ -366,25 +378,44 @@ class SocialManager:
         else:
             parts.append("offline")
 
+        # Add position info at the end (e.g., "Thanos, offline, 26 of 160")
+        if position_info:
+            parts.append(position_info.rstrip(", "))
+
         speaker.speak(", ".join(parts))
 
     def _announce_friend_request(self, request: FriendRequest, position_info: str = ""):
         """Announce friend request details"""
         if request.direction == "inbound":
-            speaker.speak(f"{position_info}Friend request from {request.display_name}")
+            if position_info:
+                speaker.speak(f"Friend request from {request.display_name}, {position_info.rstrip(', ')}")
+            else:
+                speaker.speak(f"Friend request from {request.display_name}")
         else:
-            speaker.speak(f"{position_info}Friend request sent to {request.display_name}")
+            if position_info:
+                speaker.speak(f"Friend request sent to {request.display_name}, {position_info.rstrip(', ')}")
+            else:
+                speaker.speak(f"Friend request sent to {request.display_name}")
 
     def _announce_party_invite(self, invite: PartyInvite, position_info: str = ""):
         """Announce party invite details"""
-        speaker.speak(f"{position_info}Party invite from {invite.from_display_name}")
+        if position_info:
+            speaker.speak(f"Party invite from {invite.from_display_name}, {position_info.rstrip(', ')}")
+        else:
+            speaker.speak(f"Party invite from {invite.from_display_name}")
 
     def _announce_party_member(self, member: PartyMember, position_info: str = ""):
         """Announce party member details"""
         if member.is_leader:
-            speaker.speak(f"{position_info}{member.display_name}, party leader")
+            if position_info:
+                speaker.speak(f"{member.display_name}, party leader, {position_info.rstrip(', ')}")
+            else:
+                speaker.speak(f"{member.display_name}, party leader")
         else:
-            speaker.speak(f"{position_info}{member.display_name}")
+            if position_info:
+                speaker.speak(f"{member.display_name}, {position_info.rstrip(', ')}")
+            else:
+                speaker.speak(member.display_name)
 
     # ========== Action Methods ==========
 
