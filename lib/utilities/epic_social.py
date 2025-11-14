@@ -291,7 +291,7 @@ class EpicSocial:
 
     def get_friends_list(self) -> Optional[List[Friend]]:
         """
-        Get list of all friends
+        Get list of all friends with display names from summary endpoint
 
         Returns:
             List of Friend objects or None if failed
@@ -302,37 +302,50 @@ class EpicSocial:
                 logger.error("No account ID available")
                 return None
 
-            # Get friends list
+            # Get friends summary (includes display names in 'alias' field)
             response = requests.get(
-                f"{self.FRIENDS_BASE}/{account_id}/friends",
+                f"{self.FRIENDS_BASE}/{account_id}/summary",
                 headers=self._get_headers(),
                 timeout=5
             )
 
             if response.status_code == 200:
-                friends_data = response.json()
+                data = response.json()
+                friends_data = data.get("friends", [])
 
-                # Get display names in bulk
+                # Extract account IDs for presence lookup
                 account_ids = [f.get("accountId") for f in friends_data]
-                name_map = self._get_bulk_display_names(account_ids)
 
                 # Get presence data for all friends
                 presence_map = self._get_bulk_presence(account_ids)
 
+                # Build display name cache from aliases
+                name_cache_updates = {}
+
                 friends = []
                 for friend_data in friends_data:
                     friend_id = friend_data.get("accountId")
+                    display_name = friend_data.get("alias", friend_id)  # alias = display name!
                     presence = presence_map.get(friend_id, {})
+
+                    # Cache the display name
+                    name_cache_updates[friend_id] = display_name
 
                     friend = Friend(
                         account_id=friend_id,
-                        display_name=name_map.get(friend_id, friend_id),
+                        display_name=display_name,
                         status=presence.get("status", "offline"),
                         created_at=datetime.fromisoformat(friend_data.get("created", "").replace("Z", "+00:00")) if friend_data.get("created") else datetime.now(),
                         currently_playing=presence.get("game"),
                         platform=presence.get("platform")
                     )
                     friends.append(friend)
+
+                # Save all display names to persistent cache
+                if name_cache_updates:
+                    self.display_cache.set_bulk(name_cache_updates)
+                    self.display_cache.save_cache()
+                    logger.info(f"Cached {len(name_cache_updates)} display names from friends list")
 
                 logger.info(f"Retrieved {len(friends)} friends")
                 return friends
@@ -415,7 +428,7 @@ class EpicSocial:
 
     def get_pending_requests(self) -> Optional[List[FriendRequest]]:
         """
-        Get list of pending friend requests (inbound and outbound)
+        Get list of pending friend requests (inbound and outbound) with cached display names
 
         Returns:
             List of FriendRequest objects or None if failed
@@ -426,7 +439,7 @@ class EpicSocial:
                 logger.error("No account ID available")
                 return None
 
-            # Get incoming requests
+            # Get friend requests from summary endpoint
             response = requests.get(
                 f"{self.FRIENDS_BASE}/{account_id}/summary",
                 headers=self._get_headers(),
@@ -437,24 +450,37 @@ class EpicSocial:
                 summary = response.json()
                 requests_list = []
 
-                # Process incoming requests
+                # Collect all account IDs that need display names
+                all_request_ids = []
                 incoming = summary.get("incoming", [])
+                outgoing = summary.get("outgoing", [])
+
+                for req in incoming:
+                    all_request_ids.append(req.get("accountId"))
+                for req in outgoing:
+                    all_request_ids.append(req.get("accountId"))
+
+                # Get display names (from cache or API, in bulk)
+                name_map = self._get_bulk_display_names(all_request_ids, use_placeholders=False)
+
+                # Process incoming requests
                 for req in incoming:
                     account_id_req = req.get("accountId")
+                    display_name = name_map.get(account_id_req, account_id_req)
                     requests_list.append(FriendRequest(
                         account_id=account_id_req,
-                        display_name=self._get_display_name(account_id_req),
+                        display_name=display_name,
                         direction="inbound",
                         created_at=datetime.fromisoformat(req.get("created", "").replace("Z", "+00:00")) if req.get("created") else datetime.now()
                     ))
 
                 # Process outgoing requests
-                outgoing = summary.get("outgoing", [])
                 for req in outgoing:
                     account_id_req = req.get("accountId")
+                    display_name = name_map.get(account_id_req, account_id_req)
                     requests_list.append(FriendRequest(
                         account_id=account_id_req,
-                        display_name=self._get_display_name(account_id_req),
+                        display_name=display_name,
                         direction="outbound",
                         created_at=datetime.fromisoformat(req.get("created", "").replace("Z", "+00:00")) if req.get("created") else datetime.now()
                     ))
