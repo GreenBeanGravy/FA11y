@@ -4,11 +4,13 @@ Handles friends, party, and presence management for Fortnite
 """
 import logging
 import requests
+import asyncio
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from lib.utilities.display_name_cache import get_display_name_cache
+from lib.utilities.epic_xmpp import EpicXMPP
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +135,10 @@ class EpicSocial:
 
         # Cache XMPP connection ID (extracted from party data)
         self._xmpp_connection_id = None
+
+        # XMPP client for party MUC rooms
+        self.xmpp_client = None
+        self._xmpp_connected = False
 
     def _get_headers(self) -> dict:
         """Get authorization headers for API requests"""
@@ -640,6 +646,121 @@ class EpicSocial:
             logger.error(f"Error extracting XMPP connection ID: {e}")
             return None
 
+    async def initialize_xmpp(self) -> bool:
+        """
+        Initialize and connect XMPP client for party MUC rooms
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self._xmpp_connected and self.xmpp_client:
+                logger.debug("XMPP already connected")
+                return True
+
+            logger.info("Initializing XMPP client...")
+
+            # Get exchange code for XMPP authentication
+            exchange_code = self.auth.get_exchange_code()
+            if not exchange_code:
+                logger.error("Failed to get exchange code for XMPP")
+                return False
+
+            # Exchange code for XMPP access token
+            xmpp_auth = self.auth.exchange_code_for_xmpp_token(exchange_code)
+            if not xmpp_auth:
+                logger.error("Failed to get XMPP access token")
+                return False
+
+            # Create XMPP JID: account_id@prod.ol.epicgames.com
+            xmpp_jid = f"{xmpp_auth['account_id']}@prod.ol.epicgames.com"
+            xmpp_password = xmpp_auth['access_token']
+
+            # Initialize XMPP client
+            self.xmpp_client = EpicXMPP(xmpp_jid, xmpp_password, self.auth)
+
+            # Connect to XMPP server
+            success = await self.xmpp_client.connect_and_start()
+            if success:
+                self._xmpp_connected = True
+                logger.info("Successfully initialized and connected XMPP client")
+                return True
+            else:
+                logger.error("Failed to connect XMPP client")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error initializing XMPP: {e}")
+            return False
+
+    async def join_party_muc(self, party_id: str) -> bool:
+        """
+        Join party MUC (Multi-User Chat) room via XMPP
+
+        This is the critical step that makes you spawn in-game after accepting
+        a party invite. Without this, you join the party via HTTP but don't
+        actually appear in-game.
+
+        Args:
+            party_id: The party ID to join
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Ensure XMPP is connected
+            if not self._xmpp_connected or not self.xmpp_client:
+                logger.info("XMPP not connected, initializing...")
+                success = await self.initialize_xmpp()
+                if not success:
+                    logger.error("Failed to initialize XMPP for MUC join")
+                    return False
+
+            # Join the MUC room
+            display_name = self.auth.display_name or "Player"
+            success = await self.xmpp_client.join_party_muc(party_id, display_name)
+
+            if success:
+                logger.info(f"Successfully joined party MUC for party {party_id}")
+                return True
+            else:
+                logger.error(f"Failed to join party MUC for party {party_id}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error joining party MUC: {e}")
+            return False
+
+    async def leave_party_muc(self) -> bool:
+        """
+        Leave current party MUC room
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self.xmpp_client:
+                logger.debug("No XMPP client to leave MUC from")
+                return True
+
+            success = await self.xmpp_client.leave_party_muc()
+            return success
+
+        except Exception as e:
+            logger.error(f"Error leaving party MUC: {e}")
+            return False
+
+    async def disconnect_xmpp(self):
+        """Disconnect XMPP client"""
+        try:
+            if self.xmpp_client:
+                await self.xmpp_client.disconnect_xmpp()
+                self.xmpp_client = None
+                self._xmpp_connected = False
+                logger.info("Disconnected XMPP client")
+        except Exception as e:
+            logger.error(f"Error disconnecting XMPP: {e}")
+
     def get_current_party(self) -> Optional[List[PartyMember]]:
         """
         Get current party members
@@ -979,6 +1100,38 @@ class EpicSocial:
                         logger.warning(f"Failed to fetch fresh party data: {party_response.status_code}")
                 except Exception as e:
                     logger.warning(f"Error fetching fresh party data: {e}")
+
+                # Join party MUC room via XMPP (THIS IS THE KEY STEP!)
+                # This is what makes you actually spawn in-game
+                try:
+                    logger.info("Joining party MUC room via XMPP...")
+
+                    # Run async MUC join in event loop
+                    loop = None
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        # No event loop running, create a new one
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        muc_success = loop.run_until_complete(self.join_party_muc(party_id))
+                        loop.close()
+                    else:
+                        # Event loop already running, create task
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as pool:
+                            muc_success = pool.submit(
+                                lambda: asyncio.run(self.join_party_muc(party_id))
+                            ).result(timeout=10)
+
+                    if muc_success:
+                        logger.info("Successfully joined party MUC - you should now spawn in-game!")
+                    else:
+                        logger.warning("Failed to join party MUC - you may not spawn in-game")
+
+                except Exception as e:
+                    logger.warning(f"Error joining party MUC: {e}")
+                    logger.warning("HTTP party join succeeded but XMPP MUC join failed")
 
                 return True
             else:

@@ -180,6 +180,86 @@ class EpicAuth:
             logger.error(f"Error getting account info: {e}")
             return None
 
+    def get_exchange_code(self) -> Optional[str]:
+        """
+        Generate an exchange code for XMPP authentication
+
+        Returns:
+            Exchange code string if successful, None otherwise
+        """
+        try:
+            if not self.access_token:
+                logger.error("Not authenticated, cannot get exchange code")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}"
+            }
+
+            response = requests.get(
+                "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/exchange",
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                exchange_data = response.json()
+                exchange_code = exchange_data.get("code")
+                logger.info("Successfully generated exchange code for XMPP")
+                return exchange_code
+            else:
+                logger.error(f"Failed to get exchange code: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting exchange code: {e}")
+            return None
+
+    def exchange_code_for_xmpp_token(self, exchange_code: str) -> Optional[Dict]:
+        """
+        Exchange code for XMPP access token
+
+        Args:
+            exchange_code: The exchange code to use
+
+        Returns:
+            Dict with access_token and account_id if successful, None otherwise
+        """
+        try:
+            auth = base64.b64encode(f"{self.CLIENT_ID}:{self.CLIENT_SECRET}".encode()).decode()
+
+            headers = {
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+
+            data = {
+                "grant_type": "exchange_code",
+                "exchange_code": exchange_code
+            }
+
+            response = requests.post(
+                self.OAUTH_TOKEN_URL,
+                headers=headers,
+                data=data,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                token_data = response.json()
+                logger.info("Successfully exchanged code for XMPP token")
+                return {
+                    "access_token": token_data["access_token"],
+                    "account_id": token_data["account_id"]
+                }
+            else:
+                logger.error(f"Failed to exchange code for XMPP token: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error exchanging code for XMPP token: {e}")
+            return None
+
     def fetch_owned_cosmetics(self) -> Optional[List[str]]:
         """
         Fetch list of owned cosmetic IDs from Epic Games

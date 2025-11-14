@@ -23,6 +23,7 @@ mss
 pygame
 pywin32
 requests
+slixmpp
 wheel
 termcolor
 GPUtil
