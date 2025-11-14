@@ -820,11 +820,49 @@ class EpicSocial:
             True if successful, False otherwise
         """
         try:
+            # Build connection ID string (account_id@prod.ol.epicgames.com/V2:Fortnite:WIN::session_id)
+            # The session_id part appears to be a hash - using account_id uppercase as placeholder
+            connection_id = f"{self.auth.account_id}@prod.ol.epicgames.com/V2:Fortnite:WIN::{self.auth.account_id.upper().replace('-', '')}"
+
+            # Get display name
+            display_name = self.auth.display_name or "Player"
+
+            # Build join request users JSON string
+            join_request_users = {
+                "users": [{
+                    "id": self.auth.account_id,
+                    "dn": display_name,
+                    "plat": "WIN",
+                    "data": {
+                        "CrossplayPreference": "1",
+                        "SubGame_u": "1"
+                    }
+                }]
+            }
+
+            import json
+
+            # Build request body per API spec
+            join_body = {
+                "connection": {
+                    "id": connection_id,
+                    "meta": {
+                        "urn:epic:conn:platform_s": "WIN",
+                        "urn:epic:conn:type_s": "game"
+                    },
+                    "yield_leadership": False
+                },
+                "meta": {
+                    "urn:epic:member:dn_s": display_name,
+                    "urn:epic:member:joinrequestusers_j": json.dumps(join_request_users)
+                }
+            }
+
             # Join the party
             response = requests.post(
                 f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}/join",
                 headers=self._get_headers(),
-                json={},
+                json=join_body,
                 timeout=5
             )
 
@@ -833,6 +871,8 @@ class EpicSocial:
                 return True
             else:
                 logger.error(f"Failed to join party: {response.status_code}")
+                if response.text:
+                    logger.error(f"Response: {response.text}")
                 return False
 
         except Exception as e:

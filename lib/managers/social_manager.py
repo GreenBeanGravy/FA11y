@@ -60,6 +60,11 @@ class SocialManager:
         self.prev_outgoing_count = 0
         self.prev_party_invite_count = 0
 
+        # Track outgoing join requests for auto-accept logic
+        # Maps account_id -> (timestamp, display_name)
+        self.outgoing_join_requests: Dict[str, tuple] = {}
+        self.join_request_timeout = 30  # seconds
+
         # Notification system
         self.pending_notification = None  # Current notification awaiting action
         self.notification_timer = None  # Timer for 15-second auto-decline
@@ -206,8 +211,25 @@ class SocialManager:
         except Exception as e:
             logger.error(f"Error refreshing social data: {e}")
 
+    def _cleanup_old_join_requests(self):
+        """Remove join requests older than timeout period"""
+        now = datetime.now()
+        expired = []
+
+        for account_id, (timestamp, display_name) in self.outgoing_join_requests.items():
+            age = (now - timestamp).total_seconds()
+            if age > self.join_request_timeout:
+                expired.append(account_id)
+
+        for account_id in expired:
+            del self.outgoing_join_requests[account_id]
+            logger.debug(f"Cleaned up expired join request for {account_id}")
+
     def _check_for_new_items(self):
         """Check for new friend requests or party invites and show notifications"""
+        # Clean up old join requests first
+        self._cleanup_old_join_requests()
+
         with self.lock:
             # Check for new incoming friend requests
             current_incoming_count = len(self.incoming_requests)
@@ -232,7 +254,30 @@ class SocialManager:
                 new_count = current_invite_count - self.prev_party_invite_count
                 if new_count == 1 and self.party_invites:
                     latest_invite = self.party_invites[0]
-                    self._show_notification(latest_invite, "party_invite")
+
+                    # Check if this invite is from someone we sent a join request to
+                    from_account_id = latest_invite.from_account_id
+                    if from_account_id in self.outgoing_join_requests:
+                        timestamp, display_name = self.outgoing_join_requests[from_account_id]
+                        age = (datetime.now() - timestamp).total_seconds()
+
+                        if age <= self.join_request_timeout:
+                            # Auto-accept! They accepted our join request
+                            logger.info(f"Auto-accepting invite from {display_name} (responded to our join request)")
+                            # Remove from tracking
+                            del self.outgoing_join_requests[from_account_id]
+                            # Accept outside of lock
+                            threading.Thread(
+                                target=self._auto_accept_party_invite,
+                                args=(latest_invite, display_name),
+                                daemon=True
+                            ).start()
+                        else:
+                            # Expired, show normal notification
+                            self._show_notification(latest_invite, "party_invite")
+                    else:
+                        # Normal invite, show notification
+                        self._show_notification(latest_invite, "party_invite")
                 elif new_count > 1:
                     speaker.speak(f"{new_count} new party invites. Open social menu to review.")
 
@@ -717,6 +762,24 @@ class SocialManager:
             logger.error(f"Error accepting party invite: {e}")
             speaker.speak("Error joining party")
 
+    def _auto_accept_party_invite(self, invite: PartyInvite, display_name: str):
+        """Auto-accept a party invite (when they respond to our join request)"""
+        speaker.speak(f"{display_name} accepted your request. Joining party...")
+
+        try:
+            success = self.social_api.accept_party_invite(invite.party_id)
+
+            if success:
+                speaker.speak("Joined party")
+                # Refresh data
+                self.refresh_all_data()
+            else:
+                speaker.speak("Failed to join party")
+
+        except Exception as e:
+            logger.error(f"Error auto-accepting party invite: {e}")
+            speaker.speak("Error joining party")
+
     def _decline_party_invite(self, invite: PartyInvite):
         """Decline a party invite"""
         speaker.speak("Declining party invite")
@@ -829,8 +892,13 @@ class SocialManager:
             result = self.social_api.request_to_join_party(friend.account_id)
 
             if result == True:
+                # Track this join request for auto-accept logic
+                self.outgoing_join_requests[friend.account_id] = (datetime.now(), display_name)
+                logger.info(f"Tracking join request to {display_name} for auto-accept")
                 speaker.speak(f"Join request sent to {display_name}")
             elif result == "already_sent":
+                # Still track it in case we get an invite
+                self.outgoing_join_requests[friend.account_id] = (datetime.now(), display_name)
                 speaker.speak(f"Join request already sent to {display_name}")
             else:
                 speaker.speak("Failed to send join request")
