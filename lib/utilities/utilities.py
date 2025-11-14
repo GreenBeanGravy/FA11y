@@ -266,6 +266,8 @@ Decline Request = lalt+d "Decline or remove the current friend request, party in
 Send Friend Request = lalt+s "Send a friend request (prompts for Epic username)."
 Invite To Party = lalt+i "Invite the selected friend to your party."
 Read Social Status = lalt+r "Read a summary of your social status (friends, requests, party)."
+Promote Party Member = lalt+p "Promote the selected party member to leader."
+Leave Party = lalt+l "Leave the current party."
 
 [POI]
 selected_poi = closest, 0, 0

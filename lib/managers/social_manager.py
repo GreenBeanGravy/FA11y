@@ -79,6 +79,48 @@ class SocialManager:
         # Load cached data
         self.load_cache()
 
+    def _is_account_id(self, text: str) -> bool:
+        """
+        Check if a string looks like an Epic account ID (UUID format)
+
+        Args:
+            text: String to check
+
+        Returns:
+            True if it looks like an account ID
+        """
+        import re
+        # Epic account IDs are 32 hex characters (no dashes)
+        # Example: fd598199500c4044a0c4f66083349548
+        return bool(re.match(r'^[a-f0-9]{32}$', text.lower()))
+
+    def _ensure_display_name(self, display_name: str) -> str:
+        """
+        Ensure we have a real display name, not an account ID.
+        If it's an ID, try to fetch the real name.
+
+        Args:
+            display_name: Name to verify
+
+        Returns:
+            Real display name or original if fetch fails
+        """
+        if not self._is_account_id(display_name):
+            return display_name
+
+        # It's an account ID - try to fetch real name
+        if self.social_api:
+            try:
+                real_name = self.social_api._get_display_name(display_name, use_placeholder=False)
+                if real_name and not self._is_account_id(real_name):
+                    logger.info(f"Fetched real name for {display_name}: {real_name}")
+                    return real_name
+            except Exception as e:
+                logger.debug(f"Failed to fetch display name for {display_name}: {e}")
+
+        # Return original if fetch failed
+        return display_name
+
     def start_monitoring(self):
         """Start background monitoring thread"""
         if self.running:
@@ -367,7 +409,9 @@ class SocialManager:
 
     def _announce_friend(self, friend: Friend, position_info: str = ""):
         """Announce friend details"""
-        parts = [friend.display_name]
+        # Ensure we have real display name, not account ID
+        display_name = self._ensure_display_name(friend.display_name)
+        parts = [display_name]
 
         if friend.status == "online":
             parts.append("online")
@@ -386,36 +430,45 @@ class SocialManager:
 
     def _announce_friend_request(self, request: FriendRequest, position_info: str = ""):
         """Announce friend request details"""
+        # Ensure we have real display name, not account ID
+        display_name = self._ensure_display_name(request.display_name)
+
         if request.direction == "inbound":
             if position_info:
-                speaker.speak(f"Friend request from {request.display_name}, {position_info.rstrip(', ')}")
+                speaker.speak(f"Friend request from {display_name}, {position_info.rstrip(', ')}")
             else:
-                speaker.speak(f"Friend request from {request.display_name}")
+                speaker.speak(f"Friend request from {display_name}")
         else:
             if position_info:
-                speaker.speak(f"Friend request sent to {request.display_name}, {position_info.rstrip(', ')}")
+                speaker.speak(f"Friend request sent to {display_name}, {position_info.rstrip(', ')}")
             else:
-                speaker.speak(f"Friend request sent to {request.display_name}")
+                speaker.speak(f"Friend request sent to {display_name}")
 
     def _announce_party_invite(self, invite: PartyInvite, position_info: str = ""):
         """Announce party invite details"""
+        # Ensure we have real display name, not account ID
+        display_name = self._ensure_display_name(invite.from_display_name)
+
         if position_info:
-            speaker.speak(f"Party invite from {invite.from_display_name}, {position_info.rstrip(', ')}")
+            speaker.speak(f"Party invite from {display_name}, {position_info.rstrip(', ')}")
         else:
-            speaker.speak(f"Party invite from {invite.from_display_name}")
+            speaker.speak(f"Party invite from {display_name}")
 
     def _announce_party_member(self, member: PartyMember, position_info: str = ""):
         """Announce party member details"""
+        # Ensure we have real display name, not account ID
+        display_name = self._ensure_display_name(member.display_name)
+
         if member.is_leader:
             if position_info:
-                speaker.speak(f"{member.display_name}, party leader, {position_info.rstrip(', ')}")
+                speaker.speak(f"{display_name}, party leader, {position_info.rstrip(', ')}")
             else:
-                speaker.speak(f"{member.display_name}, party leader")
+                speaker.speak(f"{display_name}, party leader")
         else:
             if position_info:
-                speaker.speak(f"{member.display_name}, {position_info.rstrip(', ')}")
+                speaker.speak(f"{display_name}, {position_info.rstrip(', ')}")
             else:
-                speaker.speak(member.display_name)
+                speaker.speak(display_name)
 
     # ========== Action Methods ==========
 
@@ -608,19 +661,85 @@ class SocialManager:
         if not isinstance(friend, Friend):
             return
 
-        speaker.speak(f"Inviting {friend.display_name} to party")
+        # Ensure real display name
+        display_name = self._ensure_display_name(friend.display_name)
+        speaker.speak(f"Inviting {display_name} to party")
 
         try:
             success = self.social_api.send_party_invite(friend.account_id)
 
             if success:
-                speaker.speak(f"Party invite sent to {friend.display_name}")
+                speaker.speak(f"Party invite sent to {display_name}")
             else:
                 speaker.speak("Failed to send party invite. Make sure you're in a party")
 
         except Exception as e:
             logger.error(f"Error sending party invite: {e}")
             speaker.speak("Error sending party invite")
+
+    def promote_party_member(self):
+        """Promote current party member to leader"""
+        if self.current_view != self.VIEW_PARTY_MEMBERS:
+            speaker.speak("Switch to party members view first")
+            return
+
+        items = self._get_current_view_items()
+
+        if not items or self.current_index >= len(items):
+            speaker.speak("No party member selected")
+            return
+
+        member = items[self.current_index]
+
+        if not isinstance(member, PartyMember):
+            return
+
+        if member.is_leader:
+            speaker.speak("This member is already the party leader")
+            return
+
+        # Ensure real display name
+        display_name = self._ensure_display_name(member.display_name)
+        speaker.speak(f"Promoting {display_name} to party leader")
+
+        try:
+            success = self.social_api.promote_party_member(member.account_id)
+
+            if success:
+                speaker.speak(f"{display_name} promoted to party leader")
+                # Refresh party data
+                self.refresh_all_data()
+            else:
+                speaker.speak("Failed to promote member. You may not be the party leader")
+
+        except Exception as e:
+            logger.error(f"Error promoting party member: {e}")
+            speaker.speak("Error promoting party member")
+
+    def leave_party(self):
+        """Leave current party"""
+        with self.lock:
+            party_size = len(self.party_members)
+
+        if party_size == 0:
+            speaker.speak("You are not in a party")
+            return
+
+        speaker.speak(f"Leaving party of {party_size} members")
+
+        try:
+            success = self.social_api.leave_party()
+
+            if success:
+                speaker.speak("Left party")
+                # Refresh party data
+                self.refresh_all_data()
+            else:
+                speaker.speak("Failed to leave party")
+
+        except Exception as e:
+            logger.error(f"Error leaving party: {e}")
+            speaker.speak("Error leaving party")
 
     def read_status(self):
         """Read current social status summary"""

@@ -16,6 +16,7 @@ import gc
 import ctypes
 import ctypes.wintypes
 import logging
+import wx
 from typing import List, Tuple, Optional, Dict, Any, Union
 
 # Suppress pkg_resources deprecation warnings from external libraries
@@ -399,6 +400,8 @@ def reload_config() -> None:
             'send friend request': social_send_request,
             'invite to party': social_invite_party,
             'read social status': social_read_status,
+            'promote party member': social_promote_member,
+            'leave party': social_leave_party,
         })
 
         for i in range(1, 6):
@@ -634,6 +637,22 @@ def social_read_status():
     global social_manager
     if social_manager:
         social_manager.read_status()
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_promote_member():
+    """Wrapper to promote party member"""
+    global social_manager
+    if social_manager:
+        social_manager.promote_party_member()
+    else:
+        logger.debug("Social manager not initialized")
+
+def social_leave_party():
+    """Wrapper to leave party"""
+    global social_manager
+    if social_manager:
+        social_manager.leave_party()
     else:
         logger.debug("Social manager not initialized")
 
@@ -1790,18 +1809,42 @@ def main() -> None:
         # Initialize hotbar detection
         initialize_hotbar_detection()
 
-        # Initialize and start social manager if authenticated
+        # Initialize Epic authentication and social features
         try:
             from lib.utilities.epic_auth import get_epic_auth_instance
+            from lib.guis.epic_login_dialog import LoginDialog
+
             epic_auth = get_epic_auth_instance()
 
-            # Only start social manager if user is logged in
+            # Check if already authenticated
+            if not epic_auth or not epic_auth.access_token:
+                print("Epic Games authentication required for social features")
+                speaker.speak("Epic Games authentication required. Opening login dialog.")
+
+                # Show login dialog
+                app = wx.App()
+                login_dialog = LoginDialog(None, epic_auth)
+                login_dialog.ShowModal()
+                authenticated = login_dialog.authenticated
+                login_dialog.Destroy()
+                app.Destroy()
+
+                if not authenticated:
+                    print("Social features disabled: Authentication cancelled")
+                    speaker.speak("Social features disabled")
+                else:
+                    # Refresh auth instance after login
+                    epic_auth = get_epic_auth_instance()
+
+            # Start social manager if authenticated
             if epic_auth and epic_auth.access_token:
                 social_manager = get_social_manager(epic_auth)
                 social_manager.start_monitoring()
                 print(f"Social features enabled for {epic_auth.display_name}")
+                speaker.speak(f"Social features enabled for {epic_auth.display_name}")
             else:
-                print("Social features disabled: Not logged in to Epic Games")
+                print("Social features disabled: Not authenticated")
+
         except Exception as e:
             print(f"Social features disabled: {e}")
             logger.warning(f"Failed to initialize social features: {e}")

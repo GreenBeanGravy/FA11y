@@ -846,3 +846,55 @@ class EpicSocial:
         except Exception as e:
             logger.error(f"Error leaving party: {e}")
             return False
+
+    def promote_party_member(self, member_account_id: str) -> bool:
+        """
+        Promote a party member to leader
+
+        Args:
+            member_account_id: Account ID of member to promote
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get current party
+            party_response = requests.get(
+                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
+                headers=self._get_headers(),
+                timeout=5
+            )
+
+            if party_response.status_code == 200:
+                party_data = party_response.json()
+
+                # Check if party data has the expected structure
+                if "current" in party_data and len(party_data["current"]) > 0:
+                    party_id = party_data["current"][0].get("id")
+                else:
+                    party_id = party_data.get("id")
+
+                if not party_id:
+                    logger.error("Failed to get party ID")
+                    return False
+
+                # Promote member
+                response = requests.post(
+                    f"{self.PARTY_BASE}/parties/{party_id}/members/{member_account_id}/promote",
+                    headers=self._get_headers(),
+                    timeout=5
+                )
+
+                if response.status_code in [200, 204]:
+                    logger.info(f"Successfully promoted {member_account_id} to party leader")
+                    return True
+                else:
+                    logger.error(f"Failed to promote party member: {response.status_code} - {response.text}")
+                    return False
+            else:
+                logger.info("Not in a party")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error promoting party member: {e}")
+            return False
