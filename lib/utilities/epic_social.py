@@ -131,6 +131,9 @@ class EpicSocial:
         # Counter for generating placeholder names
         self._placeholder_counter = 0
 
+        # Cache XMPP connection ID (extracted from party data)
+        self._xmpp_connection_id = None
+
     def _get_headers(self) -> dict:
         """Get authorization headers for API requests"""
         if not self.auth.access_token:
@@ -580,6 +583,63 @@ class EpicSocial:
 
     # ========== Party API ==========
 
+    def _get_xmpp_connection_id(self) -> Optional[str]:
+        """
+        Get our XMPP connection ID from current party data
+
+        This is needed for party operations. The connection ID is visible
+        in the party member data when you're in Fortnite.
+
+        Returns:
+            XMPP connection ID string or None if not available
+        """
+        # Return cached value if available
+        if self._xmpp_connection_id:
+            return self._xmpp_connection_id
+
+        try:
+            # Get current party info
+            response = requests.get(
+                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
+                headers=self._get_headers(),
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                party_data = response.json()
+
+                # Check if in a party
+                current_parties = party_data.get("current", [])
+                if not current_parties:
+                    logger.debug("Not in a party, cannot extract XMPP connection ID")
+                    return None
+
+                # Find ourselves in the members list
+                party = current_parties[0]
+                members = party.get("members", [])
+
+                for member in members:
+                    if member.get("account_id") == self.auth.account_id:
+                        # Found ourselves! Extract connection ID
+                        connections = member.get("connections", [])
+                        if connections:
+                            connection_id = connections[0].get("id")
+                            if connection_id:
+                                # Cache it for future use
+                                self._xmpp_connection_id = connection_id
+                                logger.info(f"Extracted XMPP connection ID: {connection_id}")
+                                return connection_id
+
+                logger.warning("Could not find own connection ID in party data")
+                return None
+            else:
+                logger.debug(f"Failed to get party data for XMPP extraction: {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error extracting XMPP connection ID: {e}")
+            return None
+
     def get_current_party(self) -> Optional[List[PartyMember]]:
         """
         Get current party members
@@ -811,6 +871,12 @@ class EpicSocial:
         try:
             import json
 
+            # Get our XMPP connection ID from current party
+            connection_id = self._get_xmpp_connection_id()
+            if not connection_id:
+                logger.error("Cannot join party: No XMPP connection ID available. Make sure you're in Fortnite.")
+                return False
+
             # Get display name
             display_name = self.auth.display_name or "Player"
 
@@ -827,8 +893,16 @@ class EpicSocial:
                 }]
             }
 
-            # Try without connection field first (since we don't have real XMPP session)
+            # Build request body with real XMPP connection ID
             join_body = {
+                "connection": {
+                    "id": connection_id,
+                    "meta": {
+                        "urn:epic:conn:platform_s": "WIN",
+                        "urn:epic:conn:type_s": "game"
+                    },
+                    "yield_leadership": False
+                },
                 "meta": {
                     "urn:epic:member:dn_s": display_name,
                     "urn:epic:member:joinrequestusers_j": json.dumps(join_request_users)
