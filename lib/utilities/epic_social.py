@@ -727,17 +727,35 @@ class EpicSocial:
                 pings = response.json()
                 invites = []
 
-                # Debug: Log the actual response structure
-                if pings:
-                    logger.info(f"Party pings response (first ping): {pings[0] if isinstance(pings, list) else pings}")
-
                 for ping in pings:
                     from_id = ping.get("sent_by")
                     party_id = ping.get("party_id")
 
-                    # Debug: Log if party_id is missing
+                    # If party_id is missing, query the party info via pinger endpoint
+                    if not party_id and from_id:
+                        logger.debug(f"Ping missing party_id, querying via pinger endpoint for {from_id}")
+                        try:
+                            # Get party info from the pinger
+                            party_response = requests.get(
+                                f"{self.PARTY_BASE}/user/{self.auth.account_id}/pings/{from_id}/parties",
+                                headers=self._get_headers(),
+                                timeout=5
+                            )
+
+                            if party_response.status_code == 200:
+                                parties = party_response.json()
+                                if parties and len(parties) > 0:
+                                    party_id = parties[0].get("id")
+                                    logger.debug(f"Retrieved party_id from pinger endpoint: {party_id}")
+                            else:
+                                logger.warning(f"Failed to get party info from pinger: {party_response.status_code}")
+                        except Exception as e:
+                            logger.warning(f"Error querying party from pinger: {e}")
+
+                    # Skip this ping if we still don't have a party_id
                     if not party_id:
-                        logger.warning(f"Ping missing party_id! Full ping data: {ping}")
+                        logger.warning(f"Skipping ping without party_id from {from_id}")
+                        continue
 
                     invites.append(PartyInvite(
                         party_id=party_id,
