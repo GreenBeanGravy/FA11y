@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from lib.utilities.display_name_cache import get_display_name_cache
-from lib.utilities.epic_xmpp import EpicXMPP
+from lib.utilities.epic_xmpp import EpicXMPPManager
 
 logger = logging.getLogger(__name__)
 
@@ -708,17 +708,28 @@ class EpicSocial:
             True if successful, False otherwise
         """
         try:
-            # Ensure XMPP is connected
-            if not self._xmpp_connected or not self.xmpp_client:
-                logger.info("XMPP not connected, initializing...")
-                success = await self.initialize_xmpp()
-                if not success:
-                    logger.error("Failed to initialize XMPP for MUC join")
-                    return False
+            logger.info("Setting up XMPP for party MUC...")
 
-            # Join the MUC room
+            # Get exchange code for XMPP authentication
+            exchange_code = self.auth.get_exchange_code()
+            if not exchange_code:
+                logger.error("Failed to get exchange code for XMPP")
+                return False
+
+            # Exchange code for XMPP access token
+            xmpp_auth = self.auth.exchange_code_for_xmpp_token(exchange_code)
+            if not xmpp_auth:
+                logger.error("Failed to get XMPP access token")
+                return False
+
+            # Create XMPP JID
+            xmpp_jid = f"{xmpp_auth['account_id']}@prod.ol.epicgames.com"
+            xmpp_password = xmpp_auth['access_token']
             display_name = self.auth.display_name or "Player"
-            success = await self.xmpp_client.join_party_muc(party_id, display_name)
+
+            # Create manager and connect + join MUC in one step
+            manager = EpicXMPPManager(xmpp_jid, xmpp_password)
+            success = await manager.connect_and_join_muc(party_id, display_name)
 
             if success:
                 logger.info(f"Successfully joined party MUC for party {party_id}")

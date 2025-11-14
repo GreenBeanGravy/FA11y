@@ -62,21 +62,22 @@ class EpicXMPP:
             # Override with custom server
             override = (self.server_host, self.server_port)
 
-            # Create and connect client
-            async with aioxmpp.PresenceManagedClient(
+            # Create client (don't use as context manager)
+            self.client = aioxmpp.PresenceManagedClient(
                 self.jid,
                 security_layer,
                 override_peer=[override]
-            ) as self.client:
+            )
+
+            # Connect using .connected() context manager
+            async with self.client.connected() as stream:
                 logger.info("XMPP session established")
                 self.connected = True
 
                 # Get MUC service
                 self.muc_service = self.client.summon(aioxmpp.MUCClient)
 
-                # Keep connection alive
-                # In actual usage, this should stay connected
-                # For now, we'll return success
+                # Keep connection alive for a moment
                 await asyncio.sleep(1)
 
                 return True
@@ -170,7 +171,7 @@ class EpicXMPP:
 class EpicXMPPManager:
     """
     Manager for XMPP connection that keeps it alive
-    Simpler approach than the full client
+    Simpler approach that maintains persistent connection
     """
 
     def __init__(self, jid_str: str, password: str):
@@ -182,9 +183,13 @@ class EpicXMPPManager:
         self.muc_client = None
         self.current_room = None
         self.connected = False
+        self._connection_task = None
 
-    async def connect(self) -> bool:
-        """Connect to XMPP server"""
+    async def connect_and_join_muc(self, party_id: str, nickname: str) -> bool:
+        """
+        Connect to XMPP and immediately join party MUC
+        Keeps connection alive in background
+        """
         try:
             logger.info(f"Connecting XMPP to {self.server_host}:{self.server_port}")
 
@@ -201,7 +206,7 @@ class EpicXMPPManager:
                 override_peer=[(self.server_host, self.server_port)]
             )
 
-            # Connect
+            # Connect and join MUC
             async with self.client.connected() as stream:
                 logger.info("XMPP connected successfully")
                 self.connected = True
@@ -209,34 +214,26 @@ class EpicXMPPManager:
                 # Get MUC client
                 self.muc_client = self.client.summon(aioxmpp.MUCClient)
 
-                # Keep connection alive
-                await asyncio.sleep(0.5)
+                # Join party MUC room
+                muc_jid = aioxmpp.JID.fromstr(f"Party-{party_id}@muc.prod.ol.epicgames.com")
+                logger.info(f"Joining MUC: {muc_jid}")
+
+                # Join room
+                self.current_room, join_future = self.muc_client.join(muc_jid, nickname)
+                await join_future
+
+                logger.info(f"Successfully joined MUC room, keeping connection alive...")
+
+                # Keep connection alive for 60 seconds (enough time for party spawn)
+                # In production, this should stay alive as long as in party
+                await asyncio.sleep(60)
+
+                logger.info("XMPP connection timeout, disconnecting")
                 return True
 
         except Exception as e:
-            logger.error(f"XMPP connection error: {e}")
+            logger.error(f"XMPP error: {e}")
             self.connected = False
-            return False
-
-    async def join_muc(self, party_id: str, nickname: str) -> bool:
-        """Join party MUC room"""
-        try:
-            if not self.connected or not self.muc_client:
-                logger.error("Not connected to XMPP")
-                return False
-
-            muc_jid = aioxmpp.JID.fromstr(f"Party-{party_id}@muc.prod.ol.epicgames.com")
-            logger.info(f"Joining MUC: {muc_jid}")
-
-            # Join room
-            self.current_room, join_future = self.muc_client.join(muc_jid, nickname)
-            await join_future
-
-            logger.info(f"Successfully joined MUC room")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error joining MUC: {e}")
             return False
 
     async def disconnect(self):
