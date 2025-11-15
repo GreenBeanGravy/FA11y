@@ -21,6 +21,8 @@ try:
 except ImportError:
     HAS_FCNTL = False
 
+from lib.config.config_manager import config_manager
+
 speaker = Auto()
 CONFIG_FILE = 'config/config.txt'
 
@@ -330,6 +332,12 @@ current_map = main"""
 
 DEFAULT_CONFIG = get_default_config()
 
+# Register app_config with ConfigManager for optional use
+# This allows code to use config_manager.get('app_config', key) if preferred
+# while keeping backward compatibility with read_config/save_config
+config_manager.register('app_config', CONFIG_FILE, format='ini',
+                       default=DEFAULT_CONFIG, cache_timeout=1.0)
+
 def _create_config_parser_with_case_preserved() -> configparser.ConfigParser:
     """Create a ConfigParser that preserves case for keys"""
     parser = configparser.ConfigParser(interpolation=None)
@@ -622,14 +630,21 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
         # Update cache
         _config_cache = config
         _config_cache_time = time.time()
-        
+
+        # Also update ConfigManager's cache to keep them in sync
+        try:
+            config_manager._registries['app_config'].cache = config
+            config_manager._registries['app_config'].cache_time = time.time()
+        except Exception:
+            pass  # Silently fail if ConfigManager isn't available
+
         # Return a copy to prevent external modifications
         new_config = _create_config_parser_with_case_preserved()
         for section in config.sections():
             new_config.add_section(section)
             for key, value in config.items(section):
                 new_config.set(section, key, value)
-        
+
         return new_config
 
 def save_config(config: configparser.ConfigParser) -> bool:
@@ -654,6 +669,14 @@ def save_config(config: configparser.ConfigParser) -> bool:
                 # Update cache
                 _config_cache = config
                 _config_cache_time = time.time()
+
+                # Also update ConfigManager's cache to keep them in sync
+                try:
+                    config_manager._registries['app_config'].cache = config
+                    config_manager._registries['app_config'].cache_time = time.time()
+                except Exception:
+                    pass  # Silently fail if ConfigManager isn't available
+
                 return True
             else:
                 print(f"Failed to save config to {CONFIG_FILE}")
