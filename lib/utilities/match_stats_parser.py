@@ -28,7 +28,7 @@ class MatchStatsParser:
 
     # Log event patterns
     KILL_PATTERN = re.compile(r'LogFort: FORT-\d+ AFortPlayerStateAthena::OnRep_Kills\(\) \(KillScore = (\d+)\)')
-    PREDICTION_KEY_PATTERN = re.compile(r'LogPredictionKey:')
+    LOCAL_PLAYER_PATTERN = re.compile(r'Local Player (\w+)')
 
     def __init__(self):
         self.log_file_path: Optional[Path] = None
@@ -41,8 +41,8 @@ class MatchStatsParser:
         self.last_kill_count = 0
         self.in_match = False
 
-        # Track prediction key events (indicates player's own actions)
-        self.last_prediction_key_time = 0.0
+        # Track local player username
+        self.local_player_username = None
 
         # Find log file
         self._find_log_file()
@@ -92,34 +92,61 @@ class MatchStatsParser:
         if not line or self.paused:
             return
 
-        # Track LogPredictionKey events (indicates player's own actions)
-        if self.PREDICTION_KEY_PATTERN.search(line):
-            self.last_prediction_key_time = time.time()
-            logger.debug("Detected LogPredictionKey - player action predicted")
+        # Extract local player username if we haven't found it yet
+        if not self.local_player_username:
+            player_match = self.LOCAL_PLAYER_PATTERN.search(line)
+            if player_match:
+                self.local_player_username = player_match.group(1)
+                logger.info(f"Detected local player: {self.local_player_username}")
 
         # Check for kill events
         kill_match = self.KILL_PATTERN.search(line)
         if kill_match:
             kill_score = int(kill_match.group(1))
-            current_time = time.time()
 
-            # Check if there was a LogPredictionKey event within the last 2 seconds
-            # LogPredictionKey appears only for the LOCAL PLAYER'S actions (client-side prediction)
-            time_since_prediction = current_time - self.last_prediction_key_time
-            is_player_kill = time_since_prediction < 2.0
+            # Strategy: Track the LOWEST sequential sequence
+            # Player's match kills are typically 0-50, other players might show 400+ (career stats)
+            #
+            # If we haven't started tracking yet (current_kills = 0):
+            #   - Accept kills < 100 as potential player baseline
+            #   - Ignore very high numbers (likely other players' career stats)
+            #
+            # Once tracking:
+            #   - Only accept sequential +1 increments
+            #   - If we see a much higher number, ignore it (other player)
 
-            logger.debug(f"Kill event: KillScore={kill_score}, TimeSincePrediction={time_since_prediction:.2f}s, IsPlayerKill={is_player_kill}")
+            if self.current_kills == 0:
+                # Not tracking yet - accept low numbers as baseline, or exact +1
+                if kill_score == 1:
+                    # First kill of match
+                    self.current_kills = 1
+                    self.last_kill_count = 1
+                    self.in_match = True
+                    announcement = f"Kill! Total: {kill_score}"
+                    logger.info(f"Player kill detected (first): {announcement}")
+                    safe_speak(announcement)
+                elif kill_score < 100:
+                    # Mid-match start - accept as baseline but don't announce yet
+                    # Wait for next +1 to confirm
+                    self.current_kills = kill_score
+                    logger.info(f"Potential player baseline: {kill_score} kills")
+                else:
+                    # Very high number - likely other player's career stats
+                    logger.debug(f"Ignoring high kill count (likely other player): {kill_score}")
+            else:
+                # Already tracking - only accept sequential +1
+                if kill_score == self.current_kills + 1:
+                    self.current_kills = kill_score
+                    self.last_kill_count = kill_score
+                    self.in_match = True
 
-            # Only announce if it's the player's kill
-            if is_player_kill:
-                self.current_kills = kill_score
-                self.last_kill_count = kill_score
-                self.in_match = True
-
-                # Announce the kill
-                announcement = f"Kill! Total: {kill_score}"
-                logger.info(announcement)
-                safe_speak(announcement)
+                    # Announce the kill
+                    announcement = f"Kill! Total: {kill_score}"
+                    logger.info(f"Player kill detected: {announcement}")
+                    safe_speak(announcement)
+                else:
+                    # Non-sequential - likely other player
+                    logger.debug(f"Non-sequential kill (likely other player): KillScore={kill_score}, Player current={self.current_kills}")
 
     def _tail_log_file(self):
         """
