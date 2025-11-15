@@ -41,9 +41,22 @@ GITHUB_BRANCH = "main"
 
 # Files to ignore during updates (will not be replaced)
 IGNORED_FILES = [
+    # User configuration files
     'config.txt',
     'CUSTOM_POI.txt',
     'FAVORITE_POIS.txt',
+
+    # Epic Games authentication and cache files
+    'epic_auth_cache.json',
+    'fortnite_locker_cache.json',
+    'display_name_cache.json',
+
+    # Social/friends data
+    'social_cache.json',
+    'favorite_friends.json',
+
+    # Mouse passthrough configuration
+    'mouse_config.json',
 ]
 
 # Folders to exclude from cleanup (will not be removed)
