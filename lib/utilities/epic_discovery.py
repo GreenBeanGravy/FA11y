@@ -53,9 +53,6 @@ class EpicDiscovery:
         self.DISCOVERY_BASE = "https://fn-service-discovery-live-public.ogs.live.on.epicgames.com/api/v2/discovery"
         self.SEARCH_BASE = "https://fngw-svc-gc-livefn.ol.epicgames.com/api"
 
-        # Cached discovery access token
-        self._discovery_token = None
-
     def _get_headers(self) -> dict:
         """Get authorization headers for API requests"""
         if not self.auth.access_token:
@@ -63,18 +60,9 @@ class EpicDiscovery:
 
         return {
             "Authorization": f"Bearer {self.auth.access_token}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "User-Agent": "Fortnite/++Fortnite+Release-20.00-CL-19458861 Windows/10.0.19041.1.768.64bit"
         }
-
-    def _get_discovery_headers(self) -> dict:
-        """Get headers with discovery access token"""
-        headers = self._get_headers()
-
-        # Add discovery token if available
-        if self._discovery_token:
-            headers["X-Epic-Access-Token"] = self._discovery_token
-
-        return headers
 
     def get_discovery_surface(self, surface_name: str = SURFACE_MAIN) -> Optional[Dict]:
         """
@@ -103,7 +91,7 @@ class EpicDiscovery:
 
             response = requests.post(
                 f"{self.DISCOVERY_BASE}/surface/{surface_name}",
-                headers=self._get_discovery_headers(),
+                headers=self._get_headers(),
                 json=payload,
                 params={"appId": "Fortnite"},
                 timeout=10
@@ -144,10 +132,9 @@ class EpicDiscovery:
             }
 
             response = requests.post(
-                f"{self.SEARCH_BASE}/island-search/v1/search",
+                f"{self.SEARCH_BASE}/island-search/v1/search/{self.auth.account_id}",
                 headers=self._get_headers(),
                 json=payload,
-                params={"accountId": self.auth.account_id},
                 timeout=10
             )
 
@@ -194,10 +181,9 @@ class EpicDiscovery:
             }
 
             response = requests.post(
-                f"{self.SEARCH_BASE}/creator-search/v1/search",
+                f"{self.SEARCH_BASE}/creator-search/v1/search/{self.auth.account_id}",
                 headers=self._get_headers(),
                 json=payload,
-                params={"accountId": self.auth.account_id},
                 timeout=10
             )
 
