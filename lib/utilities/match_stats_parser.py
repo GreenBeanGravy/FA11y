@@ -28,6 +28,7 @@ class MatchStatsParser:
 
     # Log event patterns
     KILL_PATTERN = re.compile(r'LogFort: FORT-\d+ AFortPlayerStateAthena::OnRep_Kills\(\) \(KillScore = (\d+)\)')
+    PREDICTION_KEY_PATTERN = re.compile(r'LogPredictionKey:')
 
     def __init__(self):
         self.log_file_path: Optional[Path] = None
@@ -39,6 +40,9 @@ class MatchStatsParser:
         self.current_kills = 0
         self.last_kill_count = 0
         self.in_match = False
+
+        # Track prediction key events (indicates player's own actions)
+        self.last_prediction_key_time = 0.0
 
         # Find log file
         self._find_log_file()
@@ -88,15 +92,26 @@ class MatchStatsParser:
         if not line or self.paused:
             return
 
+        # Track LogPredictionKey events (indicates player's own actions)
+        if self.PREDICTION_KEY_PATTERN.search(line):
+            self.last_prediction_key_time = time.time()
+            logger.debug("Detected LogPredictionKey - player action predicted")
+
         # Check for kill events
         kill_match = self.KILL_PATTERN.search(line)
         if kill_match:
             kill_score = int(kill_match.group(1))
+            current_time = time.time()
 
-            # Only announce if it's a sequential kill (exactly +1 from current count)
-            # This filters out other players' kills which appear as random higher numbers
-            # Player kills always increment sequentially: 0->1->2->3, etc.
-            if kill_score == self.current_kills + 1:
+            # Check if there was a LogPredictionKey event within the last 2 seconds
+            # LogPredictionKey appears only for the LOCAL PLAYER'S actions (client-side prediction)
+            time_since_prediction = current_time - self.last_prediction_key_time
+            is_player_kill = time_since_prediction < 2.0
+
+            logger.debug(f"Kill event: KillScore={kill_score}, TimeSincePrediction={time_since_prediction:.2f}s, IsPlayerKill={is_player_kill}")
+
+            # Only announce if it's the player's kill
+            if is_player_kill:
                 self.current_kills = kill_score
                 self.last_kill_count = kill_score
                 self.in_match = True
@@ -105,9 +120,6 @@ class MatchStatsParser:
                 announcement = f"Kill! Total: {kill_score}"
                 logger.info(announcement)
                 safe_speak(announcement)
-
-            # Debug: log all kill events we see (for troubleshooting)
-            logger.debug(f"Detected kill event: KillScore={kill_score}, Player current={self.current_kills}")
 
     def _tail_log_file(self):
         """
