@@ -30,7 +30,7 @@ from lib.detection.match_tracker import match_tracker
 logger = logging.getLogger(__name__)
 speaker = Auto()
 
-CONFIG_FILE = 'config.txt'
+CONFIG_FILE = 'config/config.txt'
 OBJECT_TYPE = Union[Tuple[str, str, str, str], str]
 
 _objects_lock = threading.RLock()

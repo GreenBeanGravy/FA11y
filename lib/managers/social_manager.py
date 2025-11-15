@@ -41,8 +41,8 @@ class SocialManager:
         self.social_api = EpicSocial(epic_auth_instance) if epic_auth_instance else None
 
         # Cache file
-        self.cache_file = "social_cache.json"
-        self.favorites_file = "favorite_friends.json"
+        self.cache_file = "config/social_cache.json"
+        self.favorites_file = "config/favorite_friends.json"
 
         # State management
         self.current_view = self.VIEW_ALL_FRIENDS

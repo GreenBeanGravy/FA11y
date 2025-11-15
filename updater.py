@@ -65,6 +65,7 @@ EXCLUDED_FOLDERS = [
     '.git',         # Git repository
     '__pycache__',  # Python cache
     'whls',         # Local wheel files
+    'config',       # User configuration and data files
 ]
 
 # FakerInput configuration
@@ -559,6 +560,48 @@ def cleanup_orphaned_files_and_directories(repo, branch):
         print_info("No orphaned files or directories found")
         return False
 
+def migrate_config_files():
+    """
+    Migrates configuration files from root directory to config/ folder.
+    This is a one-time migration for existing installations.
+    Safe to call multiple times - only moves files if they exist in root.
+    """
+    # Create config directory if it doesn't exist
+    os.makedirs('config', exist_ok=True)
+
+    # Files to migrate
+    files_to_migrate = [
+        'config.txt',
+        'CUSTOM_POI.txt',
+        'FAVORITE_POIS.txt',
+        'epic_auth_cache.json',
+        'fortnite_locker_cache.json',
+        'display_name_cache.json',
+        'social_cache.json',
+        'favorite_friends.json',
+        'mouse_config.json',
+    ]
+
+    migrated_count = 0
+    for filename in files_to_migrate:
+        src = filename
+        dst = os.path.join('config', filename)
+
+        # Only migrate if source exists in root and destination doesn't exist
+        if os.path.exists(src) and not os.path.exists(dst):
+            try:
+                import shutil
+                shutil.move(src, dst)
+                print_info(f"Migrated {filename} to config/ folder")
+                migrated_count += 1
+            except Exception as e:
+                print_info(f"Failed to migrate {filename}: {e}")
+
+    if migrated_count > 0:
+        print_info(f"Migration complete: {migrated_count} files moved to config/ folder")
+
+    return migrated_count > 0
+
 def check_legendary():
     """
     Checks if Legendary is installed or downloads it.
@@ -813,6 +856,9 @@ def main():
                     sounds_updated = True
     except requests.RequestException as e:
         print_info(f"Failed to check sounds folder: {e}")
+
+    # Migrate config files from root to config/ folder (one-time migration)
+    config_migrated = migrate_config_files()
 
     # Clean up orphaned files and directories
     cleanup_updated = cleanup_orphaned_files_and_directories(GITHUB_REPO, GITHUB_BRANCH)

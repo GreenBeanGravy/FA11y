@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 class EpicAuth:
     """Handle Epic Games authentication and cosmetic data fetching"""
 
-    def __init__(self, cache_file: str = "fortnite_locker_cache.json"):
+    def __init__(self, cache_file: str = "config/fortnite_locker_cache.json"):
         self.cache_file = cache_file
-        self.auth_file = "epic_auth_cache.json"
+        self.auth_file = "config/epic_auth_cache.json"
         self.access_token = None
         self.account_id = None
         self.display_name = None

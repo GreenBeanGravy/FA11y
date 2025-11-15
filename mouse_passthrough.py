@@ -890,7 +890,9 @@ class OptimizedMousePassthrough:
                 del config['target_device']['_dpi_scale']
         
         try:
-            with open('mouse_config.json', 'w') as f:
+            # Ensure config directory exists
+            os.makedirs('config', exist_ok=True)
+            with open('config/mouse_config.json', 'w') as f:
                 json.dump(config, f, indent=2)
         except:
             pass
@@ -898,7 +900,7 @@ class OptimizedMousePassthrough:
     def load_config(self):
         """Load configuration"""
         try:
-            with open('mouse_config.json', 'r') as f:
+            with open('config/mouse_config.json', 'r') as f:
                 config = json.load(f)
             
             td = config.get('target_device')

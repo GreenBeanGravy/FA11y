@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class DisplayNameCache:
     """Persistent cache for Epic account ID to display name mappings"""
 
-    def __init__(self, cache_file: str = "display_name_cache.json", expiry_days: int = 3):
+    def __init__(self, cache_file: str = "config/display_name_cache.json", expiry_days: int = 3):
         """
         Initialize display name cache
 
