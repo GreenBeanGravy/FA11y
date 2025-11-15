@@ -4,6 +4,8 @@ Epic Games Login Dialog for FA11y
 import wx
 import webbrowser
 import logging
+import json
+import re
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import AccessibleDialog, BoxSizerHelper, messageBox
@@ -94,6 +96,46 @@ class LoginDialog(AccessibleDialog):
             return
         event.Skip()
 
+    @staticmethod
+    def parse_auth_code(raw_input: str) -> str:
+        """
+        Parse authorization code from various input formats:
+        1. Full JSON response: {"authorizationCode": "...", ...}
+        2. Code in quotes: "01fec44ab47f47a1a62a5a325765046f"
+        3. Plain code: 01fec44ab47f47a1a62a5a325765046f
+
+        Returns the clean authorization code
+        """
+        if not raw_input:
+            return ""
+
+        # Strip leading/trailing whitespace
+        raw_input = raw_input.strip()
+
+        # Try to parse as JSON first
+        try:
+            data = json.loads(raw_input)
+            # Check if it's a dict with authorizationCode field
+            if isinstance(data, dict) and "authorizationCode" in data:
+                code = data["authorizationCode"]
+                if code:  # Make sure it's not null
+                    logger.info("Parsed auth code from JSON format")
+                    return str(code).strip()
+        except (json.JSONDecodeError, ValueError):
+            # Not JSON, continue with other parsing methods
+            pass
+
+        # Remove quotes if present (handles both single and double quotes)
+        if (raw_input.startswith('"') and raw_input.endswith('"')) or \
+           (raw_input.startswith("'") and raw_input.endswith("'")):
+            code = raw_input[1:-1].strip()
+            logger.info("Parsed auth code from quoted format")
+            return code
+
+        # Return as-is (plain code format)
+        logger.info("Parsed auth code from plain format")
+        return raw_input
+
     def on_start_login(self, event):
         """Handle Start Login button"""
         try:
@@ -135,8 +177,9 @@ class LoginDialog(AccessibleDialog):
     def on_submit_code(self, event):
         """Handle Submit Code button"""
         try:
-            # Get the authorization code from the input
-            auth_code = self.code_input.GetValue().strip()
+            # Get the authorization code from the input and parse it
+            raw_input = self.code_input.GetValue()
+            auth_code = self.parse_auth_code(raw_input)
 
             if not auth_code:
                 speaker.speak("Please enter an authorization code")
