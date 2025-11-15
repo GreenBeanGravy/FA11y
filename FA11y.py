@@ -16,6 +16,7 @@ import gc
 import ctypes
 import ctypes.wintypes
 import logging
+import wx
 from typing import List, Tuple, Optional, Dict, Any, Union
 
 # Suppress pkg_resources deprecation warnings from external libraries
@@ -83,6 +84,7 @@ from lib.monitors.storm_monitor import storm_monitor
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.detection.match_tracker import match_tracker
+from lib.managers.social_manager import get_social_manager
 
 from lib.utilities.input import (
     is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS,
@@ -144,9 +146,12 @@ key_bindings = {}
 key_listener_thread = None
 stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
+social_gui_open = threading.Event()
+locker_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
+social_manager = None
 
 # Global shutdown flag for instant shutdown
 _shutdown_requested = threading.Event()
@@ -180,12 +185,16 @@ def signal_handler(signum, frame):
     try:
         # Stop all monitoring systems without waiting
         monitor.stop_monitoring()
-        material_monitor.stop_monitoring() 
+        material_monitor.stop_monitoring()
         resource_monitor.stop_monitoring()
         # dynamic_object_monitor.stop_monitoring()
         storm_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
-        
+
+        # Stop social manager
+        if social_manager:
+            social_manager.stop_monitoring()
+
         # Clean up pygame mixer
         if pygame.mixer.get_init():
             pygame.mixer.quit()
@@ -385,6 +394,9 @@ def reload_config() -> None:
             'get match stats': get_match_stats,
             'check hotspots': check_hotspots,
             'open visited objects': open_visited_objects,
+            'open social menu': open_social_menu,
+            'accept notification': accept_notification,
+            'decline notification': decline_notification,
         })
 
         for i in range(1, 6):
@@ -557,6 +569,47 @@ def mark_last_reached_object_as_bad() -> None:
     except Exception as e:
         print(f"Error marking object as bad: {e}")
         speaker.speak("Error marking last reached object as bad")
+
+# Social manager wrapper functions
+def open_social_menu():
+    """Open social menu GUI"""
+    global social_manager, social_gui_open
+    if not social_manager:
+        speaker.speak("Social features not enabled")
+        return
+
+    # Check if social GUI is already open
+    if social_gui_open.is_set():
+        speaker.speak("Social menu is already open")
+        return
+
+    try:
+        from lib.guis.social_gui import show_social_gui
+        social_gui_open.set()
+        try:
+            show_social_gui(social_manager)
+        finally:
+            social_gui_open.clear()
+    except Exception as e:
+        logger.error(f"Error opening social menu: {e}")
+        speaker.speak("Error opening social menu")
+        social_gui_open.clear()
+
+def accept_notification():
+    """Accept pending notification (Alt+Y)"""
+    global social_manager
+    if social_manager:
+        social_manager.accept_notification()
+    else:
+        logger.debug("Social manager not initialized")
+
+def decline_notification():
+    """Decline pending notification (Alt+D)"""
+    global social_manager
+    if social_manager:
+        social_manager.decline_notification()
+    else:
+        logger.debug("Social manager not initialized")
 
 def check_hotspots() -> None:
     """Check for hotspot POIs on the map"""
@@ -884,10 +937,19 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
         speaker.speak("Error opening custom POI creator")
 
 def open_gamemode_selector() -> None:
-    """Open the gamemode selector GUI."""
+    """Open the gamemode selector GUI with Epic auth for advanced features."""
     try:
         from lib.guis.gamemode_gui import launch_gamemode_selector
-        launch_gamemode_selector()
+        from lib.utilities.epic_auth import get_epic_auth_instance
+
+        # Get Epic auth instance for advanced discovery features
+        epic_auth = None
+        try:
+            epic_auth = get_epic_auth_instance()
+        except Exception as e:
+            logger.debug(f"Epic auth not available for gamemode selector: {e}")
+
+        launch_gamemode_selector(epic_auth=epic_auth)
 
     except Exception as e:
         print(f"Error opening gamemode selector: {e}")
@@ -895,33 +957,55 @@ def open_gamemode_selector() -> None:
 
 def open_locker_selector() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
-    global active_pinger
+    global active_pinger, locker_gui_open
+
+    # Check if locker GUI is already open
+    if locker_gui_open.is_set():
+        speaker.speak("Locker is already open")
+        return
+
     if active_pinger:
         active_pinger.stop()
         active_pinger = None
         speaker.speak("Continuous ping disabled.")
     try:
         from lib.guis.locker_gui import launch_locker_gui
-        launch_locker_gui()
+        locker_gui_open.set()
+        try:
+            launch_locker_gui()
+        finally:
+            locker_gui_open.clear()
 
     except Exception as e:
         print(f"Error opening locker: {e}")
         speaker.speak("Error opening locker")
+        locker_gui_open.clear()
 
 def open_locker_viewer() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
-    global active_pinger
+    global active_pinger, locker_gui_open
+
+    # Check if locker GUI is already open
+    if locker_gui_open.is_set():
+        speaker.speak("Locker is already open")
+        return
+
     if active_pinger:
         active_pinger.stop()
         active_pinger = None
         speaker.speak("Continuous ping disabled.")
     try:
         from lib.guis.locker_gui import launch_locker_gui
-        launch_locker_gui()
+        locker_gui_open.set()
+        try:
+            launch_locker_gui()
+        finally:
+            locker_gui_open.clear()
 
     except Exception as e:
         print(f"Error opening locker: {e}")
         speaker.speak("Error opening locker")
+        locker_gui_open.clear()
 
 def get_poi_category(poi_name: str) -> str:
     """
@@ -1651,9 +1735,47 @@ def get_legendary_username() -> str:
         print(f"Failed to run 'legendary status': {str(e)}")
         return None
 
+def validate_epic_auth(epic_auth) -> bool:
+    """
+    Validate Epic auth token with a test API request
+
+    Args:
+        epic_auth: EpicAuth instance to validate
+
+    Returns:
+        True if token is valid, False otherwise
+    """
+    if not epic_auth or not epic_auth.access_token:
+        return False
+
+    try:
+        import requests
+        # Make a lightweight API request to test the token
+        response = requests.get(
+            f"https://account-public-service-prod.ol.epicgames.com/account/api/public/account/{epic_auth.account_id}",
+            headers={'Authorization': f'Bearer {epic_auth.access_token}'},
+            timeout=5
+        )
+
+        if response.status_code == 401:
+            logger.info("Epic auth token expired (401 response)")
+            return False
+        elif response.status_code == 200:
+            logger.info("Epic auth token validated successfully")
+            return True
+        else:
+            logger.warning(f"Unexpected status during auth validation: {response.status_code}")
+            # For other errors, assume token might still be valid
+            return True
+
+    except Exception as e:
+        logger.warning(f"Error validating Epic auth token: {e}")
+        # If we can't validate, assume valid to avoid blocking
+        return True
+
 def main() -> None:
     """Main entry point for FA11y with instant shutdown capability."""
-    global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener
+    global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener, social_manager
     try:
         print("Starting FA11y...")
         
@@ -1704,12 +1826,53 @@ def main() -> None:
 
         # Start new game object system
         match_tracker.start_monitoring()
-        
+
         # Auto-start a new match
         match_tracker._start_new_match()
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
+
+        # Initialize Epic authentication and social features
+        try:
+            from lib.utilities.epic_auth import get_epic_auth_instance
+            from lib.guis.epic_login_dialog import LoginDialog
+
+            epic_auth = get_epic_auth_instance()
+
+            # Validate auth token (checks if exists and if valid via API request)
+            if not validate_epic_auth(epic_auth):
+                print("Epic Games authentication required for social features")
+                speaker.speak("Epic Games authentication required. Opening login dialog.")
+
+                # Show login dialog
+                app = wx.App()
+                login_dialog = LoginDialog(None, epic_auth)
+                login_dialog.ShowModal()
+                authenticated = login_dialog.authenticated
+                login_dialog.Destroy()
+                app.Destroy()
+
+                if not authenticated:
+                    print("Social features disabled: Authentication cancelled")
+                    speaker.speak("Social features disabled")
+                    epic_auth = None
+                else:
+                    # Refresh auth instance after login
+                    epic_auth = get_epic_auth_instance()
+
+            # Start social manager and other Epic auth-dependent features
+            if epic_auth and epic_auth.access_token:
+                social_manager = get_social_manager(epic_auth)
+                social_manager.start_monitoring()
+                print(f"Social features enabled for {epic_auth.display_name}")
+                speaker.speak(f"Social features enabled for {epic_auth.display_name}")
+            else:
+                print("Social features disabled: Not authenticated")
+
+        except Exception as e:
+            print(f"Social features disabled: {e}")
+            logger.warning(f"Failed to initialize social features: {e}")
 
         '''
         # Print available dynamic objects for reference (reduced spam)
@@ -1766,7 +1929,11 @@ def main() -> None:
             # dynamic_object_monitor.stop_monitoring()
             storm_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
-            
+
+            # Stop social manager
+            if social_manager:
+                social_manager.stop_monitoring()
+
             # Clean up object detection resources
             cleanup_object_detection()
             

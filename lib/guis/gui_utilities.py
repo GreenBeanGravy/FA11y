@@ -257,18 +257,23 @@ def center_mouse_in_window(window):
     try:
         if not window:
             return
-            
+
+        # Check if we're on the main thread - if not, schedule on main thread
+        if not wx.IsMainThread():
+            wx.CallAfter(center_mouse_in_window, window)
+            return
+
         # Get window position and size
         pos = window.GetPosition()
         size = window.GetSize()
-        
+
         # Calculate center point
         center_x = pos.x + size.width // 2
         center_y = pos.y + size.height // 2
-        
+
         # Move mouse to center using Windows API for precision
         ctypes.windll.user32.SetCursorPos(center_x, center_y)
-        
+
     except Exception as e:
         print(f"Error centering mouse: {e}")
 
@@ -278,7 +283,12 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
     try:
         if not window:
             return
-            
+
+        # Check if we're on the main thread - if not, schedule on main thread
+        if not wx.IsMainThread():
+            wx.CallAfter(force_focus_window, window, speak_text, focus_widget)
+            return
+
         # Get window handle
         hwnd = window.GetHandle()
         
@@ -393,12 +403,17 @@ def ensure_window_focus_and_center_mouse(window):
     try:
         if not window:
             return
-            
+
+        # Check if we're on the main thread - if not, schedule on main thread
+        if not wx.IsMainThread():
+            wx.CallAfter(ensure_window_focus_and_center_mouse, window)
+            return
+
         # Force focus first
         force_focus_window(window)
-        
+
         # Small delay to ensure window is positioned
         wx.CallAfter(lambda: center_mouse_in_window(window))
-        
+
     except Exception as e:
         print(f"Error ensuring window focus and centering mouse: {e}")
