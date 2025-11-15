@@ -307,7 +307,7 @@ class SocialDialog(AccessibleDialog):
     def _return_focus_to_game(self):
         """Return focus to Fortnite with a left click"""
         try:
-            pyautogui.click()
+            pyautogui.click(1919, 540)
         except Exception as e:
             logger.debug(f"Could not return focus to game: {e}")
 
@@ -444,7 +444,7 @@ def show_social_gui(social_manager):
 
         # Return focus to Fortnite after closing
         try:
-            pyautogui.click()
+            pyautogui.click(1919, 540)
         except Exception as e:
             logger.debug(f"Could not return focus to game: {e}")
     except Exception as e:
