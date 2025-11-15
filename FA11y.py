@@ -937,10 +937,19 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
         speaker.speak("Error opening custom POI creator")
 
 def open_gamemode_selector() -> None:
-    """Open the gamemode selector GUI."""
+    """Open the gamemode selector GUI with Epic auth for advanced features."""
     try:
         from lib.guis.gamemode_gui import launch_gamemode_selector
-        launch_gamemode_selector()
+        from lib.utilities.epic_auth import get_epic_auth_instance
+
+        # Get Epic auth instance for advanced discovery features
+        epic_auth = None
+        try:
+            epic_auth = get_epic_auth_instance()
+        except Exception as e:
+            logger.debug(f"Epic auth not available for gamemode selector: {e}")
+
+        launch_gamemode_selector(epic_auth=epic_auth)
 
     except Exception as e:
         print(f"Error opening gamemode selector: {e}")
