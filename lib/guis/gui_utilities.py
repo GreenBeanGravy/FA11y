@@ -257,7 +257,12 @@ def center_mouse_in_window(window):
     try:
         if not window:
             return
-            
+
+        # Check if we're on the main thread - if not, schedule on main thread
+        if not wx.Thread.IsMain():
+            wx.CallAfter(center_mouse_in_window, window)
+            return
+
         # Get window position and size
         pos = window.GetPosition()
         size = window.GetSize()
@@ -278,7 +283,12 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
     try:
         if not window:
             return
-            
+
+        # Check if we're on the main thread - if not, schedule on main thread
+        if not wx.Thread.IsMain():
+            wx.CallAfter(force_focus_window, window, speak_text, focus_widget)
+            return
+
         # Get window handle
         hwnd = window.GetHandle()
         
@@ -392,6 +402,11 @@ def ensure_window_focus_and_center_mouse(window):
     """Comprehensive function to ensure window focus and center mouse"""
     try:
         if not window:
+            return
+
+        # Check if we're on the main thread - if not, schedule on main thread
+        if not wx.Thread.IsMain():
+            wx.CallAfter(ensure_window_focus_and_center_mouse, window)
             return
             
         # Force focus first
