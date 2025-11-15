@@ -14,11 +14,15 @@ logger = logging.getLogger(__name__)
 class DiscoveryIsland:
     """Represents a discovered island/gamemode"""
     link_code: str
-    is_favorite: bool
-    last_visited: Optional[float]
-    global_ccu: int
-    lock_status: str
-    is_visible: bool
+    title: str  # Display name
+    creator_name: Optional[str] = None
+    description: Optional[str] = None
+    is_favorite: bool = False
+    last_visited: Optional[float] = None
+    global_ccu: int = -1
+    lock_status: str = "UNKNOWN"
+    is_visible: bool = True
+    image_url: Optional[str] = None
     score: Optional[float] = None
 
 
@@ -64,6 +68,50 @@ class EpicDiscovery:
             "Content-Type": "application/json",
             "User-Agent": "Fortnite/++Fortnite+Release-20.00-CL-19458861 Windows/10.0.19041.1.768.64bit"
         }
+
+    def _parse_island_data(self, island_data: Dict) -> Optional[DiscoveryIsland]:
+        """
+        Parse island data from API response
+
+        Args:
+            island_data: Raw island data from API
+
+        Returns:
+            DiscoveryIsland object or None if parsing fails
+        """
+        try:
+            link_code = island_data.get("linkCode", "")
+            if not link_code:
+                return None
+
+            # Extract title (display name)
+            title = island_data.get("title", link_code)
+
+            # Extract creator name
+            creator_name = island_data.get("creatorName")
+
+            # Extract description
+            description = island_data.get("description")
+
+            # Extract image URL
+            image_url = island_data.get("imageUrl")
+
+            return DiscoveryIsland(
+                link_code=link_code,
+                title=title,
+                creator_name=creator_name,
+                description=description,
+                is_favorite=island_data.get("isFavorite", False),
+                last_visited=island_data.get("lastVisited"),
+                global_ccu=island_data.get("globalCCU", island_data.get("playerCount", -1)),
+                lock_status=island_data.get("lockStatus", "UNKNOWN"),
+                is_visible=island_data.get("isVisible", True),
+                image_url=image_url,
+                score=island_data.get("score")
+            )
+        except Exception as e:
+            logger.error(f"Error parsing island data: {e}")
+            return None
 
     def get_discovery_surface(self, surface_name: str = SURFACE_MAIN) -> Optional[Dict]:
         """
@@ -117,9 +165,52 @@ class EpicDiscovery:
             logger.error(f"Error getting discovery surface: {e}")
             return None
 
+    def get_islands_from_surface(self, surface_data: Dict) -> List[DiscoveryIsland]:
+        """
+        Extract islands from a discovery surface response
+
+        Args:
+            surface_data: Surface data from get_discovery_surface()
+
+        Returns:
+            List of DiscoveryIsland objects
+        """
+        islands = []
+
+        try:
+            # Surface data contains panels with links to islands
+            panels = surface_data.get("panels", [])
+
+            for panel in panels:
+                # Each panel can have multiple pages
+                pages = panel.get("pages", [])
+
+                for page in pages:
+                    # Each page has results (islands)
+                    results = page.get("results", [])
+
+                    for result in results:
+                        # Parse the island data
+                        island = self._parse_island_data(result)
+                        if island:
+                            islands.append(island)
+
+            logger.info(f"Extracted {len(islands)} islands from surface")
+            return islands
+
+        except Exception as e:
+            logger.error(f"Error extracting islands from surface: {e}")
+            return []
+
     def search_islands(self, query: str, order_by: str = "globalCCU", page: int = 0) -> List[DiscoveryIsland]:
         """
-        Search for islands/gamemodes using discovery text search
+        Search for islands/gamemodes
+
+        NOTE: Island search requires in-game authentication which is not available
+        with web OAuth. This method returns an empty list.
+
+        For searching islands, use get_discovery_surface() and filter the results,
+        or search by code directly.
 
         Args:
             query: Search query
@@ -127,68 +218,11 @@ class EpicDiscovery:
             page: Page number
 
         Returns:
-            List of DiscoveryIsland objects
+            Empty list (feature not available with web auth)
         """
-        try:
-            # Use discovery text search endpoint instead of game client gateway
-            payload = {
-                "playerId": self.auth.account_id,
-                "partyMemberIds": [self.auth.account_id],
-                "accountLevel": 1,
-                "battlepassLevel": 1,
-                "locale": "en",
-                "matchmakingRegion": "NAE",
-                "platform": "Windows",
-                "isCabined": False,
-                "ratingAuthority": "ESRB",
-                "rating": "ESRB_TEEN",
-                "numLocalPlayers": 1,
-                "textSearch": query
-            }
-
-            url = f"{self.DISCOVERY_BASE}/surface/text-search"
-            logger.debug(f"Island search request: POST {url}")
-            logger.debug(f"Payload: {payload}")
-
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json=payload,
-                params={
-                    "appId": "Fortnite",
-                    "stream": "CreativeDiscovery"
-                },
-                timeout=10
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                results = data.get("results", {}).get("hits", [])
-
-                islands = []
-                for result in results:
-                    island = DiscoveryIsland(
-                        link_code=result.get("linkCode", ""),
-                        is_favorite=result.get("isFavorite", False),
-                        last_visited=result.get("lastVisited"),
-                        global_ccu=result.get("globalCCU", -1),
-                        lock_status=result.get("lockStatus", "UNKNOWN"),
-                        is_visible=result.get("isVisible", True),
-                        score=result.get("score")
-                    )
-                    islands.append(island)
-
-                logger.info(f"Found {len(islands)} islands matching '{query}'")
-                return islands
-            else:
-                logger.error(f"Failed to search islands: {response.status_code}")
-                logger.error(f"Response headers: {dict(response.headers)}")
-                logger.error(f"Response body: {response.text}")
-                return []
-
-        except Exception as e:
-            logger.error(f"Error searching islands: {e}")
-            return []
+        logger.warning("Island search requires in-game authentication, not available with web OAuth")
+        logger.info("Tip: Use discovery surfaces to browse islands instead")
+        return []
 
     def search_creators(self, creator_term: str) -> List[Creator]:
         """

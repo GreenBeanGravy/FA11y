@@ -345,26 +345,26 @@ class GamemodeGUI(AccessibleDialog):
                 speaker.speak("Failed to load surface")
                 return
 
-            # Extract islands from panels
-            islands = []
-            panels = data.get("panels", [])
+            # Extract islands using the helper method
+            islands = self.discovery_api.get_islands_from_surface(data)
 
-            for panel in panels:
-                first_page = panel.get("firstPage", {})
-                results = first_page.get("results", [])
+            for island in islands:
+                # Display title with creator name if available
+                if island.creator_name:
+                    display_name = f"{island.title} by {island.creator_name}"
+                else:
+                    display_name = island.title
 
-                for result in results:
-                    link_code = result.get("linkCode", "")
-                    ccu = result.get("globalCCU", -1)
-                    is_fav = result.get("isFavorite", False)
+                # Add player count if available
+                if island.global_ccu >= 0:
+                    display_name += f" ({island.global_ccu} players)"
 
-                    if link_code:
-                        label = f"{link_code} ({ccu} players)"
-                        if is_fav:
-                            label = f"★ {label}"
+                # Add favorite indicator
+                if island.is_favorite:
+                    display_name = f"★ {display_name}"
 
-                        self.discovery_list.Append(label, link_code)
-                        islands.append(link_code)
+                # Store link_code as client data, display the title
+                self.discovery_list.Append(display_name, island.link_code)
 
             if islands:
                 speaker.speak(f"Loaded {len(islands)} islands")
@@ -406,11 +406,22 @@ class GamemodeGUI(AccessibleDialog):
                 return
 
             for island in islands:
-                label = f"{island.link_code} ({island.global_ccu} players)"
-                if island.is_favorite:
-                    label = f"★ {label}"
+                # Display title with creator name if available
+                if island.creator_name:
+                    display_name = f"{island.title} by {island.creator_name}"
+                else:
+                    display_name = island.title
 
-                self.island_search_list.Append(label, island.link_code)
+                # Add player count if available
+                if island.global_ccu >= 0:
+                    display_name += f" ({island.global_ccu} players)"
+
+                # Add favorite indicator
+                if island.is_favorite:
+                    display_name = f"★ {display_name}"
+
+                # Store link_code as client data, display the title
+                self.island_search_list.Append(display_name, island.link_code)
 
             speaker.speak(f"Found {len(islands)} islands")
             self.island_search_list.SetSelection(0)
