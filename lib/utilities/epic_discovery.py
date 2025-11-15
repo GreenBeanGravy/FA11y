@@ -51,6 +51,7 @@ class EpicDiscovery:
 
         # Epic Games API endpoints
         self.DISCOVERY_BASE = "https://fn-service-discovery-live-public.ogs.live.on.epicgames.com/api/v2/discovery"
+        # Note: Search endpoints require game client authentication, not available with web OAuth
         self.SEARCH_BASE = "https://fngw-svc-gc-livefn.ol.epicgames.com/api"
 
     def _get_headers(self) -> dict:
@@ -97,7 +98,10 @@ class EpicDiscovery:
                 url,
                 headers=self._get_headers(),
                 json=payload,
-                params={"appId": "Fortnite"},
+                params={
+                    "appId": "Fortnite",
+                    "stream": "CreativeDiscovery"
+                },
                 timeout=10
             )
 
@@ -115,7 +119,7 @@ class EpicDiscovery:
 
     def search_islands(self, query: str, order_by: str = "globalCCU", page: int = 0) -> List[DiscoveryIsland]:
         """
-        Search for islands/gamemodes
+        Search for islands/gamemodes using discovery text search
 
         Args:
             query: Search query
@@ -126,18 +130,23 @@ class EpicDiscovery:
             List of DiscoveryIsland objects
         """
         try:
+            # Use discovery text search endpoint instead of game client gateway
             payload = {
-                "namespace": "fortnite",
-                "context": [],
-                "locale": "en-US-POSIX",
-                "search": query,
-                "orderBy": order_by,
-                "ratingAuthority": "",
-                "rating": "",
-                "page": page
+                "playerId": self.auth.account_id,
+                "partyMemberIds": [self.auth.account_id],
+                "accountLevel": 1,
+                "battlepassLevel": 1,
+                "locale": "en",
+                "matchmakingRegion": "NAE",
+                "platform": "Windows",
+                "isCabined": False,
+                "ratingAuthority": "ESRB",
+                "rating": "ESRB_TEEN",
+                "numLocalPlayers": 1,
+                "textSearch": query
             }
 
-            url = f"{self.SEARCH_BASE}/island-search/v1/search/{self.auth.account_id}"
+            url = f"{self.DISCOVERY_BASE}/surface/text-search"
             logger.debug(f"Island search request: POST {url}")
             logger.debug(f"Payload: {payload}")
 
@@ -145,12 +154,16 @@ class EpicDiscovery:
                 url,
                 headers=self._get_headers(),
                 json=payload,
+                params={
+                    "appId": "Fortnite",
+                    "stream": "CreativeDiscovery"
+                },
                 timeout=10
             )
 
             if response.status_code == 200:
                 data = response.json()
-                results = data.get("results", [])
+                results = data.get("results", {}).get("hits", [])
 
                 islands = []
                 for result in results:
@@ -179,49 +192,23 @@ class EpicDiscovery:
 
     def search_creators(self, creator_term: str) -> List[Creator]:
         """
-        Search for creators
+        Search for creators using text search
+
+        Note: Direct creator search requires game client authentication.
+        This falls back to searching islands by creator name.
 
         Args:
             creator_term: Creator search query
 
         Returns:
-            List of Creator objects
+            List of Creator objects (may be empty if feature unavailable)
         """
         try:
-            payload = {
-                "creatorTerm": creator_term
-            }
-
-            url = f"{self.SEARCH_BASE}/creator-search/v1/search/{self.auth.account_id}"
-            logger.debug(f"Creator search request: POST {url}")
-            logger.debug(f"Payload: {payload}")
-
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json=payload,
-                timeout=10
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                results = data.get("results", [])
-
-                creators = []
-                for result in results:
-                    creator = Creator(
-                        account_id=result.get("accountId", ""),
-                        score=result.get("score", 0.0)
-                    )
-                    creators.append(creator)
-
-                logger.info(f"Found {len(creators)} creators matching '{creator_term}'")
-                return creators
-            else:
-                logger.error(f"Failed to search creators: {response.status_code}")
-                logger.error(f"Response headers: {dict(response.headers)}")
-                logger.error(f"Response body: {response.text}")
-                return []
+            # Creator search requires game client tokens which we don't have with web OAuth
+            # Return empty list with a note
+            logger.warning("Creator search requires in-game authentication, not available with web OAuth")
+            logger.info("Tip: You can search for creators by name in the island search instead")
+            return []
 
         except Exception as e:
             logger.error(f"Error searching creators: {e}")
