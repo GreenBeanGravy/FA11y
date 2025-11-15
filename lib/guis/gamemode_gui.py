@@ -29,6 +29,20 @@ GAMEMODES_FOLDER = "gamemodes"
 speaker = Auto()
 
 
+def safe_speak(text: str):
+    """
+    Safely speak text, catching COM errors that can occur with SAPI5
+
+    Args:
+        text: Text to speak
+    """
+    try:
+        safe_speak(text)
+    except Exception as e:
+        # Log the error but don't crash
+        logger.debug(f"TTS error (non-critical): {e}")
+
+
 class DisplayableError(Exception):
     """Error that can be displayed to the user"""
 
@@ -293,11 +307,11 @@ class GamemodeGUI(AccessibleDialog):
         if self.simple_mode_btn.GetValue():
             self.simple_panel.Show()
             self.advanced_panel.Hide()
-            speaker.speak("Simple mode")
+            safe_speak("Simple mode")
         else:
             self.simple_panel.Hide()
             self.advanced_panel.Show()
-            speaker.speak("Advanced mode")
+            safe_speak("Advanced mode")
 
         self.Layout()
 
@@ -317,16 +331,16 @@ class GamemodeGUI(AccessibleDialog):
                 self.EndModal(wx.ID_OK)
                 success = self.select_gamemode_by_code(text)
                 if success:
-                    speaker.speak(f"{text} selected. Press P to ready up!")
+                    safe_speak(f"{text} selected. Press P to ready up!")
                 else:
-                    speaker.speak("Failed to select gamemode")
+                    safe_speak("Failed to select gamemode")
         else:
             dlg.Destroy()
 
     def on_load_surface(self, event):
         """Load selected discovery surface"""
         if not self.discovery_api:
-            speaker.speak("Discovery API not available")
+            safe_speak("Discovery API not available")
             return
 
         surface_name = self.surface_combo.GetStringSelection()
@@ -335,14 +349,14 @@ class GamemodeGUI(AccessibleDialog):
         if not surface_id:
             return
 
-        speaker.speak(f"Loading {surface_name}")
+        safe_speak(f"Loading {surface_name}")
         self.discovery_list.Clear()
 
         try:
             data = self.discovery_api.get_discovery_surface(surface_id)
 
             if not data:
-                speaker.speak("Failed to load surface")
+                safe_speak("Failed to load surface")
                 return
 
             # Extract islands using the helper method
@@ -367,24 +381,24 @@ class GamemodeGUI(AccessibleDialog):
                 self.discovery_list.Append(display_name, island.link_code)
 
             if islands:
-                speaker.speak(f"Loaded {len(islands)} islands")
+                safe_speak(f"Loaded {len(islands)} islands")
                 self.discovery_list.SetSelection(0)
             else:
-                speaker.speak("No islands found")
+                safe_speak("No islands found")
 
         except Exception as e:
             logger.error(f"Error loading surface: {e}")
-            speaker.speak("Error loading surface")
+            safe_speak("Error loading surface")
 
     def on_search_islands(self, event):
         """Search for islands"""
         if not self.discovery_api:
-            speaker.speak("Discovery API not available")
+            safe_speak("Discovery API not available")
             return
 
         query = self.island_search_text.GetValue().strip()
         if not query:
-            speaker.speak("Enter search query")
+            safe_speak("Enter search query")
             return
 
         # Get sort option
@@ -395,14 +409,14 @@ class GamemodeGUI(AccessibleDialog):
         }
         sort_by = sort_map.get(self.sort_combo.GetStringSelection(), "globalCCU")
 
-        speaker.speak(f"Searching for {query}")
+        safe_speak(f"Searching for {query}")
         self.island_search_list.Clear()
 
         try:
             islands = self.discovery_api.search_islands(query, order_by=sort_by)
 
             if not islands:
-                speaker.speak("No results found")
+                safe_speak("No results found")
                 return
 
             for island in islands:
@@ -423,50 +437,50 @@ class GamemodeGUI(AccessibleDialog):
                 # Store link_code as client data, display the title
                 self.island_search_list.Append(display_name, island.link_code)
 
-            speaker.speak(f"Found {len(islands)} islands")
+            safe_speak(f"Found {len(islands)} islands")
             self.island_search_list.SetSelection(0)
 
         except Exception as e:
             logger.error(f"Error searching islands: {e}")
-            speaker.speak("Error searching islands")
+            safe_speak("Error searching islands")
 
     def on_search_creators(self, event):
         """Search for creators"""
         if not self.discovery_api:
-            speaker.speak("Discovery API not available")
+            safe_speak("Discovery API not available")
             return
 
         query = self.creator_search_text.GetValue().strip()
         if not query:
-            speaker.speak("Enter creator name")
+            safe_speak("Enter creator name")
             return
 
-        speaker.speak(f"Searching for {query}")
+        safe_speak(f"Searching for {query}")
         self.creator_search_list.Clear()
 
         try:
             creators = self.discovery_api.search_creators(query)
 
             if not creators:
-                speaker.speak("No creators found")
+                safe_speak("No creators found")
                 return
 
             for creator in creators:
                 label = f"{creator.account_id} (score: {creator.score:.2f})"
                 self.creator_search_list.Append(label, creator.account_id)
 
-            speaker.speak(f"Found {len(creators)} creators")
+            safe_speak(f"Found {len(creators)} creators")
             self.creator_search_list.SetSelection(0)
 
         except Exception as e:
             logger.error(f"Error searching creators: {e}")
-            speaker.speak("Error searching creators")
+            safe_speak("Error searching creators")
 
     def on_select_discovery_island(self, event):
         """Select island from discovery surface"""
         sel = self.discovery_list.GetSelection()
         if sel == wx.NOT_FOUND:
-            speaker.speak("No island selected")
+            safe_speak("No island selected")
             return
 
         link_code = self.discovery_list.GetClientData(sel)
@@ -474,15 +488,15 @@ class GamemodeGUI(AccessibleDialog):
 
         success = self.select_gamemode_by_code(link_code)
         if success:
-            speaker.speak(f"{link_code} selected. Press P to ready up!")
+            safe_speak(f"{link_code} selected. Press P to ready up!")
         else:
-            speaker.speak("Failed to select gamemode")
+            safe_speak("Failed to select gamemode")
 
     def on_select_search_island(self, event):
         """Select island from search results"""
         sel = self.island_search_list.GetSelection()
         if sel == wx.NOT_FOUND:
-            speaker.speak("No island selected")
+            safe_speak("No island selected")
             return
 
         link_code = self.island_search_list.GetClientData(sel)
@@ -490,9 +504,9 @@ class GamemodeGUI(AccessibleDialog):
 
         success = self.select_gamemode_by_code(link_code)
         if success:
-            speaker.speak(f"{link_code} selected. Press P to ready up!")
+            safe_speak(f"{link_code} selected. Press P to ready up!")
         else:
-            speaker.speak("Failed to select gamemode")
+            safe_speak("Failed to select gamemode")
 
     def on_select_gamemode(self, evt, gamemode: Tuple[str, str, List[str]]):
         """Handle saved gamemode selection"""
@@ -500,12 +514,12 @@ class GamemodeGUI(AccessibleDialog):
             self.EndModal(wx.ID_OK)
             success = self.select_gamemode_by_code(gamemode[1])
             if success:
-                speaker.speak(f"{gamemode[0]} selected. Press P to ready up!")
+                safe_speak(f"{gamemode[0]} selected. Press P to ready up!")
             else:
-                speaker.speak("Failed to select gamemode")
+                safe_speak("Failed to select gamemode")
         except Exception as e:
             logger.error(f"Error selecting gamemode: {e}")
-            speaker.speak("Error selecting gamemode")
+            safe_speak("Error selecting gamemode")
 
     def load_gamemodes(self) -> List[Tuple[str, str, List[str]]]:
         """Load saved gamemode configurations"""
@@ -633,7 +647,7 @@ def launch_gamemode_selector(epic_auth=None):
         )
         error.displayError()
         logger.error(f"Error launching gamemode selector: {e}")
-        speaker.speak("Error opening gamemode selector")
+        safe_speak("Error opening gamemode selector")
 
     finally:
         try:
