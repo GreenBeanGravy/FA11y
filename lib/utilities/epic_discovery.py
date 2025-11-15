@@ -57,6 +57,8 @@ class EpicDiscovery:
         self.DISCOVERY_BASE = "https://fn-service-discovery-live-public.ogs.live.on.epicgames.com/api/v2/discovery"
         # Note: Search endpoints require game client authentication, not available with web OAuth
         self.SEARCH_BASE = "https://fngw-svc-gc-livefn.ol.epicgames.com/api"
+        # Public Fortnite Data API (no authentication required!)
+        self.DATA_API_BASE = "https://api.fortnite.com/ecosystem/v1"
 
     def _get_headers(self) -> dict:
         """Get authorization headers for API requests"""
@@ -71,7 +73,7 @@ class EpicDiscovery:
 
     def _parse_island_data(self, island_data: Dict) -> Optional[DiscoveryIsland]:
         """
-        Parse island data from API response
+        Parse island data from API response (supports both Discovery and Data API formats)
 
         Args:
             island_data: Raw island data from API
@@ -80,15 +82,18 @@ class EpicDiscovery:
             DiscoveryIsland object or None if parsing fails
         """
         try:
-            link_code = island_data.get("linkCode", "")
+            # Handle both Discovery API (linkCode) and Data API (code) formats
+            link_code = island_data.get("linkCode") or island_data.get("code", "")
             if not link_code:
                 return None
 
             # Extract title (display name)
+            # Data API uses "title", Discovery API might use "title" or linkCode as fallback
             title = island_data.get("title", link_code)
 
             # Extract creator name
-            creator_name = island_data.get("creatorName")
+            # Data API uses "creatorCode", Discovery API uses "creatorName"
+            creator_name = island_data.get("creatorName") or island_data.get("creatorCode")
 
             # Extract description
             description = island_data.get("description")
@@ -96,11 +101,14 @@ class EpicDiscovery:
             # Extract image URL
             image_url = island_data.get("imageUrl")
 
+            # Extract tags (Data API)
+            tags = island_data.get("tags", [])
+
             return DiscoveryIsland(
                 link_code=link_code,
                 title=title,
                 creator_name=creator_name,
-                description=description,
+                description=description or (f"Category: {island_data.get('category', 'Unknown')}" if island_data.get('category') else None),
                 is_favorite=island_data.get("isFavorite", False),
                 last_visited=island_data.get("lastVisited"),
                 global_ccu=island_data.get("globalCCU", island_data.get("playerCount", -1)),
@@ -204,25 +212,113 @@ class EpicDiscovery:
 
     def search_islands(self, query: str, order_by: str = "globalCCU", page: int = 0) -> List[DiscoveryIsland]:
         """
-        Search for islands/gamemodes
-
-        NOTE: Island search requires in-game authentication which is not available
-        with web OAuth. This method returns an empty list.
-
-        For searching islands, use get_discovery_surface() and filter the results,
-        or search by code directly.
+        Search for islands/gamemodes using the public Fortnite Data API
 
         Args:
-            query: Search query
-            order_by: Sort key (globalCCU, etc.)
-            page: Page number
+            query: Search query (filters by title or creator)
+            order_by: Sort key (not used by Data API, kept for compatibility)
+            page: Page number (not used, returns first 100 results)
 
         Returns:
-            Empty list (feature not available with web auth)
+            List of DiscoveryIsland objects matching the query
         """
-        logger.warning("Island search requires in-game authentication, not available with web OAuth")
-        logger.info("Tip: Use discovery surfaces to browse islands instead")
-        return []
+        try:
+            # Use the public Data API (no authentication required!)
+            url = f"{self.DATA_API_BASE}/islands"
+
+            logger.debug(f"Island search request (Data API): GET {url}")
+
+            # Data API doesn't require authentication
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "FA11y/1.0"
+            }
+
+            # Get first batch of islands (up to 100)
+            response = requests.get(
+                url,
+                headers=headers,
+                params={"size": 100},
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                all_islands = data.get("data", [])
+
+                # Filter by query (search title and creator)
+                query_lower = query.lower().strip()
+                islands = []
+
+                for island_data in all_islands:
+                    title = island_data.get("title", "").lower()
+                    creator = island_data.get("creatorCode", "").lower()
+                    code = island_data.get("code", "").lower()
+
+                    # Match if query is in title, creator, or code
+                    if query_lower in title or query_lower in creator or query_lower in code:
+                        island = self._parse_island_data(island_data)
+                        if island:
+                            islands.append(island)
+
+                logger.info(f"Found {len(islands)} islands matching '{query}'")
+                return islands
+            else:
+                logger.error(f"Failed to search islands (Data API): {response.status_code}")
+                logger.error(f"Response body: {response.text}")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error searching islands: {e}")
+            return []
+
+    def get_island_by_code(self, code: str) -> Optional[DiscoveryIsland]:
+        """
+        Get island metadata by island code using the public Fortnite Data API
+
+        Args:
+            code: Island code (e.g., "1234-1234-1234")
+
+        Returns:
+            DiscoveryIsland object or None if not found
+        """
+        try:
+            url = f"{self.DATA_API_BASE}/islands/{code}"
+
+            logger.debug(f"Island lookup request (Data API): GET {url}")
+
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "FA11y/1.0"
+            }
+
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                island_data = response.json()
+                island = self._parse_island_data(island_data)
+
+                if island:
+                    logger.info(f"Found island: {island.title} ({island.link_code})")
+                    return island
+                else:
+                    logger.warning(f"Failed to parse island data for code: {code}")
+                    return None
+            elif response.status_code == 404:
+                logger.warning(f"Island not found: {code}")
+                return None
+            else:
+                logger.error(f"Failed to get island by code: {response.status_code}")
+                logger.error(f"Response body: {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting island by code: {e}")
+            return None
 
     def search_creators(self, creator_term: str) -> List[Creator]:
         """
