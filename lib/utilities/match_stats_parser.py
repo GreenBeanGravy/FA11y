@@ -93,8 +93,10 @@ class MatchStatsParser:
         if kill_match:
             kill_score = int(kill_match.group(1))
 
-            # Only announce if it's a new kill (increased from last known count)
-            if kill_score > self.last_kill_count:
+            # Only announce if it's a sequential kill (exactly +1 from current count)
+            # This filters out other players' kills which appear as random higher numbers
+            # Player kills always increment sequentially: 0->1->2->3, etc.
+            if kill_score == self.current_kills + 1:
                 self.current_kills = kill_score
                 self.last_kill_count = kill_score
                 self.in_match = True
@@ -103,6 +105,9 @@ class MatchStatsParser:
                 announcement = f"Kill! Total: {kill_score}"
                 logger.info(announcement)
                 safe_speak(announcement)
+
+            # Debug: log all kill events we see (for troubleshooting)
+            logger.debug(f"Detected kill event: KillScore={kill_score}, Player current={self.current_kills}")
 
     def _tail_log_file(self):
         """
