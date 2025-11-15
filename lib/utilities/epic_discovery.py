@@ -89,8 +89,12 @@ class EpicDiscovery:
                 "numLocalPlayers": 1
             }
 
+            url = f"{self.DISCOVERY_BASE}/surface/{surface_name}"
+            logger.debug(f"Discovery surface request: POST {url}?appId=Fortnite")
+            logger.debug(f"Payload: {payload}")
+
             response = requests.post(
-                f"{self.DISCOVERY_BASE}/surface/{surface_name}",
+                url,
                 headers=self._get_headers(),
                 json=payload,
                 params={"appId": "Fortnite"},
@@ -101,6 +105,8 @@ class EpicDiscovery:
                 return response.json()
             else:
                 logger.error(f"Failed to get discovery surface: {response.status_code}")
+                logger.error(f"Response headers: {dict(response.headers)}")
+                logger.error(f"Response body: {response.text}")
                 return None
 
         except Exception as e:
@@ -131,8 +137,12 @@ class EpicDiscovery:
                 "page": page
             }
 
+            url = f"{self.SEARCH_BASE}/island-search/v1/search/{self.auth.account_id}"
+            logger.debug(f"Island search request: POST {url}")
+            logger.debug(f"Payload: {payload}")
+
             response = requests.post(
-                f"{self.SEARCH_BASE}/island-search/v1/search/{self.auth.account_id}",
+                url,
                 headers=self._get_headers(),
                 json=payload,
                 timeout=10
@@ -159,6 +169,8 @@ class EpicDiscovery:
                 return islands
             else:
                 logger.error(f"Failed to search islands: {response.status_code}")
+                logger.error(f"Response headers: {dict(response.headers)}")
+                logger.error(f"Response body: {response.text}")
                 return []
 
         except Exception as e:
@@ -180,8 +192,12 @@ class EpicDiscovery:
                 "creatorTerm": creator_term
             }
 
+            url = f"{self.SEARCH_BASE}/creator-search/v1/search/{self.auth.account_id}"
+            logger.debug(f"Creator search request: POST {url}")
+            logger.debug(f"Payload: {payload}")
+
             response = requests.post(
-                f"{self.SEARCH_BASE}/creator-search/v1/search/{self.auth.account_id}",
+                url,
                 headers=self._get_headers(),
                 json=payload,
                 timeout=10
@@ -203,6 +219,8 @@ class EpicDiscovery:
                 return creators
             else:
                 logger.error(f"Failed to search creators: {response.status_code}")
+                logger.error(f"Response headers: {dict(response.headers)}")
+                logger.error(f"Response body: {response.text}")
                 return []
 
         except Exception as e:
