@@ -261,7 +261,6 @@ Open Visited Objects = lalt+v "Open the visited objects manager to view and navi
 Open Social Menu = period "Open the social menu (friends, party, requests)."
 Accept Notification = lalt+y "Accept pending notification (friend request, party invite)."
 Decline Notification = lalt+n "Decline pending notification (friend request, party invite)."
-Toggle Kill Announcements = lalt+k "Toggle real-time kill announcements during matches."
 
 [POI]
 selected_poi = closest, 0, 0

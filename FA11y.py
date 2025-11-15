@@ -85,7 +85,6 @@ from lib.monitors.storm_monitor import storm_monitor
 from lib.managers.game_object_manager import game_object_manager
 from lib.detection.match_tracker import match_tracker
 from lib.managers.social_manager import get_social_manager
-from lib.utilities.match_stats_parser import get_match_stats_parser
 
 from lib.utilities.input import (
     is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS,
@@ -398,7 +397,6 @@ def reload_config() -> None:
             'open social menu': open_social_menu,
             'accept notification': accept_notification,
             'decline notification': decline_notification,
-            'toggle kill announcements': toggle_kill_announcements,
         })
 
         for i in range(1, 6):
@@ -612,15 +610,6 @@ def decline_notification():
         social_manager.decline_notification()
     else:
         logger.debug("Social manager not initialized")
-
-def toggle_kill_announcements():
-    """Toggle real-time kill announcements (Alt+K)"""
-    try:
-        match_stats_parser = get_match_stats_parser()
-        match_stats_parser.toggle()
-    except Exception as e:
-        logger.error(f"Error toggling kill announcements: {e}")
-        speaker.speak("Error toggling kill announcements")
 
 def check_hotspots() -> None:
     """Check for hotspot POIs on the map"""
@@ -1843,14 +1832,6 @@ def main() -> None:
 
         # Initialize hotbar detection
         initialize_hotbar_detection()
-
-        # Start match stats parser (real-time kill tracking from logs)
-        try:
-            match_stats_parser = get_match_stats_parser()
-            match_stats_parser.start()
-            logger.info("Match stats parser started")
-        except Exception as e:
-            logger.warning(f"Failed to start match stats parser: {e}")
 
         # Initialize Epic authentication and social features
         try:
