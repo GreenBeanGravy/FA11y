@@ -254,13 +254,13 @@ Detect Hotbar 2 = 2 "Announces details about the item the player is currently ho
 Detect Hotbar 3 = 3 "Announces details about the item the player is currently holding in slot 3."
 Detect Hotbar 4 = 4 "Announces details about the item the player is currently holding in slot 4."
 Detect Hotbar 5 = 5 "Announces details about the item the player is currently holding in slot 5."
-Go To Nearest Unvisited = lalt+n "Navigate to the nearest unvisited game object."
+Go To Nearest Unvisited = lalt+u "Navigate to the nearest unvisited game object."
 Get Match Stats = lalt+m "Get statistics for the current match including visited objects."
 Check Hotspots = lshift+grave "Check for hotspot POIs on the map (requires map to be open)."
 Open Visited Objects = lalt+v "Open the visited objects manager to view and navigate to visited or all game objects."
 Open Social Menu = period "Open the social menu (friends, party, requests)."
 Accept Notification = lalt+y "Accept pending notification (friend request, party invite)."
-Decline Notification = lalt+d "Decline pending notification (friend request, party invite)."
+Decline Notification = lalt+n "Decline pending notification (friend request, party invite)."
 
 [POI]
 selected_poi = closest, 0, 0

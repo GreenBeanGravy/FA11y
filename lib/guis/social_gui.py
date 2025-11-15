@@ -5,6 +5,7 @@ Provides interface for managing friends, party, and requests
 import logging
 import wx
 import threading
+import pyautogui
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
@@ -299,8 +300,16 @@ class SocialDialog(AccessibleDialog):
         keycode = event.GetKeyCode()
         if keycode == wx.WXK_ESCAPE:
             self.EndModal(wx.ID_CANCEL)
+            wx.CallAfter(self._return_focus_to_game)
         else:
             event.Skip()
+
+    def _return_focus_to_game(self):
+        """Return focus to Fortnite with a left click"""
+        try:
+            pyautogui.click()
+        except Exception as e:
+            logger.debug(f"Could not return focus to game: {e}")
 
     def on_friends_double_click(self, event):
         """Handle double-click on friend - sends party invite"""
@@ -432,6 +441,12 @@ def show_social_gui(social_manager):
 
         dialog.ShowModal()
         dialog.Destroy()
+
+        # Return focus to Fortnite after closing
+        try:
+            pyautogui.click()
+        except Exception as e:
+            logger.debug(f"Could not return focus to game: {e}")
     except Exception as e:
         logger.error(f"Error showing social GUI: {e}")
         speaker.speak("Error opening social menu")

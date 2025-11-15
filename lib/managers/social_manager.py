@@ -68,15 +68,16 @@ class SocialManager:
         self.outgoing_join_requests: Dict[str, tuple] = {}
         self.join_request_timeout = 30  # seconds
 
-        # Notification system
-        self.pending_notification = None  # Current notification awaiting action
+        # Notification system - queue based for handling multiple notifications
+        self.notification_queue = []  # Queue of (item, item_type) tuples
+        self.current_notification = None  # Currently active notification
         self.notification_timer = None  # Timer for 15-second auto-decline
         self.notification_lock = threading.Lock()
 
         # Background monitoring
         self.running = False
         self.monitor_thread: Optional[threading.Thread] = None
-        self.update_interval = 7  # seconds
+        self.update_interval = 3  # seconds (reduced from 7 for faster updates)
         self.lock = threading.Lock()
 
         # Load cached data
@@ -288,54 +289,66 @@ class SocialManager:
 
     def _show_notification(self, item, item_type):
         """
-        Show notification with 15-second timer
+        Show notification with 15-second timer (queue-based)
 
         Args:
             item: FriendRequest or PartyInvite object
             item_type: "friend_request" or "party_invite"
         """
         with self.notification_lock:
-            # Cancel existing notification timer
-            if self.notification_timer:
-                self.notification_timer.cancel()
+            # Add to queue
+            self.notification_queue.append((item, item_type))
 
-            # Store pending notification
-            self.pending_notification = (item, item_type)
+            # If no current notification is active, process this one
+            if self.current_notification is None:
+                self._process_next_notification()
 
-            # Announce notification
-            name = self._ensure_display_name(
-                item.display_name if item_type == "friend_request" else item.from_display_name
-            )
+    def _process_next_notification(self):
+        """Process the next notification in queue (must be called with lock held)"""
+        if not self.notification_queue:
+            return
 
-            if item_type == "friend_request":
-                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt D to decline. Auto-declines in 15 seconds.")
-            else:  # party_invite
-                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt D to decline. Auto-declines in 15 seconds.")
+        # Get next notification from queue
+        item, item_type = self.notification_queue.pop(0)
+        self.current_notification = (item, item_type)
 
-            # Start 15-second timer
-            self.notification_timer = threading.Timer(15.0, self._notification_timeout)
-            self.notification_timer.start()
+        # Announce notification
+        name = self._ensure_display_name(
+            item.display_name if item_type == "friend_request" else item.from_display_name
+        )
+
+        if item_type == "friend_request":
+            speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Auto-declines in 15 seconds.")
+        else:  # party_invite
+            speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Auto-declines in 15 seconds.")
+
+        # Start 15-second timer
+        self.notification_timer = threading.Timer(15.0, self._notification_timeout)
+        self.notification_timer.start()
 
     def _notification_timeout(self):
-        """Auto-decline notification after 15 seconds"""
+        """Auto-decline notification after 15 seconds and process next in queue"""
         with self.notification_lock:
-            if self.pending_notification:
-                item, item_type = self.pending_notification
+            if self.current_notification:
+                item, item_type = self.current_notification
                 name = self._ensure_display_name(
                     item.display_name if item_type == "friend_request" else item.from_display_name
                 )
                 speaker.speak(f"Notification from {name} auto-declined.")
-                self.pending_notification = None
+                self.current_notification = None
+
+                # Process next notification if any
+                self._process_next_notification()
 
     def accept_notification(self):
-        """Accept pending notification (Alt+Y)"""
+        """Accept current notification (Alt+Y) and process next in queue"""
         with self.notification_lock:
-            if not self.pending_notification:
+            if not self.current_notification:
                 speaker.speak("No pending notification")
                 return
 
-            item, item_type = self.pending_notification
-            self.pending_notification = None
+            item, item_type = self.current_notification
+            self.current_notification = None
 
             # Cancel timer
             if self.notification_timer:
@@ -348,15 +361,19 @@ class SocialManager:
         else:  # party_invite
             self._accept_party_invite(item)
 
-    def decline_notification(self):
-        """Decline pending notification (Alt+D)"""
+        # Process next notification after accepting
         with self.notification_lock:
-            if not self.pending_notification:
+            self._process_next_notification()
+
+    def decline_notification(self):
+        """Decline current notification (Alt+N) and process next in queue"""
+        with self.notification_lock:
+            if not self.current_notification:
                 speaker.speak("No pending notification")
                 return
 
-            item, item_type = self.pending_notification
-            self.pending_notification = None
+            item, item_type = self.current_notification
+            self.current_notification = None
 
             # Cancel timer
             if self.notification_timer:
@@ -368,6 +385,10 @@ class SocialManager:
             self._decline_friend_request(item)
         else:  # party_invite
             self._decline_party_invite(item)
+
+        # Process next notification after declining
+        with self.notification_lock:
+            self._process_next_notification()
 
     def save_cache(self):
         """Save social data to cache file"""
