@@ -180,20 +180,20 @@ class EpicDiscovery:
         try:
             # Surface data contains panels with links to islands
             panels = surface_data.get("panels", [])
+            logger.debug(f"Found {len(panels)} panels in surface data")
 
             for panel in panels:
-                # Each panel can have multiple pages
-                pages = panel.get("pages", [])
+                # Each panel has a firstPage with results
+                first_page = panel.get("firstPage", {})
+                results = first_page.get("results", [])
+                logger.debug(f"Panel has {len(results)} results")
 
-                for page in pages:
-                    # Each page has results (islands)
-                    results = page.get("results", [])
-
-                    for result in results:
-                        # Parse the island data
-                        island = self._parse_island_data(result)
-                        if island:
-                            islands.append(island)
+                for result in results:
+                    # Parse the island data
+                    island = self._parse_island_data(result)
+                    if island:
+                        islands.append(island)
+                        logger.debug(f"Parsed island: {island.title} ({island.link_code})")
 
             logger.info(f"Extracted {len(islands)} islands from surface")
             return islands
