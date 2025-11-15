@@ -29,6 +29,7 @@ class MatchStatsParser:
     # Log event patterns
     KILL_PATTERN = re.compile(r'LogFort: FORT-\d+ AFortPlayerStateAthena::OnRep_Kills\(\) \(KillScore = (\d+)\)')
     LOCAL_PLAYER_PATTERN = re.compile(r'Local Player (\w+)')
+    RESPAWN_PATTERN = re.compile(r'LogFortPlayerLoadout: Verbose: Local Player \w+ loadout changed:')
 
     def __init__(self):
         self.log_file_path: Optional[Path] = None
@@ -99,40 +100,43 @@ class MatchStatsParser:
                 self.local_player_username = player_match.group(1)
                 logger.info(f"Detected local player: {self.local_player_username}")
 
+        # Detect respawn events - reset kill counter
+        if self.RESPAWN_PATTERN.search(line):
+            if self.current_kills > 0:
+                logger.info(f"Respawn detected - resetting kill counter (was {self.current_kills})")
+                self.current_kills = 0
+                self.last_kill_count = 0
+
         # Check for kill events
         kill_match = self.KILL_PATTERN.search(line)
         if kill_match:
             kill_score = int(kill_match.group(1))
 
-            # Strategy: Track the LOWEST sequential sequence
-            # Player's match kills are typically 0-50, other players might show 400+ (career stats)
+            # Strategy: Track sequential kills starting from 0 after each respawn
+            # Player's kills: 0->1->2->3->...
+            # Other players' kills: appear as non-sequential or very high numbers
             #
-            # If we haven't started tracking yet (current_kills = 0):
-            #   - Accept kills < 100 as potential player baseline
-            #   - Ignore very high numbers (likely other players' career stats)
-            #
-            # Once tracking:
-            #   - Only accept sequential +1 increments
-            #   - If we see a much higher number, ignore it (other player)
+            # Respawn detection resets current_kills to 0, ensuring we only track
+            # the player's kills from their current life
 
             if self.current_kills == 0:
-                # Not tracking yet - accept low numbers as baseline, or exact +1
+                # Not tracking yet - accept first kill
                 if kill_score == 1:
-                    # First kill of match
+                    # First kill of this life
                     self.current_kills = 1
                     self.last_kill_count = 1
                     self.in_match = True
                     announcement = f"Kill! Total: {kill_score}"
-                    logger.info(f"Player kill detected (first): {announcement}")
+                    logger.info(f"Player kill detected (first kill): {announcement}")
                     safe_speak(announcement)
                 elif kill_score < 100:
-                    # Mid-match start - accept as baseline but don't announce yet
-                    # Wait for next +1 to confirm
+                    # Mid-session start - might have missed earlier kills
+                    # Set as baseline, announce next +1
                     self.current_kills = kill_score
-                    logger.info(f"Potential player baseline: {kill_score} kills")
+                    logger.info(f"Baseline set to {kill_score} kills (mid-session start)")
                 else:
-                    # Very high number - likely other player's career stats
-                    logger.debug(f"Ignoring high kill count (likely other player): {kill_score}")
+                    # Very high number - definitely other player
+                    logger.debug(f"Ignoring high kill count (other player): {kill_score}")
             else:
                 # Already tracking - only accept sequential +1
                 if kill_score == self.current_kills + 1:
@@ -144,9 +148,13 @@ class MatchStatsParser:
                     announcement = f"Kill! Total: {kill_score}"
                     logger.info(f"Player kill detected: {announcement}")
                     safe_speak(announcement)
+                elif kill_score < self.current_kills:
+                    # Lower than current - might be start of new sequence after missed respawn
+                    # This could be another player's kill, so be conservative
+                    logger.debug(f"Lower kill count seen: {kill_score} < {self.current_kills} (ignoring)")
                 else:
-                    # Non-sequential - likely other player
-                    logger.debug(f"Non-sequential kill (likely other player): KillScore={kill_score}, Player current={self.current_kills}")
+                    # Non-sequential or higher - likely other player
+                    logger.debug(f"Non-sequential kill (other player): KillScore={kill_score}, Player current={self.current_kills}")
 
     def _tail_log_file(self):
         """
