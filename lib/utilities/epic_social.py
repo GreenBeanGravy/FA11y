@@ -123,6 +123,7 @@ class EpicSocial:
         self.ACCOUNT_BASE = "https://account-public-service-prod03.ol.epicgames.com/account/api/public/account"
         self.PRESENCE_BASE = "https://presence-public-service-prod.ol.epicgames.com/presence/api/v1"
         self.PARTY_BASE = "https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite"
+        self.USER_SEARCH_BASE = "https://user-search-service-prod.ol.epicgames.com/api/v1/search"
 
         # Use persistent cache for display names (3-day expiry)
         self.display_cache = get_display_name_cache()
@@ -457,6 +458,58 @@ class EpicSocial:
         except Exception as e:
             logger.error(f"Error getting pending requests: {e}")
             return None
+
+    def search_users(self, query: str, platform: str = "epic") -> List[Dict]:
+        """
+        Search for users by display name
+
+        Args:
+            query: The username to search for
+            platform: Platform to search on (epic, psn, xbl, steam, nsw)
+
+        Returns:
+            List of user dictionaries with account_id and display_name
+        """
+        try:
+            response = requests.get(
+                f"{self.USER_SEARCH_BASE}/{self.auth.account_id}",
+                params={"platform": platform, "prefix": query},
+                headers=self._get_headers(),
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                results = response.json()
+                users = []
+
+                for result in results:
+                    account_id = result.get("accountId")
+                    # Get display name from matches
+                    matches = result.get("matches", [])
+                    display_name = None
+
+                    for match in matches:
+                        if match.get("platform") == platform:
+                            display_name = match.get("value")
+                            break
+
+                    if account_id and display_name:
+                        users.append({
+                            "account_id": account_id,
+                            "display_name": display_name,
+                            "match_type": result.get("matchType", "unknown"),
+                            "mutual_friends": result.get("epicMutuals", 0)
+                        })
+
+                logger.info(f"Found {len(users)} users matching '{query}'")
+                return users
+            else:
+                logger.error(f"Failed to search users: {response.status_code}")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error searching users: {e}")
+            return []
 
     def send_friend_request(self, username: str) -> bool:
         """

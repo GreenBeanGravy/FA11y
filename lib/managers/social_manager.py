@@ -982,6 +982,32 @@ class SocialManager:
             logger.error(f"Error sending friend request: {e}")
             speaker.speak("Error sending friend request")
 
+    def _send_friend_request_by_account_id(self, account_id: str, display_name: str):
+        """Send a friend request by account ID"""
+        speaker.speak(f"Sending friend request to {display_name}")
+
+        try:
+            # Send friend request directly using account ID
+            import requests
+            response = requests.post(
+                f"{self.social_api.FRIENDS_BASE}/{self.auth.account_id}/friends/{account_id}",
+                headers=self.social_api._get_headers(),
+                timeout=5
+            )
+
+            if response.status_code in [200, 201, 204]:
+                logger.info(f"Successfully sent friend request to {display_name}")
+                speaker.speak(f"Friend request sent to {display_name}")
+                # Refresh data
+                threading.Thread(target=self.refresh_all_data, daemon=True).start()
+            else:
+                logger.error(f"Failed to send friend request: {response.status_code} - {response.text}")
+                speaker.speak(f"Failed to send friend request. User may have friend requests disabled")
+
+        except Exception as e:
+            logger.error(f"Error sending friend request: {e}")
+            speaker.speak("Error sending friend request")
+
     def _invite_friend_to_party(self, friend: Friend):
         """Invite a friend to party"""
         # Ensure real display name

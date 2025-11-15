@@ -85,9 +85,11 @@ class SocialDialog(AccessibleDialog):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.add_friend_btn = wx.Button(panel, label="Add Friend")
         self.invite_btn = wx.Button(panel, label="Invite to Party")
         self.request_join_btn = wx.Button(panel, label="Request to Join")
         self.remove_friend_btn = wx.Button(panel, label="Remove Friend")
+        btn_sizer.Add(self.add_friend_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.invite_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.request_join_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.remove_friend_btn, 0, wx.ALL, 5)
@@ -96,6 +98,7 @@ class SocialDialog(AccessibleDialog):
         # Bind events
         self.all_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
         self.favorite_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
+        self.add_friend_btn.Bind(wx.EVT_BUTTON, self.on_add_friend)
         self.invite_btn.Bind(wx.EVT_BUTTON, self.on_invite_to_party)
         self.request_join_btn.Bind(wx.EVT_BUTTON, self.on_request_to_join)
         self.remove_friend_btn.Bind(wx.EVT_BUTTON, self.on_remove_friend)
@@ -357,6 +360,78 @@ class SocialDialog(AccessibleDialog):
         if result == wx.ID_YES:
             self.social_manager._remove_friend(friend)
             wx.CallLater(1000, self.refresh_friends_list)
+
+    def on_add_friend(self, event):
+        """Open dialog to search and add friends"""
+        dlg = wx.TextEntryDialog(
+            self,
+            "Enter Epic Games username to search:",
+            "Add Friend"
+        )
+
+        if dlg.ShowModal() == wx.ID_OK:
+            username = dlg.GetValue().strip()
+            dlg.Destroy()
+
+            if not username:
+                speaker.speak("No username entered")
+                return
+
+            # Search for users
+            speaker.speak(f"Searching for {username}")
+            users = self.social_manager.social_api.search_users(username)
+
+            if not users:
+                speaker.speak(f"No users found matching {username}")
+                return
+
+            # If exact match found, use it
+            exact_match = None
+            for user in users:
+                if user["match_type"] == "exact":
+                    exact_match = user
+                    break
+
+            if exact_match:
+                # Send friend request to exact match
+                self.social_manager._send_friend_request_by_account_id(
+                    exact_match["account_id"],
+                    exact_match["display_name"]
+                )
+                wx.CallLater(1000, self.refresh_requests_list)
+            elif len(users) == 1:
+                # Only one result, use it
+                user = users[0]
+                self.social_manager._send_friend_request_by_account_id(
+                    user["account_id"],
+                    user["display_name"]
+                )
+                wx.CallLater(1000, self.refresh_requests_list)
+            else:
+                # Multiple results - show selection dialog
+                choices = [f"{u['display_name']} ({u['mutual_friends']} mutual friends)" for u in users]
+                dlg = wx.SingleChoiceDialog(
+                    self,
+                    f"Multiple users found. Select one:",
+                    "Select User",
+                    choices
+                )
+
+                if dlg.ShowModal() == wx.ID_OK:
+                    index = dlg.GetSelection()
+                    dlg.Destroy()
+                    selected_user = users[index]
+                    self.social_manager._send_friend_request_by_account_id(
+                        selected_user["account_id"],
+                        selected_user["display_name"]
+                    )
+                    wx.CallLater(1000, self.refresh_requests_list)
+                else:
+                    dlg.Destroy()
+                    speaker.speak("Cancelled")
+        else:
+            dlg.Destroy()
+            speaker.speak("Cancelled")
 
     def on_accept_request(self, event):
         """Accept selected request"""
