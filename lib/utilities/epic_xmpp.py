@@ -181,14 +181,28 @@ class EpicXMPPManager:
         self.current_room = None
         self.connected = False
         self._connection_task = None
+        self._shutdown_event = asyncio.Event()  # Event to signal shutdown
+        self._keep_alive_future = None  # Future that keeps connection alive
 
-    async def connect_and_join_muc(self, party_id: str, nickname: str) -> bool:
+    async def connect_and_join_muc(self, party_id: str, nickname: str, loop: asyncio.AbstractEventLoop = None) -> bool:
         """
         Connect to XMPP and immediately join party MUC
-        Keeps connection alive in background
+        Keeps connection alive indefinitely until shutdown() is called
+
+        Args:
+            party_id: Party ID to join
+            nickname: Display name for MUC
+            loop: Event loop to use (if None, will get current loop)
+
+        Returns:
+            True if connection succeeds, False otherwise
         """
         try:
             logger.info(f"Connecting XMPP to {self.server_host}:{self.server_port}")
+
+            # Get or create event loop
+            if loop is None:
+                loop = asyncio.get_event_loop()
 
             # Create security layer
             security_layer = aioxmpp.make_security_layer(
@@ -220,31 +234,73 @@ class EpicXMPPManager:
                 self.current_room, join_future = self.muc_client.join(muc_jid, nickname)
                 await join_future
 
-                logger.info(f"Successfully joined MUC room, keeping connection alive...")
+                logger.info(f"Successfully joined MUC room, keeping connection alive indefinitely...")
 
-                # Keep connection alive for 60 seconds (enough time for party spawn)
-                # In production, this should stay alive as long as in party
-                await asyncio.sleep(60)
+                # Keep connection alive indefinitely (like FortnitePy does)
+                # Create a future that will never complete unless shutdown() is called
+                # This is the critical fix - the connection must stay alive for character to spawn!
+                self._keep_alive_future = loop.create_future()
 
-                logger.info("XMPP connection timeout, disconnecting")
+                # Wait for either the shutdown event or the future to complete
+                # This keeps the connection alive until we explicitly disconnect
+                try:
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(),
+                        timeout=None  # No timeout - wait indefinitely
+                    )
+                    logger.info("XMPP shutdown requested, disconnecting gracefully")
+                except asyncio.CancelledError:
+                    logger.info("XMPP connection cancelled")
+
                 return True
 
         except Exception as e:
             logger.error(f"XMPP error: {e}")
             self.connected = False
             return False
+        finally:
+            self.connected = False
+            logger.info("XMPP connection closed")
+
+    def shutdown(self):
+        """
+        Signal the XMPP connection to shutdown gracefully
+        Call this to disconnect from XMPP and leave MUC rooms
+        """
+        logger.info("Signaling XMPP shutdown...")
+        self._shutdown_event.set()
+
+        # Cancel the keep-alive future if it exists
+        if self._keep_alive_future and not self._keep_alive_future.done():
+            self._keep_alive_future.cancel()
 
     async def disconnect(self):
-        """Disconnect from XMPP"""
+        """
+        Disconnect from XMPP (async version)
+        Triggers shutdown and waits for connection to close
+        """
         try:
-            if self.current_room:
-                await self.current_room.leave()
+            # Signal shutdown
+            self.shutdown()
 
+            # Leave MUC room if in one
+            if self.current_room:
+                try:
+                    await self.current_room.leave()
+                    logger.info("Left MUC room")
+                except Exception as e:
+                    logger.warning(f"Error leaving MUC room: {e}")
+
+            # Stop client if running
             if self.client:
-                await self.client.stop()
+                try:
+                    self.client.stop()
+                    logger.info("Stopped XMPP client")
+                except Exception as e:
+                    logger.warning(f"Error stopping XMPP client: {e}")
 
             self.connected = False
-            logger.info("XMPP disconnected")
+            logger.info("XMPP disconnected successfully")
 
         except Exception as e:
             logger.error(f"Error disconnecting XMPP: {e}")

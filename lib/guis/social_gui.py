@@ -54,6 +54,30 @@ class SocialDialog(AccessibleDialog):
         panel = wx.Panel(self.notebook)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
+        # Filter buttons for All/Favorites
+        filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.all_friends_btn = wx.RadioButton(panel, label="All Friends", style=wx.RB_GROUP)
+        self.favorite_friends_btn = wx.RadioButton(panel, label="Favorites")
+        self.all_friends_btn.SetValue(True)
+        filter_sizer.Add(self.all_friends_btn, 0, wx.ALL, 5)
+        filter_sizer.Add(self.favorite_friends_btn, 0, wx.ALL, 5)
+        sizer.Add(filter_sizer, 0, wx.ALL, 5)
+
+        # Search box
+        search_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        search_label = wx.StaticText(panel, label="Search:")
+        search_sizer.Add(search_label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        self.search_box = wx.TextCtrl(panel, size=(300, -1))
+        self.search_box.Bind(wx.EVT_TEXT, self.on_search_changed)
+        search_sizer.Add(self.search_box, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        clear_btn = wx.Button(panel, label="Clear")
+        clear_btn.Bind(wx.EVT_BUTTON, lambda e: self.search_box.SetValue(""))
+        search_sizer.Add(clear_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        sizer.Add(search_sizer, 0, wx.EXPAND)
+
         # Friends list (no online filter - presence API not available)
         self.friends_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         sizer.Add(self.friends_list, 1, wx.EXPAND | wx.ALL, 5)
@@ -69,11 +93,16 @@ class SocialDialog(AccessibleDialog):
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
 
         # Bind events
+        self.all_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
+        self.favorite_friends_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_friends_list)
         self.invite_btn.Bind(wx.EVT_BUTTON, self.on_invite_to_party)
         self.request_join_btn.Bind(wx.EVT_BUTTON, self.on_request_to_join)
         self.remove_friend_btn.Bind(wx.EVT_BUTTON, self.on_remove_friend)
         self.friends_list.Bind(wx.EVT_KEY_DOWN, self.on_friends_key_down)
         self.friends_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_friends_double_click)
+
+        # Store search state
+        self.current_search = ""
 
         panel.SetSizer(sizer)
         return panel
@@ -147,23 +176,54 @@ class SocialDialog(AccessibleDialog):
         elif page == 2:  # Party
             self.refresh_party_list()
 
+    def on_search_changed(self, event):
+        """Handle search text changes"""
+        self.current_search = self.search_box.GetValue()
+        self.refresh_friends_list()
+
     def refresh_friends_list(self, event=None):
-        """Refresh friends list"""
+        """Refresh friends list with filtering and search"""
         self.friends_list.Clear()
 
         with self.social_manager.lock:
-            friends = list(self.social_manager.all_friends)
+            all_friends = list(self.social_manager.all_friends)
 
-        # Use cached display names (no status - presence API not available)
-        for friend in friends:
+        # Filter by favorites if selected
+        if self.favorite_friends_btn.GetValue():
+            friends = [f for f in all_friends if self.social_manager.is_favorite(f)]
+        else:
+            friends = all_friends
+
+        # Apply search filter
+        if self.current_search:
+            search_lower = self.current_search.lower()
+            friends = [f for f in friends if search_lower in (f.display_name or "").lower()]
+
+        # Sort favorites first, then alphabetically
+        def sort_key(friend):
+            is_fav = self.social_manager.is_favorite(friend)
+            name = (friend.display_name or friend.account_id or "Unknown").lower()
+            return (not is_fav, name)  # not is_fav so True (favorite) comes before False
+
+        friends.sort(key=sort_key)
+
+        # Add to list with index numbers
+        for idx, friend in enumerate(friends, start=1):
             name = friend.display_name or friend.account_id or "Unknown"
-            self.friends_list.Append(name, friend)
+            # Add star for favorites and index number
+            if self.social_manager.is_favorite(friend):
+                label = f"{idx}. ★ {name}"
+            else:
+                label = f"{idx}. {name}"
+            self.friends_list.Append(label, friend)
 
         if friends:
             self.friends_list.SetSelection(0)
-            speaker.speak(f"{len(friends)} friends")
+            filter_type = "favorite friends" if self.favorite_friends_btn.GetValue() else "friends"
+            speaker.speak(f"{len(friends)} {filter_type}")
         else:
-            speaker.speak("No friends")
+            filter_type = "favorite friends" if self.favorite_friends_btn.GetValue() else "friends"
+            speaker.speak(f"No {filter_type}")
 
     def refresh_requests_list(self, event=None):
         """Refresh requests list"""
@@ -216,8 +276,23 @@ class SocialDialog(AccessibleDialog):
         # Enter key sends party invite
         if keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
             self.on_invite_to_party(event)
+        # F key toggles favorite
+        elif keycode == ord('F'):
+            self.on_toggle_favorite(event)
         else:
             event.Skip()  # Allow other keys to be processed normally
+
+    def on_toggle_favorite(self, event):
+        """Toggle selected friend as favorite"""
+        sel = self.friends_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No friend selected")
+            return
+
+        friend = self.friends_list.GetClientData(sel)
+        self.social_manager.toggle_favorite(friend)
+        # Refresh to update the star and sorting
+        wx.CallAfter(self.refresh_friends_list)
 
     def on_char_hook(self, event):
         """Handle key press for dialog (Escape to close)"""

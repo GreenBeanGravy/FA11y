@@ -146,6 +146,8 @@ key_bindings = {}
 key_listener_thread = None
 stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
+social_gui_open = threading.Event()
+locker_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
@@ -571,17 +573,27 @@ def mark_last_reached_object_as_bad() -> None:
 # Social manager wrapper functions
 def open_social_menu():
     """Open social menu GUI"""
-    global social_manager
+    global social_manager, social_gui_open
     if not social_manager:
         speaker.speak("Social features not enabled")
         return
 
+    # Check if social GUI is already open
+    if social_gui_open.is_set():
+        speaker.speak("Social menu is already open")
+        return
+
     try:
         from lib.guis.social_gui import show_social_gui
-        show_social_gui(social_manager)
+        social_gui_open.set()
+        try:
+            show_social_gui(social_manager)
+        finally:
+            social_gui_open.clear()
     except Exception as e:
         logger.error(f"Error opening social menu: {e}")
         speaker.speak("Error opening social menu")
+        social_gui_open.clear()
 
 def accept_notification():
     """Accept pending notification (Alt+Y)"""
@@ -936,33 +948,55 @@ def open_gamemode_selector() -> None:
 
 def open_locker_selector() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
-    global active_pinger
+    global active_pinger, locker_gui_open
+
+    # Check if locker GUI is already open
+    if locker_gui_open.is_set():
+        speaker.speak("Locker is already open")
+        return
+
     if active_pinger:
         active_pinger.stop()
         active_pinger = None
         speaker.speak("Continuous ping disabled.")
     try:
         from lib.guis.locker_gui import launch_locker_gui
-        launch_locker_gui()
+        locker_gui_open.set()
+        try:
+            launch_locker_gui()
+        finally:
+            locker_gui_open.clear()
 
     except Exception as e:
         print(f"Error opening locker: {e}")
         speaker.speak("Error opening locker")
+        locker_gui_open.clear()
 
 def open_locker_viewer() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
-    global active_pinger
+    global active_pinger, locker_gui_open
+
+    # Check if locker GUI is already open
+    if locker_gui_open.is_set():
+        speaker.speak("Locker is already open")
+        return
+
     if active_pinger:
         active_pinger.stop()
         active_pinger = None
         speaker.speak("Continuous ping disabled.")
     try:
         from lib.guis.locker_gui import launch_locker_gui
-        launch_locker_gui()
+        locker_gui_open.set()
+        try:
+            launch_locker_gui()
+        finally:
+            locker_gui_open.clear()
 
     except Exception as e:
         print(f"Error opening locker: {e}")
         speaker.speak("Error opening locker")
+        locker_gui_open.clear()
 
 def get_poi_category(poi_name: str) -> str:
     """

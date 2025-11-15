@@ -736,7 +736,7 @@ def find_dynamic_object_with_fallback(object_name: str, use_ppi: bool = False) -
 
 def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_ppi=False):
     """Handle POI selection process with improved object detection and new game objects system"""
-    from lib.guis.poi_selector_gui import POIData
+    from lib.managers.poi_data_manager import POIData
     poi_data_manager = POIData()
     
     config = read_config()

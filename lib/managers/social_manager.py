@@ -42,6 +42,7 @@ class SocialManager:
 
         # Cache file
         self.cache_file = "social_cache.json"
+        self.favorites_file = "favorite_friends.json"
 
         # State management
         self.current_view = self.VIEW_ALL_FRIENDS
@@ -53,6 +54,9 @@ class SocialManager:
         self.outgoing_requests: List[FriendRequest] = []
         self.party_members: List[PartyMember] = []
         self.party_invites: List[PartyInvite] = []
+
+        # Favorite friends (store account IDs)
+        self.favorite_friends: set = set()
 
         # Previous state for change detection
         self.prev_incoming_count = 0
@@ -77,6 +81,7 @@ class SocialManager:
 
         # Load cached data
         self.load_cache()
+        self.load_favorites()
 
     def _is_account_id(self, text: str) -> bool:
         """
@@ -408,6 +413,44 @@ class SocialManager:
         except Exception as e:
             logger.error(f"Error loading social cache: {e}")
 
+    def load_favorites(self):
+        """Load favorite friends from file"""
+        if not os.path.exists(self.favorites_file):
+            return
+
+        try:
+            with open(self.favorites_file, 'r') as f:
+                data = json.load(f)
+                self.favorite_friends = set(data.get("favorites", []))
+            logger.info(f"Loaded {len(self.favorite_friends)} favorite friends")
+        except Exception as e:
+            logger.error(f"Error loading favorites: {e}")
+
+    def save_favorites(self):
+        """Save favorite friends to file"""
+        try:
+            data = {"favorites": list(self.favorite_friends)}
+            with open(self.favorites_file, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.error(f"Error saving favorites: {e}")
+
+    def toggle_favorite(self, friend: Friend):
+        """Toggle a friend as favorite"""
+        if friend.account_id in self.favorite_friends:
+            self.favorite_friends.remove(friend.account_id)
+            display_name = self._ensure_display_name(friend.display_name)
+            speaker.speak(f"{display_name} removed from favorites")
+        else:
+            self.favorite_friends.add(friend.account_id)
+            display_name = self._ensure_display_name(friend.display_name)
+            speaker.speak(f"{display_name} added to favorites")
+        self.save_favorites()
+
+    def is_favorite(self, friend: Friend) -> bool:
+        """Check if a friend is favorited"""
+        return friend.account_id in self.favorite_friends
+
     # ========== Navigation Methods ==========
 
     def cycle_view(self, direction: str = "forwards"):
@@ -732,37 +775,90 @@ class SocialManager:
             logger.error(f"Error declining friend request: {e}")
             speaker.speak("Error declining friend request")
 
-    def _accept_party_invite(self, invite: PartyInvite):
-        """Accept a party invite"""
+    def _accept_party_invite(self, invite: PartyInvite, gui_window=None):
+        """Accept a party invite using Fortnite client (ESC key method)"""
         speaker.speak(f"Joining {invite.from_display_name}'s party")
 
         try:
-            success = self.social_api.accept_party_invite(invite.party_id)
+            import pyautogui
+            import wx
 
-            if success:
+            # Get the active window (should be social GUI) and minimize it
+            minimized_window = None
+            app = wx.GetApp()
+            if app:
+                for window in wx.GetTopLevelWindows():
+                    if window.IsShown():
+                        window.Iconize(True)
+                        minimized_window = window
+                        break
+
+            # Wait for minimize
+            time.sleep(0.2)
+
+            # Hold ESC for 1.5 seconds to accept through Fortnite client
+            pyautogui.keyDown('escape')
+            time.sleep(1.5)
+            pyautogui.keyUp('escape')
+
+            # Monitor party status to see if join was successful
+            speaker.speak("Accepting invite through Fortnite...")
+
+            # Give it a moment to process
+            time.sleep(2)
+
+            # Restore the window
+            if minimized_window:
+                minimized_window.Iconize(False)
+                minimized_window.Raise()
+                minimized_window.SetFocus()
+
+            # Check if we joined by monitoring party members
+            initial_party_size = len(self.party_members)
+            self.refresh_all_data()
+            new_party_size = len(self.party_members)
+
+            if new_party_size > initial_party_size:
                 speaker.speak("Joined party")
-                # Refresh data
-                threading.Thread(target=self.refresh_all_data, daemon=True).start()
             else:
-                speaker.speak("Failed to join party")
+                # Still might have joined, refresh again
+                time.sleep(1)
+                self.refresh_all_data()
+                if len(self.party_members) > initial_party_size:
+                    speaker.speak("Joined party")
 
         except Exception as e:
             logger.error(f"Error accepting party invite: {e}")
             speaker.speak("Error joining party")
 
     def _auto_accept_party_invite(self, invite: PartyInvite, display_name: str):
-        """Auto-accept a party invite (when they respond to our join request)"""
+        """Auto-accept a party invite (when they respond to our join request) using Fortnite client"""
         speaker.speak(f"{display_name} accepted your request. Joining party...")
 
         try:
-            success = self.social_api.accept_party_invite(invite.party_id)
+            import pyautogui
 
-            if success:
+            # Hold ESC for 1.5 seconds to accept through Fortnite client
+            pyautogui.keyDown('escape')
+            time.sleep(1.5)
+            pyautogui.keyUp('escape')
+
+            # Monitor party status to see if join was successful
+            time.sleep(2)
+
+            # Check if we joined by monitoring party members
+            initial_party_size = len(self.party_members)
+            self.refresh_all_data()
+            new_party_size = len(self.party_members)
+
+            if new_party_size > initial_party_size:
                 speaker.speak("Joined party")
-                # Refresh data
-                self.refresh_all_data()
             else:
-                speaker.speak("Failed to join party")
+                # Still might have joined, refresh again
+                time.sleep(1)
+                self.refresh_all_data()
+                if len(self.party_members) > initial_party_size:
+                    speaker.speak("Joined party")
 
         except Exception as e:
             logger.error(f"Error auto-accepting party invite: {e}")
