@@ -154,6 +154,7 @@ stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 social_gui_open = threading.Event()
 locker_gui_open = threading.Event()
+gamemode_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
@@ -844,12 +845,43 @@ def key_listener() -> None:
         'scroll up', 'scroll down'
     }
 
+    # Helper to check if any FA11y GUI has focus
+    def any_fa11y_gui_focused():
+        """Check if any FA11y GUI window is currently focused"""
+        try:
+            import ctypes
+            # Get foreground window title
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+            if length == 0:
+                return False
+
+            buff = ctypes.create_unicode_buffer(length + 1)
+            ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+            window_title = buff.value
+
+            # Check if it's one of our GUIs
+            fa11y_gui_titles = [
+                "Social Menu",
+                "Locker",
+                "Gamemode Selector",
+                "Configuration",
+                "Custom POI Creator",
+                "Visited Objects Manager",
+                "Epic Games Login"
+            ]
+
+            return any(title in window_title for title in fa11y_gui_titles)
+        except:
+            return False
+
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
-            
-        if not config_gui_open.is_set():
+
+        # Skip keybind processing if any FA11y GUI has focus (allows typing in text fields)
+        if not any_fa11y_gui_focused():
             numlock_on = is_numlock_on()
             if config is None:
                 time.sleep(0.1)
@@ -1013,6 +1045,13 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
 
 def open_gamemode_selector() -> None:
     """Open the gamemode selector GUI with Epic auth for advanced features."""
+    global gamemode_gui_open
+
+    # Check if gamemode GUI is already open
+    if gamemode_gui_open.is_set():
+        speaker.speak("Gamemode selector is already open")
+        return
+
     try:
         from lib.guis.gamemode_gui import launch_gamemode_selector
         from lib.utilities.epic_auth import get_epic_auth_instance
@@ -1024,11 +1063,16 @@ def open_gamemode_selector() -> None:
         except Exception as e:
             logger.debug(f"Epic auth not available for gamemode selector: {e}")
 
-        launch_gamemode_selector(epic_auth=epic_auth)
+        gamemode_gui_open.set()
+        try:
+            launch_gamemode_selector(epic_auth=epic_auth)
+        finally:
+            gamemode_gui_open.clear()
 
     except Exception as e:
         print(f"Error opening gamemode selector: {e}")
         speaker.speak("Error opening gamemode selector")
+        gamemode_gui_open.clear()
 
 def open_locker_selector() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
