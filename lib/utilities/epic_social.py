@@ -4,13 +4,11 @@ Handles friends, party, and presence management for Fortnite
 """
 import logging
 import requests
-import asyncio
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from lib.utilities.display_name_cache import get_display_name_cache
-from lib.utilities.epic_xmpp import EpicXMPPManager
 
 logger = logging.getLogger(__name__)
 
@@ -133,15 +131,6 @@ class EpicSocial:
 
         # Counter for generating placeholder names
         self._placeholder_counter = 0
-
-        # Cache XMPP connection ID (extracted from party data)
-        self._xmpp_connection_id = None
-
-        # XMPP client for party MUC rooms (persistent connection)
-        self.xmpp_manager = None
-        self._xmpp_connected = False
-        self._xmpp_thread = None  # Thread running XMPP event loop
-        self._xmpp_loop = None  # Event loop for XMPP
 
     def _get_headers(self) -> dict:
         """Get authorization headers for API requests"""
@@ -644,305 +633,6 @@ class EpicSocial:
 
     # ========== Party API ==========
 
-    def _get_xmpp_connection_id(self) -> Optional[str]:
-        """
-        Get our XMPP connection ID from current party data
-
-        This is needed for party operations. The connection ID is visible
-        in the party member data when you're in Fortnite.
-
-        Returns:
-            XMPP connection ID string or None if not available
-        """
-        # Return cached value if available
-        if self._xmpp_connection_id:
-            return self._xmpp_connection_id
-
-        try:
-            # Get current party info
-            response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if response.status_code == 200:
-                party_data = response.json()
-
-                # Check if in a party
-                current_parties = party_data.get("current", [])
-                if not current_parties:
-                    logger.debug("Not in a party, cannot extract XMPP connection ID")
-                    return None
-
-                # Find ourselves in the members list
-                party = current_parties[0]
-                members = party.get("members", [])
-
-                for member in members:
-                    if member.get("account_id") == self.auth.account_id:
-                        # Found ourselves! Extract connection ID
-                        connections = member.get("connections", [])
-                        if connections:
-                            connection_id = connections[0].get("id")
-                            if connection_id:
-                                # Cache it for future use
-                                self._xmpp_connection_id = connection_id
-                                logger.info(f"Extracted XMPP connection ID: {connection_id}")
-                                return connection_id
-
-                logger.warning("Could not find own connection ID in party data")
-                return None
-            else:
-                logger.debug(f"Failed to get party data for XMPP extraction: {response.status_code}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error extracting XMPP connection ID: {e}")
-            return None
-
-    async def initialize_xmpp(self) -> bool:
-        """
-        Initialize and connect XMPP client for party MUC rooms
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            if self._xmpp_connected and self.xmpp_client:
-                logger.debug("XMPP already connected")
-                return True
-
-            logger.info("Initializing XMPP client...")
-
-            # Get exchange code for XMPP authentication
-            exchange_code = self.auth.get_exchange_code()
-            if not exchange_code:
-                logger.error("Failed to get exchange code for XMPP")
-                return False
-
-            # Exchange code for XMPP access token
-            xmpp_auth = self.auth.exchange_code_for_xmpp_token(exchange_code)
-            if not xmpp_auth:
-                logger.error("Failed to get XMPP access token")
-                return False
-
-            # Create XMPP JID: account_id@prod.ol.epicgames.com
-            xmpp_jid = f"{xmpp_auth['account_id']}@prod.ol.epicgames.com"
-            xmpp_password = xmpp_auth['access_token']
-
-            # Initialize XMPP client
-            self.xmpp_client = EpicXMPP(xmpp_jid, xmpp_password, self.auth)
-
-            # Connect to XMPP server
-            success = await self.xmpp_client.connect_and_start()
-            if success:
-                self._xmpp_connected = True
-                logger.info("Successfully initialized and connected XMPP client")
-                return True
-            else:
-                logger.error("Failed to connect XMPP client")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error initializing XMPP: {e}")
-            return False
-
-    async def join_party_muc(self, party_id: str) -> bool:
-        """
-        Join party MUC (Multi-User Chat) room via XMPP with PERSISTENT connection
-
-        This is the critical step that makes you spawn in-game after accepting
-        a party invite. The connection stays alive indefinitely until you leave
-        the party or disconnect. Without this, you join the party via HTTP but
-        don't actually appear in-game.
-
-        Args:
-            party_id: The party ID to join
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            logger.info("Setting up persistent XMPP connection for party MUC...")
-
-            # Disconnect existing XMPP connection if any
-            if self.xmpp_manager and self._xmpp_connected:
-                logger.info("Disconnecting existing XMPP connection first...")
-                await self.disconnect_xmpp_async()
-
-            # Get exchange code for XMPP authentication
-            exchange_code = self.auth.get_exchange_code()
-            if not exchange_code:
-                logger.error("Failed to get exchange code for XMPP")
-                return False
-
-            # Exchange code for XMPP access token
-            xmpp_auth = self.auth.exchange_code_for_xmpp_token(exchange_code)
-            if not xmpp_auth:
-                logger.error("Failed to get XMPP access token")
-                return False
-
-            # Create XMPP JID
-            xmpp_jid = f"{xmpp_auth['account_id']}@prod.ol.epicgames.com"
-            xmpp_password = xmpp_auth['access_token']
-            display_name = self.auth.display_name or "Player"
-
-            # Create persistent XMPP manager
-            self.xmpp_manager = EpicXMPPManager(xmpp_jid, xmpp_password)
-
-            # Store party ID for reconnection
-            self._current_party_id = party_id
-
-            # Start XMPP connection in background thread with persistent event loop
-            # This is the key difference - we don't close the loop!
-            import threading
-
-            def run_persistent_xmpp():
-                """
-                Run XMPP connection in dedicated thread with persistent event loop
-                Connection stays alive until shutdown() is called
-                """
-                try:
-                    # Create new event loop for this thread
-                    self._xmpp_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(self._xmpp_loop)
-
-                    logger.info(f"Starting persistent XMPP connection to party {party_id}...")
-
-                    # Run the connection - this will block until shutdown() is called
-                    success = self._xmpp_loop.run_until_complete(
-                        self.xmpp_manager.connect_and_join_muc(party_id, display_name, self._xmpp_loop)
-                    )
-
-                    if success:
-                        logger.info("XMPP connection completed gracefully")
-                    else:
-                        logger.warning("XMPP connection ended with errors")
-
-                except Exception as e:
-                    logger.error(f"Error in persistent XMPP thread: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-                finally:
-                    # Clean up event loop when thread exits
-                    try:
-                        self._xmpp_loop.close()
-                        logger.info("XMPP event loop closed")
-                    except Exception as e:
-                        logger.error(f"Error closing XMPP loop: {e}")
-                    self._xmpp_connected = False
-
-            # Start XMPP in persistent background thread
-            self._xmpp_thread = threading.Thread(
-                target=run_persistent_xmpp,
-                daemon=True,  # Daemon so it doesn't prevent shutdown
-                name="EpicXMPP-Persistent"
-            )
-            self._xmpp_thread.start()
-            logger.info("Started persistent XMPP thread")
-
-            # Wait a moment for connection to establish
-            import time
-            time.sleep(1.5)
-
-            # Check if connection is alive
-            if self.xmpp_manager and self.xmpp_manager.connected:
-                self._xmpp_connected = True
-                logger.info(f"✓ Successfully established persistent XMPP connection to party {party_id}")
-                logger.info("✓ Connection will stay alive until you leave the party or disconnect")
-                return True
-            else:
-                logger.warning("XMPP connection may not have established yet, but thread is running")
-                # Return True anyway - thread is running and will keep trying
-                self._xmpp_connected = True
-                return True
-
-        except Exception as e:
-            logger.error(f"Error joining party MUC: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return False
-
-    async def leave_party_muc(self) -> bool:
-        """
-        Leave current party MUC room and disconnect persistent XMPP
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            logger.info("Leaving party MUC and disconnecting persistent XMPP...")
-            return await self.disconnect_xmpp_async()
-
-        except Exception as e:
-            logger.error(f"Error leaving party MUC: {e}")
-            return False
-
-    async def disconnect_xmpp_async(self):
-        """
-        Disconnect persistent XMPP connection (async version)
-        Signals the background thread to shutdown gracefully
-        """
-        try:
-            if not self.xmpp_manager:
-                logger.debug("No XMPP manager to disconnect from")
-                return True
-
-            logger.info("Disconnecting persistent XMPP connection...")
-
-            # Signal shutdown to the XMPP manager
-            # This will trigger the shutdown event and cause the connection to close
-            if self.xmpp_manager:
-                self.xmpp_manager.shutdown()
-                logger.info("Sent shutdown signal to XMPP manager")
-
-            # Wait a moment for graceful shutdown
-            import time
-            time.sleep(1.0)
-
-            # Clean up references
-            self.xmpp_manager = None
-            self._xmpp_connected = False
-            self._xmpp_loop = None
-
-            logger.info("✓ Successfully disconnected persistent XMPP connection")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error disconnecting XMPP: {e}")
-            return False
-
-    def disconnect_xmpp(self):
-        """
-        Disconnect XMPP client (synchronous version)
-        For backwards compatibility and non-async contexts
-        """
-        try:
-            if not self.xmpp_manager:
-                logger.debug("No XMPP manager to disconnect from")
-                return
-
-            logger.info("Disconnecting persistent XMPP (sync)...")
-
-            # Signal shutdown
-            if self.xmpp_manager:
-                self.xmpp_manager.shutdown()
-
-            # Wait briefly for shutdown
-            import time
-            time.sleep(0.5)
-
-            # Clean up
-            self.xmpp_manager = None
-            self._xmpp_connected = False
-            self._xmpp_loop = None
-
-            logger.info("XMPP disconnected (sync)")
-
-        except Exception as e:
-            logger.error(f"Error disconnecting XMPP (sync): {e}")
-
     def get_current_party(self) -> Optional[List[PartyMember]]:
         """
         Get current party members
@@ -1202,12 +892,6 @@ class EpicSocial:
         try:
             import json
 
-            # Get our XMPP connection ID from current party (before leaving)
-            connection_id = self._get_xmpp_connection_id()
-            if not connection_id:
-                logger.error("Cannot join party: No XMPP connection ID available. Make sure you're in Fortnite.")
-                return False
-
             # Leave current party first (if in one)
             leave_result = self.leave_party()
             if not leave_result:
@@ -1216,32 +900,10 @@ class EpicSocial:
             # Get display name
             display_name = self.auth.display_name or "Player"
 
-            # Build join request users JSON string
-            join_request_users = {
-                "users": [{
-                    "id": self.auth.account_id,
-                    "dn": display_name,
-                    "plat": "WIN",
-                    "data": {
-                        "CrossplayPreference": "1",
-                        "SubGame_u": "1"
-                    }
-                }]
-            }
-
-            # Build request body with real XMPP connection ID
+            # Build request body
             join_body = {
-                "connection": {
-                    "id": connection_id,
-                    "meta": {
-                        "urn:epic:conn:platform_s": "WIN",
-                        "urn:epic:conn:type_s": "game"
-                    },
-                    "yield_leadership": False
-                },
                 "meta": {
-                    "urn:epic:member:dn_s": display_name,
-                    "urn:epic:member:joinrequestusers_j": json.dumps(join_request_users)
+                    "urn:epic:member:dn_s": display_name
                 }
             }
 
@@ -1282,57 +944,6 @@ class EpicSocial:
                         logger.warning(f"Failed to fetch fresh party data: {party_response.status_code}")
                 except Exception as e:
                     logger.warning(f"Error fetching fresh party data: {e}")
-
-                # Join party MUC room via XMPP (THIS IS THE KEY STEP!)
-                # This is what makes you actually spawn in-game
-                # The join_party_muc() method now handles persistent connection in its own thread
-                try:
-                    logger.info("Joining party MUC room via persistent XMPP...")
-
-                    import threading
-
-                    def run_xmpp_join():
-                        """
-                        Run XMPP MUC join - the join_party_muc handles its own persistent thread
-                        This wrapper just calls it in a separate thread to avoid blocking
-                        """
-                        try:
-                            # Create event loop for this wrapper thread
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-
-                            # Call join_party_muc which creates persistent XMPP connection
-                            # The persistent connection runs in its own dedicated thread
-                            success = loop.run_until_complete(self.join_party_muc(party_id))
-
-                            # Clean up this wrapper's event loop
-                            # Note: The persistent XMPP connection continues running in its own thread!
-                            loop.close()
-
-                            if success:
-                                logger.info("✓ Successfully initiated persistent XMPP connection - you should now spawn in-game!")
-                                logger.info("✓ XMPP connection will remain active until you leave the party")
-                            else:
-                                logger.warning("Failed to join party MUC - you may not spawn in-game")
-
-                        except Exception as e:
-                            logger.warning(f"Error in XMPP join wrapper: {e}")
-                            import traceback
-                            logger.warning(traceback.format_exc())
-
-                    # Start XMPP join in wrapper thread
-                    # This thread will exit quickly after starting the persistent XMPP thread
-                    xmpp_thread = threading.Thread(target=run_xmpp_join, daemon=True, name="XMPP-Join-Wrapper")
-                    xmpp_thread.start()
-
-                    # Wait for persistent connection to establish
-                    # The persistent XMPP thread continues running after this!
-                    import time
-                    time.sleep(2.0)  # Give more time for connection to establish
-
-                except Exception as e:
-                    logger.warning(f"Error starting XMPP join: {e}")
-                    logger.warning("HTTP party join succeeded but XMPP MUC join failed")
 
                 return True
             else:
@@ -1410,24 +1021,12 @@ class EpicSocial:
 
                 if response.status_code in [200, 204]:
                     logger.info("Successfully left party")
-
-                    # Disconnect persistent XMPP connection when leaving party
-                    if self.xmpp_manager and self._xmpp_connected:
-                        logger.info("Disconnecting persistent XMPP connection after leaving party...")
-                        self.disconnect_xmpp()
-
                     return True
                 else:
                     logger.error(f"Failed to leave party: {response.status_code}")
                     return False
             else:
                 logger.info("Not in a party")
-
-                # Also disconnect XMPP if we're not in a party
-                if self.xmpp_manager and self._xmpp_connected:
-                    logger.info("Disconnecting orphaned XMPP connection...")
-                    self.disconnect_xmpp()
-
                 return True
 
         except Exception as e:
