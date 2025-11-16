@@ -217,14 +217,15 @@ class SocialDialog(AccessibleDialog):
 
         friends.sort(key=sort_key)
 
-        # Add to list with index numbers
+        # Add to list with index after name: "Friend Name, 1 of 10"
+        total = len(friends)
         for idx, friend in enumerate(friends, start=1):
             name = friend.display_name or friend.account_id or "Unknown"
-            # Add star for favorites and index number
+            # Add star for favorites and index after name
             if self.social_manager.is_favorite(friend):
-                label = f"{idx}. ★ {name}"
+                label = f"★ {name}, {idx} of {total}"
             else:
-                label = f"{idx}. {name}"
+                label = f"{name}, {idx} of {total}"
             self.friends_list.Append(label, friend)
 
         if friends:
@@ -248,10 +249,11 @@ class SocialDialog(AccessibleDialog):
                 request_type = "outgoing"
 
         # Use cached display names (already fetched by background monitor)
-        for req in requests:
+        total = len(requests)
+        for idx, req in enumerate(requests, start=1):
             name = req.display_name or req.account_id or "Unknown"
             direction = "from" if req.direction == "inbound" else "to"
-            label = f"Request {direction} {name}"
+            label = f"Request {direction} {name}, {idx} of {total}"
             self.requests_list.Append(label, req)
 
         if requests:
@@ -268,9 +270,13 @@ class SocialDialog(AccessibleDialog):
             members = list(self.social_manager.party_members)
 
         # Use cached display names with fallback
-        for member in members:
+        total = len(members)
+        for idx, member in enumerate(members, start=1):
             name = member.display_name or member.account_id or "Unknown"
-            label = f"{name} (Leader)" if member.is_leader else name
+            if member.is_leader:
+                label = f"{name} (Leader), {idx} of {total}"
+            else:
+                label = f"{name}, {idx} of {total}"
             self.party_list.Append(label, member)
 
         if members:
@@ -283,7 +289,7 @@ class SocialDialog(AccessibleDialog):
         """Handle key press in friends list with arrow wrapping and type-to-search"""
         keycode = event.GetKeyCode()
 
-        # Arrow key wrapping
+        # Arrow key handling - consume them to prevent tab navigation
         if keycode == wx.WXK_UP:
             sel = self.friends_list.GetSelection()
             if sel == 0 or sel == wx.NOT_FOUND:
@@ -291,14 +297,25 @@ class SocialDialog(AccessibleDialog):
                 last = self.friends_list.GetCount() - 1
                 if last >= 0:
                     self.friends_list.SetSelection(last)
-                return
+            else:
+                # Normal up navigation
+                self.friends_list.SetSelection(sel - 1)
+            return  # Don't Skip - prevents tab navigation
+
         elif keycode == wx.WXK_DOWN:
             sel = self.friends_list.GetSelection()
             last = self.friends_list.GetCount() - 1
             if sel == last or sel == wx.NOT_FOUND:
                 # Wrap to first item
                 self.friends_list.SetSelection(0)
-                return
+            else:
+                # Normal down navigation
+                self.friends_list.SetSelection(sel + 1)
+            return  # Don't Skip - prevents tab navigation
+
+        elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
+            # Consume left/right to prevent tab switching
+            return
 
         # Enter key sends party invite
         elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
@@ -329,12 +346,12 @@ class SocialDialog(AccessibleDialog):
         count = listbox.GetCount()
         for i in range(count):
             item_text = listbox.GetString(i).lower()
-            # Remove index prefix like "1. " or "10. ★ "
-            # Find first letter after the number and optional star
+            # Remove index suffix like ", 1 of 10" and optional star prefix "★ "
             import re
-            match = re.search(r'\d+\.\s*(?:★\s*)?(.+)', item_text)
+            # Match optional star, then name, then optional index
+            match = re.search(r'^(?:★\s*)?(.+?)(?:,\s*\d+\s*of\s*\d+)?$', item_text)
             if match:
-                item_text = match.group(1)
+                item_text = match.group(1).strip()
 
             if item_text.startswith(self.type_search_buffer):
                 listbox.SetSelection(i)
@@ -372,7 +389,7 @@ class SocialDialog(AccessibleDialog):
         """Handle key press in requests list with arrow wrapping and type-to-search"""
         keycode = event.GetKeyCode()
 
-        # Arrow key wrapping
+        # Arrow key handling - consume them to prevent tab navigation
         if keycode == wx.WXK_UP:
             sel = self.requests_list.GetSelection()
             if sel == 0 or sel == wx.NOT_FOUND:
@@ -380,14 +397,25 @@ class SocialDialog(AccessibleDialog):
                 last = self.requests_list.GetCount() - 1
                 if last >= 0:
                     self.requests_list.SetSelection(last)
-                return
+            else:
+                # Normal up navigation
+                self.requests_list.SetSelection(sel - 1)
+            return  # Don't Skip - prevents tab navigation
+
         elif keycode == wx.WXK_DOWN:
             sel = self.requests_list.GetSelection()
             last = self.requests_list.GetCount() - 1
             if sel == last or sel == wx.NOT_FOUND:
                 # Wrap to first item
                 self.requests_list.SetSelection(0)
-                return
+            else:
+                # Normal down navigation
+                self.requests_list.SetSelection(sel + 1)
+            return  # Don't Skip - prevents tab navigation
+
+        elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
+            # Consume left/right to prevent tab switching
+            return
 
         # Enter key accepts request
         elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:

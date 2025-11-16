@@ -588,12 +588,12 @@ def handle_auth_expiration():
     global auth_expiration_announced
     auth_expired.set()
     if not auth_expiration_announced:
-        speaker.speak("Authentication expired. Press ALT+A to re-authenticate.")
+        speaker.speak("Authentication expired. Press ALT+E to re-authenticate.")
         logger.warning("Epic Games authentication expired")
         auth_expiration_announced = True
 
 def open_authentication():
-    """Open Epic Games authentication dialog for re-authentication (ALT+A)"""
+    """Open Epic Games authentication dialog for re-authentication (ALT+E)"""
     global social_manager, auth_expired, auth_expiration_announced
 
     try:
@@ -880,65 +880,69 @@ def key_listener() -> None:
         if _shutdown_requested.is_set():
             break
 
-        # Skip keybind processing if any FA11y GUI has focus (allows typing in text fields)
-        if not any_fa11y_gui_focused():
-            numlock_on = is_numlock_on()
-            if config is None:
-                time.sleep(0.1)
+        # Skip keybind processing ONLY if any FA11y GUI has focus (allows typing in text fields)
+        if any_fa11y_gui_focused():
+            time.sleep(0.005)
+            continue
+
+        # Process keybinds normally when no GUI has focus
+        numlock_on = is_numlock_on()
+        if config is None:
+            time.sleep(0.1)
+            continue
+
+        mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
+
+        for action, key_combo in key_bindings.items():
+            if not key_combo:
                 continue
 
-            mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
+            # Quick exit check in inner loop
+            if _shutdown_requested.is_set():
+                return
 
-            for action, key_combo in key_bindings.items():
-                if not key_combo:
-                    continue
+            action_lower = action.lower()
 
-                # Quick exit check in inner loop
-                if _shutdown_requested.is_set():
-                    return
+            if action_lower not in action_handlers:
+                continue
 
-                action_lower = action.lower()
+            if not keybinds_enabled and action_lower != 'toggle keybinds':
+                continue
 
-                if action_lower not in action_handlers:
-                    continue
+            if not mouse_keys_enabled and action_lower in mouse_key_actions:
+                continue
 
-                if not keybinds_enabled and action_lower != 'toggle keybinds':
-                    continue
+            ignore_numlock = get_config_boolean(config, 'IgnoreNumlock', False)
+            if action_lower in ['fire', 'target'] and not (ignore_numlock or numlock_on):
+                continue
 
-                if not mouse_keys_enabled and action_lower in mouse_key_actions:
-                    continue
+            # *** MODIFIED LOGIC STARTS HERE ***
+            key_pressed = False
+            if action_lower in mouse_key_actions:
+                # For movement, use the lenient check that ignores extra modifiers
+                key_pressed = is_key_combination_pressed_ignore_extra_mods(key_combo)
+            else:
+                # For all other actions, use the strict, exact-match check
+                key_pressed = is_key_combination_pressed(key_combo)
 
-                ignore_numlock = get_config_boolean(config, 'IgnoreNumlock', False)
-                if action_lower in ['fire', 'target'] and not (ignore_numlock or numlock_on):
-                    continue
-                
-                # *** MODIFIED LOGIC STARTS HERE ***
-                key_pressed = False
-                if action_lower in mouse_key_actions:
-                    # For movement, use the lenient check that ignores extra modifiers
-                    key_pressed = is_key_combination_pressed_ignore_extra_mods(key_combo)
+            key_state_key = key_combo
+
+            if key_pressed != key_state.get(key_state_key, False):
+                key_state[key_state_key] = key_pressed
+                if key_pressed:
+                    action_handler = action_handlers.get(action_lower)
+                    if action_handler:
+                        try:
+                            action_handler()
+                        except Exception as e:
+                            print(f"Error executing action {action_lower}: {e}")
                 else:
-                    # For all other actions, use the strict, exact-match check
-                    key_pressed = is_key_combination_pressed(key_combo)
-
-                key_state_key = key_combo
-                
-                if key_pressed != key_state.get(key_state_key, False):
-                    key_state[key_state_key] = key_pressed
-                    if key_pressed:
-                        action_handler = action_handlers.get(action_lower)
-                        if action_handler:
-                            try:
-                                action_handler()
-                            except Exception as e:
-                                print(f"Error executing action {action_lower}: {e}")
-                    else:
-                        # Handle key release for fire/target actions
-                        if action_lower in ['fire', 'target']:
-                            # Parse the combination to get the main key
-                            modifiers, main_key = parse_key_combination(key_combo)
-                            if main_key in ['lctrl', 'rctrl']:  # Only for ctrl keys
-                                (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
+                    # Handle key release for fire/target actions
+                    if action_lower in ['fire', 'target']:
+                        # Parse the combination to get the main key
+                        modifiers, main_key = parse_key_combination(key_combo)
+                        if main_key in ['lctrl', 'rctrl']:  # Only for ctrl keys
+                            (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
         
         # Reduced sleep time for faster shutdown response
         time.sleep(0.005)

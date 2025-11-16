@@ -81,6 +81,10 @@ class GamemodeGUI(AccessibleDialog):
         # Load saved gamemodes
         self.gamemodes = self.load_gamemodes()
 
+        # Type-to-search state
+        self.type_search_buffer = ""
+        self.type_search_timer = None
+
         # Mode state
         self.simple_mode = True  # Start in simple mode
 
@@ -214,6 +218,7 @@ class GamemodeGUI(AccessibleDialog):
 
         # Results list
         self.discovery_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        self.discovery_list.Bind(wx.EVT_KEY_DOWN, self.on_discovery_key_down)
         sizer.Add(self.discovery_list, 1, wx.EXPAND | wx.ALL, 5)
 
         # Select button
@@ -261,6 +266,7 @@ class GamemodeGUI(AccessibleDialog):
 
         # Results list
         self.island_search_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        self.island_search_list.Bind(wx.EVT_KEY_DOWN, self.on_island_search_key_down)
         sizer.Add(self.island_search_list, 1, wx.EXPAND | wx.ALL, 5)
 
         # Select button
@@ -293,6 +299,7 @@ class GamemodeGUI(AccessibleDialog):
 
         # Results list
         self.creator_search_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        self.creator_search_list.Bind(wx.EVT_KEY_DOWN, self.on_creator_search_key_down)
         sizer.Add(self.creator_search_list, 1, wx.EXPAND | wx.ALL, 5)
 
         # Info label
@@ -475,6 +482,89 @@ class GamemodeGUI(AccessibleDialog):
         except Exception as e:
             logger.error(f"Error searching creators: {e}")
             safe_speak("Error searching creators")
+
+    def _handle_list_navigation(self, event, listbox, on_enter_callback):
+        """Common navigation handler for all listboxes"""
+        keycode = event.GetKeyCode()
+
+        # Arrow key handling - consume them to prevent tab navigation
+        if keycode == wx.WXK_UP:
+            sel = listbox.GetSelection()
+            if sel == 0 or sel == wx.NOT_FOUND:
+                # Wrap to last item
+                last = listbox.GetCount() - 1
+                if last >= 0:
+                    listbox.SetSelection(last)
+            else:
+                listbox.SetSelection(sel - 1)
+            return
+
+        elif keycode == wx.WXK_DOWN:
+            sel = listbox.GetSelection()
+            last = listbox.GetCount() - 1
+            if sel == last or sel == wx.NOT_FOUND:
+                # Wrap to first item
+                listbox.SetSelection(0)
+            else:
+                listbox.SetSelection(sel + 1)
+            return
+
+        elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
+            # Consume left/right to prevent tab switching
+            return
+
+        # Enter key selects island
+        elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            on_enter_callback(event)
+            return
+
+        # Type-to-search (alphanumeric keys)
+        elif keycode >= 32 and keycode <= 126:  # Printable ASCII
+            self._handle_type_to_search(chr(keycode), listbox)
+            return
+
+        event.Skip()
+
+    def _handle_type_to_search(self, char, listbox):
+        """Handle type-to-search functionality for list boxes"""
+        # Cancel existing timer
+        if self.type_search_timer:
+            self.type_search_timer.Stop()
+            self.type_search_timer = None
+
+        # Add character to buffer
+        self.type_search_buffer += char.lower()
+
+        # Search for matching item
+        count = listbox.GetCount()
+        for i in range(count):
+            item_text = listbox.GetString(i).lower()
+
+            if item_text.startswith(self.type_search_buffer):
+                listbox.SetSelection(i)
+                # Speak the found item
+                safe_speak(listbox.GetString(i))
+                break
+
+        # Set timer to clear buffer after 1 second of no typing
+        self.type_search_timer = wx.CallLater(1000, self._clear_type_search_buffer)
+
+    def _clear_type_search_buffer(self):
+        """Clear type-to-search buffer"""
+        self.type_search_buffer = ""
+        self.type_search_timer = None
+
+    def on_discovery_key_down(self, event):
+        """Handle key press in discovery results list"""
+        self._handle_list_navigation(event, self.discovery_list, self.on_select_discovery_island)
+
+    def on_island_search_key_down(self, event):
+        """Handle key press in island search results list"""
+        self._handle_list_navigation(event, self.island_search_list, self.on_select_search_island)
+
+    def on_creator_search_key_down(self, event):
+        """Handle key press in creator search results list"""
+        self._handle_list_navigation(event, self.creator_search_list, lambda e: None)
 
     def on_select_discovery_island(self, event):
         """Select island from discovery surface"""
