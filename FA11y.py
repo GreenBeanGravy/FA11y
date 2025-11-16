@@ -162,6 +162,10 @@ social_manager = None
 # Global shutdown flag for instant shutdown
 _shutdown_requested = threading.Event()
 
+# Auth expiration flag - set when API returns 401
+auth_expired = threading.Event()
+auth_expiration_announced = False  # Track if we've already announced it
+
 # POI category definitions
 POI_CATEGORY_SPECIAL = "special"
 POI_CATEGORY_REGULAR = "regular"
@@ -401,6 +405,7 @@ def reload_config() -> None:
             'check hotspots': check_hotspots,
             'open visited objects': open_visited_objects,
             'open social menu': open_social_menu,
+            'open authentication': open_authentication,
             'accept notification': accept_notification,
             'decline notification': decline_notification,
         })
@@ -576,6 +581,64 @@ def mark_last_reached_object_as_bad() -> None:
         print(f"Error marking object as bad: {e}")
         speaker.speak("Error marking last reached object as bad")
 
+# Auth expiration handling
+def handle_auth_expiration():
+    """Handle authentication expiration - announce once and set flag"""
+    global auth_expiration_announced
+    auth_expired.set()
+    if not auth_expiration_announced:
+        speaker.speak("Authentication expired. Press ALT+A to re-authenticate.")
+        logger.warning("Epic Games authentication expired")
+        auth_expiration_announced = True
+
+def open_authentication():
+    """Open Epic Games authentication dialog for re-authentication (ALT+A)"""
+    global social_manager, auth_expired, auth_expiration_announced
+
+    try:
+        from lib.utilities.epic_auth import get_epic_auth_instance
+        from lib.guis.epic_login_dialog import LoginDialog
+        import wx
+
+        speaker.speak("Opening authentication dialog")
+
+        epic_auth = get_epic_auth_instance()
+
+        # Create wx app if needed
+        app = wx.GetApp()
+        if app is None:
+            app = wx.App(False)
+
+        # Show login dialog
+        login_dialog = LoginDialog(None, epic_auth)
+        result = login_dialog.ShowModal()
+        authenticated = login_dialog.authenticated
+        login_dialog.Destroy()
+
+        if authenticated:
+            # Clear auth expiration flags
+            auth_expired.clear()
+            auth_expiration_announced = False
+
+            # Refresh auth instance
+            epic_auth = get_epic_auth_instance()
+
+            # Reinitialize social manager if it exists
+            if social_manager:
+                social_manager.stop_monitoring()
+                from lib.managers.social_manager import get_social_manager
+                social_manager = get_social_manager(epic_auth)
+                social_manager.start_monitoring()
+
+            speaker.speak(f"Authentication successful for {epic_auth.display_name}")
+            logger.info(f"Re-authenticated as {epic_auth.display_name}")
+        else:
+            speaker.speak("Authentication cancelled")
+
+    except Exception as e:
+        logger.error(f"Error opening authentication dialog: {e}")
+        speaker.speak("Error opening authentication dialog")
+
 # Social manager wrapper functions
 def open_social_menu():
     """Open social menu GUI"""
@@ -588,6 +651,12 @@ def open_social_menu():
     if social_gui_open.is_set():
         speaker.speak("Social menu is already open")
         return
+
+    # Wait for initial data to load (with timeout)
+    if not social_manager.initial_data_loaded.is_set():
+        speaker.speak("Loading social data")
+        if not social_manager.wait_for_initial_data(timeout=10):
+            speaker.speak("Timeout waiting for social data, opening anyway")
 
     try:
         from lib.guis.social_gui import show_social_gui

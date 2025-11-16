@@ -60,6 +60,7 @@ class LoginDialog(AccessibleDialog):
 
         self.code_input = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
         self.code_input.Bind(wx.EVT_TEXT_ENTER, self.on_submit_code)
+        self.code_input.Bind(wx.EVT_KEY_DOWN, self.on_code_input_key)
         self.code_input.Enable(False)
         sizer.addItem(self.code_input, flag=wx.EXPAND)
 
@@ -94,6 +95,43 @@ class LoginDialog(AccessibleDialog):
         if key_code == wx.WXK_ESCAPE:
             self.EndModal(wx.ID_CANCEL)
             return
+        event.Skip()
+
+    def on_code_input_key(self, event):
+        """Handle key presses in code input field - enable Ctrl+V paste"""
+        key_code = event.GetKeyCode()
+
+        # Check for Ctrl+V (paste)
+        if event.ControlDown() and key_code == ord('V'):
+            # Manually handle paste from clipboard
+            if wx.TheClipboard.Open():
+                try:
+                    if wx.TheClipboard.IsSupported(wx.DataFormat(wx.DF_TEXT)):
+                        data = wx.TextDataObject()
+                        success = wx.TheClipboard.GetData(data)
+                        if success:
+                            # Get clipboard text
+                            clipboard_text = data.GetText()
+                            # Insert at current position
+                            insertion_point = self.code_input.GetInsertionPoint()
+                            current_text = self.code_input.GetValue()
+
+                            # If there's a selection, replace it
+                            sel_start, sel_end = self.code_input.GetSelection()
+                            if sel_start != sel_end:
+                                new_text = current_text[:sel_start] + clipboard_text + current_text[sel_end:]
+                                new_pos = sel_start + len(clipboard_text)
+                            else:
+                                new_text = current_text[:insertion_point] + clipboard_text + current_text[insertion_point:]
+                                new_pos = insertion_point + len(clipboard_text)
+
+                            self.code_input.SetValue(new_text)
+                            self.code_input.SetInsertionPoint(new_pos)
+                finally:
+                    wx.TheClipboard.Close()
+            return  # Don't skip - we handled it
+
+        # Let other keys pass through normally
         event.Skip()
 
     @staticmethod

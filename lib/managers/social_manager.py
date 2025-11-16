@@ -82,6 +82,7 @@ class SocialManager:
         self.monitor_thread: Optional[threading.Thread] = None
         self.update_interval = 3  # seconds (reduced from 7 for faster updates)
         self.lock = threading.Lock()
+        self.initial_data_loaded = threading.Event()  # Flag for initial data load completion
 
         # Load cached data
         self.load_cache()
@@ -158,6 +159,18 @@ class SocialManager:
             self.monitor_thread.join(timeout=2)
         logger.info("Social monitoring stopped")
 
+    def wait_for_initial_data(self, timeout=10):
+        """
+        Wait for initial data to be loaded
+
+        Args:
+            timeout: Maximum seconds to wait
+
+        Returns:
+            True if data loaded, False if timeout
+        """
+        return self.initial_data_loaded.wait(timeout=timeout)
+
     def _monitor_loop(self):
         """Background monitoring loop"""
         # Delay initial fetch to let FA11y start without blocking
@@ -167,6 +180,7 @@ class SocialManager:
         # Initial fetch (now non-blocking thanks to lock refactor)
         self.refresh_all_data()
         logger.info("Initial social data refresh complete")
+        self.initial_data_loaded.set()  # Signal that initial data is ready
 
         while self.running:
             try:
