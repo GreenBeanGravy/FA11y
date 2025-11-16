@@ -31,6 +31,7 @@ _config_lock = threading.RLock()
 _config_cache = None
 _config_cache_time = 0
 _config_cache_timeout = 1.0  # Cache config for 1 second to prevent excessive file reads
+_migration_attempted = False  # Track if migration has been attempted
 
 def ensure_config_dir():
     """Create config directory if it doesn't exist"""
@@ -582,9 +583,16 @@ def is_map_specific_game_object_setting(key: str) -> bool:
 
 def read_config(use_cache: bool = True) -> configparser.ConfigParser:
     """Read and parse config file, handling migration and default values"""
-    global _config_cache, _config_cache_time
-    
+    global _config_cache, _config_cache_time, _migration_attempted
+
     with _config_lock:
+        # Ensure config directory exists and migrate old files if needed
+        # This must happen BEFORE checking cache or file existence
+        if not _migration_attempted:
+            ensure_config_dir()
+            migrate_config_files()
+            _migration_attempted = True
+
         # Use cache if available and recent
         if use_cache and _config_cache is not None:
             current_time = time.time()
@@ -596,7 +604,7 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
                     for key, value in _config_cache.items(section):
                         new_config.set(section, key, value)
                 return new_config
-        
+
         config = _create_config_parser_with_case_preserved()
 
         try:
