@@ -845,42 +845,11 @@ def key_listener() -> None:
         'scroll up', 'scroll down'
     }
 
-    # Helper to check if FA11y GUI has focus (by checking if foreground window belongs to us)
-    def is_fa11y_gui_focused():
-        """Check if FA11y GUI window is the active foreground window"""
-        try:
-            import ctypes
-            import os
-
-            # Get foreground window handle
-            hwnd = ctypes.windll.user32.GetForegroundWindow()
-            if not hwnd:
-                return False  # No window has focus, allow keybinds
-
-            # Get process ID of foreground window
-            foreground_pid = ctypes.c_ulong()
-            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(foreground_pid))
-
-            # Compare with our own process ID
-            our_pid = os.getpid()
-
-            # If foreground window belongs to our process, GUI has focus
-            return foreground_pid.value == our_pid
-
-        except:
-            return False  # On error, allow keybinds
-
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
 
-        # Skip keybind processing if FA11y GUI has focus (typing in GUI controls)
-        if is_fa11y_gui_focused():
-            time.sleep(0.005)
-            continue
-
-        # Process keybinds normally when Fortnite has focus
         numlock_on = is_numlock_on()
         if config is None:
             time.sleep(0.1)
