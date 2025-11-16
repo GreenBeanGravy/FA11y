@@ -845,53 +845,28 @@ def key_listener() -> None:
         'scroll up', 'scroll down'
     }
 
-    # Helper to check if FA11y GUI has focus (by process name)
+    # Helper to check if FA11y GUI has focus (by checking if foreground window belongs to us)
     def is_fa11y_gui_focused():
-        """Check if FA11y GUI (Python process) is the active foreground window"""
+        """Check if FA11y GUI window is the active foreground window"""
         try:
             import ctypes
-            import ctypes.wintypes
+            import os
 
             # Get foreground window handle
             hwnd = ctypes.windll.user32.GetForegroundWindow()
             if not hwnd:
-                return False  # Can't determine, allow keybinds
+                return False  # No window has focus, allow keybinds
 
             # Get process ID of foreground window
-            pid = ctypes.wintypes.DWORD()
-            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            foreground_pid = ctypes.c_ulong()
+            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(foreground_pid))
 
-            # Get process handle
-            PROCESS_QUERY_INFORMATION = 0x0400
-            PROCESS_VM_READ = 0x0010
-            process_handle = ctypes.windll.kernel32.OpenProcess(
-                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
-                False,
-                pid.value
-            )
+            # Compare with our own process ID
+            our_pid = os.getpid()
 
-            if not process_handle:
-                return False  # Can't determine, allow keybinds
+            # If foreground window belongs to our process, GUI has focus
+            return foreground_pid.value == our_pid
 
-            try:
-                # Get process name
-                process_name = ctypes.create_unicode_buffer(260)
-                size = ctypes.wintypes.DWORD(260)
-                ctypes.windll.kernel32.QueryFullProcessImageNameW(
-                    process_handle,
-                    0,
-                    process_name,
-                    ctypes.byref(size)
-                )
-
-                full_path = process_name.value
-                exe_name = full_path.split('\\')[-1].lower()
-
-                # Return True if Python (our GUI) has focus, False otherwise (allow keybinds)
-                return 'python' in exe_name
-
-            finally:
-                ctypes.windll.kernel32.CloseHandle(process_handle)
         except:
             return False  # On error, allow keybinds
 
