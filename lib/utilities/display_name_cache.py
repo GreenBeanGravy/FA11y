@@ -8,13 +8,15 @@ import logging
 from typing import Optional, Dict
 from datetime import datetime, timedelta
 
+from lib.config.config_manager import config_manager
+
 logger = logging.getLogger(__name__)
 
 
 class DisplayNameCache:
     """Persistent cache for Epic account ID to display name mappings"""
 
-    def __init__(self, cache_file: str = "display_name_cache.json", expiry_days: int = 3):
+    def __init__(self, cache_file: str = "config/display_name_cache.json", expiry_days: int = 3):
         """
         Initialize display name cache
 
@@ -22,20 +24,21 @@ class DisplayNameCache:
             cache_file: Path to cache file
             expiry_days: Number of days before cache entries expire
         """
-        self.cache_file = cache_file
+        # Register with config_manager
+        config_manager.register('display_names', cache_file, format='json', default={})
+
         self.expiry_days = expiry_days
         self.cache: Dict[str, dict] = {}
         self.load_cache()
 
     def load_cache(self):
         """Load cache from file"""
-        if not os.path.exists(self.cache_file):
-            logger.info("No display name cache file found, starting fresh")
-            return
-
         try:
-            with open(self.cache_file, 'r') as f:
-                data = json.load(f)
+            data = config_manager.get('display_names')
+            if not data:
+                logger.info("No display name cache found, starting fresh")
+                self.cache = {}
+                return
 
             # Filter out expired entries
             now = datetime.now()
@@ -62,8 +65,7 @@ class DisplayNameCache:
     def save_cache(self):
         """Save cache to file"""
         try:
-            with open(self.cache_file, 'w') as f:
-                json.dump(self.cache, f, indent=2)
+            config_manager.set('display_names', data=self.cache)
             logger.debug(f"Saved {len(self.cache)} display name cache entries")
         except Exception as e:
             logger.error(f"Error saving display name cache: {e}")

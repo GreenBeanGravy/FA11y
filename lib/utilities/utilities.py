@@ -21,14 +21,63 @@ try:
 except ImportError:
     HAS_FCNTL = False
 
+from lib.config.config_manager import config_manager
+
 speaker = Auto()
-CONFIG_FILE = 'config.txt'
+CONFIG_FILE = 'config/config.txt'
 
 # Global lock for config file operations
 _config_lock = threading.RLock()
 _config_cache = None
 _config_cache_time = 0
 _config_cache_timeout = 1.0  # Cache config for 1 second to prevent excessive file reads
+_migration_attempted = False  # Track if migration has been attempted
+
+def ensure_config_dir():
+    """Create config directory if it doesn't exist"""
+    os.makedirs('config', exist_ok=True)
+
+def migrate_config_files():
+    """
+    Migrates configuration files from root directory to config/ folder.
+    This is a one-time migration for existing installations.
+    Safe to call multiple times - only moves files if they exist in root.
+    """
+    # Create config directory if it doesn't exist
+    ensure_config_dir()
+
+    # Files to migrate
+    files_to_migrate = [
+        'config.txt',
+        'CUSTOM_POI.txt',
+        'FAVORITE_POIS.txt',
+        'epic_auth_cache.json',
+        'fortnite_locker_cache.json',
+        'display_name_cache.json',
+        'social_cache.json',
+        'favorite_friends.json',
+        'mouse_config.json',
+    ]
+
+    migrated_count = 0
+    for filename in files_to_migrate:
+        src = filename
+        dst = os.path.join('config', filename)
+
+        # Only migrate if source exists in root and destination doesn't exist
+        if os.path.exists(src) and not os.path.exists(dst):
+            try:
+                import shutil
+                shutil.move(src, dst)
+                print(f"Migrated {filename} to config/ folder")
+                migrated_count += 1
+            except Exception as e:
+                print(f"Failed to migrate {filename}: {e}")
+
+    if migrated_count > 0:
+        print(f"Migration complete: {migrated_count} files moved to config/ folder")
+
+    return migrated_count > 0
 
 def get_dynamic_object_configs():
     """Get dynamic object configurations for dynamic config generation"""
@@ -284,6 +333,12 @@ current_map = main"""
 
 DEFAULT_CONFIG = get_default_config()
 
+# Register app_config with ConfigManager for optional use
+# This allows code to use config_manager.get('app_config', key) if preferred
+# while keeping backward compatibility with read_config/save_config
+config_manager.register('app_config', CONFIG_FILE, format='ini',
+                       default=DEFAULT_CONFIG, cache_timeout=1.0)
+
 def _create_config_parser_with_case_preserved() -> configparser.ConfigParser:
     """Create a ConfigParser that preserves case for keys"""
     parser = configparser.ConfigParser(interpolation=None)
@@ -528,9 +583,16 @@ def is_map_specific_game_object_setting(key: str) -> bool:
 
 def read_config(use_cache: bool = True) -> configparser.ConfigParser:
     """Read and parse config file, handling migration and default values"""
-    global _config_cache, _config_cache_time
-    
+    global _config_cache, _config_cache_time, _migration_attempted
+
     with _config_lock:
+        # Ensure config directory exists and migrate old files if needed
+        # This must happen BEFORE checking cache or file existence
+        if not _migration_attempted:
+            ensure_config_dir()
+            migrate_config_files()
+            _migration_attempted = True
+
         # Use cache if available and recent
         if use_cache and _config_cache is not None:
             current_time = time.time()
@@ -542,7 +604,7 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
                     for key, value in _config_cache.items(section):
                         new_config.set(section, key, value)
                 return new_config
-        
+
         config = _create_config_parser_with_case_preserved()
 
         try:
@@ -576,35 +638,53 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
         # Update cache
         _config_cache = config
         _config_cache_time = time.time()
-        
+
+        # Also update ConfigManager's cache to keep them in sync
+        try:
+            config_manager._registries['app_config'].cache = config
+            config_manager._registries['app_config'].cache_time = time.time()
+        except Exception:
+            pass  # Silently fail if ConfigManager isn't available
+
         # Return a copy to prevent external modifications
         new_config = _create_config_parser_with_case_preserved()
         for section in config.sections():
             new_config.add_section(section)
             for key, value in config.items(section):
                 new_config.set(section, key, value)
-        
+
         return new_config
 
 def save_config(config: configparser.ConfigParser) -> bool:
     """Save config to file with proper locking and error handling"""
     global _config_cache, _config_cache_time
-    
+
     with _config_lock:
         try:
+            # Ensure config directory exists
+            ensure_config_dir()
+
             # Create string representation
             from io import StringIO
             config_string = StringIO()
             config.write(config_string)
             content = config_string.getvalue()
             config_string.close()
-            
+
             # Save to file
             success = _safe_file_write(CONFIG_FILE, content)
             if success:
                 # Update cache
                 _config_cache = config
                 _config_cache_time = time.time()
+
+                # Also update ConfigManager's cache to keep them in sync
+                try:
+                    config_manager._registries['app_config'].cache = config
+                    config_manager._registries['app_config'].cache_time = time.time()
+                except Exception:
+                    pass  # Silently fail if ConfigManager isn't available
+
                 return True
             else:
                 print(f"Failed to save config to {CONFIG_FILE}")

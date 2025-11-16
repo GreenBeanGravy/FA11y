@@ -11,6 +11,7 @@ from typing import Optional, List, Dict
 from datetime import datetime
 from accessible_output2.outputs.auto import Auto
 
+from lib.config.config_manager import config_manager
 from lib.utilities.epic_social import (
     EpicSocial, Friend, FriendRequest, PartyInvite, PartyMember
 )
@@ -40,9 +41,11 @@ class SocialManager:
         self.auth = epic_auth_instance
         self.social_api = EpicSocial(epic_auth_instance) if epic_auth_instance else None
 
-        # Cache file
-        self.cache_file = "social_cache.json"
-        self.favorites_file = "favorite_friends.json"
+        # Register configs with config_manager
+        config_manager.register('social_cache', 'config/social_cache.json',
+                               format='json', default={})
+        config_manager.register('favorite_friends', 'config/favorite_friends.json',
+                               format='json', default=[])
 
         # State management
         self.current_view = self.VIEW_ALL_FRIENDS
@@ -401,21 +404,16 @@ class SocialManager:
                 "party_invites": [i.to_dict() for i in self.party_invites],
                 "last_updated": datetime.now().isoformat()
             }
-
-            with open(self.cache_file, 'w') as f:
-                json.dump(cache_data, f, indent=2)
-
+            config_manager.set('social_cache', data=cache_data)
         except Exception as e:
             logger.error(f"Error saving social cache: {e}")
 
     def load_cache(self):
         """Load social data from cache file"""
-        if not os.path.exists(self.cache_file):
-            return
-
         try:
-            with open(self.cache_file, 'r') as f:
-                cache_data = json.load(f)
+            cache_data = config_manager.get('social_cache')
+            if not cache_data:
+                return
 
             self.all_friends = [Friend.from_dict(f) for f in cache_data.get("all_friends", [])]
             # Load both old "pending_requests" and new split format for backwards compatibility
@@ -436,13 +434,19 @@ class SocialManager:
 
     def load_favorites(self):
         """Load favorite friends from file"""
-        if not os.path.exists(self.favorites_file):
-            return
-
         try:
-            with open(self.favorites_file, 'r') as f:
-                data = json.load(f)
+            data = config_manager.get('favorite_friends')
+            if not data:
+                return
+
+            # Handle both old format (dict with 'favorites' key) and new format (list)
+            if isinstance(data, dict):
                 self.favorite_friends = set(data.get("favorites", []))
+            elif isinstance(data, list):
+                self.favorite_friends = set(data)
+            else:
+                self.favorite_friends = set()
+
             logger.info(f"Loaded {len(self.favorite_friends)} favorite friends")
         except Exception as e:
             logger.error(f"Error loading favorites: {e}")
@@ -450,9 +454,8 @@ class SocialManager:
     def save_favorites(self):
         """Save favorite friends to file"""
         try:
-            data = {"favorites": list(self.favorite_friends)}
-            with open(self.favorites_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            # Save as list for simpler format
+            config_manager.set('favorite_friends', data=list(self.favorite_friends))
         except Exception as e:
             logger.error(f"Error saving favorites: {e}")
 

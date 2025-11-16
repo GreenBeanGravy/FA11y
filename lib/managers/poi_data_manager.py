@@ -379,7 +379,7 @@ class FavoritesManager:
     Favorites are stored in JSON format in FAVORITE_POIS.txt
     """
 
-    def __init__(self, filename: str = "FAVORITE_POIS.txt"):
+    def __init__(self, filename: str = "config/FAVORITE_POIS.txt"):
         """
         Initialize favorites manager.
 

@@ -41,9 +41,31 @@ GITHUB_BRANCH = "main"
 
 # Files to ignore during updates (will not be replaced)
 IGNORED_FILES = [
+    # User configuration files
     'config.txt',
     'CUSTOM_POI.txt',
     'FAVORITE_POIS.txt',
+
+    # Epic Games authentication and cache files
+    'epic_auth_cache.json',
+    'fortnite_locker_cache.json',
+    'display_name_cache.json',
+
+    # Social/friends data
+    'social_cache.json',
+    'favorite_friends.json',
+
+    # Mouse passthrough configuration
+    'mouse_config.json',
+]
+
+# Folders to exclude from cleanup (will not be removed)
+EXCLUDED_FOLDERS = [
+    'sounds',       # Never remove custom sounds
+    '.git',         # Git repository
+    '__pycache__',  # Python cache
+    'whls',         # Local wheel files
+    'config',       # User configuration and data files
 ]
 
 # FakerInput configuration
@@ -436,43 +458,149 @@ def check_and_update_file(file_path):
     print_info(f"Updated file: {file_path}")
     return True
 
-def update_folder_github(repo, branch, folder):
+def get_folder_files_recursive(repo, branch, folder):
     """
-    Updates a folder from a GitHub repository.
+    Gets all files in a folder and its subdirectories from GitHub repository.
+    Returns a list of relative file paths within the folder.
     """
-    url = f"https://api.github.com/repos/{repo}/contents/{folder}?ref={branch}"
-    while True:
-        try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            remote_files = {file['name'] for file in response.json() if file['type'] == 'file'}
-            
-            if os.path.exists(folder):
-                local_files = set(os.listdir(folder))
-                files_to_remove = local_files - remote_files
-                
-                # Don't remove custom sounds 
-                if folder == 'sounds':
-                    files_to_remove = set()
-                
-                for file in files_to_remove:
-                    # Skip ignored files
-                    if file in IGNORED_FILES:
-                        continue
-                        
-                    os.remove(os.path.join(folder, file))
-                    print_info(f"Removed file from {folder} folder: {file}")
-                
-                return bool(files_to_remove)
-            return False
-        except requests.RequestException as e:
-            if MONARCH_MODE:
-                print_info(f"Failed to update {folder} folder from GitHub: {e}. Retrying in 2 seconds...")
-                time.sleep(2)
-                continue
+    all_files = get_repo_files_github(repo, branch)
+    folder_prefix = folder + '/'
+    # Get files that start with the folder path
+    folder_files = [f[len(folder_prefix):] for f in all_files if f.startswith(folder_prefix)]
+    return folder_files
+
+def should_exclude_from_cleanup(path):
+    """
+    Determines if a file or folder should be excluded from cleanup.
+    """
+    # Check if it's in the ignored files list
+    if os.path.basename(path) in IGNORED_FILES:
+        return True
+
+    # Check if it's in an excluded folder
+    path_parts = path.replace('\\', '/').split('/')
+    for excluded in EXCLUDED_FOLDERS:
+        if excluded in path_parts:
+            return True
+
+    return False
+
+def cleanup_orphaned_files_and_directories(repo, branch):
+    """
+    Removes local files and directories that no longer exist in the remote repository.
+    Respects IGNORED_FILES and EXCLUDED_FOLDERS.
+    """
+    print_info("Checking for orphaned files and directories...")
+
+    # Get all files from remote repo
+    remote_files = set(get_repo_files_github(repo, branch))
+
+    # Track what was cleaned up
+    files_removed = 0
+    dirs_removed = 0
+
+    # Walk through local directory
+    for root, dirs, files in os.walk('.', topdown=False):
+        # Normalize the root path
+        root = root.replace('\\', '/')
+        if root.startswith('./'):
+            root = root[2:]
+        elif root == '.':
+            root = ''
+
+        # Check each file
+        for file in files:
+            if root:
+                file_path = f"{root}/{file}"
             else:
-                print_info(f"Failed to update {folder} folder from GitHub: {e}")
-                return False
+                file_path = file
+
+            # Skip excluded paths
+            if should_exclude_from_cleanup(file_path):
+                continue
+
+            # If file doesn't exist in remote repo, remove it
+            if file_path not in remote_files and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    print_info(f"Removed orphaned file: {file_path}")
+                    files_removed += 1
+                except Exception as e:
+                    print_info(f"Failed to remove {file_path}: {e}")
+
+        # Check if directory should be removed (empty and not in remote)
+        for dir_name in dirs[:]:  # Create a copy to modify during iteration
+            if root:
+                dir_path = f"{root}/{dir_name}"
+            else:
+                dir_path = dir_name
+
+            # Skip excluded directories
+            if should_exclude_from_cleanup(dir_path):
+                continue
+
+            # Check if this directory exists in remote repo
+            dir_exists_in_remote = any(f.startswith(dir_path + '/') for f in remote_files)
+
+            # If directory doesn't exist in remote and is empty, remove it
+            if not dir_exists_in_remote and os.path.exists(dir_path):
+                try:
+                    # Check if directory is empty
+                    if not os.listdir(dir_path):
+                        os.rmdir(dir_path)
+                        print_info(f"Removed empty directory: {dir_path}")
+                        dirs_removed += 1
+                except Exception as e:
+                    print_info(f"Failed to remove directory {dir_path}: {e}")
+
+    if files_removed > 0 or dirs_removed > 0:
+        print_info(f"Cleanup complete: {files_removed} files and {dirs_removed} directories removed")
+        return True
+    else:
+        print_info("No orphaned files or directories found")
+        return False
+
+def migrate_config_files():
+    """
+    Migrates configuration files from root directory to config/ folder.
+    This is a one-time migration for existing installations.
+    Safe to call multiple times - only moves files if they exist in root.
+    """
+    # Create config directory if it doesn't exist
+    os.makedirs('config', exist_ok=True)
+
+    # Files to migrate
+    files_to_migrate = [
+        'config.txt',
+        'CUSTOM_POI.txt',
+        'FAVORITE_POIS.txt',
+        'epic_auth_cache.json',
+        'fortnite_locker_cache.json',
+        'display_name_cache.json',
+        'social_cache.json',
+        'favorite_friends.json',
+        'mouse_config.json',
+    ]
+
+    migrated_count = 0
+    for filename in files_to_migrate:
+        src = filename
+        dst = os.path.join('config', filename)
+
+        # Only migrate if source exists in root and destination doesn't exist
+        if os.path.exists(src) and not os.path.exists(dst):
+            try:
+                import shutil
+                shutil.move(src, dst)
+                print_info(f"Migrated {filename} to config/ folder")
+                migrated_count += 1
+            except Exception as e:
+                print_info(f"Failed to migrate {filename}: {e}")
+
+    if migrated_count > 0:
+        print_info(f"Migration complete: {migrated_count} files moved to config/ folder")
+
+    return migrated_count > 0
 
 def check_legendary():
     """
@@ -699,29 +827,26 @@ def main():
 
     print_info("Checking for updates from GitHub...")
     repo_files = get_repo_files_github(GITHUB_REPO, GITHUB_BRANCH)
-    
+
     with concurrent.futures.ThreadPoolExecutor() as executor:
         update_results = list(executor.map(check_and_update_file, repo_files))
         updates_available = any(update_results)
 
-    icons_updated = update_folder_github(GITHUB_REPO, GITHUB_BRANCH, "icons")
-    images_updated = update_folder_github(GITHUB_REPO, GITHUB_BRANCH, "images")
-    
     # Special handling for sounds folder - only add missing files
     sounds_updated = False
     if 'sounds' not in os.listdir():
         os.makedirs('sounds', exist_ok=True)
         sounds_updated = True
-    
+
     # Check if we need to update the sounds folder by adding missing files
     try:
         url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/sounds?ref={GITHUB_BRANCH}"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         remote_sound_files = [file['name'] for file in response.json() if file['type'] == 'file']
-        
+
         existing_sounds = os.listdir('sounds') if os.path.exists('sounds') else []
-        
+
         # Only download sounds that don't exist locally
         for sound_file in remote_sound_files:
             if sound_file not in existing_sounds:
@@ -731,8 +856,14 @@ def main():
                     sounds_updated = True
     except requests.RequestException as e:
         print_info(f"Failed to check sounds folder: {e}")
-    
-    fa11y_updates = updates_available or icons_updated or images_updated or sounds_updated
+
+    # Migrate config files from root to config/ folder (one-time migration)
+    config_migrated = migrate_config_files()
+
+    # Clean up orphaned files and directories
+    cleanup_updated = cleanup_orphaned_files_and_directories(GITHUB_REPO, GITHUB_BRANCH)
+
+    fa11y_updates = updates_available or sounds_updated or cleanup_updated
 
     if fa11y_updates:
         print_info("Updates processed.")

@@ -30,7 +30,7 @@ from lib.managers.game_object_manager import game_object_manager
 logger = logging.getLogger(__name__)
 speaker = Auto()
 
-CONFIG_FILE = 'config.txt'
+CONFIG_FILE = 'config/config.txt'
 POI_TYPE = Union[Tuple[str, str, str], str]
 
 _favorites_lock = threading.RLock()

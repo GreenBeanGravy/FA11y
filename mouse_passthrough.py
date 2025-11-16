@@ -882,32 +882,44 @@ class OptimizedMousePassthrough:
 
     def save_config(self):
         """Save configuration"""
+        from lib.config.config_manager import config_manager
+
+        # Register mouse config if not already registered
+        config_manager.register('mouse', 'config/mouse_config.json',
+                               format='json', default={})
+
         config = {}
         if self.target_device:
             config['target_device'] = asdict(self.target_device)
             # Don't save the cached _dpi_scale
             if '_dpi_scale' in config['target_device']:
                 del config['target_device']['_dpi_scale']
-        
+
         try:
-            with open('mouse_config.json', 'w') as f:
-                json.dump(config, f, indent=2)
+            config_manager.set('mouse', data=config)
         except:
             pass
 
     def load_config(self):
         """Load configuration"""
+        from lib.config.config_manager import config_manager
+
+        # Register mouse config if not already registered
+        config_manager.register('mouse', 'config/mouse_config.json',
+                               format='json', default={})
+
         try:
-            with open('mouse_config.json', 'r') as f:
-                config = json.load(f)
-            
+            config = config_manager.get('mouse')
+            if not config:
+                return
+
             td = config.get('target_device')
             if td:
                 self.target_device = MouseDevice(**td)
                 self.target_device.update_dpi_scale()  # Recalculate cached scale
                 self.mouse_hook.target_device = self.target_device
                 print(f"Loaded: {self.target_device.friendly_name} (DPI: {self.target_device.dpi})")
-            
+
         except:
             pass
 

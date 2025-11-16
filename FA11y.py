@@ -125,9 +125,15 @@ from lib.utilities.utilities import (
     clear_config_cache,
     save_config,
     calculate_distance,
-    get_game_objects_config_order
+    get_game_objects_config_order,
+    ensure_config_dir,
+    migrate_config_files
 )
 from lib.managers.custom_poi_manager import load_custom_pois
+
+# Ensure config directory exists and migrate old config files
+ensure_config_dir()
+migrate_config_files()
 
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
@@ -895,7 +901,7 @@ def open_config_gui() -> None:
             global config
             config = updated_config_parser
             
-            with open('config.txt', 'w') as f:
+            with open('config/config.txt', 'w') as f:
                 config.write(f)
                 
             reload_config()
@@ -1042,7 +1048,7 @@ def get_poi_category(poi_name: str) -> str:
         return POI_CATEGORY_SPECIAL
     
     # Check favorites
-    favorites_file = 'FAVORITE_POIS.txt'
+    favorites_file = 'config/FAVORITE_POIS.txt'
     if os.path.exists(favorites_file):
         try:
             with open(favorites_file, 'r') as f:
@@ -1122,7 +1128,7 @@ def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
     
     # Favorites
     if category == POI_CATEGORY_FAVORITE:
-        favorites_file = 'FAVORITE_POIS.txt'
+        favorites_file = 'config/FAVORITE_POIS.txt'
         if os.path.exists(favorites_file):
             try:
                 with open(favorites_file, 'r') as f:

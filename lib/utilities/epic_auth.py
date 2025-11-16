@@ -11,14 +11,23 @@ import base64
 from typing import Optional, Dict, List
 from datetime import datetime, timedelta
 
+from lib.config.config_manager import config_manager
+
 logger = logging.getLogger(__name__)
 
 class EpicAuth:
     """Handle Epic Games authentication and cosmetic data fetching"""
 
-    def __init__(self, cache_file: str = "fortnite_locker_cache.json"):
+    def __init__(self, cache_file: str = "config/fortnite_locker_cache.json"):
+        # Register configs with config_manager
+        config_manager.register('epic_auth', 'config/epic_auth_cache.json',
+                               format='json', default={})
+        config_manager.register('fortnite_locker', cache_file,
+                               format='json', default=[])
+
+        # Store cache file path for reference
         self.cache_file = cache_file
-        self.auth_file = "epic_auth_cache.json"
+
         self.access_token = None
         self.account_id = None
         self.display_name = None
@@ -41,24 +50,23 @@ class EpicAuth:
 
     def load_auth(self) -> bool:
         """Load cached authentication data"""
-        if not os.path.exists(self.auth_file):
-            return False
-
         try:
-            with open(self.auth_file, 'r') as f:
-                data = json.load(f)
-                self.access_token = data.get('access_token')
-                self.account_id = data.get('account_id')
-                self.display_name = data.get('display_name')
-                expiry = data.get('expires_at')
+            data = config_manager.get('epic_auth')
+            if not data:
+                return False
 
-                # Check if token is still valid
-                if expiry and datetime.fromisoformat(expiry) > datetime.now():
-                    logger.info(f"Loaded cached auth for {self.display_name}")
-                    return True
-                else:
-                    logger.info("Cached auth expired")
-                    return False
+            self.access_token = data.get('access_token')
+            self.account_id = data.get('account_id')
+            self.display_name = data.get('display_name')
+            expiry = data.get('expires_at')
+
+            # Check if token is still valid
+            if expiry and datetime.fromisoformat(expiry) > datetime.now():
+                logger.info(f"Loaded cached auth for {self.display_name}")
+                return True
+            else:
+                logger.info("Cached auth expired")
+                return False
         except Exception as e:
             logger.error(f"Error loading cached auth: {e}")
             return False
@@ -73,8 +81,7 @@ class EpicAuth:
                 'display_name': display_name,
                 'expires_at': expires_at.isoformat()
             }
-            with open(self.auth_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            config_manager.set('epic_auth', data=data)
             logger.info(f"Saved auth for {display_name}")
         except Exception as e:
             logger.error(f"Error saving auth: {e}")
@@ -82,9 +89,11 @@ class EpicAuth:
     def clear_auth(self):
         """Clear cached authentication data"""
         try:
-            if os.path.exists(self.auth_file):
-                os.remove(self.auth_file)
-                logger.info("Cleared cached auth")
+            config_manager.set('epic_auth', data={})
+            self.access_token = None
+            self.account_id = None
+            self.display_name = None
+            logger.info("Cleared cached auth")
         except Exception as e:
             logger.error(f"Error clearing auth: {e}")
 
@@ -388,8 +397,7 @@ class EpicAuth:
     def save_cosmetics_cache(self, cosmetics: List[Dict]) -> bool:
         """Save cosmetics data to cache file"""
         try:
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
-                json.dump(cosmetics, f, indent=2, ensure_ascii=False)
+            config_manager.set('fortnite_locker', data=cosmetics)
             logger.info(f"Saved {len(cosmetics)} cosmetics to cache")
             return True
         except Exception as e:
@@ -398,14 +406,11 @@ class EpicAuth:
 
     def load_cosmetics_cache(self) -> Optional[List[Dict]]:
         """Load cosmetics data from cache file"""
-        if not os.path.exists(self.cache_file):
-            return None
-
         try:
-            with open(self.cache_file, 'r', encoding='utf-8') as f:
-                cosmetics = json.load(f)
-            logger.info(f"Loaded {len(cosmetics)} cosmetics from cache")
-            return cosmetics
+            cosmetics = config_manager.get('fortnite_locker')
+            if cosmetics:
+                logger.info(f"Loaded {len(cosmetics)} cosmetics from cache")
+            return cosmetics if cosmetics else None
         except Exception as e:
             logger.error(f"Error loading cosmetics cache: {e}")
             return None
