@@ -167,6 +167,10 @@ _shutdown_requested = threading.Event()
 auth_expired = threading.Event()
 auth_expiration_announced = False  # Track if we've already announced it
 
+# GUI focus tracking - set when any GUI window has keyboard focus
+gui_has_focus = False
+gui_focus_lock = threading.Lock()
+
 # POI category definitions
 POI_CATEGORY_SPECIAL = "special"
 POI_CATEGORY_REGULAR = "regular"
@@ -845,43 +849,17 @@ def key_listener() -> None:
         'scroll up', 'scroll down'
     }
 
-    # Helper to check if any FA11y GUI has focus
-    def any_fa11y_gui_focused():
-        """Check if any FA11y GUI window is currently focused"""
-        try:
-            import ctypes
-            # Get foreground window title
-            hwnd = ctypes.windll.user32.GetForegroundWindow()
-            length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
-            if length == 0:
-                return False
-
-            buff = ctypes.create_unicode_buffer(length + 1)
-            ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
-            window_title = buff.value
-
-            # Check if it's one of our GUIs
-            fa11y_gui_titles = [
-                "Social Menu",
-                "Locker",
-                "Gamemode Selector",
-                "Configuration",
-                "Custom POI Creator",
-                "Visited Objects Manager",
-                "Epic Games Login"
-            ]
-
-            return any(title in window_title for title in fa11y_gui_titles)
-        except:
-            return False
-
+    # Simple focus tracking using global flag
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
 
-        # Skip keybind processing ONLY if any FA11y GUI has focus (allows typing in text fields)
-        if any_fa11y_gui_focused():
+        # Skip keybind processing ONLY if any FA11y GUI currently has keyboard focus
+        with gui_focus_lock:
+            skip_keybinds = gui_has_focus
+
+        if skip_keybinds:
             time.sleep(0.005)
             continue
 

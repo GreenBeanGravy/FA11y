@@ -171,14 +171,19 @@ class BoxSizerHelper:
 
 class AccessibleDialog(wx.Dialog):
     """Base dialog class with accessibility helpers"""
-    
+
     def __init__(self, parent, title="", helpId=""):
         super().__init__(parent, title=title)
         self.helpId = helpId
-        
+
         # Make dialog resizable by default and set flags for better focus behavior
         style = self.GetWindowStyleFlag() | wx.RESIZE_BORDER | wx.STAY_ON_TOP
         self.SetWindowStyleFlag(style)
+
+        # Bind focus events to track keyboard focus for keybind management
+        self.Bind(wx.EVT_SET_FOCUS, self._on_dialog_focus)
+        self.Bind(wx.EVT_KILL_FOCUS, self._on_dialog_blur)
+        self.Bind(wx.EVT_ACTIVATE, self._on_dialog_activate)
     
     def makeSettings(self):
         """Override in subclasses to create dialog content"""
@@ -238,10 +243,40 @@ class AccessibleDialog(wx.Dialog):
                     if result:
                         return result
             return None
-        
+
         firstControl = findFirstControl(self)
         if firstControl:
             firstControl.SetFocus()
+
+    def _on_dialog_focus(self, event):
+        """Handle dialog gaining focus - disable FA11y keybinds"""
+        try:
+            import FA11y
+            with FA11y.gui_focus_lock:
+                FA11y.gui_has_focus = True
+        except:
+            pass
+        event.Skip()
+
+    def _on_dialog_blur(self, event):
+        """Handle dialog losing focus - enable FA11y keybinds"""
+        try:
+            import FA11y
+            with FA11y.gui_focus_lock:
+                FA11y.gui_has_focus = False
+        except:
+            pass
+        event.Skip()
+
+    def _on_dialog_activate(self, event):
+        """Handle dialog activation/deactivation"""
+        try:
+            import FA11y
+            with FA11y.gui_focus_lock:
+                FA11y.gui_has_focus = event.GetActive()
+        except:
+            pass
+        event.Skip()
 
 
 def messageBox(message, caption="", style=wx.OK, parent=None):
