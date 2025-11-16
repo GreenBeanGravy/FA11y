@@ -28,6 +28,10 @@ class SocialDialog(AccessibleDialog):
         self.SetSize((800, 600))
         self.CentreOnParent()
 
+        # Type-to-search state
+        self.type_search_buffer = ""
+        self.type_search_timer = None
+
         # Bind Escape key to close dialog
         self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
 
@@ -69,8 +73,9 @@ class SocialDialog(AccessibleDialog):
         search_label = wx.StaticText(panel, label="Search:")
         search_sizer.Add(search_label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
-        self.search_box = wx.TextCtrl(panel, size=(300, -1))
+        self.search_box = wx.TextCtrl(panel, size=(300, -1), style=wx.TE_PROCESS_ENTER)
         self.search_box.Bind(wx.EVT_TEXT, self.on_search_changed)
+        self.search_box.Bind(wx.EVT_TEXT_ENTER, self.on_search_changed)  # Enter also triggers search
         search_sizer.Add(self.search_box, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
         clear_btn = wx.Button(panel, label="Clear")
@@ -142,6 +147,7 @@ class SocialDialog(AccessibleDialog):
         self.outgoing_req_btn.Bind(wx.EVT_RADIOBUTTON, self.refresh_requests_list)
         self.accept_req_btn.Bind(wx.EVT_BUTTON, self.on_accept_request)
         self.decline_req_btn.Bind(wx.EVT_BUTTON, self.on_decline_request)
+        self.requests_list.Bind(wx.EVT_KEY_DOWN, self.on_requests_key_down)
 
         panel.SetSizer(sizer)
         return panel
@@ -274,17 +280,129 @@ class SocialDialog(AccessibleDialog):
             speaker.speak("Not in a party")
 
     def on_friends_key_down(self, event):
-        """Handle key press in friends list"""
+        """Handle key press in friends list with arrow wrapping and type-to-search"""
         keycode = event.GetKeyCode()
 
+        # Arrow key wrapping
+        if keycode == wx.WXK_UP:
+            sel = self.friends_list.GetSelection()
+            if sel == 0 or sel == wx.NOT_FOUND:
+                # Wrap to last item
+                last = self.friends_list.GetCount() - 1
+                if last >= 0:
+                    self.friends_list.SetSelection(last)
+                return
+        elif keycode == wx.WXK_DOWN:
+            sel = self.friends_list.GetSelection()
+            last = self.friends_list.GetCount() - 1
+            if sel == last or sel == wx.NOT_FOUND:
+                # Wrap to first item
+                self.friends_list.SetSelection(0)
+                return
+
         # Enter key sends party invite
-        if keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+        elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
             self.on_invite_to_party(event)
+            return
         # F key toggles favorite
         elif keycode == ord('F'):
             self.on_toggle_favorite(event)
-        else:
-            event.Skip()  # Allow other keys to be processed normally
+            return
+        # Type-to-search (alphanumeric keys)
+        elif keycode >= 32 and keycode <= 126:  # Printable ASCII
+            self._handle_type_to_search(chr(keycode), self.friends_list)
+            return
+
+        event.Skip()  # Allow other keys to be processed normally
+
+    def _handle_type_to_search(self, char, listbox):
+        """Handle type-to-search functionality for list boxes"""
+        # Cancel existing timer
+        if self.type_search_timer:
+            self.type_search_timer.Stop()
+            self.type_search_timer = None
+
+        # Add character to buffer
+        self.type_search_buffer += char.lower()
+
+        # Search for matching item
+        count = listbox.GetCount()
+        for i in range(count):
+            item_text = listbox.GetString(i).lower()
+            # Remove index prefix like "1. " or "10. ★ "
+            # Find first letter after the number and optional star
+            import re
+            match = re.search(r'\d+\.\s*(?:★\s*)?(.+)', item_text)
+            if match:
+                item_text = match.group(1)
+
+            if item_text.startswith(self.type_search_buffer):
+                listbox.SetSelection(i)
+                # Speak the found item
+                speaker.speak(listbox.GetString(i))
+                break
+
+        # Set timer to clear buffer after 1 second of no typing
+        self.type_search_timer = wx.CallLater(1000, self._clear_type_search_buffer)
+
+    def _clear_type_search_buffer(self):
+        """Clear type-to-search buffer"""
+        self.type_search_buffer = ""
+        self.type_search_timer = None
+
+    def _refresh_after_operation(self, data_type):
+        """
+        Force backend refresh and update GUI after an operation
+
+        Args:
+            data_type: 'friends' or 'requests' to determine which data to refresh
+        """
+        if data_type == 'friends':
+            # Refresh friends data from backend
+            self.social_manager.refresh_slow_data()
+            # Update GUI
+            wx.CallAfter(self.refresh_friends_list)
+        elif data_type == 'requests':
+            # Refresh requests data from backend
+            self.social_manager.refresh_fast_data()
+            # Update GUI
+            wx.CallAfter(self.refresh_requests_list)
+
+    def on_requests_key_down(self, event):
+        """Handle key press in requests list with arrow wrapping and type-to-search"""
+        keycode = event.GetKeyCode()
+
+        # Arrow key wrapping
+        if keycode == wx.WXK_UP:
+            sel = self.requests_list.GetSelection()
+            if sel == 0 or sel == wx.NOT_FOUND:
+                # Wrap to last item
+                last = self.requests_list.GetCount() - 1
+                if last >= 0:
+                    self.requests_list.SetSelection(last)
+                return
+        elif keycode == wx.WXK_DOWN:
+            sel = self.requests_list.GetSelection()
+            last = self.requests_list.GetCount() - 1
+            if sel == last or sel == wx.NOT_FOUND:
+                # Wrap to first item
+                self.requests_list.SetSelection(0)
+                return
+
+        # Enter key accepts request
+        elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_accept_request(event)
+            return
+        # DEL key declines request
+        elif keycode == wx.WXK_DELETE or keycode == wx.WXK_NUMPAD_DELETE:
+            self.on_decline_request(event)
+            return
+        # Type-to-search (alphanumeric keys)
+        elif keycode >= 32 and keycode <= 126:  # Printable ASCII
+            self._handle_type_to_search(chr(keycode), self.requests_list)
+            return
+
+        event.Skip()  # Allow other keys to be processed normally
 
     def on_toggle_favorite(self, event):
         """Toggle selected friend as favorite"""
@@ -359,7 +477,8 @@ class SocialDialog(AccessibleDialog):
 
         if result == wx.ID_YES:
             self.social_manager._remove_friend(friend)
-            wx.CallLater(1000, self.refresh_friends_list)
+            # Force immediate backend refresh then update GUI
+            wx.CallLater(500, self._refresh_after_operation, 'friends')
 
     def on_add_friend(self, event):
         """Open dialog to search and add friends"""
@@ -443,7 +562,8 @@ class SocialDialog(AccessibleDialog):
         req = self.requests_list.GetClientData(sel)
         if req.direction == "inbound":
             self.social_manager._accept_friend_request(req)
-            wx.CallLater(1000, self.refresh_requests_list)
+            # Force immediate backend refresh then update GUI
+            wx.CallLater(500, self._refresh_after_operation, 'requests')
         else:
             speaker.speak("Cannot accept outgoing request")
 
@@ -456,7 +576,8 @@ class SocialDialog(AccessibleDialog):
 
         req = self.requests_list.GetClientData(sel)
         self.social_manager._decline_friend_request(req)
-        wx.CallLater(1000, self.refresh_requests_list)
+        # Force immediate backend refresh then update GUI
+        wx.CallLater(500, self._refresh_after_operation, 'requests')
 
     def on_promote_member(self, event):
         """Promote selected member to leader"""

@@ -80,7 +80,8 @@ class SocialManager:
         # Background monitoring
         self.running = False
         self.monitor_thread: Optional[threading.Thread] = None
-        self.update_interval = 3  # seconds (reduced from 7 for faster updates)
+        self.fast_poll_interval = 5  # seconds - for invites and requests
+        self.slow_poll_interval = 30  # seconds - for friends and party
         self.lock = threading.Lock()
         self.initial_data_loaded = threading.Event()  # Flag for initial data load completion
 
@@ -172,7 +173,7 @@ class SocialManager:
         return self.initial_data_loaded.wait(timeout=timeout)
 
     def _monitor_loop(self):
-        """Background monitoring loop"""
+        """Background monitoring loop with fast and slow polling"""
         # Delay initial fetch to let FA11y start without blocking
         logger.info("Social monitor starting, waiting 3 seconds before initial refresh...")
         time.sleep(3)
@@ -182,14 +183,24 @@ class SocialManager:
         logger.info("Initial social data refresh complete")
         self.initial_data_loaded.set()  # Signal that initial data is ready
 
+        # Counter for slow poll cycles
+        slow_poll_counter = 0
+        cycles_per_slow_poll = self.slow_poll_interval // self.fast_poll_interval  # 30s / 5s = 6 cycles
+
         while self.running:
             try:
-                time.sleep(self.update_interval)
+                time.sleep(self.fast_poll_interval)
                 if not self.running:
                     break
 
-                # Refresh data
-                self.refresh_all_data()
+                # Fast poll: invites and requests (every 5 seconds)
+                self.refresh_fast_data()
+
+                # Slow poll: friends and party (every 30 seconds)
+                slow_poll_counter += 1
+                if slow_poll_counter >= cycles_per_slow_poll:
+                    self.refresh_slow_data()
+                    slow_poll_counter = 0
 
                 # Check for new items and announce
                 self._check_for_new_items()
@@ -231,6 +242,53 @@ class SocialManager:
 
         except Exception as e:
             logger.error(f"Error refreshing social data: {e}")
+
+    def refresh_fast_data(self):
+        """Refresh fast-changing data: party invites and friend requests (5s interval)"""
+        if not self.social_api:
+            return
+
+        try:
+            # Make API calls WITHOUT holding lock
+            requests = self.social_api.get_pending_requests()
+            invites = self.social_api.get_party_invites()
+
+            # Acquire lock ONLY to update shared state
+            with self.lock:
+                if requests is not None:
+                    # Split into incoming and outgoing
+                    self.incoming_requests = [r for r in requests if r.direction == "inbound"]
+                    self.outgoing_requests = [r for r in requests if r.direction == "outbound"]
+
+                if invites is not None:
+                    self.party_invites = invites
+
+        except Exception as e:
+            logger.error(f"Error refreshing fast data: {e}")
+
+    def refresh_slow_data(self):
+        """Refresh slow-changing data: friends list and party members (30s interval)"""
+        if not self.social_api:
+            return
+
+        try:
+            # Make API calls WITHOUT holding lock
+            friends = self.social_api.get_friends_list()
+            party = self.social_api.get_current_party()
+
+            # Acquire lock ONLY to update shared state
+            with self.lock:
+                if friends is not None:
+                    self.all_friends = friends
+
+                if party is not None:
+                    self.party_members = party
+
+                # Save to cache after slow refresh
+                self.save_cache()
+
+        except Exception as e:
+            logger.error(f"Error refreshing slow data: {e}")
 
     def _cleanup_old_join_requests(self):
         """Remove join requests older than timeout period"""
