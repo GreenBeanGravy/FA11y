@@ -171,13 +171,13 @@ class BoxSizerHelper:
 
 class AccessibleDialog(wx.Dialog):
     """Base dialog class with accessibility helpers"""
-    
+
     def __init__(self, parent, title="", helpId=""):
         super().__init__(parent, title=title)
         self.helpId = helpId
-        
-        # Make dialog resizable by default and set flags for better focus behavior
-        style = self.GetWindowStyleFlag() | wx.RESIZE_BORDER | wx.STAY_ON_TOP
+
+        # Make dialog resizable by default
+        style = self.GetWindowStyleFlag() | wx.RESIZE_BORDER
         self.SetWindowStyleFlag(style)
     
     def makeSettings(self):
@@ -238,7 +238,7 @@ class AccessibleDialog(wx.Dialog):
                     if result:
                         return result
             return None
-        
+
         firstControl = findFirstControl(self)
         if firstControl:
             firstControl.SetFocus()

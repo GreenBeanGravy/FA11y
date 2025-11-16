@@ -319,6 +319,12 @@ class EpicAuth:
                 self.access_token = None
                 self.account_id = None
                 self.display_name = None
+                # Notify about auth expiration
+                try:
+                    import FA11y
+                    FA11y.handle_auth_expiration()
+                except:
+                    pass  # FA11y might not be available in all contexts
                 # Return special marker to indicate auth expired
                 return "AUTH_EXPIRED"
             else:

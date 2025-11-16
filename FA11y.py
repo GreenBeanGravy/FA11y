@@ -154,6 +154,7 @@ stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 social_gui_open = threading.Event()
 locker_gui_open = threading.Event()
+gamemode_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
@@ -161,6 +162,10 @@ social_manager = None
 
 # Global shutdown flag for instant shutdown
 _shutdown_requested = threading.Event()
+
+# Auth expiration flag - set when API returns 401
+auth_expired = threading.Event()
+auth_expiration_announced = False  # Track if we've already announced it
 
 # POI category definitions
 POI_CATEGORY_SPECIAL = "special"
@@ -401,6 +406,7 @@ def reload_config() -> None:
             'check hotspots': check_hotspots,
             'open visited objects': open_visited_objects,
             'open social menu': open_social_menu,
+            'open authentication': open_authentication,
             'accept notification': accept_notification,
             'decline notification': decline_notification,
         })
@@ -576,6 +582,64 @@ def mark_last_reached_object_as_bad() -> None:
         print(f"Error marking object as bad: {e}")
         speaker.speak("Error marking last reached object as bad")
 
+# Auth expiration handling
+def handle_auth_expiration():
+    """Handle authentication expiration - announce once and set flag"""
+    global auth_expiration_announced
+    auth_expired.set()
+    if not auth_expiration_announced:
+        speaker.speak("Authentication expired. Press ALT+E to re-authenticate.")
+        logger.warning("Epic Games authentication expired")
+        auth_expiration_announced = True
+
+def open_authentication():
+    """Open Epic Games authentication dialog for re-authentication (ALT+E)"""
+    global social_manager, auth_expired, auth_expiration_announced
+
+    try:
+        from lib.utilities.epic_auth import get_epic_auth_instance
+        from lib.guis.epic_login_dialog import LoginDialog
+        import wx
+
+        speaker.speak("Opening authentication dialog")
+
+        epic_auth = get_epic_auth_instance()
+
+        # Create wx app if needed
+        app = wx.GetApp()
+        if app is None:
+            app = wx.App(False)
+
+        # Show login dialog
+        login_dialog = LoginDialog(None, epic_auth)
+        result = login_dialog.ShowModal()
+        authenticated = login_dialog.authenticated
+        login_dialog.Destroy()
+
+        if authenticated:
+            # Clear auth expiration flags
+            auth_expired.clear()
+            auth_expiration_announced = False
+
+            # Refresh auth instance
+            epic_auth = get_epic_auth_instance()
+
+            # Reinitialize social manager if it exists
+            if social_manager:
+                social_manager.stop_monitoring()
+                from lib.managers.social_manager import get_social_manager
+                social_manager = get_social_manager(epic_auth)
+                social_manager.start_monitoring()
+
+            speaker.speak(f"Authentication successful for {epic_auth.display_name}")
+            logger.info(f"Re-authenticated as {epic_auth.display_name}")
+        else:
+            speaker.speak("Authentication cancelled")
+
+    except Exception as e:
+        logger.error(f"Error opening authentication dialog: {e}")
+        speaker.speak("Error opening authentication dialog")
+
 # Social manager wrapper functions
 def open_social_menu():
     """Open social menu GUI"""
@@ -588,6 +652,12 @@ def open_social_menu():
     if social_gui_open.is_set():
         speaker.speak("Social menu is already open")
         return
+
+    # Wait for initial data to load (with timeout)
+    if not social_manager.initial_data_loaded.is_set():
+        speaker.speak("Loading social data")
+        if not social_manager.wait_for_initial_data(timeout=10):
+            speaker.speak("Timeout waiting for social data, opening anyway")
 
     try:
         from lib.guis.social_gui import show_social_gui
@@ -779,65 +849,64 @@ def key_listener() -> None:
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
-            
-        if not config_gui_open.is_set():
-            numlock_on = is_numlock_on()
-            if config is None:
-                time.sleep(0.1)
+
+        numlock_on = is_numlock_on()
+        if config is None:
+            time.sleep(0.1)
+            continue
+
+        mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
+
+        for action, key_combo in key_bindings.items():
+            if not key_combo:
                 continue
 
-            mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
+            # Quick exit check in inner loop
+            if _shutdown_requested.is_set():
+                return
 
-            for action, key_combo in key_bindings.items():
-                if not key_combo:
-                    continue
+            action_lower = action.lower()
 
-                # Quick exit check in inner loop
-                if _shutdown_requested.is_set():
-                    return
+            if action_lower not in action_handlers:
+                continue
 
-                action_lower = action.lower()
+            if not keybinds_enabled and action_lower != 'toggle keybinds':
+                continue
 
-                if action_lower not in action_handlers:
-                    continue
+            if not mouse_keys_enabled and action_lower in mouse_key_actions:
+                continue
 
-                if not keybinds_enabled and action_lower != 'toggle keybinds':
-                    continue
+            ignore_numlock = get_config_boolean(config, 'IgnoreNumlock', False)
+            if action_lower in ['fire', 'target'] and not (ignore_numlock or numlock_on):
+                continue
 
-                if not mouse_keys_enabled and action_lower in mouse_key_actions:
-                    continue
+            # *** MODIFIED LOGIC STARTS HERE ***
+            key_pressed = False
+            if action_lower in mouse_key_actions:
+                # For movement, use the lenient check that ignores extra modifiers
+                key_pressed = is_key_combination_pressed_ignore_extra_mods(key_combo)
+            else:
+                # For all other actions, use the strict, exact-match check
+                key_pressed = is_key_combination_pressed(key_combo)
 
-                ignore_numlock = get_config_boolean(config, 'IgnoreNumlock', False)
-                if action_lower in ['fire', 'target'] and not (ignore_numlock or numlock_on):
-                    continue
-                
-                # *** MODIFIED LOGIC STARTS HERE ***
-                key_pressed = False
-                if action_lower in mouse_key_actions:
-                    # For movement, use the lenient check that ignores extra modifiers
-                    key_pressed = is_key_combination_pressed_ignore_extra_mods(key_combo)
+            key_state_key = key_combo
+
+            if key_pressed != key_state.get(key_state_key, False):
+                key_state[key_state_key] = key_pressed
+                if key_pressed:
+                    action_handler = action_handlers.get(action_lower)
+                    if action_handler:
+                        try:
+                            action_handler()
+                        except Exception as e:
+                            print(f"Error executing action {action_lower}: {e}")
                 else:
-                    # For all other actions, use the strict, exact-match check
-                    key_pressed = is_key_combination_pressed(key_combo)
-
-                key_state_key = key_combo
-                
-                if key_pressed != key_state.get(key_state_key, False):
-                    key_state[key_state_key] = key_pressed
-                    if key_pressed:
-                        action_handler = action_handlers.get(action_lower)
-                        if action_handler:
-                            try:
-                                action_handler()
-                            except Exception as e:
-                                print(f"Error executing action {action_lower}: {e}")
-                    else:
-                        # Handle key release for fire/target actions
-                        if action_lower in ['fire', 'target']:
-                            # Parse the combination to get the main key
-                            modifiers, main_key = parse_key_combination(key_combo)
-                            if main_key in ['lctrl', 'rctrl']:  # Only for ctrl keys
-                                (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
+                    # Handle key release for fire/target actions
+                    if action_lower in ['fire', 'target']:
+                        # Parse the combination to get the main key
+                        modifiers, main_key = parse_key_combination(key_combo)
+                        if main_key in ['lctrl', 'rctrl']:  # Only for ctrl keys
+                            (left_mouse_up if action_lower == 'fire' else right_mouse_up)()
         
         # Reduced sleep time for faster shutdown response
         time.sleep(0.005)
@@ -944,6 +1013,13 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
 
 def open_gamemode_selector() -> None:
     """Open the gamemode selector GUI with Epic auth for advanced features."""
+    global gamemode_gui_open
+
+    # Check if gamemode GUI is already open
+    if gamemode_gui_open.is_set():
+        speaker.speak("Gamemode selector is already open")
+        return
+
     try:
         from lib.guis.gamemode_gui import launch_gamemode_selector
         from lib.utilities.epic_auth import get_epic_auth_instance
@@ -955,11 +1031,16 @@ def open_gamemode_selector() -> None:
         except Exception as e:
             logger.debug(f"Epic auth not available for gamemode selector: {e}")
 
-        launch_gamemode_selector(epic_auth=epic_auth)
+        gamemode_gui_open.set()
+        try:
+            launch_gamemode_selector(epic_auth=epic_auth)
+        finally:
+            gamemode_gui_open.clear()
 
     except Exception as e:
         print(f"Error opening gamemode selector: {e}")
         speaker.speak("Error opening gamemode selector")
+        gamemode_gui_open.clear()
 
 def open_locker_selector() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
