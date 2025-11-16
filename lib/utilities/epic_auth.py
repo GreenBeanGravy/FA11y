@@ -25,6 +25,9 @@ class EpicAuth:
         config_manager.register('fortnite_locker', cache_file,
                                format='json', default=[])
 
+        # Store cache file path for reference
+        self.cache_file = cache_file
+
         self.access_token = None
         self.account_id = None
         self.display_name = None
