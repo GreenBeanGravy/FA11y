@@ -167,10 +167,6 @@ _shutdown_requested = threading.Event()
 auth_expired = threading.Event()
 auth_expiration_announced = False  # Track if we've already announced it
 
-# GUI focus tracking - set when any GUI window has keyboard focus
-gui_has_focus = False
-gui_focus_lock = threading.Lock()
-
 # POI category definitions
 POI_CATEGORY_SPECIAL = "special"
 POI_CATEGORY_REGULAR = "regular"
@@ -849,21 +845,67 @@ def key_listener() -> None:
         'scroll up', 'scroll down'
     }
 
-    # Simple focus tracking using global flag
+    # Helper to check if Fortnite has focus (by process name)
+    def is_fortnite_focused():
+        """Check if Fortnite window is the active foreground window"""
+        try:
+            import ctypes
+            import ctypes.wintypes
+
+            # Get foreground window handle
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            if not hwnd:
+                return True  # Can't determine, allow keybinds
+
+            # Get process ID of foreground window
+            pid = ctypes.wintypes.DWORD()
+            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+
+            # Get process handle
+            PROCESS_QUERY_INFORMATION = 0x0400
+            PROCESS_VM_READ = 0x0010
+            process_handle = ctypes.windll.kernel32.OpenProcess(
+                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                False,
+                pid.value
+            )
+
+            if not process_handle:
+                return True  # Can't determine, allow keybinds
+
+            try:
+                # Get process name
+                process_name = ctypes.create_unicode_buffer(260)
+                size = ctypes.wintypes.DWORD(260)
+                ctypes.windll.kernel32.QueryFullProcessImageNameW(
+                    process_handle,
+                    0,
+                    process_name,
+                    ctypes.byref(size)
+                )
+
+                full_path = process_name.value
+                exe_name = full_path.split('\\')[-1].lower()
+
+                # Allow keybinds if Fortnite has focus, disable if Python (our GUI) has focus
+                return 'fortniteclient' in exe_name or 'python' not in exe_name
+
+            finally:
+                ctypes.windll.kernel32.CloseHandle(process_handle)
+        except:
+            return True  # On error, allow keybinds
+
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
 
-        # Skip keybind processing ONLY if any FA11y GUI currently has keyboard focus
-        with gui_focus_lock:
-            skip_keybinds = gui_has_focus
-
-        if skip_keybinds:
+        # Skip keybind processing if Fortnite is NOT focused (i.e., our GUI has focus)
+        if not is_fortnite_focused():
             time.sleep(0.005)
             continue
 
-        # Process keybinds normally when no GUI has focus
+        # Process keybinds normally when Fortnite has focus
         numlock_on = is_numlock_on()
         if config is None:
             time.sleep(0.1)

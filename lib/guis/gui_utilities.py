@@ -176,15 +176,9 @@ class AccessibleDialog(wx.Dialog):
         super().__init__(parent, title=title)
         self.helpId = helpId
 
-        # Make dialog resizable by default and set flags for better focus behavior
-        style = self.GetWindowStyleFlag() | wx.RESIZE_BORDER | wx.STAY_ON_TOP
+        # Make dialog resizable by default
+        style = self.GetWindowStyleFlag() | wx.RESIZE_BORDER
         self.SetWindowStyleFlag(style)
-
-        # Bind focus events to track keyboard focus for keybind management
-        # EVT_CHILD_FOCUS fires when any child control gets focus
-        self.Bind(wx.EVT_CHILD_FOCUS, self._on_any_focus)
-        self.Bind(wx.EVT_ACTIVATE, self._on_dialog_activate)
-        self.Bind(wx.EVT_CLOSE, self._on_dialog_close)
     
     def makeSettings(self):
         """Override in subclasses to create dialog content"""
@@ -248,37 +242,6 @@ class AccessibleDialog(wx.Dialog):
         firstControl = findFirstControl(self)
         if firstControl:
             firstControl.SetFocus()
-
-    def _on_any_focus(self, event):
-        """Handle any child control gaining focus - disable FA11y keybinds"""
-        try:
-            import FA11y
-            with FA11y.gui_focus_lock:
-                FA11y.gui_has_focus = True
-        except:
-            pass
-        event.Skip()
-
-    def _on_dialog_activate(self, event):
-        """Handle dialog activation/deactivation"""
-        try:
-            import FA11y
-            with FA11y.gui_focus_lock:
-                # When deactivated, enable keybinds
-                FA11y.gui_has_focus = event.GetActive()
-        except:
-            pass
-        event.Skip()
-
-    def _on_dialog_close(self, event):
-        """Handle dialog closing - ensure keybinds are enabled"""
-        try:
-            import FA11y
-            with FA11y.gui_focus_lock:
-                FA11y.gui_has_focus = False
-        except:
-            pass
-        event.Skip()
 
 
 def messageBox(message, caption="", style=wx.OK, parent=None):
