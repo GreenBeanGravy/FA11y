@@ -64,9 +64,9 @@ class SocialDialog(AccessibleDialog):
         self.all_friends_btn = wx.RadioButton(panel, label="All Friends", style=wx.RB_GROUP)
         self.favorite_friends_btn = wx.RadioButton(panel, label="Favorites")
         self.all_friends_btn.SetValue(True)
-        # Prevent arrow keys from navigating to tabs
-        self.all_friends_btn.Bind(wx.EVT_KEY_DOWN, self._on_radio_key_down)
-        self.favorite_friends_btn.Bind(wx.EVT_KEY_DOWN, self._on_radio_key_down)
+        # Prevent arrow keys from navigating to tabs - use CHAR_HOOK to intercept before default handling
+        self.all_friends_btn.Bind(wx.EVT_CHAR_HOOK, self._on_radio_char_hook)
+        self.favorite_friends_btn.Bind(wx.EVT_CHAR_HOOK, self._on_radio_char_hook)
         filter_sizer.Add(self.all_friends_btn, 0, wx.ALL, 5)
         filter_sizer.Add(self.favorite_friends_btn, 0, wx.ALL, 5)
         sizer.Add(filter_sizer, 0, wx.ALL, 5)
@@ -129,9 +129,9 @@ class SocialDialog(AccessibleDialog):
         self.incoming_req_btn = wx.RadioButton(panel, label="Incoming", style=wx.RB_GROUP)
         self.outgoing_req_btn = wx.RadioButton(panel, label="Outgoing")
         self.incoming_req_btn.SetValue(True)
-        # Prevent arrow keys from navigating to tabs
-        self.incoming_req_btn.Bind(wx.EVT_KEY_DOWN, self._on_radio_key_down)
-        self.outgoing_req_btn.Bind(wx.EVT_KEY_DOWN, self._on_radio_key_down)
+        # Prevent arrow keys from navigating to tabs - use CHAR_HOOK to intercept before default handling
+        self.incoming_req_btn.Bind(wx.EVT_CHAR_HOOK, self._on_radio_char_hook)
+        self.outgoing_req_btn.Bind(wx.EVT_CHAR_HOOK, self._on_radio_char_hook)
         filter_sizer.Add(self.incoming_req_btn, 0, wx.ALL, 5)
         filter_sizer.Add(self.outgoing_req_btn, 0, wx.ALL, 5)
         sizer.Add(filter_sizer, 0, wx.ALL, 5)
@@ -291,16 +291,16 @@ class SocialDialog(AccessibleDialog):
         else:
             speaker.speak("Not in a party")
 
-    def _on_radio_key_down(self, event):
-        """Handle key press on radio buttons - prevent arrow keys from navigating to tabs"""
+    def _on_radio_char_hook(self, event):
+        """Handle char hook on radio buttons - prevent arrow keys from navigating to tabs"""
         keycode = event.GetKeyCode()
 
-        # Consume up/down/left/right arrows to prevent tab navigation
+        # Consume up/down/left/right arrows completely to prevent tab navigation
         if keycode in [wx.WXK_UP, wx.WXK_DOWN, wx.WXK_LEFT, wx.WXK_RIGHT]:
-            # Let space/enter toggle the radio button
+            # Don't call Skip() - this prevents the default behavior
             return
 
-        # Allow other keys (space, enter, tab)
+        # Allow other keys (space, enter, tab, etc.) to work normally
         event.Skip()
 
     def on_friends_key_down(self, event):

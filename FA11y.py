@@ -845,9 +845,9 @@ def key_listener() -> None:
         'scroll up', 'scroll down'
     }
 
-    # Helper to check if Fortnite has focus (by process name)
-    def is_fortnite_focused():
-        """Check if Fortnite window is the active foreground window"""
+    # Helper to check if FA11y GUI has focus (by process name)
+    def is_fa11y_gui_focused():
+        """Check if FA11y GUI (Python process) is the active foreground window"""
         try:
             import ctypes
             import ctypes.wintypes
@@ -855,7 +855,7 @@ def key_listener() -> None:
             # Get foreground window handle
             hwnd = ctypes.windll.user32.GetForegroundWindow()
             if not hwnd:
-                return True  # Can't determine, allow keybinds
+                return False  # Can't determine, allow keybinds
 
             # Get process ID of foreground window
             pid = ctypes.wintypes.DWORD()
@@ -871,7 +871,7 @@ def key_listener() -> None:
             )
 
             if not process_handle:
-                return True  # Can't determine, allow keybinds
+                return False  # Can't determine, allow keybinds
 
             try:
                 # Get process name
@@ -887,21 +887,21 @@ def key_listener() -> None:
                 full_path = process_name.value
                 exe_name = full_path.split('\\')[-1].lower()
 
-                # Allow keybinds if Fortnite has focus, disable if Python (our GUI) has focus
-                return 'fortniteclient' in exe_name or 'python' not in exe_name
+                # Return True if Python (our GUI) has focus, False otherwise (allow keybinds)
+                return 'python' in exe_name
 
             finally:
                 ctypes.windll.kernel32.CloseHandle(process_handle)
         except:
-            return True  # On error, allow keybinds
+            return False  # On error, allow keybinds
 
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
 
-        # Skip keybind processing if Fortnite is NOT focused (i.e., our GUI has focus)
-        if not is_fortnite_focused():
+        # Skip keybind processing if FA11y GUI has focus (typing in GUI controls)
+        if is_fa11y_gui_focused():
             time.sleep(0.005)
             continue
 
