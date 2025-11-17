@@ -2060,12 +2060,24 @@ def main() -> None:
         # Notify user and wait for input with immediate response capability
         speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
         print("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
-        
+
+        # Get wx app to pump events while waiting
+        import wx as wx_import
+        wx_app = wx_import.GetApp()
+
         # Use a loop to check for shutdown request while waiting for Enter key
         if sys.platform == 'win32':
             # Windows - use msvcrt for non-blocking input, but only respond to Enter
             import msvcrt
             while not _shutdown_requested.is_set():
+                # CRITICAL: Process pending wx events from background threads
+                # Without this, wx.CallAfter() calls from key_listener never execute
+                if wx_app:
+                    try:
+                        wx_app.Yield(True)
+                    except:
+                        pass
+
                 if msvcrt.kbhit():
                     key = msvcrt.getch()
                     # Only exit on Enter key (carriage return)
@@ -2074,7 +2086,21 @@ def main() -> None:
                     # Ignore all other keys (including Escape)
                 time.sleep(0.1)
         else:
-            input()
+            # Non-Windows: Use select for non-blocking input
+            import select
+            while not _shutdown_requested.is_set():
+                # CRITICAL: Process pending wx events
+                if wx_app:
+                    try:
+                        wx_app.Yield(True)
+                    except:
+                        pass
+
+                # Check for input with timeout
+                if select.select([sys.stdin], [], [], 0.1)[0]:
+                    sys.stdin.readline()
+                    break
+                time.sleep(0.1)
 
     except KeyboardInterrupt:
         # Handle CTRL+C gracefully
