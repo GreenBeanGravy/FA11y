@@ -594,98 +594,126 @@ def handle_auth_expiration():
 
 def open_authentication():
     """Open Epic Games authentication dialog for re-authentication (ALT+E)"""
-    global social_manager, auth_expired, auth_expiration_announced
+    from lib.guis.gui_utilities import launch_gui_thread_safe
 
-    try:
-        from lib.utilities.epic_auth import get_epic_auth_instance
-        from lib.guis.epic_login_dialog import LoginDialog
-        import wx
+    def _do_authentication():
+        """Inner function that runs on main thread"""
+        global social_manager, auth_expired, auth_expiration_announced
 
-        speaker.speak("Opening authentication dialog")
+        try:
+            from lib.utilities.epic_auth import get_epic_auth_instance
+            from lib.guis.epic_login_dialog import LoginDialog
+            import wx
 
-        epic_auth = get_epic_auth_instance()
+            speaker.speak("Opening authentication dialog")
 
-        # Create wx app if needed
-        app = wx.GetApp()
-        if app is None:
-            app = wx.App(False)
-
-        # Show login dialog
-        login_dialog = LoginDialog(None, epic_auth)
-        result = login_dialog.ShowModal()
-        authenticated = login_dialog.authenticated
-        login_dialog.Destroy()
-
-        if authenticated:
-            # Clear auth expiration flags
-            auth_expired.clear()
-            auth_expiration_announced = False
-
-            # Refresh auth instance
             epic_auth = get_epic_auth_instance()
 
-            # Reinitialize social manager if it exists
-            if social_manager:
-                social_manager.stop_monitoring()
-                from lib.managers.social_manager import get_social_manager
-                social_manager = get_social_manager(epic_auth)
-                social_manager.start_monitoring()
+            # Create wx app if needed (safe because we're on main thread now)
+            app = wx.GetApp()
+            if app is None:
+                app = wx.App(False)
 
-            speaker.speak(f"Authentication successful for {epic_auth.display_name}")
-            logger.info(f"Re-authenticated as {epic_auth.display_name}")
-        else:
-            speaker.speak("Authentication cancelled")
+            # Show login dialog
+            login_dialog = LoginDialog(None, epic_auth)
+            result = login_dialog.ShowModal()
+            authenticated = login_dialog.authenticated
+            login_dialog.Destroy()
 
-    except Exception as e:
-        logger.error(f"Error opening authentication dialog: {e}")
-        speaker.speak("Error opening authentication dialog")
+            if authenticated:
+                # Clear auth expiration flags
+                auth_expired.clear()
+                auth_expiration_announced = False
+
+                # Refresh auth instance
+                epic_auth = get_epic_auth_instance()
+
+                # Reinitialize social manager if it exists
+                if social_manager:
+                    social_manager.stop_monitoring()
+                    from lib.managers.social_manager import get_social_manager
+                    social_manager = get_social_manager(epic_auth)
+                    social_manager.start_monitoring()
+
+                speaker.speak(f"Authentication successful for {epic_auth.display_name}")
+                logger.info(f"Re-authenticated as {epic_auth.display_name}")
+            else:
+                speaker.speak("Authentication cancelled")
+
+        except Exception as e:
+            logger.error(f"Error opening authentication dialog: {e}")
+            speaker.speak("Error opening authentication dialog")
+
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_authentication)
 
 # Social manager wrapper functions
 def open_social_menu():
     """Open social menu GUI"""
-    global social_manager, social_gui_open
-    if not social_manager:
-        speaker.speak("Social features not enabled")
-        return
+    from lib.guis.gui_utilities import launch_gui_thread_safe
 
-    # Check if social GUI is already open
-    if social_gui_open.is_set():
-        speaker.speak("Social menu is already open")
-        return
+    def _do_open_social():
+        """Inner function that runs on main thread"""
+        global social_manager, social_gui_open
+        if not social_manager:
+            speaker.speak("Social features not enabled")
+            return
 
-    # Wait for initial data to load (with timeout)
-    if not social_manager.initial_data_loaded.is_set():
-        speaker.speak("Loading social data")
-        if not social_manager.wait_for_initial_data(timeout=10):
-            speaker.speak("Timeout waiting for social data, opening anyway")
+        # Check if social GUI is already open
+        if social_gui_open.is_set():
+            speaker.speak("Social menu is already open")
+            return
 
-    try:
-        from lib.guis.social_gui import show_social_gui
-        social_gui_open.set()
+        # Wait for initial data to load (with timeout)
+        if not social_manager.initial_data_loaded.is_set():
+            speaker.speak("Loading social data")
+            if not social_manager.wait_for_initial_data(timeout=10):
+                speaker.speak("Timeout waiting for social data, opening anyway")
+
         try:
-            show_social_gui(social_manager)
-        finally:
+            from lib.guis.social_gui import show_social_gui
+            social_gui_open.set()
+            try:
+                show_social_gui(social_manager)
+            finally:
+                social_gui_open.clear()
+        except Exception as e:
+            logger.error(f"Error opening social menu: {e}")
+            speaker.speak("Error opening social menu")
             social_gui_open.clear()
-    except Exception as e:
-        logger.error(f"Error opening social menu: {e}")
-        speaker.speak("Error opening social menu")
-        social_gui_open.clear()
+
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_open_social)
 
 def accept_notification():
     """Accept pending notification (Alt+Y)"""
-    global social_manager
-    if social_manager:
-        social_manager.accept_notification()
-    else:
-        logger.debug("Social manager not initialized")
+    from lib.guis.gui_utilities import run_on_main_thread
+
+    def _do_accept():
+        """Inner function that runs on main thread"""
+        global social_manager
+        if social_manager:
+            social_manager.accept_notification()
+        else:
+            logger.debug("Social manager not initialized")
+
+    # Run on main thread (thread-safe)
+    run_on_main_thread(_do_accept)
 
 def decline_notification():
     """Decline pending notification (Alt+D)"""
-    global social_manager
-    if social_manager:
-        social_manager.decline_notification()
-    else:
-        logger.debug("Social manager not initialized")
+    from lib.guis.gui_utilities import run_on_main_thread
+
+    def _do_decline():
+        """Inner function that runs on main thread"""
+        global social_manager
+        if social_manager:
+            social_manager.decline_notification()
+        else:
+            logger.debug("Social manager not initialized")
+
+    # Run on main thread (thread-safe)
+    run_on_main_thread(_do_decline)
 
 def check_hotspots() -> None:
     """Check for hotspot POIs on the map"""
@@ -785,12 +813,19 @@ def check_hotspots() -> None:
 
 def open_visited_objects() -> None:
     """Open the visited objects manager GUI"""
-    try:
-        from lib.guis.visited_objects_gui import launch_visited_objects_gui
-        launch_visited_objects_gui()
-    except Exception as e:
-        print(f"Error opening visited objects GUI: {e}")
-        speaker.speak("Error opening visited objects manager")
+    from lib.guis.gui_utilities import launch_gui_thread_safe
+
+    def _do_open_visited_objects():
+        """Inner function that runs on main thread"""
+        try:
+            from lib.guis.visited_objects_gui import launch_visited_objects_gui
+            launch_visited_objects_gui()
+        except Exception as e:
+            print(f"Error opening visited objects GUI: {e}")
+            speaker.speak("Error opening visited objects manager")
+
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_open_visited_objects)
 
 def toggle_keybinds() -> None:
     """Toggle keybinds on/off."""
@@ -959,140 +994,174 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
 
 def open_config_gui() -> None:
     """Open the configuration GUI."""
-    try:
-        from lib.guis.config_gui import launch_config_gui
-        
-        global config
-        config_instance = Config()
-        config_instance.config = config
+    from lib.guis.gui_utilities import launch_gui_thread_safe
 
-        def update_callback(updated_config_parser):
+    def _do_open_config():
+        """Inner function that runs on main thread"""
+        try:
+            from lib.guis.config_gui import launch_config_gui
+
             global config
-            config = updated_config_parser
-            
-            with open('config/config.txt', 'w') as f:
-                config.write(f)
-                
-            reload_config()
-            
-            # Notify monitors of config changes
-            if storm_monitor.running:
-                storm_monitor.stop_monitoring()
-                storm_monitor.start_monitoring()
-                
-            print("Configuration updated and saved to disk")
-        
-        launch_config_gui(config_instance, update_callback)
-        
-    except Exception as e:
-        print(f"Error opening config GUI: {e}")
-        speaker.speak("Error opening configuration GUI")
+            config_instance = Config()
+            config_instance.config = config
+
+            def update_callback(updated_config_parser):
+                global config
+                config = updated_config_parser
+
+                with open('config/config.txt', 'w') as f:
+                    config.write(f)
+
+                reload_config()
+
+                # Notify monitors of config changes
+                if storm_monitor.running:
+                    storm_monitor.stop_monitoring()
+                    storm_monitor.start_monitoring()
+
+                print("Configuration updated and saved to disk")
+
+            launch_config_gui(config_instance, update_callback)
+
+        except Exception as e:
+            print(f"Error opening config GUI: {e}")
+            speaker.speak("Error opening configuration GUI")
+
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_open_config)
 
 # POI selector GUI has been removed - use virtual POI selector with cycle_poi() instead
 
 def handle_custom_poi_gui(use_ppi=False) -> None:
     """Handle custom POI GUI creation with map-specific support"""
-    try:
-        from lib.guis.custom_poi_gui import launch_custom_poi_creator
-        
-        global config
-        current_map = config.get('POI', 'current_map', fallback='main')
-        
-        use_ppi = check_for_pixel()
-        
-        class PlayerDetector:
-            def get_player_position(self, use_ppi_flag):
-                from lib.detection.player_position import find_player_position as find_map_player_pos, find_player_icon_location
-                return find_map_player_pos() if use_ppi_flag else find_player_icon_location()
-        
-        launch_custom_poi_creator(use_ppi, PlayerDetector(), current_map)
-        
-    except Exception as e:
-        print(f"Error opening custom POI GUI: {e}")
-        speaker.speak("Error opening custom POI creator")
+    from lib.guis.gui_utilities import launch_gui_thread_safe
+
+    def _do_custom_poi_gui():
+        """Inner function that runs on main thread"""
+        try:
+            from lib.guis.custom_poi_gui import launch_custom_poi_creator
+
+            global config
+            current_map = config.get('POI', 'current_map', fallback='main')
+
+            use_ppi = check_for_pixel()
+
+            class PlayerDetector:
+                def get_player_position(self, use_ppi_flag):
+                    from lib.detection.player_position import find_player_position as find_map_player_pos, find_player_icon_location
+                    return find_map_player_pos() if use_ppi_flag else find_player_icon_location()
+
+            launch_custom_poi_creator(use_ppi, PlayerDetector(), current_map)
+
+        except Exception as e:
+            print(f"Error opening custom POI GUI: {e}")
+            speaker.speak("Error opening custom POI creator")
+
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_custom_poi_gui)
 
 def open_gamemode_selector() -> None:
     """Open the gamemode selector GUI with Epic auth for advanced features."""
-    global gamemode_gui_open
+    from lib.guis.gui_utilities import launch_gui_thread_safe
 
-    # Check if gamemode GUI is already open
-    if gamemode_gui_open.is_set():
-        speaker.speak("Gamemode selector is already open")
-        return
+    def _do_open_gamemode():
+        """Inner function that runs on main thread"""
+        global gamemode_gui_open
 
-    try:
-        from lib.guis.gamemode_gui import launch_gamemode_selector
-        from lib.utilities.epic_auth import get_epic_auth_instance
+        # Check if gamemode GUI is already open
+        if gamemode_gui_open.is_set():
+            speaker.speak("Gamemode selector is already open")
+            return
 
-        # Get Epic auth instance for advanced discovery features
-        epic_auth = None
         try:
-            epic_auth = get_epic_auth_instance()
+            from lib.guis.gamemode_gui import launch_gamemode_selector
+            from lib.utilities.epic_auth import get_epic_auth_instance
+
+            # Get Epic auth instance for advanced discovery features
+            epic_auth = None
+            try:
+                epic_auth = get_epic_auth_instance()
+            except Exception as e:
+                logger.debug(f"Epic auth not available for gamemode selector: {e}")
+
+            gamemode_gui_open.set()
+            try:
+                launch_gamemode_selector(epic_auth=epic_auth)
+            finally:
+                gamemode_gui_open.clear()
+
         except Exception as e:
-            logger.debug(f"Epic auth not available for gamemode selector: {e}")
-
-        gamemode_gui_open.set()
-        try:
-            launch_gamemode_selector(epic_auth=epic_auth)
-        finally:
+            print(f"Error opening gamemode selector: {e}")
+            speaker.speak("Error opening gamemode selector")
             gamemode_gui_open.clear()
 
-    except Exception as e:
-        print(f"Error opening gamemode selector: {e}")
-        speaker.speak("Error opening gamemode selector")
-        gamemode_gui_open.clear()
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_open_gamemode)
 
 def open_locker_selector() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
-    global active_pinger, locker_gui_open
+    from lib.guis.gui_utilities import launch_gui_thread_safe
 
-    # Check if locker GUI is already open
-    if locker_gui_open.is_set():
-        speaker.speak("Locker is already open")
-        return
+    def _do_open_locker():
+        """Inner function that runs on main thread"""
+        global active_pinger, locker_gui_open
 
-    if active_pinger:
-        active_pinger.stop()
-        active_pinger = None
-        speaker.speak("Continuous ping disabled.")
-    try:
-        from lib.guis.locker_gui import launch_locker_gui
-        locker_gui_open.set()
+        # Check if locker GUI is already open
+        if locker_gui_open.is_set():
+            speaker.speak("Locker is already open")
+            return
+
+        if active_pinger:
+            active_pinger.stop()
+            active_pinger = None
+            speaker.speak("Continuous ping disabled.")
         try:
-            launch_locker_gui()
-        finally:
+            from lib.guis.locker_gui import launch_locker_gui
+            locker_gui_open.set()
+            try:
+                launch_locker_gui()
+            finally:
+                locker_gui_open.clear()
+
+        except Exception as e:
+            print(f"Error opening locker: {e}")
+            speaker.speak("Error opening locker")
             locker_gui_open.clear()
 
-    except Exception as e:
-        print(f"Error opening locker: {e}")
-        speaker.speak("Error opening locker")
-        locker_gui_open.clear()
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_open_locker)
 
 def open_locker_viewer() -> None:
     """Open the unified locker GUI for browsing and equipping cosmetics."""
-    global active_pinger, locker_gui_open
+    from lib.guis.gui_utilities import launch_gui_thread_safe
 
-    # Check if locker GUI is already open
-    if locker_gui_open.is_set():
-        speaker.speak("Locker is already open")
-        return
+    def _do_open_locker_viewer():
+        """Inner function that runs on main thread"""
+        global active_pinger, locker_gui_open
 
-    if active_pinger:
-        active_pinger.stop()
-        active_pinger = None
-        speaker.speak("Continuous ping disabled.")
-    try:
-        from lib.guis.locker_gui import launch_locker_gui
-        locker_gui_open.set()
+        # Check if locker GUI is already open
+        if locker_gui_open.is_set():
+            speaker.speak("Locker is already open")
+            return
+
+        if active_pinger:
+            active_pinger.stop()
+            active_pinger = None
+            speaker.speak("Continuous ping disabled.")
         try:
-            launch_locker_gui()
-        finally:
-            locker_gui_open.clear()
+            from lib.guis.locker_gui import launch_locker_gui
+            locker_gui_open.set()
+            try:
+                launch_locker_gui()
+            finally:
+                locker_gui_open.clear()
 
-    except Exception as e:
-        print(f"Error opening locker: {e}")
-        speaker.speak("Error opening locker")
-        locker_gui_open.clear()
+        except Exception as e:
+            print(f"Error opening locker: {e}")
+            speaker.speak("Error opening locker")
+
+    # Launch on main thread (thread-safe)
+    launch_gui_thread_safe(_do_open_locker_viewer)
 
 def get_poi_category(poi_name: str) -> str:
     """
@@ -1865,9 +1934,19 @@ def main() -> None:
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener, social_manager
     try:
         print("Starting FA11y...")
-        
+
         # Register shutdown handlers early
         register_shutdown_handlers()
+
+        # Initialize global wx.App on main thread BEFORE starting any threads
+        # This prevents threading issues when GUIs are opened from background threads
+        from lib.guis.gui_utilities import initialize_global_wx_app
+        try:
+            initialize_global_wx_app()
+            logger.info("Global wx.App initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize wx.App: {e}")
+            # Continue anyway - GUIs will try to create app when needed
 
         # Check and welcome user
         local_username = get_legendary_username()
@@ -1932,13 +2011,16 @@ def main() -> None:
                 print("Epic Games authentication required for social features")
                 speaker.speak("Epic Games authentication required. Opening login dialog.")
 
-                # Show login dialog
-                app = wx.App()
+                # Show login dialog (app already initialized in main())
+                app = wx.GetApp()
+                if app is None:
+                    app = wx.App(False)
+
                 login_dialog = LoginDialog(None, epic_auth)
                 login_dialog.ShowModal()
                 authenticated = login_dialog.authenticated
                 login_dialog.Destroy()
-                app.Destroy()
+                # Don't destroy app - keep it alive for future GUI usage
 
                 if not authenticated:
                     print("Social features disabled: Authentication cancelled")
@@ -1978,12 +2060,24 @@ def main() -> None:
         # Notify user and wait for input with immediate response capability
         speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
         print("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
-        
+
+        # Get wx app to pump events while waiting
+        import wx as wx_import
+        wx_app = wx_import.GetApp()
+
         # Use a loop to check for shutdown request while waiting for Enter key
         if sys.platform == 'win32':
             # Windows - use msvcrt for non-blocking input, but only respond to Enter
             import msvcrt
             while not _shutdown_requested.is_set():
+                # CRITICAL: Process pending wx events from background threads
+                # Without this, wx.CallAfter() calls from key_listener never execute
+                if wx_app:
+                    try:
+                        wx_app.Yield(True)
+                    except:
+                        pass
+
                 if msvcrt.kbhit():
                     key = msvcrt.getch()
                     # Only exit on Enter key (carriage return)
@@ -1992,7 +2086,21 @@ def main() -> None:
                     # Ignore all other keys (including Escape)
                 time.sleep(0.1)
         else:
-            input()
+            # Non-Windows: Use select for non-blocking input
+            import select
+            while not _shutdown_requested.is_set():
+                # CRITICAL: Process pending wx events
+                if wx_app:
+                    try:
+                        wx_app.Yield(True)
+                    except:
+                        pass
+
+                # Check for input with timeout
+                if select.select([sys.stdin], [], [], 0.1)[0]:
+                    sys.stdin.readline()
+                    break
+                time.sleep(0.1)
 
     except KeyboardInterrupt:
         # Handle CTRL+C gracefully

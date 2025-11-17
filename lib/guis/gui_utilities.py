@@ -417,3 +417,127 @@ def ensure_window_focus_and_center_mouse(window):
 
     except Exception as e:
         print(f"Error ensuring window focus and centering mouse: {e}")
+
+
+# ============================================================================
+# Thread-Safe wx.App Management and GUI Launching
+# ============================================================================
+
+import threading
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Global wx.App instance (created on main thread)
+_global_app = None
+_app_lock = threading.Lock()
+
+
+def initialize_global_wx_app():
+    """
+    Initialize global wx.App on main thread during FA11y startup.
+    MUST be called from the main thread only.
+
+    Returns:
+        wx.App instance
+
+    Raises:
+        RuntimeError: If called from background thread
+    """
+    global _global_app
+
+    if not wx.IsMainThread():
+        raise RuntimeError("initialize_global_wx_app() must be called from main thread")
+
+    with _app_lock:
+        if _global_app is None:
+            _global_app = wx.App(False)
+            logger.info("Created global wx.App instance on main thread")
+        return _global_app
+
+
+def get_wx_app():
+    """
+    Thread-safe way to get wx.App instance.
+    Returns existing app or creates one if on main thread.
+
+    Returns:
+        wx.App instance or None if on background thread and no app exists
+    """
+    global _global_app
+
+    with _app_lock:
+        if _global_app is not None:
+            return _global_app
+
+        # Try to get existing app
+        app = wx.GetApp()
+        if app is not None:
+            _global_app = app
+            return app
+
+        # Only create new app if on main thread
+        if wx.IsMainThread():
+            _global_app = wx.App(False)
+            logger.info("Created wx.App on main thread")
+            return _global_app
+        else:
+            logger.error("Cannot create wx.App from background thread")
+            return None
+
+
+def run_on_main_thread(func, *args, **kwargs):
+    """
+    Run a function on the main thread.
+    If already on main thread, run immediately.
+    If on background thread, schedule with wx.CallAfter().
+
+    Args:
+        func: Function to run
+        *args, **kwargs: Arguments to pass to function
+
+    Returns:
+        Result of function (only if called from main thread, else None)
+    """
+    if wx.IsMainThread():
+        # Already on main thread, run immediately
+        logger.debug(f"Running {func.__name__} on main thread (already on main)")
+        return func(*args, **kwargs)
+    else:
+        # On background thread, schedule on main thread
+        logger.debug(f"Scheduling {func.__name__} on main thread from background")
+        wx.CallAfter(func, *args, **kwargs)
+        return None  # Can't return result from async call
+
+
+def launch_gui_thread_safe(launch_func, *args, **kwargs):
+    """
+    Thread-safe wrapper for GUI launch functions.
+    Ensures GUI operations run on main thread.
+
+    This function can be called from any thread. If called from a background
+    thread (e.g., key_listener thread), it will schedule the GUI launch on
+    the main thread using wx.CallAfter().
+
+    Args:
+        launch_func: The GUI launch function to call
+        *args, **kwargs: Arguments to pass to launch function
+
+    Example:
+        # From background thread (key_listener):
+        launch_gui_thread_safe(launch_config_gui, config_obj, update_callback)
+    """
+    # Ensure wx.App exists
+    app = get_wx_app()
+    if app is None:
+        logger.error(f"Cannot launch GUI: No wx.App available")
+        try:
+            from accessible_output2.outputs.auto import Auto
+            speaker = Auto()
+            speaker.speak("Error: Cannot open GUI")
+        except:
+            pass
+        return
+
+    # Run on main thread
+    run_on_main_thread(launch_func, *args, **kwargs)
