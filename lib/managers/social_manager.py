@@ -871,25 +871,65 @@ class SocialManager:
             logger.error(f"Error declining friend request: {e}")
             speaker.speak("Error declining friend request")
 
+    def _minimize_social_gui_safe(self):
+        """Minimize social GUI if open - thread-safe version"""
+        import wx
+
+        minimized_window = [None]  # Use list to allow modification in nested function
+
+        def _do_minimize():
+            """Run on main thread"""
+            try:
+                app = wx.GetApp()
+                if app:
+                    for window in wx.GetTopLevelWindows():
+                        if window.IsShown() and window.GetTitle() == "Social Menu":
+                            window.Iconize(True)
+                            minimized_window[0] = window
+                            break
+            except Exception as e:
+                logger.error(f"Error minimizing GUI: {e}")
+
+        # Schedule on main thread and wait for completion
+        if wx.IsMainThread():
+            _do_minimize()
+        else:
+            wx.CallAfter(_do_minimize)
+            time.sleep(0.3)  # Give main thread time to process
+
+        return minimized_window[0]
+
+    def _restore_social_gui_safe(self, window):
+        """Restore social GUI - thread-safe version"""
+        import wx
+
+        if not window:
+            return
+
+        def _do_restore():
+            """Run on main thread"""
+            try:
+                window.Iconize(False)
+                window.Raise()
+                window.SetFocus()
+            except Exception as e:
+                logger.debug(f"Could not restore window: {e}")
+
+        # Schedule on main thread
+        if wx.IsMainThread():
+            _do_restore()
+        else:
+            wx.CallAfter(_do_restore)
+
     def _accept_party_invite(self, invite: PartyInvite, gui_window=None):
         """Accept a party invite using Fortnite client (ESC key method)"""
         speaker.speak(f"Joining {invite.from_display_name}'s party")
 
         try:
             import pyautogui
-            import wx
 
-            # Check if social GUI is open and in focus
-            minimized_window = None
-            app = wx.GetApp()
-            if app:
-                for window in wx.GetTopLevelWindows():
-                    if window.IsShown() and window.GetTitle() == "Social Menu":
-                        # Minimize the social GUI
-                        window.Iconize(True)
-                        minimized_window = window
-                        time.sleep(0.2)
-                        break
+            # Minimize social GUI if open (thread-safe)
+            minimized_window = self._minimize_social_gui_safe()
 
             # Hold ESC for 1.5 seconds to accept through Fortnite client
             pyautogui.keyDown('escape')
@@ -899,11 +939,8 @@ class SocialManager:
             # Give it a moment to process
             time.sleep(2)
 
-            # Restore the window if it was minimized
-            if minimized_window:
-                minimized_window.Iconize(False)
-                minimized_window.Raise()
-                minimized_window.SetFocus()
+            # Restore the window if it was minimized (thread-safe)
+            self._restore_social_gui_safe(minimized_window)
 
             # Check if we joined by monitoring party members
             initial_party_size = len(self.party_members)
@@ -929,19 +966,9 @@ class SocialManager:
 
         try:
             import pyautogui
-            import wx
 
-            # Check if social GUI is open and in focus
-            minimized_window = None
-            app = wx.GetApp()
-            if app:
-                for window in wx.GetTopLevelWindows():
-                    if window.IsShown() and window.GetTitle() == "Social Menu":
-                        # Minimize the social GUI
-                        window.Iconize(True)
-                        minimized_window = window
-                        time.sleep(0.2)
-                        break
+            # Minimize social GUI if open (thread-safe)
+            minimized_window = self._minimize_social_gui_safe()
 
             # Hold ESC for 1.5 seconds to accept through Fortnite client
             pyautogui.keyDown('escape')
@@ -951,11 +978,8 @@ class SocialManager:
             # Monitor party status to see if join was successful
             time.sleep(2)
 
-            # Restore the window if it was minimized
-            if minimized_window:
-                minimized_window.Iconize(False)
-                minimized_window.Raise()
-                minimized_window.SetFocus()
+            # Restore the window if it was minimized (thread-safe)
+            self._restore_social_gui_safe(minimized_window)
 
             # Check if we joined by monitoring party members
             initial_party_size = len(self.party_members)
