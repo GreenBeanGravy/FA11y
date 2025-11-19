@@ -471,6 +471,21 @@ class CategoryView(AccessibleDialog):
         if set_name:
             details.append(f"Set: {set_name}")
 
+        # Show V-Bucks price if available (from Fortnite.gg)
+        vbucks_price = cosmetic.get("vbucks_price")
+        if vbucks_price:
+            details.append(f"Price: {vbucks_price} V-Bucks")
+
+        # Show release date if available (from Fortnite.gg)
+        release_date = cosmetic.get("release_date")
+        if release_date:
+            details.append(f"Released: {release_date}")
+
+        # Show last seen date if available (from Fortnite.gg)
+        last_seen = cosmetic.get("last_seen")
+        if last_seen:
+            details.append(f"Last seen: {last_seen}")
+
         if cosmetic.get("description"):
             details.append(f"\nDescription: {cosmetic['description']}")
 

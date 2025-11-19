@@ -602,6 +602,22 @@ def enrich_cosmetics_with_fortnitegg(cosmetics_data: List[Dict], fortnitegg_data
         if name:
             gg_items_by_name[name] = item
 
+    # Helper to parse Fortnite.gg date format (YYMMDD)
+    def parse_gg_date(date_int):
+        """Parse Fortnite.gg date format (e.g., 251117 = Nov 17, 2025)"""
+        if not date_int:
+            return None
+        try:
+            date_str = str(date_int)
+            if len(date_str) == 6:
+                year = 2000 + int(date_str[0:2])
+                month = int(date_str[2:4])
+                day = int(date_str[4:6])
+                return f"{year}-{month:02d}-{day:02d}"
+        except:
+            return None
+        return None
+
     # Enrich each cosmetic with Fortnite.gg data
     enriched_count = 0
     for cosmetic in cosmetics_data:
@@ -612,15 +628,36 @@ def enrich_cosmetics_with_fortnitegg(cosmetics_data: List[Dict], fortnitegg_data
             # Add set information
             set_index = gg_item.get("set")
             if set_index is not None and 0 <= set_index < len(sets):
-                cosmetic["set_name"] = sets[set_index]
+                set_name = sets[set_index]
+                if set_name:
+                    cosmetic["set_name"] = set_name.title()
 
             # Add Fortnite.gg specific data
             cosmetic["fortnitegg_id"] = gg_item.get("id")
             cosmetic["fortnitegg_type"] = gg_item.get("type")
 
+            # Add release date
+            added_date = gg_item.get("added")
+            if added_date:
+                parsed_date = parse_gg_date(added_date)
+                if parsed_date:
+                    cosmetic["release_date"] = parsed_date
+
+            # Add V-Bucks price if available
+            vbucks_price = gg_item.get("p")
+            if vbucks_price:
+                cosmetic["vbucks_price"] = vbucks_price
+
+            # Add last seen date if available
+            last_seen = gg_item.get("l")
+            if last_seen:
+                parsed_last = parse_gg_date(last_seen)
+                if parsed_last:
+                    cosmetic["last_seen"] = parsed_last
+
             enriched_count += 1
 
-    logger.info(f"Enriched {enriched_count} cosmetics with Fortnite.gg data")
+    logger.info(f"Enriched {enriched_count} cosmetics with Fortnite.gg data (sets, prices, dates)")
     return cosmetics_data
 
 
