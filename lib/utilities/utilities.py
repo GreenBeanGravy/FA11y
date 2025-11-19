@@ -307,8 +307,8 @@ Go To Nearest Unvisited = lalt+u "Navigate to the nearest unvisited game object.
 Get Match Stats = lalt+m "Get statistics for the current match including visited objects."
 Check Hotspots = lshift+grave "Check for hotspot POIs on the map (requires map to be open)."
 Open Visited Objects = lalt+v "Open the visited objects manager to view and navigate to visited or all game objects."
-Open Social Menu = period "Open the social menu (friends, party, requests)."
-Open Authentication = lalt+e "Open Epic Games authentication dialog for re-authentication."
+Open Social Menu = lalt+period "Open the social menu (friends, party, requests)."
+Open Authentication = lalt+lshift+v "Open Epic Games authentication dialog for re-authentication."
 Accept Notification = lalt+y "Accept pending notification (friend request, party invite)."
 Decline Notification = lalt+n "Decline pending notification (friend request, party invite)."
 

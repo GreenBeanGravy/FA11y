@@ -156,6 +156,8 @@ config_gui_open = threading.Event()
 social_gui_open = threading.Event()
 locker_gui_open = threading.Event()
 gamemode_gui_open = threading.Event()
+visited_objects_gui_open = threading.Event()
+custom_poi_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
@@ -809,14 +811,22 @@ def open_visited_objects() -> None:
     """Open the visited objects manager GUI"""
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
+    if visited_objects_gui_open.is_set():
+        speaker.speak("Visited objects manager is already open")
+        focus_window("Visited Objects Manager")
+        return
+
     def _do_open_visited_objects():
         """Inner function that runs on main thread"""
+        visited_objects_gui_open.set()
         try:
             from lib.guis.visited_objects_gui import launch_visited_objects_gui
             launch_visited_objects_gui()
         except Exception as e:
             print(f"Error opening visited objects GUI: {e}")
             speaker.speak("Error opening visited objects manager")
+        finally:
+            visited_objects_gui_open.clear()
 
     # Launch on main thread (thread-safe)
     launch_gui_thread_safe(_do_open_visited_objects)
@@ -891,7 +901,7 @@ def key_listener() -> None:
         
         # List of our GUI titles (or partial matches)
         # List of our GUI titles (or partial matches)
-        gui_titles = ["Social Menu", "Settings", "Locker", "Game Mode Selection", "Custom POI Creator", "Visited Objects", "Epic Games Login"]
+        gui_titles = ["Social Menu", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login"]
         
         is_gui_focused = any(title in active_title for title in gui_titles)
 
@@ -1012,8 +1022,14 @@ def open_config_gui() -> None:
     """Open the configuration GUI."""
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
+    if config_gui_open.is_set():
+        speaker.speak("Configuration is already open")
+        focus_window("FA11y Configuration")
+        return
+
     def _do_open_config():
         """Inner function that runs on main thread"""
+        config_gui_open.set()
         try:
             from lib.guis.config_gui import launch_config_gui
 
@@ -1042,6 +1058,8 @@ def open_config_gui() -> None:
         except Exception as e:
             print(f"Error opening config GUI: {e}")
             speaker.speak("Error opening configuration GUI")
+        finally:
+            config_gui_open.clear()
 
     # Launch on main thread (thread-safe)
     launch_gui_thread_safe(_do_open_config)
@@ -1052,8 +1070,14 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
     """Handle custom POI GUI creation with map-specific support"""
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
+    if custom_poi_gui_open.is_set():
+        speaker.speak("Custom POI creator is already open")
+        focus_window("Create Custom POI")
+        return
+
     def _do_custom_poi_gui():
         """Inner function that runs on main thread"""
+        custom_poi_gui_open.set()
         try:
             from lib.guis.custom_poi_gui import launch_custom_poi_creator
 
@@ -1072,6 +1096,8 @@ def handle_custom_poi_gui(use_ppi=False) -> None:
         except Exception as e:
             print(f"Error opening custom POI GUI: {e}")
             speaker.speak("Error opening custom POI creator")
+        finally:
+            custom_poi_gui_open.clear()
 
     # Launch on main thread (thread-safe)
     launch_gui_thread_safe(_do_custom_poi_gui)

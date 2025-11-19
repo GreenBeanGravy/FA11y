@@ -409,9 +409,16 @@ def validate_key_combination(key_combo: str) -> bool:
     # Check if main key is valid
     if not main_key:
         return False
-    
+
     # Validate main key exists
     main_key_lower = main_key.lower()
+
+    # Prevent modifiers from being used as main keys
+    # This fixes the bug where pressing SHIFT/ALT alone gets captured
+    # instead of waiting for the full key combination
+    if main_key_lower in MODIFIER_KEYS:
+        return False
+
     if main_key_lower in VK_KEYS:
         return True
     elif len(main_key_lower) == 1 and main_key_lower.isalnum():
