@@ -473,13 +473,79 @@ class EpicAuth:
 
             # Filter to only owned cosmetics
             owned_cosmetics = []
+            matched_ids = set()
+
             for cosmetic in all_cosmetics:
                 cosmetic_id = cosmetic.get("id", "")
                 # Check if this cosmetic is owned
                 if cosmetic_id in owned_ids:
                     owned_cosmetics.append(cosmetic)
+                    matched_ids.add(cosmetic_id)
 
-            logger.info(f"Matched {len(owned_cosmetics)} owned cosmetics with metadata")
+            logger.info(f"Matched {len(owned_cosmetics)} owned cosmetics with Fortnite-API metadata")
+
+            # Check for unmatched owned cosmetics
+            unmatched_ids = owned_ids - matched_ids
+            if unmatched_ids:
+                logger.info(f"Found {len(unmatched_ids)} owned cosmetics not in Fortnite-API, attempting FortniteTracker fallback...")
+
+                # Try to get data from FortniteTracker for unmatched cosmetics
+                for cosmetic_id in unmatched_ids:
+                    logger.info(f"Fetching FortniteTracker data for unrecognized cosmetic: {cosmetic_id}")
+
+                    try:
+                        tracker_data = fetch_fortnitetracker_item(cosmetic_id)
+
+                        if tracker_data:
+                            # Create a basic cosmetic entry with FortniteTracker data
+                            rarity = tracker_data.get('rarity', 'common').lower()
+                            basic_cosmetic = {
+                                'name': tracker_data.get('name', cosmetic_id),
+                                'id': cosmetic_id,
+                                'type': tracker_data.get('type', 'Unknown'),
+                                'rarity': rarity,
+                                'rarity_value': self.get_rarity_value(rarity),
+                                'introduction_chapter': '?',
+                                'introduction_season': '?',
+                                'description': '',
+                                'favorite': False,
+                                'owned_variants': []
+                            }
+
+                            # Add FortniteTracker enrichment data if available
+                            if tracker_data.get('set_name'):
+                                basic_cosmetic['set_name'] = tracker_data['set_name']
+                            if tracker_data.get('vbucks_price'):
+                                basic_cosmetic['vbucks_price'] = tracker_data['vbucks_price']
+                            if tracker_data.get('gameplay_tags'):
+                                basic_cosmetic['gameplay_tags'] = tracker_data['gameplay_tags']
+
+                            owned_cosmetics.append(basic_cosmetic)
+                            logger.info(f"Successfully added cosmetic from FortniteTracker: {basic_cosmetic['name']} (Type: {basic_cosmetic['type']}, Rarity: {rarity}, ID: {cosmetic_id})")
+                        else:
+                            logger.warning(f"Could not fetch FortniteTracker data for: {cosmetic_id}")
+
+                            # Create minimal entry so user can still see they own it
+                            minimal_cosmetic = {
+                                'name': cosmetic_id,
+                                'id': cosmetic_id,
+                                'type': 'Unknown',
+                                'rarity': 'common',
+                                'rarity_value': 1,
+                                'introduction_chapter': '?',
+                                'introduction_season': '?',
+                                'description': 'Unrecognized cosmetic',
+                                'favorite': False,
+                                'owned_variants': []
+                            }
+                            owned_cosmetics.append(minimal_cosmetic)
+                            logger.info(f"Added minimal entry for unrecognized cosmetic: {cosmetic_id}")
+
+                    except Exception as e:
+                        logger.error(f"Error processing unmatched cosmetic {cosmetic_id}: {e}")
+
+                logger.info(f"Total owned cosmetics after FortniteTracker fallback: {len(owned_cosmetics)}")
+
             return owned_cosmetics
 
         except Exception as e:
@@ -568,6 +634,32 @@ def fetch_fortnitetracker_item(cosmetic_id: str) -> Optional[Dict]:
         soup = BeautifulSoup(response.text, 'html.parser')
 
         enrichment_data = {}
+
+        # Try to extract cosmetic name from title or headers
+        title_tag = soup.find('title')
+        if title_tag:
+            title_text = title_tag.get_text()
+            # FortniteTracker titles are often like "Cosmetic Name - Fortnite Tracker"
+            name_match = re.search(r'(.+?)\s*[-–]\s*Fortnite', title_text)
+            if name_match:
+                enrichment_data['name'] = name_match.group(1).strip()
+
+        # Also try h1 tags
+        if 'name' not in enrichment_data:
+            h1_tags = soup.find_all('h1')
+            if h1_tags:
+                enrichment_data['name'] = h1_tags[0].get_text().strip()
+
+        # Try to extract type and rarity from page content
+        # FortniteTracker often shows these in specific elements
+        text_content = soup.get_text()
+        type_match = re.search(r'Type:\s*(\w+)', text_content, re.IGNORECASE)
+        if type_match:
+            enrichment_data['type'] = type_match.group(1).strip()
+
+        rarity_match = re.search(r'Rarity:\s*(\w+)', text_content, re.IGNORECASE)
+        if rarity_match:
+            enrichment_data['rarity'] = rarity_match.group(1).strip().lower()
 
         # Try to extract set information
         # Look for elements that might contain set info
