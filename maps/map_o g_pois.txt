@@ -13,7 +13,7 @@ Scrap Yard, 1170, 458
 The Factory, 1059, 590
 Retail Row, 1182, 589
 Farmers Market, 1278, 552
-The Racetrack, 1339, 653
+Gus, 1339, 653
 Greasy Grove, 668, 671
 Salty Springs, 1005, 669
 Fatal Fields, 1041, 825
@@ -23,3 +23,5 @@ Flush Factory, 793, 923
 Dusty Divot, 1039, 568
 Risky Reels, 1175, 259
 Lucky Landing, 1003, 973
+Viking Village, 585, 582
+Paradise Palms, 1255, 795

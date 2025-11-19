@@ -1,0 +1,10 @@
+{
+  "target_device": {
+    "handle_value": 12126035,
+    "friendly_name": "Logitech Mouse (046D:C09B)",
+    "vendor_id": "046D",
+    "product_id": "C09B",
+    "device_path": "\\\\?\\HID#VID_046D&PID_C09B&MI_00#8&29cba6df&0&0000#{378de44c-56ef-11d1-bc8c-00a0c91405dd}",
+    "dpi": 800
+  }
+}

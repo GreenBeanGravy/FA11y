@@ -4,93 +4,226 @@ Provides interface for user configuration of settings, values, and keybinds
 """
 import os
 import logging
-import tkinter as tk
-from tkinter import ttk, messagebox
-import configparser
-from typing import Callable, Dict, Optional, List, Any, Tuple, Set
 import time
-import win32api
-import win32gui
+import configparser
+from typing import Callable, Dict, Optional, List, Any, Tuple
 
-from lib.guis.base_ui import AccessibleUI
-from lib.spatial_audio import SpatialAudio
-from lib.utilities import force_focus_window, DEFAULT_CONFIG, get_default_config_value_string
-from lib.input_handler import VK_KEYS, is_mouse_button
+import wx
+import wx.lib.scrolledpanel as scrolled
+from accessible_output2.outputs.auto import Auto
 
-# Initialize logger
+from FA11y import Config
+from lib.guis.gui_utilities import (
+    AccessibleDialog, BoxSizerHelper, ButtonHelper, 
+    messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
+    BORDER_FOR_DIALOGS
+)
+from lib.utilities.spatial_audio import SpatialAudio
+from lib.utilities.utilities import (
+    DEFAULT_CONFIG, get_default_config_value_string, 
+    get_available_sounds, is_audio_setting, is_game_objects_setting, 
+    get_maps_with_game_objects, is_map_specific_game_object_setting,
+    get_game_objects_config_order
+)
+from lib.utilities.input import (
+    VK_KEYS, is_mouse_button, get_pressed_key_combination, parse_key_combination, 
+    validate_key_combination, get_supported_modifiers, is_modifier_key
+)
+
 logger = logging.getLogger(__name__)
+speaker = Auto()
 
-class ConfigGUI(AccessibleUI):
-    """Configuration GUI for FA11y settings"""
 
-    def __init__(self, config, 
-                 update_callback: Callable,
-                 default_config_str = None): 
-        """Initialize the configuration GUI
-        
-        Args:
-            config: Current configuration (Config object from utilities.py)
-            update_callback: Callback function to update main configuration (expects ConfigParser)
-            default_config_str: Optional default configuration string for reset functionality
-        """
-        super().__init__(title="FA11y Configuration")
+class DisplayableError(Exception):
+    """Error that can be displayed to the user"""
+    
+    def __init__(self, displayMessage: str, titleMessage: str = "Error"):
+        self.displayMessage = displayMessage
+        self.titleMessage = titleMessage
+    
+    def displayError(self, parentWindow=None):
+        wx.CallAfter(
+            messageBox,
+            message=self.displayMessage,
+            caption=self.titleMessage,
+            style=wx.OK | wx.ICON_ERROR,
+            parent=parentWindow
+        )
+
+
+class ConfigGUI(AccessibleDialog):
+    """Configuration GUI with instant opening via deferred widget creation"""
+
+    def __init__(self, parent, config, update_callback: Callable, default_config_str=None):
+        super().__init__(parent, title="FA11y Configuration", helpId="ConfigurationSettings")
         
         self.config = config 
         self.update_callback = update_callback
         self.default_config_str = default_config_str if default_config_str else DEFAULT_CONFIG
         
+        # Quick initialization
+        self.maps_with_objects = get_maps_with_game_objects()
+        self.key_to_action: Dict[str, str] = {}
+        self.action_to_key: Dict[str, str] = {}
+        self.test_audio_instances = {}
+        self.tab_widgets = {}
+        self.tab_variables = {}
+        self.capturing_key = False
+        self.capture_widget = None
+        self.capture_action = None
+        self.tab_control_widgets = {}
+        
+        # Show dialog immediately
+        self.setupDialog()
+        
+    def makeSettings(self, settingsSizer: BoxSizerHelper):
+        """Create dialog structure with minimal content"""
+        self.notebook = wx.Notebook(self)
+        settingsSizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
+        
+        # Create empty tabs
+        self.create_tabs()
+        
+        # Defer heavy operations
+        wx.CallAfter(self._populateWidgets)
+        
+        self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
+        self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
+    
+    def _populateWidgets(self):
+        """Populate widgets after dialog is shown"""
+        try:
+            self.analyze_config()
+            self.create_widgets()
+            self.build_tab_control_lists()
+        except Exception as e:
+            logger.error(f"Error populating widgets: {e}")
+            speaker.speak("Error loading configuration")
+    
+    def build_tab_control_lists(self):
+        """Build ordered lists of focusable controls for each tab"""
+        for tab_name, panel in self.tabs.items():
+            self.tab_control_widgets[tab_name] = []
+            self._collect_focusable_widgets(panel, self.tab_control_widgets[tab_name])
+    
+    def _collect_focusable_widgets(self, parent, widget_list):
+        """Recursively collect focusable widgets in tab order"""
+        for child in parent.GetChildren():
+            if isinstance(child, (wx.Button, wx.TextCtrl, wx.CheckBox, wx.SpinCtrl, wx.Choice, wx.ComboBox, wx.ListCtrl)):
+                widget_list.append(child)
+            elif hasattr(child, 'GetChildren'):
+                self._collect_focusable_widgets(child, widget_list)
+    
+    def get_current_tab_name(self):
+        """Get the name of the currently selected tab"""
+        selection = self.notebook.GetSelection()
+        if selection != wx.NOT_FOUND:
+            return self.notebook.GetPageText(selection)
+        return None
+    
+    def is_last_widget_in_tab(self, widget):
+        """Check if the widget is the last focusable widget in its tab"""
+        current_tab = self.get_current_tab_name()
+        if not current_tab or current_tab not in self.tab_control_widgets:
+            return False
+        
+        widgets = self.tab_control_widgets[current_tab]
+        return widgets and widget == widgets[-1]
+    
+    def handle_tab_navigation(self, event):
+        """Handle custom tab navigation logic"""
+        if not event.ShiftDown():
+            focused_widget = self.FindFocus()
+            if focused_widget and self.is_last_widget_in_tab(focused_widget):
+                self.notebook.SetFocus()
+                return True
+        
+        return False
+    
+    def postInit(self):
+        """Post-initialization setup"""
+        wx.CallAfter(self._postInitFocus)
+    
+    def _postInitFocus(self):
+        """Delayed post-init focus handling"""
+        ensure_window_focus_and_center_mouse(self)
+        self.setFocusToFirstControl()
+    
+    def onPageChanged(self, event):
+        """Handle notebook page change and announce tab"""
+        page_index = event.GetSelection()
+        if page_index >= 0 and page_index < self.notebook.GetPageCount():
+            tab_text = self.notebook.GetPageText(page_index)
+            speaker.speak(f"{tab_text} tab")
+        event.Skip()
+    
+    def onWidgetFocus(self, event):
+        """Handle widget focus events to announce descriptions"""
+        widget = event.GetEventObject()
+        wx.CallAfter(self.announceDescription, widget)
+        event.Skip()
+    
+    def announceDescription(self, widget):
+        """Announce only the description part after NVDA finishes"""
+        try:
+            description = getattr(widget, 'description', '')
+            if description:
+                wx.CallLater(150, lambda: speaker.speak(description))
+        except Exception as e:
+            logger.error(f"Error announcing description: {e}")
+    
+    def findWidgetKey(self, widget):
+        """Find the setting key for a widget by looking at its parent's label"""
+        try:
+            parent = widget.GetParent()
+            if parent:
+                for child in parent.GetChildren():
+                    if isinstance(child, wx.StaticText):
+                        return child.GetLabel()
+        except:
+            pass
+        return "Unknown setting"
+    
+    def create_tabs(self):
+        """Create empty tab structure"""
+        self.tabs = {}
+        
+        tab_names = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds"]
+        
+        for map_name in sorted(self.maps_with_objects.keys()):
+            display_name = f"{map_name.title()}GameObjects"
+            tab_names.append(display_name)
+        
+        for tab_name in tab_names:
+            panel = scrolled.ScrolledPanel(self.notebook)
+            panel.SetupScrolling(scroll_x=False, scroll_y=True)
+            
+            self.notebook.AddPage(panel, tab_name)
+            self.tabs[tab_name] = panel
+            self.tab_widgets[tab_name] = []
+            self.tab_variables[tab_name] = {}
+            
+            # Add loading indicator
+            sizer = wx.BoxSizer(wx.VERTICAL)
+            loading_text = wx.StaticText(panel, label="Loading settings...")
+            sizer.Add(loading_text, flag=wx.ALL, border=10)
+            panel.SetSizer(sizer)
+    
+    def analyze_config(self):
+        """Analyze configuration to determine appropriate tab mappings"""
+        self.build_key_binding_maps()
+        
         self.section_tab_mapping = {
             "Toggles": {},
             "Values": {},
+            "Audio": {},
+            "GameObjects": {},
             "Keybinds": {},
         }
         
-        self.key_to_action: Dict[str, str] = {}
-        self.action_to_key: Dict[str, str] = {}
-        
-        self.last_keybind_time = 0
-        self.keybind_cooldown = 0.2
-
-        self.capturing_keybind_for_widget: Optional[ttk.Entry] = None
-        self.original_keybind_value: str = ""
-        self.key_binding_id = None
-        self.mouse_binding_ids = []
-        
-        # Mouse position control for keybind capture
-        self.original_mouse_pos: Optional[Tuple[int, int]] = None
-        self.mouse_constraint_active = False
-        self.mouse_constraint_timer = None
-        
-        self.setup()
-    
-    def setup(self) -> None:
-        """Set up the configuration GUI"""
-        self.create_tabs()
-        self.analyze_config()
-        self.create_widgets()
-        
-        # Bind keys for configuration actions
-        self.root.bind_all('<r>', self.on_r_key)
-        self.root.bind_all('<R>', self.on_r_key) 
-        self.root.bind_all('<Delete>', self.on_delete_key)
-        
-        self.root.protocol("WM_DELETE_WINDOW", self.save_and_close)
-        
-        self.root.after(100, lambda: force_focus_window(
-            self.root,
-            "Press R to reset the focused setting to its default value. Press Delete to unbind a keybind when focused. Press Escape to save and close, or cancel current edit/keybind capture.",
-            self.focus_first_widget
-        ))
-    
-    def create_tabs(self) -> None:
-        """Create tabs for different setting categories"""
-        self.add_tab("Toggles")
-        self.add_tab("Values")
-        self.add_tab("Keybinds")
-    
-    def analyze_config(self) -> None:
-        """Analyze configuration to determine appropriate tab mappings"""
-        self.build_key_binding_maps()
+        for map_name in sorted(self.maps_with_objects.keys()):
+            display_name = f"{map_name.title()}GameObjects"
+            self.section_tab_mapping[display_name] = {}
         
         for section in self.config.config.sections():
             if section == "POI": 
@@ -104,17 +237,38 @@ class ConfigGUI(AccessibleUI):
                     self.section_tab_mapping["Toggles"][key] = "Toggles"
                 elif section == "Values":
                     self.section_tab_mapping["Values"][key] = "Values"
+                elif section == "Audio":
+                    self.section_tab_mapping["Audio"][key] = "Audio"
+                elif section == "GameObjects":
+                    self.section_tab_mapping["GameObjects"][key] = "GameObjects"
                 elif section == "Keybinds":
                     self.section_tab_mapping["Keybinds"][key] = "Keybinds"
+                elif section.endswith("GameObjects"):
+                    tab_name = section
+                    if tab_name not in self.section_tab_mapping:
+                        self.section_tab_mapping[tab_name] = {}
+                    self.section_tab_mapping[tab_name][key] = tab_name
                 elif section == "SETTINGS":
-                    if value.lower() in ['true', 'false']:
+                    if is_audio_setting(key):
+                        self.section_tab_mapping["Audio"][key] = "Audio"
+                    elif is_game_objects_setting(key):
+                        self.section_tab_mapping["GameObjects"][key] = "GameObjects"
+                    elif is_map_specific_game_object_setting(key):
+                        for map_name in self.maps_with_objects.keys():
+                            if map_name == 'main':
+                                map_tab = f"{map_name.title()}GameObjects"
+                                if map_tab not in self.section_tab_mapping:
+                                    self.section_tab_mapping[map_tab] = {}
+                                self.section_tab_mapping[map_tab][key] = map_tab
+                                break
+                    elif value.lower() in ['true', 'false']:
                         self.section_tab_mapping["Toggles"][key] = "Toggles"
                     else:
                         self.section_tab_mapping["Values"][key] = "Values"
                 elif section == "SCRIPT KEYBINDS":
                     self.section_tab_mapping["Keybinds"][key] = "Keybinds"
     
-    def build_key_binding_maps(self) -> None:
+    def build_key_binding_maps(self):
         """Build maps of keys to actions and actions to keys for conflict detection"""
         self.key_to_action.clear()
         self.action_to_key.clear()
@@ -127,10 +281,16 @@ class ConfigGUI(AccessibleUI):
                 if key and key.strip(): 
                     key_lower = key.lower()
                     self.key_to_action[key_lower] = action
-                    self.action_to_key[action] = key_lower 
+                    self.action_to_key[action] = key_lower
     
-    def create_widgets(self) -> None:
+    def create_widgets(self):
         """Create widgets for each configuration section"""
+        # Clear loading indicators from all panels
+        for tab_name, panel in self.tabs.items():
+            panel.DestroyChildren()
+            panel.sizer = wx.BoxSizer(wx.VERTICAL)
+            panel.SetSizer(panel.sizer)
+        
         for section in self.config.config.sections():
             if section == "POI": 
                 continue
@@ -140,35 +300,542 @@ class ConfigGUI(AccessibleUI):
                 
                 if section == "Toggles":
                     self.create_checkbox("Toggles", key, value_string)
-                elif section == "Keybinds":
-                    self.create_keybind_entry("Keybinds", key, value_string)
                 elif section == "Values":
                     self.create_value_entry("Values", key, value_string)
+                elif section == "Audio":
+                    value, _ = self.extract_value_and_description(value_string)
+                    if value.lower() in ['true', 'false']:
+                        self.create_checkbox("Audio", key, value_string)
+                    elif key.endswith('Volume') or key == 'MasterVolume':
+                        self.create_volume_entry("Audio", key, value_string)
+                    else:
+                        self.create_value_entry("Audio", key, value_string)
+                elif section == "GameObjects":
+                    value, _ = self.extract_value_and_description(value_string)
+                    if value.lower() in ['true', 'false']:
+                        self.create_checkbox("GameObjects", key, value_string)
+                    else:
+                        self.create_value_entry("GameObjects", key, value_string)
+                elif section.endswith("GameObjects"):
+                    tab_name = section
+                    value, _ = self.extract_value_and_description(value_string)
+                    if value.lower() in ['true', 'false']:
+                        self.create_checkbox(tab_name, key, value_string)
+                    else:
+                        self.create_value_entry(tab_name, key, value_string)
+                elif section == "Keybinds":
+                    self.create_keybind_entry("Keybinds", key, value_string)
                 elif section == "SETTINGS":
-                     val_part, _ = self.extract_value_and_description(value_string)
-                     if val_part.lower() in ['true', 'false']:
-                         self.create_checkbox("Toggles", key, value_string)
-                     else:
-                         self.create_value_entry("Values", key, value_string)
+                    val_part, _ = self.extract_value_and_description(value_string)
+                    if is_audio_setting(key):
+                        if val_part.lower() in ['true', 'false']:
+                            self.create_checkbox("Audio", key, value_string)
+                        elif key.endswith('Volume') or key == 'MasterVolume':
+                            self.create_volume_entry("Audio", key, value_string)
+                        else:
+                            self.create_value_entry("Audio", key, value_string)
+                    elif is_game_objects_setting(key):
+                        if val_part.lower() in ['true', 'false']:
+                            self.create_checkbox("GameObjects", key, value_string)
+                        else:
+                            self.create_value_entry("GameObjects", key, value_string)
+                    elif is_map_specific_game_object_setting(key):
+                        target_tab = "MainGameObjects"
+                        for map_name in self.maps_with_objects.keys():
+                            if map_name == 'main':
+                                target_tab = f"{map_name.title()}GameObjects"
+                                break
+                        
+                        if val_part.lower() in ['true', 'false']:
+                            self.create_checkbox(target_tab, key, value_string)
+                        else:
+                            self.create_value_entry(target_tab, key, value_string)
+                    elif val_part.lower() in ['true', 'false']:
+                        self.create_checkbox("Toggles", key, value_string)
+                    else:
+                        self.create_value_entry("Values", key, value_string)
                 elif section == "SCRIPT KEYBINDS":
                     self.create_keybind_entry("Keybinds", key, value_string)
-
+        
+        # Refresh all panels
+        for panel in self.tabs.values():
+            panel.SetupScrolling(scroll_x=False, scroll_y=True)
     
-    def create_checkbox(self, tab_name: str, key: str, value_string: str) -> None:
+    def create_checkbox(self, tab_name: str, key: str, value_string: str):
         """Create a checkbox for a boolean setting"""
+        if tab_name not in self.tabs:
+            return
+            
         value, description = self.extract_value_and_description(value_string)
         bool_value = value.lower() == 'true'
-        self.add_checkbox(tab_name, key, bool_value, description)
+        
+        panel = self.tabs[tab_name]
+        checkbox = wx.CheckBox(panel, label=key)
+        checkbox.SetValue(bool_value)
+        checkbox.description = description
+        
+        checkbox.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        checkbox.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
+        
+        self.tab_widgets[tab_name].append(checkbox)
+        self.tab_variables[tab_name][key] = checkbox
+        
+        if not hasattr(panel, 'sizer'):
+            panel.sizer = wx.BoxSizer(wx.VERTICAL)
+            panel.SetSizer(panel.sizer)
+        
+        panel.sizer.Add(checkbox, flag=wx.ALL, border=5)
     
-    def create_value_entry(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a text entry field for a value setting"""
+    def create_value_entry(self, tab_name: str, key: str, value_string: str):
+        """Create a text entry field or spin control for a value setting"""
+        if tab_name not in self.tabs:
+            return
+            
         value, description = self.extract_value_and_description(value_string)
-        self.add_entry(tab_name, key, value, description)
+        
+        panel = self.tabs[tab_name]
+        
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        label = wx.StaticText(panel, label=key)
+        
+        is_numeric = self.is_numeric_setting(key, value)
+        
+        if is_numeric:
+            try:
+                numeric_value = int(float(value))
+            except (ValueError, TypeError):
+                numeric_value = 0
+            
+            min_val, max_val = self.get_value_range(key)
+            
+            entry = wx.SpinCtrl(panel, value=str(numeric_value), min=min_val, max=max_val)
+            entry.SetValue(numeric_value)
+        else:
+            entry = wx.TextCtrl(panel, value=value, style=wx.TE_PROCESS_ENTER)
+            entry.Bind(wx.EVT_CHAR_HOOK, self.onTextCharHook)
+        
+        entry.description = description
+        
+        entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        
+        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
+        sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
+        
+        self.tab_widgets[tab_name].extend([label, entry])
+        self.tab_variables[tab_name][key] = entry
+        
+        if not hasattr(panel, 'sizer'):
+            panel.sizer = wx.BoxSizer(wx.VERTICAL)
+            panel.SetSizer(panel.sizer)
+        
+        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
     
-    def create_keybind_entry(self, tab_name: str, key: str, value_string: str) -> None:
-        """Create a keybind entry field"""
+    def create_volume_entry(self, tab_name: str, key: str, value_string: str):
+        """Create a volume entry field with test button"""
+        if tab_name not in self.tabs:
+            return
+            
         value, description = self.extract_value_and_description(value_string)
-        self.add_keybind(tab_name, key, value, description) 
+        
+        panel = self.tabs[tab_name]
+        
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        label = wx.StaticText(panel, label=key)
+        
+        try:
+            volume_value = float(value)
+            scaled_value = int(volume_value * 100)
+        except (ValueError, TypeError):
+            scaled_value = 100
+        
+        entry = wx.SpinCtrl(panel, value=str(scaled_value), min=0, max=100)
+        entry.SetValue(scaled_value)
+        entry.description = description
+        
+        test_button = wx.Button(panel, label="Test")
+        test_button.description = f"Test {key} volume setting"
+        
+        entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        test_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        
+        test_button.Bind(wx.EVT_BUTTON, lambda evt: self.test_volume(key, str(entry.GetValue() / 100.0)))
+        
+        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
+        sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
+        sizer.Add(test_button, flag=wx.ALL, border=3)
+        
+        self.tab_widgets[tab_name].extend([label, entry, test_button])
+        self.tab_variables[tab_name][key] = entry
+        
+        if not hasattr(panel, 'sizer'):
+            panel.sizer = wx.BoxSizer(wx.VERTICAL)
+            panel.SetSizer(panel.sizer)
+        
+        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
+    
+    def create_keybind_entry(self, tab_name: str, key: str, value_string: str):
+        """Create a keybind button that shows current bind and captures new ones"""
+        if tab_name not in self.tabs:
+            return
+            
+        value, description = self.extract_value_and_description(value_string)
+        
+        panel = self.tabs[tab_name]
+        
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        label = wx.StaticText(panel, label=key)
+        
+        button_text = f"{key}: {value}" if value else f"{key}: Unbound"
+        keybind_button = wx.Button(panel, label=button_text)
+        keybind_button.description = description
+        
+        keybind_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        keybind_button.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
+        keybind_button.Bind(wx.EVT_BUTTON, lambda evt: self.capture_keybind(key, keybind_button))
+        
+        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
+        sizer.Add(keybind_button, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
+        
+        self.tab_widgets[tab_name].extend([label, keybind_button])
+        self.tab_variables[tab_name][key] = keybind_button
+        
+        if not hasattr(panel, 'sizer'):
+            panel.sizer = wx.BoxSizer(wx.VERTICAL)
+            panel.SetSizer(panel.sizer)
+        
+        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
+    
+    def onControlCharHook(self, event):
+        """Handle char events for controls to disable arrow navigation"""
+        key_code = event.GetKeyCode()
+        
+        if key_code == wx.WXK_TAB:
+            if self.handle_tab_navigation(event):
+                return
+            event.Skip()
+            return
+        
+        if key_code in [wx.WXK_UP, wx.WXK_DOWN, wx.WXK_LEFT, wx.WXK_RIGHT]:
+            return
+        
+        event.Skip()
+    
+    def onTextCharHook(self, event):
+        """Handle char events for text controls"""
+        key_code = event.GetKeyCode()
+        
+        if key_code == wx.WXK_TAB:
+            if self.handle_tab_navigation(event):
+                return
+            event.Skip()
+            return
+        
+        if key_code in [wx.WXK_UP, wx.WXK_DOWN]:
+            return
+        
+        event.Skip()
+    
+    def is_numeric_setting(self, key: str, value: str) -> bool:
+        """Determine if a setting should use a spin control"""
+        try:
+            float(value)
+            numeric = True
+        except (ValueError, TypeError):
+            numeric = False
+        
+        numeric_keywords = ['sensitivity', 'delay', 'steps', 'speed', 'volume', 'distance', 'radius']
+        is_numeric_key = any(keyword in key.lower() for keyword in numeric_keywords)
+        
+        return numeric and is_numeric_key
+    
+    def get_value_range(self, key: str) -> tuple:
+        """Get reasonable min/max values for numeric settings"""
+        key_lower = key.lower()
+        
+        if 'volume' in key_lower:
+            return (0, 1000)
+        elif 'sensitivity' in key_lower:
+            return (1, 50000)
+        elif 'delay' in key_lower:
+            return (0, 10000)
+        elif 'steps' in key_lower:
+            return (1, 10000)
+        elif 'speed' in key_lower:
+            return (0, 10000)
+        elif 'distance' in key_lower or 'radius' in key_lower:
+            return (1, 10000)
+        else:
+            return (-10000, 10000)
+    
+    def test_volume(self, volume_key: str, volume_value: str):
+        """Test a volume setting by playing an appropriate sound"""
+        try:
+            volume = float(volume_value)
+            volume = max(0.0, min(volume, 1.0))
+            
+            sound_file = None
+            if volume_key == 'MasterVolume':
+                sound_file = 'sounds/poi.ogg'
+            elif volume_key == 'POIVolume':
+                sound_file = 'sounds/poi.ogg'
+            elif volume_key == 'StormVolume':
+                sound_file = 'sounds/storm.ogg'
+            elif volume_key == 'DynamicObjectVolume':
+                sound_file = 'sounds/dynamicobject.ogg'
+            else:
+                clean_key = volume_key.replace('Volume', '').lower()
+                for sound_name in get_available_sounds():
+                    if clean_key in sound_name.lower():
+                        sound_file = f'sounds/{sound_name}.ogg'
+                        break
+                
+                if not sound_file:
+                    sound_file = 'sounds/poi.ogg'
+            
+            if not os.path.exists(sound_file):
+                return
+            
+            if volume_key not in self.test_audio_instances:
+                self.test_audio_instances[volume_key] = SpatialAudio(sound_file)
+            
+            audio_instance = self.test_audio_instances[volume_key]
+            
+            if volume_key == 'MasterVolume':
+                audio_instance.set_master_volume(volume)
+                audio_instance.set_individual_volume(1.0)
+            else:
+                master_vol = 1.0
+                if 'MasterVolume' in self.tab_variables.get("Audio", {}):
+                    try:
+                        master_vol = float(self.tab_variables["Audio"]['MasterVolume'].GetValue()) / 100.0
+                    except:
+                        master_vol = 1.0
+                
+                audio_instance.set_master_volume(master_vol)
+                audio_instance.set_individual_volume(volume)
+            
+            audio_instance.play_audio(left_weight=0.5, right_weight=0.5, volume=1.0)
+            
+        except ValueError:
+            pass
+        except Exception as e:
+            logger.error(f"Error testing volume: {e}")
+    
+    def capture_keybind(self, action_name: str, button_widget: wx.Button):
+        """Start capturing a new keybind"""
+        original_text = button_widget.GetLabel()
+        button_widget.SetLabel(f"{action_name}: Press any key...")
+        
+        self.capturing_key = True
+        self.capture_widget = button_widget
+        self.capture_action = action_name
+        
+        original_value = ""
+        if self.config.config.has_section("Keybinds") and action_name in self.config.config["Keybinds"]:
+            original_value, _ = self.extract_value_and_description(self.config.config["Keybinds"][action_name])
+        
+        self.original_capture_value = original_value
+    
+    def handle_key_capture(self):
+        """Handle key capture using input utilities"""
+        if not self.capturing_key:
+            return
+            
+        new_key = get_pressed_key_combination()
+        
+        if new_key:
+            if validate_key_combination(new_key):
+                new_key_lower = new_key.lower()
+                old_key_for_action = self.action_to_key.get(self.capture_action, "")
+                
+                if old_key_for_action and self.key_to_action.get(old_key_for_action) == self.capture_action:
+                    self.key_to_action.pop(old_key_for_action, None)
+                self.action_to_key.pop(self.capture_action, None)
+                
+                if new_key_lower and new_key_lower in self.key_to_action:
+                    conflicting_action = self.key_to_action[new_key_lower]
+                    if conflicting_action != self.capture_action:
+                        self.action_to_key.pop(conflicting_action, None)
+                        for tab_vars in self.tab_variables.values():
+                            if conflicting_action in tab_vars:
+                                tab_vars[conflicting_action].SetLabel(f"{conflicting_action}: Unbound")
+                                break
+                
+                if new_key_lower:
+                    self.key_to_action[new_key_lower] = self.capture_action
+                self.action_to_key[self.capture_action] = new_key_lower
+                
+                self.capture_widget.SetLabel(f"{self.capture_action}: {new_key}")
+            else:
+                if self.original_capture_value:
+                    self.capture_widget.SetLabel(f"{self.capture_action}: {self.original_capture_value}")
+                else:
+                    self.capture_widget.SetLabel(f"{self.capture_action}: Unbound")
+            
+            self.capturing_key = False
+            self.capture_widget = None
+            self.capture_action = None
+    
+    def onKeyEvent(self, event):
+        """Handle key events for shortcuts and capture"""
+        key_code = event.GetKeyCode()
+        focused = self.FindFocus()
+        
+        if self.capturing_key:
+            if key_code == wx.WXK_ESCAPE:
+                if self.original_capture_value:
+                    self.capture_widget.SetLabel(f"{self.capture_action}: {self.original_capture_value}")
+                else:
+                    self.capture_widget.SetLabel(f"{self.capture_action}: Unbound")
+                self.capturing_key = False
+                self.capture_widget = None
+                self.capture_action = None
+                return
+            else:
+                self.handle_key_capture()
+                return
+        
+        if key_code == wx.WXK_TAB:
+            if self.handle_tab_navigation(event):
+                return
+        
+        if key_code == ord('R') or key_code == ord('r'):
+            if focused:
+                self.reset_focused_setting(focused)
+                return
+        elif key_code == wx.WXK_DELETE:
+            if focused and self.is_keybind_button(focused):
+                self.unbind_keybind(focused)
+                return
+        elif key_code == ord('T') or key_code == ord('t'):
+            if focused and self.is_volume_entry(focused):
+                self.test_focused_volume(focused)
+                return
+        elif key_code == wx.WXK_ESCAPE:
+            self.save_and_close()
+            return
+        
+        event.Skip()
+    
+    def is_keybind_button(self, widget):
+        """Check if widget is a keybind button"""
+        for tab_name in self.tab_variables:
+            if tab_name == "Keybinds":
+                for key, button in self.tab_variables[tab_name].items():
+                    if button == widget and isinstance(widget, wx.Button):
+                        return True
+        return False
+    
+    def is_volume_entry(self, widget):
+        """Check if widget is a volume entry"""
+        for tab_name in self.tab_variables:
+            for key, entry in self.tab_variables[tab_name].items():
+                if entry == widget and (key.endswith('Volume') or key == 'MasterVolume'):
+                    return True
+        return False
+    
+    def test_focused_volume(self, widget):
+        """Test volume for focused widget"""
+        for tab_name in self.tab_variables:
+            for key, entry in self.tab_variables[tab_name].items():
+                if entry == widget:
+                    if isinstance(entry, wx.SpinCtrl):
+                        volume_value = str(entry.GetValue() / 100.0)
+                    else:
+                        volume_value = entry.GetValue()
+                    self.test_volume(key, volume_value)
+                    return
+    
+    def unbind_keybind(self, widget):
+        """Unbind a keybind by setting it to empty"""
+        for tab_name in self.tab_variables:
+            if tab_name == "Keybinds":
+                for action_name, button in self.tab_variables[tab_name].items():
+                    if button == widget:
+                        old_key = self.action_to_key.get(action_name, "")
+                        if old_key and old_key in self.key_to_action:
+                            self.key_to_action.pop(old_key, None)
+                        
+                        if action_name in self.action_to_key:
+                            self.action_to_key.pop(action_name, None)
+                        
+                        button.SetLabel(f"{action_name}: Unbound")
+                        return
+    
+    def reset_focused_setting(self, widget):
+        """Reset focused setting to default value"""
+        for tab_name in self.tab_variables:
+            for key, stored_widget in self.tab_variables[tab_name].items():
+                if stored_widget == widget:
+                    lookup_section = tab_name
+                    if tab_name.endswith("GameObjects"):
+                        lookup_section = tab_name
+                    elif tab_name == "Audio":
+                        lookup_section = "Audio"
+                    elif tab_name == "GameObjects":
+                        lookup_section = "GameObjects"
+                    
+                    default_full_value = get_default_config_value_string(lookup_section, key)
+                    
+                    if not default_full_value:
+                        return
+                    
+                    default_value_part, _ = self.extract_value_and_description(default_full_value)
+                    
+                    if isinstance(widget, wx.CheckBox):
+                        bool_value = default_value_part.lower() == 'true'
+                        widget.SetValue(bool_value)
+                        speaker.speak(f"{key} reset to default: {'checked' if bool_value else 'unchecked'}")
+                    elif isinstance(widget, wx.SpinCtrl):
+                        if key.endswith('Volume') or key == 'MasterVolume':
+                            try:
+                                volume_value = float(default_value_part)
+                                scaled_value = int(volume_value * 100)
+                                widget.SetValue(scaled_value)
+                                speaker.speak(f"{key} reset to default: {scaled_value}%")
+                            except (ValueError, TypeError):
+                                widget.SetValue(100)
+                                speaker.speak(f"{key} reset to default: 100%")
+                        else:
+                            try:
+                                numeric_value = int(float(default_value_part))
+                                widget.SetValue(numeric_value)
+                                speaker.speak(f"{key} reset to default: {numeric_value}")
+                            except (ValueError, TypeError):
+                                widget.SetValue(0)
+                                speaker.speak(f"{key} reset to default: 0")
+                    elif isinstance(widget, wx.TextCtrl):
+                        widget.SetValue(default_value_part)
+                        speaker.speak(f"{key} reset to default: {default_value_part}")
+                    elif isinstance(widget, wx.Button) and tab_name == "Keybinds":
+                        action_being_reset = key
+                        
+                        old_key = self.action_to_key.get(action_being_reset, "")
+                        if old_key and self.key_to_action.get(old_key) == action_being_reset:
+                            self.key_to_action.pop(old_key, None)
+                        
+                        new_default_key_lower = default_value_part.lower()
+                        if new_default_key_lower and new_default_key_lower in self.key_to_action:
+                            conflicting_action = self.key_to_action[new_default_key_lower]
+                            if conflicting_action != action_being_reset:
+                                self.key_to_action.pop(new_default_key_lower, None)
+                                self.action_to_key.pop(conflicting_action, None)
+                                for other_tab_vars in self.tab_variables.values():
+                                    if conflicting_action in other_tab_vars:
+                                        other_tab_vars[conflicting_action].SetLabel(f"{conflicting_action}: Unbound")
+                                        break
+                        
+                        widget.SetLabel(f"{key}: {default_value_part}")
+                        self.action_to_key[action_being_reset] = new_default_key_lower
+                        if new_default_key_lower:
+                            self.key_to_action[new_default_key_lower] = action_being_reset
+                        
+                        speaker.speak(f"{key} keybind reset to default: {default_value_part}")
+                    
+                    return
     
     def extract_value_and_description(self, value_string: str) -> tuple:
         """Extract value and description from a config string"""
@@ -182,599 +849,73 @@ class ConfigGUI(AccessibleUI):
             return value, description
         return value_string, ""
     
-    def get_window_center_screen_coords(self) -> Tuple[int, int]:
-        """Get the screen coordinates of the window center"""
+    def save_and_close(self):
+        """Save configuration and close"""
         try:
-            # Get window position and size
-            window_x = self.root.winfo_rootx()
-            window_y = self.root.winfo_rooty()
-            window_width = self.root.winfo_width()
-            window_height = self.root.winfo_height()
+            for audio_instance in self.test_audio_instances.values():
+                try:
+                    audio_instance.cleanup()
+                except Exception:
+                    pass
+            self.test_audio_instances.clear()
             
-            # Calculate center coordinates
-            center_x = window_x + window_width // 2
-            center_y = window_y + window_height // 2
-            
-            return (center_x, center_y)
-        except Exception as e:
-            logger.error(f"Error getting window center coordinates: {e}")
-            return (500, 400)  # Fallback coordinates
-    
-    def get_widget_screen_coords(self, widget: tk.Widget) -> Tuple[int, int]:
-        """Get screen coordinates of a widget's center"""
-        try:
-            # Get widget position relative to root
-            widget_x = widget.winfo_rootx()
-            widget_y = widget.winfo_rooty()
-            widget_width = widget.winfo_width()
-            widget_height = widget.winfo_height()
-            
-            # Calculate center coordinates
-            center_x = widget_x + widget_width // 2
-            center_y = widget_y + widget_height // 2
-            
-            return (center_x, center_y)
-        except Exception as e:
-            logger.error(f"Error getting widget coordinates: {e}")
-            return self.get_window_center_screen_coords()
-    
-    def constrain_mouse_to_window(self) -> None:
-        """Constrain mouse cursor to the window center and keep it there"""
-        if not self.mouse_constraint_active:
-            return
-            
-        try:
-            # Get current window center
-            center_x, center_y = self.get_window_center_screen_coords()
-            
-            # Get current mouse position
-            current_x, current_y = win32api.GetCursorPos()
-            
-            # Calculate distance from center
-            distance = abs(current_x - center_x) + abs(current_y - center_y)
-            
-            # If mouse has moved significantly from center, snap it back
-            if distance > 5:  # Allow small movement tolerance
-                win32api.SetCursorPos((center_x, center_y))
-            
-            # Schedule next check
-            if self.mouse_constraint_active:
-                self.mouse_constraint_timer = self.root.after(10, self.constrain_mouse_to_window)
-                
-        except Exception as e:
-            logger.error(f"Error constraining mouse: {e}")
-    
-    def start_mouse_constraint(self, widget: tk.Widget) -> None:
-        """Start constraining mouse to window center"""
-        try:
-            # Store original mouse position
-            self.original_mouse_pos = win32api.GetCursorPos()
-            
-            # Get target position (widget center or window center)
-            target_x, target_y = self.get_widget_screen_coords(widget)
-            
-            # Move mouse to target position
-            win32api.SetCursorPos((target_x, target_y))
-            
-            # Start constraint system
-            self.mouse_constraint_active = True
-            self.constrain_mouse_to_window()
-            
-            logger.debug(f"Mouse constraint started, moved to ({target_x}, {target_y})")
-            
-        except Exception as e:
-            logger.error(f"Error starting mouse constraint: {e}")
-    
-    def stop_mouse_constraint(self) -> None:
-        """Stop constraining mouse and restore original position"""
-        try:
-            # Stop constraint system
-            self.mouse_constraint_active = False
-            if self.mouse_constraint_timer:
-                self.root.after_cancel(self.mouse_constraint_timer)
-                self.mouse_constraint_timer = None
-            
-            # Restore original mouse position if we have it
-            if self.original_mouse_pos:
-                win32api.SetCursorPos(self.original_mouse_pos)
-                logger.debug(f"Mouse position restored to {self.original_mouse_pos}")
-                self.original_mouse_pos = None
-                
-        except Exception as e:
-            logger.error(f"Error stopping mouse constraint: {e}")
-    
-    def on_delete_key(self, event) -> Optional[str]:
-        """Handle Delete key press to unbind keybinds"""
-        if self.capturing_keybind_for_widget or self.currently_editing:
-            self.speak("Cannot unbind while editing or capturing keybind.")
-            return "break"
+            config_parser_instance = self.config.config
 
-        current_widget = self.root.focus_get()
-        current_tab_name = self.notebook.tab(self.notebook.select(), "text")
-        
-        # Only process in Keybinds tab with entry widget focused
-        if current_tab_name != "Keybinds" or not isinstance(current_widget, ttk.Entry):
-            return None
-            
-        # Get action name from label widget
-        if hasattr(current_widget, 'master') and current_widget.master.winfo_children():
-            label_widget = current_widget.master.winfo_children()[0]
-            if isinstance(label_widget, ttk.Label):
-                action_name = label_widget.cget('text')
-                self.unbind_keybind(action_name, current_widget)
-                return "break"
-                
-        return None
+            required_sections = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds", "POI"]
+            for map_name in self.maps_with_objects.keys():
+                required_sections.append(f"{map_name.title()}GameObjects")
 
-    def unbind_keybind(self, action_name: str, widget: ttk.Entry) -> None:
-        """Unbind a keybind by setting it to an empty string"""
-        current_key = widget.get().lower()
-        
-        # Remove from mappings
-        if current_key and current_key in self.key_to_action:
-            self.key_to_action.pop(current_key, None)
-        
-        if action_name in self.action_to_key:
-            self.action_to_key.pop(action_name, None)
-            
-        # Update widget and variable
-        widget.config(state='normal')
-        widget.delete(0, tk.END)
-        widget.config(state='readonly')
-        
-        if action_name in self.variables["Keybinds"]:
-            self.variables["Keybinds"][action_name].set("")
-            
-        self.speak(f"Keybind for {action_name} unbinded.")
-    
-    def on_r_key(self, event) -> Optional[str]:
-        """Handle R key press events for resetting to default"""
-        if self.capturing_keybind_for_widget or self.currently_editing:
-             self.speak("Cannot reset while editing or capturing keybind.")
-             return "break"
-
-        current_widget = self.root.focus_get()
-        current_tab_name = self.notebook.tab(self.notebook.select(), "text")
-        
-        setting_key = None
-        if isinstance(current_widget, ttk.Checkbutton):
-            setting_key = current_widget.cget('text')
-        elif isinstance(current_widget, ttk.Entry) or isinstance(current_widget, ttk.Combobox):
-            if hasattr(current_widget, 'master') and current_widget.master.winfo_children():
-                label_widget = current_widget.master.winfo_children()[0]
-                if isinstance(label_widget, ttk.Label):
-                    setting_key = label_widget.cget('text')
-        
-        if setting_key:
-            self.reset_to_default(current_tab_name, setting_key, current_widget)
-            return "break"
-        return None
-    
-    def reset_to_default(self, tab_name: str, key: str, widget: Any) -> None:
-        """Reset any setting to its default value"""
-        default_full_value = get_default_config_value_string(tab_name, key)
-                    
-        if not default_full_value:
-            self.speak(f"No default value found for {key}")
-            return
-            
-        default_value_part, _ = self.extract_value_and_description(default_full_value)
-        
-        if isinstance(widget, ttk.Checkbutton):
-            bool_value = default_value_part.lower() == 'true'
-            var = self.variables[tab_name][key] 
-            var.set(bool_value)
-        elif isinstance(widget, ttk.Entry):
-            if tab_name == "Keybinds":
-                action_being_reset = key 
-                current_bound_key_var = self.variables[tab_name].get(action_being_reset)
-                current_bound_key = current_bound_key_var.get().lower() if current_bound_key_var else ""
-                
-                if current_bound_key and self.key_to_action.get(current_bound_key) == action_being_reset:
-                    self.key_to_action.pop(current_bound_key, None)
-                
-                new_default_key_lower = default_value_part.lower()
-                if new_default_key_lower and new_default_key_lower in self.key_to_action:
-                    conflicting_action = self.key_to_action[new_default_key_lower]
-                    if conflicting_action != action_being_reset: 
-                        self.key_to_action.pop(new_default_key_lower, None) 
-                        self.action_to_key.pop(conflicting_action, None)
-                        self.update_conflicting_keybind_widget(conflicting_action, "", f"Key {new_default_key_lower} now used by {action_being_reset}")
-                
-                widget.config(state='normal')
-                widget.delete(0, tk.END)
-                widget.insert(0, default_value_part)
-                widget.config(state='readonly')
-                if current_bound_key_var: 
-                    current_bound_key_var.set(default_value_part)
-
-                self.action_to_key[action_being_reset] = new_default_key_lower
-                if new_default_key_lower: 
-                    self.key_to_action[new_default_key_lower] = action_being_reset
-
-            else: 
-                widget.config(state='normal')
-                widget.delete(0, tk.END)
-                widget.insert(0, default_value_part)
-                widget.config(state='readonly')
-                self.variables[tab_name][key].set(default_value_part) 
-                
-                if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
-                    self.play_poi_sound_at_volume(key, default_value_part)
-
-        elif isinstance(widget, ttk.Combobox):
-             var = self.variables[tab_name][key] 
-             var.set(default_value_part)
-                
-        self.speak(f"{key} reset to default value: {default_value_part if default_value_part else 'blank'}")
-
-    def update_conflicting_keybind_widget(self, action_to_clear: str, new_key_value: str, speak_message: str) -> None:
-        """Updates the widget for an action whose keybind was taken"""
-        for widget_in_tab in self.widgets.get("Keybinds", []):
-            if isinstance(widget_in_tab, ttk.Entry):
-                label_widget = widget_in_tab.master.winfo_children()[0]
-                if isinstance(label_widget, ttk.Label) and label_widget.cget('text') == action_to_clear:
-                    widget_in_tab.config(state='normal')
-                    widget_in_tab.delete(0, tk.END)
-                    widget_in_tab.insert(0, new_key_value)
-                    widget_in_tab.config(state='readonly')
-                    if action_to_clear in self.variables["Keybinds"]:
-                        self.variables["Keybinds"][action_to_clear].set(new_key_value)
-                    break
-    
-    def finish_editing(self, widget: ttk.Entry) -> None:
-        """Complete editing of a text entry widget"""
-        if not widget.winfo_exists():
-            self.currently_editing = None
-            return
-
-        self.currently_editing = None
-        widget.config(state='readonly')
-        new_value = widget.get()
-        key_label_widget = widget.master.winfo_children()[0]
-        key = key_label_widget.cget('text')
-        
-        current_tab = self.notebook.tab(self.notebook.select(), "text")
-        if key in self.variables[current_tab]:
-            self.variables[current_tab][key].set(new_value)
-            self.speak(f"{key} set to {new_value}")
-        else:
-            self.speak(f"Value for {key} updated to {new_value} but not linked to a variable.")
-
-        if key in ["MinimumPOIVolume", "MaximumPOIVolume"]:
-            self.play_poi_sound_at_volume(key, new_value)
-    
-    def play_poi_sound_at_volume(self, key: str, value_str: str) -> None:
-        """Play POI sound at the specified volume"""
-        try:
-            volume = float(value_str)
-            volume = max(0.0, min(volume, 1.0))  
-            
-            sound_path = os.path.join('sounds', 'poi.ogg') 
-            if not os.path.exists(sound_path):
-                logger.warning(f"POI sound file not found: {sound_path}")
-                return
-
-            spatial_poi_player = SpatialAudio(sound_path) 
-            spatial_poi_player.play_audio(left_weight=1.0, right_weight=1.0, volume=volume)
-        except ValueError:
-            logger.error(f"Invalid volume value '{value_str}' for {key}")
-        except Exception as e:
-            logger.error(f"Error playing POI sound: {e}")
-    
-    def focus_first_widget(self) -> None:
-        """Focus the first widget in the current tab"""
-        current_tab_name = self.notebook.tab(self.notebook.select(), "text")
-        
-        if self.widgets.get(current_tab_name):
-            first_widget = self.widgets[current_tab_name][0]
-            first_widget.focus_set()
-            self.speak(f"{current_tab_name} tab.") 
-            widget_info = self.get_widget_info(first_widget) 
-            if widget_info:
-                self.speak(widget_info)
-    
-    def save_and_close(self) -> None:
-        """Save configuration and close the GUI"""
-        try:
-            # Stop mouse constraint if active
-            self.stop_mouse_constraint()
-            
-            config_parser_instance = self.config.config 
-
-            for section_name in ["Toggles", "Values", "Keybinds", "POI"]:
+            for section_name in required_sections:
                 if not config_parser_instance.has_section(section_name):
                     config_parser_instance.add_section(section_name)
 
-            for tab_name in self.tabs.keys(): 
-                if tab_name not in self.variables: continue 
-
-                for setting_key, tk_var in self.variables[tab_name].items():
-                    description = ""
-                    for widget_candidate in self.widgets[tab_name]:
-                        widget_label = ""
-                        if isinstance(widget_candidate, ttk.Checkbutton):
-                            widget_label = widget_candidate.cget('text')
-                        elif hasattr(widget_candidate, 'master') and widget_candidate.master.winfo_children():
-                            label_widget = widget_candidate.master.winfo_children()[0]
-                            if isinstance(label_widget, ttk.Label):
-                                widget_label = label_widget.cget('text')
-                        
-                        if widget_label == setting_key:
-                            description = getattr(widget_candidate, 'description', '')
-                            break
+            for tab_name in self.tab_variables:
+                for setting_key, widget in self.tab_variables[tab_name].items():
+                    description = getattr(widget, 'description', '')
                     
-                    if isinstance(tk_var, tk.BooleanVar):
-                        value_to_save = 'true' if tk_var.get() else 'false'
-                    else: 
-                        value_to_save = tk_var.get()
-                        if tab_name == "Keybinds" and value_to_save.strip() and not self.is_valid_key(value_to_save):
-                            self.speak(f"Warning: Invalid key '{value_to_save}' for {setting_key}. Saving as blank.")
-                            value_to_save = "" 
+                    if isinstance(widget, wx.CheckBox):
+                        value_to_save = 'true' if widget.GetValue() else 'false'
+                    elif isinstance(widget, wx.SpinCtrl):
+                        if setting_key.endswith('Volume') or setting_key == 'MasterVolume':
+                            value_to_save = str(widget.GetValue() / 100.0)
+                        else:
+                            value_to_save = str(widget.GetValue())
+                    elif isinstance(widget, wx.Button) and tab_name == "Keybinds":
+                        button_text = widget.GetLabel()
+                        if ": " in button_text:
+                            value_to_save = button_text.split(": ", 1)[1]
+                            if value_to_save == "Unbound":
+                                value_to_save = ""
+                        else:
+                            value_to_save = ""
+                            
+                        if value_to_save.strip() and not validate_key_combination(value_to_save):
+                            value_to_save = ""
+                    else:
+                        value_to_save = widget.GetValue()
                     
                     value_string_to_save = f"{value_to_save} \"{description}\"" if description else str(value_to_save)
-                    config_parser_instance.set(tab_name, setting_key, value_string_to_save)
+                    
+                    if tab_name.endswith("GameObjects"):
+                        target_section = tab_name
+                    else:
+                        target_section = tab_name
+                    
+                    config_parser_instance.set(target_section, setting_key, value_string_to_save)
 
-            self.update_callback(config_parser_instance) 
-            self.speak("Configuration saved and applied.")
+            self.update_callback(config_parser_instance)
+            speaker.speak("Configuration saved and applied.")
+            
         except Exception as e:
             logger.error(f"Error saving configuration: {e}")
-            self.speak("Error saving configuration.")
-        finally:
-            if self.root and self.root.winfo_exists():
-                self.root.destroy()
-    
-    def on_escape(self, event) -> str:
-        """Handle Escape key press globally for the ConfigGUI window"""
-        if self.capturing_keybind_for_widget:
-            self._cancel_keybind_capture()
-        elif self.currently_editing:
-            self._cancel_value_edit()
-        else:
-            self.save_and_close()
-        return "break"
-
-    def _cancel_keybind_capture(self):
-        """Cancel ongoing keybind capture"""
-        if self.capturing_keybind_for_widget:
-            widget = self.capturing_keybind_for_widget
-            widget.delete(0, tk.END)
-            widget.insert(0, self.original_keybind_value)
-            widget.config(state='readonly')
-            self.speak("Keybind capture cancelled.")
-            
-            # Stop mouse constraint
-            self.stop_mouse_constraint()
-            
-            # Clean up all bindings
-            if self.key_binding_id:
-                self.root.unbind('<Key>', self.key_binding_id)
-                self.key_binding_id = None
-            
-            for binding_id in self.mouse_binding_ids:
-                try:
-                    self.root.unbind('<Button>', binding_id)
-                except:
-                    pass
-            self.mouse_binding_ids.clear()
-            
-            self.capturing_keybind_for_widget = None
-            self.original_keybind_value = ""
-            widget.focus_set()
-            self.speak(self.get_widget_info(widget))
-
-    def _cancel_value_edit(self):
-        """Cancel ongoing value editing"""
-        if self.currently_editing:
-            widget = self.currently_editing
-            widget.config(state='readonly')
-            setting_key_label = widget.master.winfo_children()[0].cget('text')
-            current_tab = self.notebook.tab(self.notebook.select(), "text")
-            self.variables[current_tab][setting_key_label].set(self.previous_value)
-            widget.delete(0, tk.END)
-            widget.insert(0, self.previous_value)
-            self.currently_editing = None
-            self.speak("Cancelled editing, value restored to previous.")
-            widget.focus_set()
-            self.speak(self.get_widget_info(widget))
-    
-    def capture_keybind(self, widget: ttk.Entry) -> None:
-        """Start capturing a new keybind (keyboard keys or mouse buttons)"""
-        current_time = time.time()
-        if current_time - self.last_keybind_time < self.keybind_cooldown:
-            self.speak("Please wait a moment before capturing another keybind.")
+            error = DisplayableError(
+                f"Error saving configuration: {str(e)}",
+                "Configuration Error"
+            )
+            error.displayError(self)
             return
             
-        self.last_keybind_time = current_time
-        
-        self.capturing_keybind_for_widget = widget 
-        self.original_keybind_value = widget.get() 
-
-        widget.config(state='normal') 
-        widget.delete(0, tk.END)
-        
-        # Start mouse constraint to keep cursor in window
-        self.start_mouse_constraint(widget)
-        
-        self.speak("Press any key or mouse button to set the keybind. Press Escape to cancel. Mouse is locked to window.")
-        
-        key_name_mapping = {"Control_L": "lctrl", "Control_R": "rctrl",
-                            "Shift_L": "lshift", "Shift_R": "rshift",
-                            "Alt_L": "lalt", "Alt_R": "ralt",
-                            "KP_0": "num 0", "KP_1": "num 1", "KP_2": "num 2", "KP_3": "num 3",
-                            "KP_4": "num 4", "KP_5": "num 5", "KP_6": "num 6", "KP_7": "num 7",
-                            "KP_8": "num 8", "KP_9": "num 9", "KP_Decimal": "num period",
-                            "KP_Add": "num +", "KP_Subtract": "num -",
-                            "KP_Multiply": "num *", "KP_Divide": "num /",
-                            "bracketleft": "bracketleft", "bracketright": "bracketright",
-                            "apostrophe": "apostrophe", "grave": "grave",
-                            "backslash": "backslash", "semicolon": "semicolon",
-                            "period": "period", "comma": "comma", "minus": "minus", "equal": "equals", 
-                            "slash": "slash", "BackSpace": "backspace", "Caps_Lock": "capslock",
-                            "Delete": "delete", "End": "end", 
-                            "Execute": "enter", 
-                            "F1":"f1", "F2":"f2", "F3":"f3", "F4":"f4", "F5":"f5", "F6":"f6",
-                            "F7":"f7", "F8":"f8", "F9":"f9", "F10":"f10", "F11":"f11", "F12":"f12",
-                            "Home":"home", "Insert":"insert", "Num_Lock":"numlock",
-                            "Pause":"pause", "Print":"printscreen", "Scroll_Lock":"scrolllock",
-                            "space":"space", "Tab":"tab", "Up":"up", "Down":"down", "Left":"left", "Right":"right",
-                            "Return":"enter"}
-        
-        # Mouse button number to name mapping
-        mouse_button_mapping = {
-            2: "middle mouse",  # Middle button
-            4: "mouse 4",       # X button 1 (back button)
-            5: "mouse 5"        # X button 2 (forward button)
-        }
-        
-        action_label_widget = widget.master.winfo_children()[0] 
-        action_name = action_label_widget.cget('text')
-        
-        old_key_for_action = self.action_to_key.get(action_name, "")
-
-        def _capture_key_event_handler(event):
-            key_sym = event.keysym
-
-            # Let the global on_escape handle escape key
-            if key_sym.lower() == 'escape':
-                if self.key_binding_id:
-                    self.root.unbind('<Key>', self.key_binding_id)
-                    self.key_binding_id = None
-                return 
-
-            final_key_str = key_sym 
-            if key_sym in key_name_mapping:
-                final_key_str = key_name_mapping[key_sym]
-            elif len(key_sym) == 1 and key_sym.isalnum(): 
-                final_key_str = key_sym.lower()
-            
-            if final_key_str.lower() == 'tab': 
-                return "break"
-            
-            return self._process_captured_input(final_key_str, action_name, old_key_for_action, widget)
-
-        def _capture_mouse_event_handler(event):
-            # Get mouse button number
-            button_num = event.num
-            
-            # Map button number to our naming convention
-            if button_num in mouse_button_mapping:
-                final_key_str = mouse_button_mapping[button_num]
-                return self._process_captured_input(final_key_str, action_name, old_key_for_action, widget)
-            else:
-                # Unknown mouse button - ignore
-                return "break"
-            
-        # Clean up any existing bindings
-        if self.key_binding_id: 
-            self.root.unbind('<Key>', self.key_binding_id)
-        for binding_id in self.mouse_binding_ids:
-            try:
-                self.root.unbind('<Button>', binding_id)
-            except:
-                pass
-        self.mouse_binding_ids.clear()
-        
-        # Set up new bindings
-        self.key_binding_id = self.root.bind('<Key>', _capture_key_event_handler)
-        
-        # Bind mouse button events
-        for button_num in mouse_button_mapping.keys():
-            binding_id = self.root.bind(f'<Button-{button_num}>', _capture_mouse_event_handler)
-            self.mouse_binding_ids.append(binding_id)
-    
-    def _process_captured_input(self, final_key_str: str, action_name: str, old_key_for_action: str, widget: ttk.Entry) -> str:
-        """Process captured keyboard key or mouse button input"""
-        if final_key_str and not self.is_valid_key(final_key_str):
-            self.speak(f"Key or button '{final_key_str}' is not a valid FA11y input. Restoring original.")
-            widget.delete(0, tk.END)
-            widget.insert(0, self.original_keybind_value) 
-            widget.config(state='readonly')
-            
-            # Stop mouse constraint
-            self.stop_mouse_constraint()
-            
-            # Clean up bindings
-            if self.key_binding_id:
-                self.root.unbind('<Key>', self.key_binding_id)
-                self.key_binding_id = None
-            for binding_id in self.mouse_binding_ids:
-                try:
-                    self.root.unbind('<Button>', binding_id)
-                except:
-                    pass
-            self.mouse_binding_ids.clear()
-            
-            self.capturing_keybind_for_widget = None 
-            return "break"
-
-        widget.delete(0, tk.END)
-        widget.insert(0, final_key_str) 
-        
-        self.variables["Keybinds"][action_name].set(final_key_str)
-        
-        new_key_lower = final_key_str.lower()
-
-        if old_key_for_action and self.key_to_action.get(old_key_for_action) == action_name:
-            self.key_to_action.pop(old_key_for_action, None)
-        self.action_to_key.pop(action_name, None)
-
-        if new_key_lower and new_key_lower in self.key_to_action:
-            conflicting_action = self.key_to_action[new_key_lower]
-            if conflicting_action != action_name: 
-                self.speak(f"Warning: Key {new_key_lower} was bound to {conflicting_action}. That binding is now cleared.")
-                self.action_to_key.pop(conflicting_action, None) 
-                self.update_conflicting_keybind_widget(conflicting_action, "", "") 
-
-        if new_key_lower: 
-            self.key_to_action[new_key_lower] = action_name
-        self.action_to_key[action_name] = new_key_lower
-        
-        if final_key_str: 
-            input_type = "button" if is_mouse_button(final_key_str) else "key"
-            self.speak(f"Keybind for {action_name} set to {input_type} {final_key_str}.")
-        
-        widget.config(state='readonly')
-        
-        # Stop mouse constraint
-        self.stop_mouse_constraint()
-        
-        # Clean up bindings
-        if self.key_binding_id:
-            self.root.unbind('<Key>', self.key_binding_id)
-            self.key_binding_id = None
-        for binding_id in self.mouse_binding_ids:
-            try:
-                self.root.unbind('<Button>', binding_id)
-            except:
-                pass
-        self.mouse_binding_ids.clear()
-        
-        self.capturing_keybind_for_widget = None 
-        return "break"
-    
-    def is_valid_key(self, key: str) -> bool:
-        """Check if a key is valid for the input system"""
-        if not key or not key.strip():  
-            return True
-            
-        key_lower = key.lower()
-        
-        if key_lower in VK_KEYS:
-            return True
-        
-        if len(key_lower) == 1 and key_lower.isalnum():
-            return True
-            
-        return False
-    
-    def get_default_keybind(self, action: str) -> str:
-        """Get the default keybind for an action"""
-        default_full_value = get_default_config_value_string("Keybinds", action)
-        if default_full_value:
-            default_key_part, _ = self.extract_value_and_description(default_full_value)
-            return default_key_part
-        return "" 
+        self.EndModal(wx.ID_OK)
 
 
 def launch_config_gui(config_obj: 'Config', 
@@ -782,7 +923,21 @@ def launch_config_gui(config_obj: 'Config',
                      default_config_str: Optional[str] = None) -> None:
     """Launch the configuration GUI"""
     try:
-        gui = ConfigGUI(config_obj, update_callback, default_config_str)
-        gui.run()
+        app = wx.GetApp()
+        if app is None:
+            app = wx.App(False)
+        
+        dlg = ConfigGUI(None, config_obj, update_callback, default_config_str)
+        
+        ensure_window_focus_and_center_mouse(dlg)
+        
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        
     except Exception as e:
         logger.error(f"Error launching configuration GUI: {e}")
+        error = DisplayableError(
+            f"Error launching configuration GUI: {str(e)}",
+            "Application Error"
+        )
+        error.displayError()
