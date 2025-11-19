@@ -31,6 +31,7 @@ class EpicAuth:
         self.access_token = None
         self.account_id = None
         self.display_name = None
+        self.is_valid = False  # Track if auth is currently valid
 
         # Epic Games Fortnite client credentials (public)
         self.CLIENT_ID = "ec684b8c687f479fadea3cb2ad83f5c6"
@@ -63,9 +64,11 @@ class EpicAuth:
             # Check if token is still valid
             if expiry and datetime.fromisoformat(expiry) > datetime.now():
                 logger.info(f"Loaded cached auth for {self.display_name}")
+                self.is_valid = True
                 return True
             else:
                 logger.info("Cached auth expired")
+                self.is_valid = False
                 return False
         except Exception as e:
             logger.error(f"Error loading cached auth: {e}")
@@ -82,6 +85,7 @@ class EpicAuth:
                 'expires_at': expires_at.isoformat()
             }
             config_manager.set('epic_auth', data=data)
+            self.is_valid = True  # Mark auth as valid when saving
             logger.info(f"Saved auth for {display_name}")
         except Exception as e:
             logger.error(f"Error saving auth: {e}")
@@ -93,9 +97,15 @@ class EpicAuth:
             self.access_token = None
             self.account_id = None
             self.display_name = None
+            self.is_valid = False  # Mark auth as invalid when clearing
             logger.info("Cleared cached auth")
         except Exception as e:
             logger.error(f"Error clearing auth: {e}")
+
+    def invalidate_auth(self):
+        """Mark authentication as invalid without clearing tokens (for 401 errors)"""
+        self.is_valid = False
+        logger.warning(f"Authentication marked as invalid for {self.display_name or 'unknown user'}")
 
     def get_authorization_url(self) -> str:
         """
@@ -422,11 +432,21 @@ class EpicAuth:
             return None
 
     def refresh_cosmetics(self) -> bool:
-        """Fetch fresh cosmetics data and save to cache"""
+        """
+        Fetch fresh cosmetics data and save to cache
+
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.info("Fetching all cosmetics from Fortnite-API.com...")
         cosmetics = self.fetch_cosmetics_from_api()
-        if cosmetics:
-            return self.save_cosmetics_cache(cosmetics)
-        return False
+        if not cosmetics:
+            logger.error("Failed to fetch cosmetics from Fortnite-API.com")
+            return False
+
+        logger.info(f"Successfully fetched {len(cosmetics)} cosmetics from Fortnite-API.com")
+        logger.info("Saving cosmetics to cache...")
+        return self.save_cosmetics_cache(cosmetics)
 
     def get_owned_cosmetics_data(self) -> Optional[List[Dict]]:
         """
@@ -452,7 +472,7 @@ class EpicAuth:
                 if cosmetic_id in owned_ids:
                     owned_cosmetics.append(cosmetic)
 
-            logger.info(f"Matched {len(owned_cosmetics)} owned cosmetics with metadata")
+            logger.info(f"Matched {len(owned_cosmetics)} owned cosmetics with Fortnite-API metadata")
             return owned_cosmetics
 
         except Exception as e:
@@ -497,3 +517,221 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
 def get_epic_auth_instance() -> EpicAuth:
     """Get or create Epic auth instance"""
     return EpicAuth()
+
+
+# ============================================================================
+# LOCKER API - Direct cosmetic equipping via Epic's MCP endpoints
+# ============================================================================
+
+class LockerAPI:
+    """Direct API integration for equipping cosmetics (no UI automation!)"""
+
+    def __init__(self, auth: EpicAuth):
+        self.auth = auth
+        self.profile_data = None
+        self.owned_items = {}
+        self.template_id_map = {}
+
+    def _mcp_operation(self, operation: str, profile_id: str = "athena", body: Optional[Dict] = None) -> Optional[Dict]:
+        """Execute an MCP operation"""
+        if not self.auth.access_token or not self.auth.account_id:
+            return None
+
+        url = f"{self.auth.MCP_URL}/{self.auth.account_id}/client/{operation}"
+        body = body or {}
+
+        try:
+            response = requests.post(
+                url,
+                headers={"Authorization": f"Bearer {self.auth.access_token}", "Content-Type": "application/json"},
+                params={"profileId": profile_id},
+                json=body,
+                timeout=30
+            )
+            return response.json() if response.status_code == 200 else None
+        except Exception as e:
+            logger.error(f"MCP {operation} error: {e}")
+            return None
+
+    def load_profile(self) -> bool:
+        """Load athena profile"""
+        result = self._mcp_operation("QueryProfile", "athena")
+        if not result:
+            return False
+
+        self.profile_data = result.get("profileChanges", [{}])[0].get("profile", {})
+        items = self.profile_data.get("items", {})
+
+        self.owned_items = {}
+        self.template_id_map = {}
+        for guid, item_data in items.items():
+            template_id = item_data.get("templateId", "")
+            if template_id:
+                self.owned_items[guid] = item_data
+                self.template_id_map[template_id] = guid
+
+        logger.info(f"Loaded {len(self.owned_items)} items")
+        return True
+
+    def equip_cosmetic(self, template_id: str, category: str = "Character", slot_index: int = 0) -> bool:
+        """
+        Equip a cosmetic item directly via API
+
+        Args:
+            template_id: Full ID like "AthenaCharacter:CID_029_Athena_Commando_F_Halloween"
+            category: Character, Backpack, Pickaxe, Glider, Dance, ItemWrap, etc.
+            slot_index: Slot (0 for most, 0-5 for emotes, 0-6 for wraps)
+        """
+        body = {
+            "lockerItem": "",
+            "category": category,
+            "itemToSlot": template_id,
+            "slotIndex": slot_index,
+            "variantUpdates": []
+        }
+        return self._mcp_operation("SetCosmeticLockerSlot", "athena", body) is not None
+
+    def build_template_id(self, cosmetic_type: str, cosmetic_id: str) -> str:
+        """Build template ID from type and CID"""
+        type_map = {
+            "Outfit": "AthenaCharacter", "Back Bling": "AthenaBackpack",
+            "Pickaxe": "AthenaPickaxe", "Glider": "AthenaGlider",
+            "Emote": "AthenaDance", "Wrap": "AthenaItemWrap",
+            "Contrail": "AthenaSkyDiveContrail", "Music": "AthenaMusicPack",
+            "Loading Screen": "AthenaLoadingScreen", "Pet": "AthenaPetCarrier",
+            "Kicks": "AthenaShoes"
+        }
+        backend = type_map.get(cosmetic_type, cosmetic_type)
+        return f"{backend}:{cosmetic_id}"
+
+    def set_favorite(self, template_id: str, is_favorite: bool) -> bool:
+        """
+        Set favorite status for a cosmetic item
+
+        Args:
+            template_id: Full template ID like "AthenaCharacter:CID_029_Athena_Commando_F_Halloween"
+            is_favorite: True to mark as favorite, False to unmark
+
+        Returns:
+            True if successful, False otherwise
+        """
+        # Get the item GUID from template ID
+        guid = self.template_id_map.get(template_id)
+
+        if not guid:
+            logger.warning(f"Could not find GUID for template ID: {template_id}")
+            # If not in map, try to load profile first
+            if not self.load_profile():
+                return False
+            guid = self.template_id_map.get(template_id)
+            if not guid:
+                logger.error(f"Template ID not found in owned items: {template_id}")
+                return False
+
+        # Use SetItemFavoriteStatusBatch API
+        body = {
+            "itemIds": [guid],
+            "itemFavStatus": [is_favorite]
+        }
+
+        result = self._mcp_operation("SetItemFavoriteStatusBatch", "athena", body)
+
+        if result:
+            logger.info(f"Set favorite status for {template_id} to {is_favorite}")
+            return True
+        else:
+            logger.error(f"Failed to set favorite status for {template_id}")
+            return False
+
+    def equip_multiple_cosmetics(self, items: List[Dict[str, any]]) -> bool:
+        """
+        Equip multiple cosmetics at once
+
+        Args:
+            items: List of dicts with keys: template_id, category, slot_index
+
+        Returns:
+            True if successful, False otherwise
+        """
+        loadout_data = []
+        for item in items:
+            loadout_data.append({
+                "category": item.get("category", "Character"),
+                "itemToSlot": item.get("template_id", ""),
+                "slotIndex": item.get("slot_index", 0),
+                "variantUpdates": []
+            })
+
+        body = {
+            "lockerItem": "",
+            "loadoutData": loadout_data
+        }
+
+        result = self._mcp_operation("SetCosmeticLockerSlots", "athena", body)
+        return result is not None
+
+    def save_loadout(self, loadout_type: str, preset_id: int, slots: List[Dict], display_name: str = "") -> bool:
+        """
+        Save a cosmetic loadout
+
+        Args:
+            loadout_type: Type like "CosmeticLoadout:LoadoutSchema_Character"
+            preset_id: Loadout index (0-9)
+            slots: List of slot dicts with slot_template and equipped_item
+            display_name: Optional loadout name
+
+        Returns:
+            True if successful, False otherwise
+        """
+        import json
+
+        loadout_data = {
+            "slots": slots
+        }
+        if display_name:
+            loadout_data["display_name"] = display_name
+
+        body = {
+            "loadoutType": loadout_type,
+            "presetId": preset_id,
+            "loadoutData": json.dumps(loadout_data)
+        }
+
+        result = self._mcp_operation("PutModularCosmeticLoadout", "athena", body)
+
+        if result:
+            logger.info(f"Saved loadout {preset_id} for type {loadout_type}")
+            return True
+        else:
+            logger.error(f"Failed to save loadout")
+            return False
+
+    def load_loadout(self, loadout_type: str, preset_id: int) -> bool:
+        """
+        Load a saved cosmetic loadout
+
+        Args:
+            loadout_type: Type like "CosmeticLoadout:LoadoutSchema_Character"
+            preset_id: Loadout index (0-9)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        body = {
+            "loadoutType": loadout_type,
+            "presetId": preset_id
+        }
+
+        result = self._mcp_operation("EquipModularCosmeticLoadoutPreset", "athena", body)
+
+        if result:
+            logger.info(f"Loaded loadout {preset_id} for type {loadout_type}")
+            return True
+        else:
+            logger.error(f"Failed to load loadout")
+            return False
+
+
+def get_locker_api(auth: EpicAuth) -> LockerAPI:
+    """Get LockerAPI instance"""
+    return LockerAPI(auth)

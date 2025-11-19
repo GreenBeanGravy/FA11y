@@ -230,15 +230,14 @@ class SocialDialog(AccessibleDialog):
 
         friends.sort(key=sort_key)
 
-        # Add to list with index after name: "Friend Name, 1 of 10"
-        total = len(friends)
-        for idx, friend in enumerate(friends, start=1):
+        # Add to list - screen readers will auto-announce position
+        for friend in friends:
             name = friend.display_name or friend.account_id or "Unknown"
-            # Add star for favorites and index after name
+            # Add star for favorites
             if self.social_manager.is_favorite(friend):
-                label = f"★ {name}, {idx} of {total}"
+                label = f"★ {name}"
             else:
-                label = f"{name}, {idx} of {total}"
+                label = name
             self.friends_list.Append(label, friend)
 
         if friends:
@@ -261,12 +260,11 @@ class SocialDialog(AccessibleDialog):
                 requests = list(self.social_manager.outgoing_requests)
                 request_type = "outgoing"
 
-        # Use cached display names (already fetched by background monitor)
-        total = len(requests)
-        for idx, req in enumerate(requests, start=1):
+        # Use cached display names - screen readers will auto-announce position
+        for req in requests:
             name = req.display_name or req.account_id or "Unknown"
             direction = "from" if req.direction == "inbound" else "to"
-            label = f"Request {direction} {name}, {idx} of {total}"
+            label = f"Request {direction} {name}"
             self.requests_list.Append(label, req)
 
         if requests:
@@ -282,14 +280,13 @@ class SocialDialog(AccessibleDialog):
         with self.social_manager.lock:
             members = list(self.social_manager.party_members)
 
-        # Use cached display names with fallback
-        total = len(members)
-        for idx, member in enumerate(members, start=1):
+        # Use cached display names - screen readers will auto-announce position
+        for member in members:
             name = member.display_name or member.account_id or "Unknown"
             if member.is_leader:
-                label = f"{name} (Leader), {idx} of {total}"
+                label = f"{name} (Leader)"
             else:
-                label = f"{name}, {idx} of {total}"
+                label = name
             self.party_list.Append(label, member)
 
         if members:
@@ -378,12 +375,9 @@ class SocialDialog(AccessibleDialog):
         count = listbox.GetCount()
         for i in range(count):
             item_text = listbox.GetString(i).lower()
-            # Remove index suffix like ", 1 of 10" and optional star prefix "★ "
-            import re
-            # Match optional star, then name, then optional index
-            match = re.search(r'^(?:★\s*)?(.+?)(?:,\s*\d+\s*of\s*\d+)?$', item_text)
-            if match:
-                item_text = match.group(1).strip()
+            # Remove optional star prefix "★ "
+            if item_text.startswith("★ "):
+                item_text = item_text[2:].strip()
 
             if item_text.startswith(self.type_search_buffer):
                 listbox.SetSelection(i)

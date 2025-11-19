@@ -335,13 +335,9 @@ class EpicSocial:
                 return friends
 
             elif response.status_code == 401:
-                logger.error("Authentication token expired")
-                # Notify about auth expiration
-                try:
-                    import FA11y
-                    FA11y.handle_auth_expiration()
-                except:
-                    pass  # FA11y might not be available in all contexts
+                logger.error("Authentication token expired - marking auth as invalid")
+                # Mark auth as invalid so background tasks will pause
+                self.auth.invalidate_auth()
                 return None
             else:
                 logger.error(f"Failed to get friends list: {response.status_code} - {response.text}")
@@ -444,13 +440,9 @@ class EpicSocial:
                 return requests_list
 
             elif response.status_code == 401:
-                logger.error("Authentication token expired")
-                # Notify about auth expiration
-                try:
-                    import FA11y
-                    FA11y.handle_auth_expiration()
-                except:
-                    pass  # FA11y might not be available in all contexts
+                logger.error("Authentication token expired - marking auth as invalid")
+                # Mark auth as invalid so background tasks will pause
+                self.auth.invalidate_auth()
                 return None
             else:
                 logger.error(f"Failed to get pending requests: {response.status_code}")
@@ -851,6 +843,37 @@ class EpicSocial:
             logger.error(f"Error sending party invite: {e}")
             return False
 
+    def get_user_party_info(self, account_id: str) -> Optional[dict]:
+        """
+        Get party information for a specific user
+
+        Args:
+            account_id: Epic account ID to check
+
+        Returns:
+            Party dict if user has a party, None otherwise
+        """
+        try:
+            response = requests.get(
+                f"{self.PARTY_BASE}/user/{account_id}",
+                headers=self._get_headers(),
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                party_data = response.json()
+                current_parties = party_data.get("current", [])
+                if current_parties:
+                    return current_parties[0]  # Return first (current) party
+                return None
+            else:
+                logger.debug(f"Could not get party info for {account_id}: {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.debug(f"Error getting party info for {account_id}: {e}")
+            return None
+
     def request_to_join_party(self, friend_account_id: str) -> bool:
         """
         Send request to join a friend's party
@@ -859,9 +882,17 @@ class EpicSocial:
             friend_account_id: Epic account ID of friend whose party to join
 
         Returns:
-            True if successful, False otherwise
+            True if successful, "no_party" if friend has no party, "already_sent" if already sent, False otherwise
         """
         try:
+            # Try to check if friend has a party (might fail due to privacy settings)
+            friend_party = self.get_user_party_info(friend_account_id)
+            if friend_party:
+                logger.debug(f"Friend {friend_account_id} has a visible party")
+            else:
+                logger.debug(f"Cannot see friend {friend_account_id}'s party (privacy settings or no party)")
+                # Still try to send the request - Epic API will return 404 if truly no party
+
             # Send request to join
             request_body = {
                 "urn:epic:invite:platformdata_s": ""
@@ -881,6 +912,10 @@ class EpicSocial:
                 # Request already exists
                 logger.info(f"Join request already sent to {friend_account_id}")
                 return "already_sent"
+            elif response.status_code == 404:
+                # Friend truly has no party (confirmed by API)
+                logger.info(f"Friend {friend_account_id} has no party (404 from API)")
+                return "no_party"
             else:
                 logger.error(f"Failed to send join request: {response.status_code}")
                 if response.text:

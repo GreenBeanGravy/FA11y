@@ -74,7 +74,7 @@ class SocialManager:
         # Notification system - queue based for handling multiple notifications
         self.notification_queue = []  # Queue of (item, item_type) tuples
         self.current_notification = None  # Currently active notification
-        self.notification_timer = None  # Timer for 15-second auto-decline
+        self.notification_timer = None  # Timer for 15-second queue progression (if more notifications waiting)
         self.notification_lock = threading.Lock()
 
         # Background monitoring
@@ -187,11 +187,30 @@ class SocialManager:
         slow_poll_counter = 0
         cycles_per_slow_poll = self.slow_poll_interval // self.fast_poll_interval  # 30s / 5s = 6 cycles
 
+        # Track if monitoring is paused due to invalid auth
+        was_paused = False
+
         while self.running:
             try:
                 time.sleep(self.fast_poll_interval)
                 if not self.running:
                     break
+
+                # Check if auth is still valid before making API calls
+                if not self.social_api or not self.social_api.auth.is_valid:
+                    if not was_paused:
+                        logger.warning("Auth is invalid, pausing social monitoring (waiting for new auth)")
+                        was_paused = True
+                    # Wait longer when auth is invalid to avoid spamming logs
+                    time.sleep(30)
+                    continue
+
+                # Auth is valid - check if we're resuming from pause
+                if was_paused:
+                    logger.info("Auth is now valid, resuming social monitoring")
+                    was_paused = False
+                    # Do a full refresh after resuming
+                    self.refresh_all_data()
 
                 # Fast poll: invites and requests (every 5 seconds)
                 self.refresh_fast_data()
@@ -212,6 +231,11 @@ class SocialManager:
     def refresh_all_data(self):
         """Refresh all social data from API"""
         if not self.social_api:
+            return
+
+        # Don't make API calls if auth is invalid
+        if not self.social_api.auth.is_valid:
+            logger.debug("Skipping social data refresh - auth is invalid")
             return
 
         try:
@@ -248,6 +272,11 @@ class SocialManager:
         if not self.social_api:
             return
 
+        # Don't make API calls if auth is invalid
+        if not self.social_api.auth.is_valid:
+            logger.debug("Skipping fast data refresh - auth is invalid")
+            return
+
         try:
             # Make API calls WITHOUT holding lock
             requests = self.social_api.get_pending_requests()
@@ -269,6 +298,11 @@ class SocialManager:
     def refresh_slow_data(self):
         """Refresh slow-changing data: friends list and party members (30s interval)"""
         if not self.social_api:
+            return
+
+        # Don't make API calls if auth is invalid
+        if not self.social_api.auth.is_valid:
+            logger.debug("Skipping slow data refresh - auth is invalid")
             return
 
         try:
@@ -440,24 +474,39 @@ class SocialManager:
         )
 
         if item_type == "friend_request":
-            speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Auto-declines in 15 seconds.")
+            if self.notification_queue:
+                # More notifications waiting
+                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.")
+            else:
+                # This is the only notification
+                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline.")
         else:  # party_invite
-            speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Auto-declines in 15 seconds.")
+            if self.notification_queue:
+                # More notifications waiting
+                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.")
+            else:
+                # This is the only notification
+                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline.")
 
-        # Start 15-second timer
-        self.notification_timer = threading.Timer(15.0, self._notification_timeout)
-        self.notification_timer.start()
+        # Start 15-second timer only if there are more notifications in queue
+        if self.notification_queue:
+            self.notification_timer = threading.Timer(15.0, self._notification_timeout)
+            self.notification_timer.start()
+        else:
+            # No timer - let user respond whenever they want
+            self.notification_timer = None
 
     def _notification_timeout(self):
-        """Handle notification timeout - do NOT auto-decline, just clear current notification"""
+        """Handle notification timeout - move to next notification if queue has more, otherwise keep current"""
         with self.notification_lock:
             if self.current_notification:
-                # Just clear the current notification so we can process others or wait
-                # We do NOT decline it. It stays in the pending list on the server.
-                self.current_notification = None
-                
-                # Process next notification if any
-                self._process_next_notification()
+                # Only move to next notification if there are more in queue
+                if self.notification_queue:
+                    # Clear current notification and process next
+                    # The previous notification stays in pending list on server (not declined)
+                    self.current_notification = None
+                    self._process_next_notification()
+                # else: queue is empty, keep current notification until user responds or it expires
 
     def accept_notification(self):
         """Accept current notification (Alt+Y) and process next in queue"""
@@ -971,21 +1020,48 @@ class SocialManager:
 
         try:
             import pyautogui
-            from lib.utilities.window_utils import get_active_window_title
+            from lib.utilities.window_utils import focus_fortnite
 
             # Minimize social GUI if open (thread-safe)
             minimized_window = self._minimize_social_gui_safe()
-            
-            # Check if Fortnite is focused
-            active_title = get_active_window_title()
-            if active_title and "Fortnite" in active_title:
+
+            # Focus Fortnite window (uses process name, more reliable)
+            if focus_fortnite():
+                time.sleep(0.2)  # Give window time to focus
+
+                # Ensure focus before clicking
+                focus_fortnite()
+                time.sleep(0.1)
+
+                # Click center of screen to ensure Fortnite is ready
+                screen_width, screen_height = pyautogui.size()
+                center_x = screen_width // 2
+                center_y = screen_height // 2
+                pyautogui.click(center_x, center_y)
+                time.sleep(0.2)
+
+                # Ensure focus before first escape
+                focus_fortnite()
+                time.sleep(0.1)
+
                 # Hold ESC for 1.5 seconds to accept through Fortnite client
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
+
+                # Extra hold escape to ensure acceptance
+                time.sleep(0.2)
+
+                # Ensure focus before second escape
+                focus_fortnite()
+                time.sleep(0.1)
+
+                pyautogui.keyDown('escape')
+                time.sleep(1.5)
+                pyautogui.keyUp('escape')
             else:
-                logger.warning(f"Cannot accept invite: Fortnite not focused (Active: {active_title})")
-                speaker.speak("Cannot join. Fortnite is not focused.")
+                logger.warning(f"Cannot accept invite: Failed to focus Fortnite")
+                speaker.speak("Cannot join. Failed to focus Fortnite.")
 
             # Give it a moment to process
             time.sleep(2)
@@ -1017,20 +1093,47 @@ class SocialManager:
 
         try:
             import pyautogui
-            from lib.utilities.window_utils import get_active_window_title
+            from lib.utilities.window_utils import focus_fortnite
 
             # Minimize social GUI if open (thread-safe)
             minimized_window = self._minimize_social_gui_safe()
 
-            # Check if Fortnite is focused
-            active_title = get_active_window_title()
-            if active_title and "Fortnite" in active_title:
+            # Focus Fortnite window (uses process name, more reliable)
+            if focus_fortnite():
+                time.sleep(0.2)  # Give window time to focus
+
+                # Ensure focus before clicking
+                focus_fortnite()
+                time.sleep(0.1)
+
+                # Click center of screen to ensure Fortnite is ready
+                screen_width, screen_height = pyautogui.size()
+                center_x = screen_width // 2
+                center_y = screen_height // 2
+                pyautogui.click(center_x, center_y)
+                time.sleep(0.2)
+
+                # Ensure focus before first escape
+                focus_fortnite()
+                time.sleep(0.1)
+
                 # Hold ESC for 1.5 seconds to accept through Fortnite client
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
+
+                # Extra hold escape to ensure acceptance
+                time.sleep(0.2)
+
+                # Ensure focus before second escape
+                focus_fortnite()
+                time.sleep(0.1)
+
+                pyautogui.keyDown('escape')
+                time.sleep(1.5)
+                pyautogui.keyUp('escape')
             else:
-                logger.warning(f"Cannot auto-accept invite: Fortnite not focused (Active: {active_title})")
+                logger.warning(f"Cannot auto-accept invite: Failed to focus Fortnite")
                 # We don't speak here to avoid interrupting, just log
 
             # Monitor party status to see if join was successful
@@ -1213,6 +1316,17 @@ class SocialManager:
                 # Still track it in case we get an invite
                 self.outgoing_join_requests[friend.account_id] = (datetime.now(), display_name)
                 speaker.speak(f"Join request sent to {display_name}") # Treat as success
+            elif result == "no_party":
+                # Friend has no party, invite them to ours instead
+                logger.info(f"{display_name} has no party, inviting them to join us")
+                speaker.speak(f"{display_name} has no party. Inviting them to join you")
+
+                # Send party invite
+                invite_result = self.social_api.send_party_invite(friend.account_id)
+                if invite_result:
+                    speaker.speak(f"Invited {display_name} to your party")
+                else:
+                    speaker.speak(f"Failed to invite {display_name}")
             else:
                 speaker.speak("Failed to send join request")
 
