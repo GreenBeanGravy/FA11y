@@ -187,11 +187,30 @@ class SocialManager:
         slow_poll_counter = 0
         cycles_per_slow_poll = self.slow_poll_interval // self.fast_poll_interval  # 30s / 5s = 6 cycles
 
+        # Track if monitoring is paused due to invalid auth
+        was_paused = False
+
         while self.running:
             try:
                 time.sleep(self.fast_poll_interval)
                 if not self.running:
                     break
+
+                # Check if auth is still valid before making API calls
+                if not self.social_api or not self.social_api.auth.is_valid:
+                    if not was_paused:
+                        logger.warning("Auth is invalid, pausing social monitoring (waiting for new auth)")
+                        was_paused = True
+                    # Wait longer when auth is invalid to avoid spamming logs
+                    time.sleep(30)
+                    continue
+
+                # Auth is valid - check if we're resuming from pause
+                if was_paused:
+                    logger.info("Auth is now valid, resuming social monitoring")
+                    was_paused = False
+                    # Do a full refresh after resuming
+                    self.refresh_all_data()
 
                 # Fast poll: invites and requests (every 5 seconds)
                 self.refresh_fast_data()
@@ -212,6 +231,11 @@ class SocialManager:
     def refresh_all_data(self):
         """Refresh all social data from API"""
         if not self.social_api:
+            return
+
+        # Don't make API calls if auth is invalid
+        if not self.social_api.auth.is_valid:
+            logger.debug("Skipping social data refresh - auth is invalid")
             return
 
         try:
@@ -248,6 +272,11 @@ class SocialManager:
         if not self.social_api:
             return
 
+        # Don't make API calls if auth is invalid
+        if not self.social_api.auth.is_valid:
+            logger.debug("Skipping fast data refresh - auth is invalid")
+            return
+
         try:
             # Make API calls WITHOUT holding lock
             requests = self.social_api.get_pending_requests()
@@ -269,6 +298,11 @@ class SocialManager:
     def refresh_slow_data(self):
         """Refresh slow-changing data: friends list and party members (30s interval)"""
         if not self.social_api:
+            return
+
+        # Don't make API calls if auth is invalid
+        if not self.social_api.auth.is_valid:
+            logger.debug("Skipping slow data refresh - auth is invalid")
             return
 
         try:

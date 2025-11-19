@@ -335,13 +335,9 @@ class EpicSocial:
                 return friends
 
             elif response.status_code == 401:
-                logger.error("Authentication token expired")
-                # Notify about auth expiration
-                try:
-                    import FA11y
-                    FA11y.handle_auth_expiration()
-                except:
-                    pass  # FA11y might not be available in all contexts
+                logger.error("Authentication token expired - marking auth as invalid")
+                # Mark auth as invalid so background tasks will pause
+                self.auth.invalidate_auth()
                 return None
             else:
                 logger.error(f"Failed to get friends list: {response.status_code} - {response.text}")
@@ -444,13 +440,9 @@ class EpicSocial:
                 return requests_list
 
             elif response.status_code == 401:
-                logger.error("Authentication token expired")
-                # Notify about auth expiration
-                try:
-                    import FA11y
-                    FA11y.handle_auth_expiration()
-                except:
-                    pass  # FA11y might not be available in all contexts
+                logger.error("Authentication token expired - marking auth as invalid")
+                # Mark auth as invalid so background tasks will pause
+                self.auth.invalidate_auth()
                 return None
             else:
                 logger.error(f"Failed to get pending requests: {response.status_code}")

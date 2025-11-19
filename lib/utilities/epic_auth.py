@@ -31,6 +31,7 @@ class EpicAuth:
         self.access_token = None
         self.account_id = None
         self.display_name = None
+        self.is_valid = False  # Track if auth is currently valid
 
         # Epic Games Fortnite client credentials (public)
         self.CLIENT_ID = "ec684b8c687f479fadea3cb2ad83f5c6"
@@ -63,9 +64,11 @@ class EpicAuth:
             # Check if token is still valid
             if expiry and datetime.fromisoformat(expiry) > datetime.now():
                 logger.info(f"Loaded cached auth for {self.display_name}")
+                self.is_valid = True
                 return True
             else:
                 logger.info("Cached auth expired")
+                self.is_valid = False
                 return False
         except Exception as e:
             logger.error(f"Error loading cached auth: {e}")
@@ -82,6 +85,7 @@ class EpicAuth:
                 'expires_at': expires_at.isoformat()
             }
             config_manager.set('epic_auth', data=data)
+            self.is_valid = True  # Mark auth as valid when saving
             logger.info(f"Saved auth for {display_name}")
         except Exception as e:
             logger.error(f"Error saving auth: {e}")
@@ -93,9 +97,15 @@ class EpicAuth:
             self.access_token = None
             self.account_id = None
             self.display_name = None
+            self.is_valid = False  # Mark auth as invalid when clearing
             logger.info("Cleared cached auth")
         except Exception as e:
             logger.error(f"Error clearing auth: {e}")
+
+    def invalidate_auth(self):
+        """Mark authentication as invalid without clearing tokens (for 401 errors)"""
+        self.is_valid = False
+        logger.warning(f"Authentication marked as invalid for {self.display_name or 'unknown user'}")
 
     def get_authorization_url(self) -> str:
         """
