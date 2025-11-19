@@ -497,3 +497,94 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
 def get_epic_auth_instance() -> EpicAuth:
     """Get or create Epic auth instance"""
     return EpicAuth()
+
+
+# ============================================================================
+# LOCKER API - Direct cosmetic equipping via Epic's MCP endpoints
+# ============================================================================
+
+class LockerAPI:
+    """Direct API integration for equipping cosmetics (no UI automation!)"""
+
+    def __init__(self, auth: EpicAuth):
+        self.auth = auth
+        self.profile_data = None
+        self.owned_items = {}
+        self.template_id_map = {}
+
+    def _mcp_operation(self, operation: str, profile_id: str = "athena", body: Optional[Dict] = None) -> Optional[Dict]:
+        """Execute an MCP operation"""
+        if not self.auth.access_token or not self.auth.account_id:
+            return None
+
+        url = f"{self.auth.MCP_URL}/{self.auth.account_id}/client/{operation}"
+        body = body or {}
+
+        try:
+            response = requests.post(
+                url,
+                headers={"Authorization": f"Bearer {self.auth.access_token}", "Content-Type": "application/json"},
+                params={"profileId": profile_id},
+                json=body,
+                timeout=30
+            )
+            return response.json() if response.status_code == 200 else None
+        except Exception as e:
+            logger.error(f"MCP {operation} error: {e}")
+            return None
+
+    def load_profile(self) -> bool:
+        """Load athena profile"""
+        result = self._mcp_operation("QueryProfile", "athena")
+        if not result:
+            return False
+
+        self.profile_data = result.get("profileChanges", [{}])[0].get("profile", {})
+        items = self.profile_data.get("items", {})
+
+        self.owned_items = {}
+        self.template_id_map = {}
+        for guid, item_data in items.items():
+            template_id = item_data.get("templateId", "")
+            if template_id:
+                self.owned_items[guid] = item_data
+                self.template_id_map[template_id] = guid
+
+        logger.info(f"Loaded {len(self.owned_items)} items")
+        return True
+
+    def equip_cosmetic(self, template_id: str, category: str = "Character", slot_index: int = 0) -> bool:
+        """
+        Equip a cosmetic item directly via API
+
+        Args:
+            template_id: Full ID like "AthenaCharacter:CID_029_Athena_Commando_F_Halloween"
+            category: Character, Backpack, Pickaxe, Glider, Dance, ItemWrap, etc.
+            slot_index: Slot (0 for most, 0-5 for emotes, 0-6 for wraps)
+        """
+        body = {
+            "lockerItem": "",
+            "category": category,
+            "itemToSlot": template_id,
+            "slotIndex": slot_index,
+            "variantUpdates": []
+        }
+        return self._mcp_operation("SetCosmeticLockerSlot", "athena", body) is not None
+
+    def build_template_id(self, cosmetic_type: str, cosmetic_id: str) -> str:
+        """Build template ID from type and CID"""
+        type_map = {
+            "Outfit": "AthenaCharacter", "Back Bling": "AthenaBackpack",
+            "Pickaxe": "AthenaPickaxe", "Glider": "AthenaGlider",
+            "Emote": "AthenaDance", "Wrap": "AthenaItemWrap",
+            "Contrail": "AthenaSkyDiveContrail", "Music": "AthenaMusicPack",
+            "Loading Screen": "AthenaLoadingScreen", "Pet": "AthenaPetCarrier",
+            "Kicks": "AthenaShoes"
+        }
+        backend = type_map.get(cosmetic_type, cosmetic_type)
+        return f"{backend}:{cosmetic_id}"
+
+
+def get_locker_api(auth: EpicAuth) -> LockerAPI:
+    """Get LockerAPI instance"""
+    return LockerAPI(auth)
