@@ -421,12 +421,13 @@ class EpicAuth:
             logger.error(f"Error loading cosmetics cache: {e}")
             return None
 
-    def refresh_cosmetics(self, enrich_with_fortnitegg: bool = True) -> bool:
+    def refresh_cosmetics(self, enrich_with_fortnitetracker: bool = True, sample_size: int = 100) -> bool:
         """
         Fetch fresh cosmetics data and save to cache
 
         Args:
-            enrich_with_fortnitegg: If True, enrich with Fortnite.gg data
+            enrich_with_fortnitetracker: If True, enrich with FortniteTracker.gg data
+            sample_size: Number of items to enrich during refresh (0 = skip bulk enrichment)
 
         Returns:
             True if successful, False otherwise
@@ -435,14 +436,12 @@ class EpicAuth:
         if not cosmetics:
             return False
 
-        # Optionally enrich with Fortnite.gg data
-        if enrich_with_fortnitegg:
+        # Optionally enrich with FortniteTracker.gg data
+        if enrich_with_fortnitetracker:
             try:
-                gg_data = fetch_fortnitegg_data()
-                if gg_data:
-                    cosmetics = enrich_cosmetics_with_fortnitegg(cosmetics, gg_data)
+                cosmetics = enrich_cosmetics_with_fortnitetracker(cosmetics, sample_size)
             except Exception as e:
-                logger.warning(f"Failed to enrich with Fortnite.gg data: {e}")
+                logger.warning(f"Failed to enrich with FortniteTracker.gg data: {e}")
 
         return self.save_cosmetics_cache(cosmetics)
 
@@ -518,146 +517,139 @@ def get_epic_auth_instance() -> EpicAuth:
 
 
 # ============================================================================
-# FORTNITE.GG INTEGRATION - Supplementary cosmetics data
+# FORTNITETRACKER.GG INTEGRATION - Supplementary cosmetics data
 # ============================================================================
 
-def fetch_fortnitegg_data() -> Optional[Dict]:
+# Cache for FortniteTracker data to avoid repeated requests
+_fortnitetracker_cache = {}
+
+def fetch_fortnitetracker_item(cosmetic_id: str) -> Optional[Dict]:
     """
-    Fetch supplementary cosmetics data from Fortnite.gg
+    Fetch supplementary data for a single cosmetic from FortniteTracker.gg
+
+    Args:
+        cosmetic_id: The cosmetic ID (e.g., 'CID_029_Athena_Commando_F_Halloween')
 
     Returns:
-        Dict with 'sets' and 'items' or None if failed
+        Dict with enrichment data or None if failed
     """
     import re
+    from bs4 import BeautifulSoup
+
+    # Check cache first
+    if cosmetic_id in _fortnitetracker_cache:
+        return _fortnitetracker_cache[cosmetic_id]
 
     try:
-        logger.info("Fetching data from Fortnite.gg...")
+        logger.info(f"Fetching data from FortniteTracker.gg for {cosmetic_id}...")
 
-        # Fetch the JavaScript file
-        url = "https://fortnite.gg/data/items/all-v2.en.js"
-        response = requests.get(url, timeout=30)
+        # Construct URL - FortniteTracker uses the cosmetic ID in the URL
+        url = f"https://fortnitetracker.gg/item-shop/{cosmetic_id}"
+        response = requests.get(url, timeout=15, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
 
         if response.status_code != 200:
-            logger.error(f"Failed to fetch Fortnite.gg data: {response.status_code}")
+            logger.debug(f"FortniteTracker.gg returned {response.status_code} for {cosmetic_id}")
+            _fortnitetracker_cache[cosmetic_id] = None
             return None
 
-        # Parse the JavaScript data
-        content = response.text
+        # Parse HTML
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Extract Sets array
-        sets_match = re.search(r'Sets=(\[.*?\]);', content, re.DOTALL)
-        sets = []
-        if sets_match:
-            import json
-            sets_json = sets_match.group(1)
-            try:
-                sets = json.loads(sets_json)
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse Sets array: {e}")
+        enrichment_data = {}
 
-        # Extract Items array
-        items_match = re.search(r'Items=(\[.*?\]);', content, re.DOTALL)
-        items = []
-        if items_match:
-            import json
-            items_json = items_match.group(1)
-            try:
-                items = json.loads(items_json)
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse Items array: {e}")
+        # Try to extract set information
+        # Look for elements that might contain set info
+        set_elements = soup.find_all(text=re.compile(r'Set:', re.IGNORECASE))
+        for elem in set_elements:
+            parent = elem.find_parent()
+            if parent:
+                set_text = parent.get_text().strip()
+                match = re.search(r'Set:\s*(.+)', set_text, re.IGNORECASE)
+                if match:
+                    enrichment_data['set_name'] = match.group(1).strip()
+                    break
 
-        logger.info(f"Fetched {len(sets)} sets and {len(items)} items from Fortnite.gg")
+        # Try to extract price information from tables
+        price_tables = soup.find_all('table')
+        for table in price_tables:
+            # Look for V-Bucks prices in table cells
+            cells = table.find_all(['td', 'th'])
+            for cell in cells:
+                text = cell.get_text().strip()
+                # Match patterns like "500" or "500 V-Bucks"
+                price_match = re.search(r'(\d+)\s*(?:V-?Bucks)?', text, re.IGNORECASE)
+                if price_match and 'price' in text.lower() or 'vbucks' in text.lower():
+                    enrichment_data['vbucks_price'] = int(price_match.group(1))
+                    break
 
-        return {
-            "sets": sets,
-            "items": items
-        }
+        # Try to extract gameplay tags
+        tags = []
+        tag_elements = soup.find_all(class_=re.compile(r'tag', re.IGNORECASE))
+        for tag_elem in tag_elements:
+            tag_text = tag_elem.get_text().strip()
+            if tag_text and len(tag_text) < 50:  # Reasonable tag length
+                tags.append(tag_text)
+        if tags:
+            enrichment_data['gameplay_tags'] = tags
+
+        # Cache the result (even if empty)
+        _fortnitetracker_cache[cosmetic_id] = enrichment_data if enrichment_data else None
+
+        if enrichment_data:
+            logger.info(f"Enriched {cosmetic_id} with FortniteTracker.gg data: {list(enrichment_data.keys())}")
+
+        return enrichment_data if enrichment_data else None
 
     except Exception as e:
-        logger.error(f"Error fetching Fortnite.gg data: {e}")
+        logger.debug(f"Error fetching FortniteTracker.gg data for {cosmetic_id}: {e}")
+        _fortnitetracker_cache[cosmetic_id] = None
         return None
 
 
-def enrich_cosmetics_with_fortnitegg(cosmetics_data: List[Dict], fortnitegg_data: Dict) -> List[Dict]:
+def enrich_cosmetics_with_fortnitetracker(cosmetics_data: List[Dict], sample_size: int = 100) -> List[Dict]:
     """
-    Enrich cosmetics data with Fortnite.gg information
+    Enrich cosmetics data with FortniteTracker.gg information
+
+    This uses a sampling approach to avoid overwhelming FortniteTracker servers.
+    Full enrichment happens on-demand when users view individual items.
 
     Args:
         cosmetics_data: List of cosmetics from Fortnite-API.com
-        fortnitegg_data: Data from Fortnite.gg
+        sample_size: Number of items to enrich (0 = skip bulk enrichment)
 
     Returns:
         Enriched cosmetics data
     """
-    if not fortnitegg_data or not cosmetics_data:
+    import time
+    import random
+
+    if not cosmetics_data or sample_size == 0:
         return cosmetics_data
 
-    sets = fortnitegg_data.get("sets", [])
-    gg_items = fortnitegg_data.get("items", [])
+    logger.info(f"Starting FortniteTracker.gg enrichment for {sample_size} sample cosmetics...")
 
-    # Create a map of Fortnite.gg items by name for quick lookup
-    gg_items_by_name = {}
-    for item in gg_items:
-        name = item.get("name", "").lower()
-        if name:
-            gg_items_by_name[name] = item
+    # Sample random cosmetics to enrich
+    sample_cosmetics = random.sample(cosmetics_data, min(sample_size, len(cosmetics_data)))
 
-    # Helper to parse Fortnite.gg date format (YYMMDD)
-    def parse_gg_date(date_int):
-        """Parse Fortnite.gg date format (e.g., 251117 = Nov 17, 2025)"""
-        if not date_int:
-            return None
-        try:
-            date_str = str(date_int)
-            if len(date_str) == 6:
-                year = 2000 + int(date_str[0:2])
-                month = int(date_str[2:4])
-                day = int(date_str[4:6])
-                return f"{year}-{month:02d}-{day:02d}"
-        except:
-            return None
-        return None
-
-    # Enrich each cosmetic with Fortnite.gg data
     enriched_count = 0
-    for cosmetic in cosmetics_data:
-        name = cosmetic.get("name", "").lower()
-        if name in gg_items_by_name:
-            gg_item = gg_items_by_name[name]
+    for cosmetic in sample_cosmetics:
+        cosmetic_id = cosmetic.get("id", "")
+        if not cosmetic_id:
+            continue
 
-            # Add set information
-            set_index = gg_item.get("set")
-            if set_index is not None and 0 <= set_index < len(sets):
-                set_name = sets[set_index]
-                if set_name:
-                    cosmetic["set_name"] = set_name.title()
-
-            # Add Fortnite.gg specific data
-            cosmetic["fortnitegg_id"] = gg_item.get("id")
-            cosmetic["fortnitegg_type"] = gg_item.get("type")
-
-            # Add release date
-            added_date = gg_item.get("added")
-            if added_date:
-                parsed_date = parse_gg_date(added_date)
-                if parsed_date:
-                    cosmetic["release_date"] = parsed_date
-
-            # Add V-Bucks price if available
-            vbucks_price = gg_item.get("p")
-            if vbucks_price:
-                cosmetic["vbucks_price"] = vbucks_price
-
-            # Add last seen date if available
-            last_seen = gg_item.get("l")
-            if last_seen:
-                parsed_last = parse_gg_date(last_seen)
-                if parsed_last:
-                    cosmetic["last_seen"] = parsed_last
-
+        # Fetch enrichment data
+        enrichment = fetch_fortnitetracker_item(cosmetic_id)
+        if enrichment:
+            # Merge enrichment data into cosmetic
+            cosmetic.update(enrichment)
             enriched_count += 1
 
-    logger.info(f"Enriched {enriched_count} cosmetics with Fortnite.gg data (sets, prices, dates)")
+        # Rate limiting: wait between requests
+        time.sleep(0.5)  # 2 requests per second max
+
+    logger.info(f"Enriched {enriched_count}/{sample_size} cosmetics with FortniteTracker.gg data")
     return cosmetics_data
 
 
