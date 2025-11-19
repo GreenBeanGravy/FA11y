@@ -901,7 +901,7 @@ def key_listener() -> None:
         
         # List of our GUI titles (or partial matches)
         # List of our GUI titles (or partial matches)
-        gui_titles = ["Social Menu", "FA11y Configuration", "Locker", "Game Mode Selection", "Create Custom POI", "Visited Objects Manager", "Epic Games Login"]
+        gui_titles = ["Social Menu", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login"]
         
         is_gui_focused = any(title in active_title for title in gui_titles)
 
