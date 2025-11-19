@@ -431,28 +431,36 @@ class EpicAuth:
             logger.error(f"Error loading cosmetics cache: {e}")
             return None
 
-    def refresh_cosmetics(self, enrich_with_fortnitetracker: bool = True, sample_size: int = 100) -> bool:
+    def refresh_cosmetics(self, enrich_with_fortnitetracker: bool = True, sample_size: int = 0) -> bool:
         """
         Fetch fresh cosmetics data and save to cache
 
         Args:
             enrich_with_fortnitetracker: If True, enrich with FortniteTracker.gg data
-            sample_size: Number of items to enrich during refresh (0 = skip bulk enrichment)
+            sample_size: Number of items to enrich during refresh (0 = skip bulk enrichment, recommended for speed)
 
         Returns:
             True if successful, False otherwise
         """
+        logger.info("Fetching all cosmetics from Fortnite-API.com...")
         cosmetics = self.fetch_cosmetics_from_api()
         if not cosmetics:
+            logger.error("Failed to fetch cosmetics from Fortnite-API.com")
             return False
 
+        logger.info(f"Successfully fetched {len(cosmetics)} cosmetics from Fortnite-API.com")
+
         # Optionally enrich with FortniteTracker.gg data
-        if enrich_with_fortnitetracker:
+        if enrich_with_fortnitetracker and sample_size > 0:
+            logger.info(f"Will enrich {sample_size} random cosmetics with FortniteTracker.gg data (this may take {sample_size * 0.5:.0f} seconds)...")
             try:
                 cosmetics = enrich_cosmetics_with_fortnitetracker(cosmetics, sample_size)
             except Exception as e:
                 logger.warning(f"Failed to enrich with FortniteTracker.gg data: {e}")
+        else:
+            logger.info("Skipping FortniteTracker.gg bulk enrichment for faster loading")
 
+        logger.info("Saving cosmetics to cache...")
         return self.save_cosmetics_cache(cosmetics)
 
     def get_owned_cosmetics_data(self) -> Optional[List[Dict]]:
@@ -487,11 +495,17 @@ class EpicAuth:
             # Check for unmatched owned cosmetics
             unmatched_ids = owned_ids - matched_ids
             if unmatched_ids:
-                logger.info(f"Found {len(unmatched_ids)} owned cosmetics not in Fortnite-API, attempting FortniteTracker fallback...")
+                unmatched_list = list(unmatched_ids)
+                logger.info(f"Found {len(unmatched_list)} owned cosmetics not in Fortnite-API database")
+                logger.info(f"Attempting FortniteTracker.gg fallback (this may take {len(unmatched_list) * 0.5:.0f} seconds)...")
 
                 # Try to get data from FortniteTracker for unmatched cosmetics
-                for cosmetic_id in unmatched_ids:
-                    logger.info(f"Fetching FortniteTracker data for unrecognized cosmetic: {cosmetic_id}")
+                for idx, cosmetic_id in enumerate(unmatched_list, 1):
+                    # Log progress every 5 items or for first item
+                    if idx % 5 == 0 or idx == 1:
+                        logger.info(f"FortniteTracker fallback progress: {idx}/{len(unmatched_list)} ({(idx/len(unmatched_list))*100:.0f}%)")
+
+                    logger.debug(f"Fetching FortniteTracker data for unrecognized cosmetic: {cosmetic_id}")
 
                     try:
                         tracker_data = fetch_fortnitetracker_item(cosmetic_id)
@@ -544,7 +558,11 @@ class EpicAuth:
                     except Exception as e:
                         logger.error(f"Error processing unmatched cosmetic {cosmetic_id}: {e}")
 
-                logger.info(f"Total owned cosmetics after FortniteTracker fallback: {len(owned_cosmetics)}")
+                    # Rate limiting between FortniteTracker requests
+                    import time
+                    time.sleep(0.5)
+
+                logger.info(f"FortniteTracker fallback complete: {len(owned_cosmetics)} total owned cosmetics")
 
             return owned_cosmetics
 
@@ -730,16 +748,22 @@ def enrich_cosmetics_with_fortnitetracker(cosmetics_data: List[Dict], sample_siz
     if not cosmetics_data or sample_size == 0:
         return cosmetics_data
 
-    logger.info(f"Starting FortniteTracker.gg enrichment for {sample_size} sample cosmetics...")
+    actual_sample_size = min(sample_size, len(cosmetics_data))
+    logger.info(f"Starting FortniteTracker.gg enrichment for {actual_sample_size} sample cosmetics...")
+    logger.info(f"This will take approximately {actual_sample_size * 0.5:.0f} seconds due to rate limiting")
 
     # Sample random cosmetics to enrich
-    sample_cosmetics = random.sample(cosmetics_data, min(sample_size, len(cosmetics_data)))
+    sample_cosmetics = random.sample(cosmetics_data, actual_sample_size)
 
     enriched_count = 0
-    for cosmetic in sample_cosmetics:
+    for idx, cosmetic in enumerate(sample_cosmetics, 1):
         cosmetic_id = cosmetic.get("id", "")
         if not cosmetic_id:
             continue
+
+        # Log progress every 10 items
+        if idx % 10 == 0 or idx == 1:
+            logger.info(f"FortniteTracker enrichment progress: {idx}/{actual_sample_size} ({(idx/actual_sample_size)*100:.0f}%)")
 
         # Fetch enrichment data
         enrichment = fetch_fortnitetracker_item(cosmetic_id)
@@ -751,7 +775,7 @@ def enrich_cosmetics_with_fortnitetracker(cosmetics_data: List[Dict], sample_siz
         # Rate limiting: wait between requests
         time.sleep(0.5)  # 2 requests per second max
 
-    logger.info(f"Enriched {enriched_count}/{sample_size} cosmetics with FortniteTracker.gg data")
+    logger.info(f"FortniteTracker enrichment complete: enriched {enriched_count}/{actual_sample_size} cosmetics")
     return cosmetics_data
 
 
