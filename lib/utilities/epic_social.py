@@ -885,11 +885,13 @@ class EpicSocial:
             True if successful, "no_party" if friend has no party, "already_sent" if already sent, False otherwise
         """
         try:
-            # First check if the friend actually has a party
+            # Try to check if friend has a party (might fail due to privacy settings)
             friend_party = self.get_user_party_info(friend_account_id)
-            if not friend_party:
-                logger.info(f"Friend {friend_account_id} does not have a party to join")
-                return "no_party"
+            if friend_party:
+                logger.debug(f"Friend {friend_account_id} has a visible party")
+            else:
+                logger.debug(f"Cannot see friend {friend_account_id}'s party (privacy settings or no party)")
+                # Still try to send the request - Epic API will return 404 if truly no party
 
             # Send request to join
             request_body = {
@@ -910,6 +912,10 @@ class EpicSocial:
                 # Request already exists
                 logger.info(f"Join request already sent to {friend_account_id}")
                 return "already_sent"
+            elif response.status_code == 404:
+                # Friend truly has no party (confirmed by API)
+                logger.info(f"Friend {friend_account_id} has no party (404 from API)")
+                return "no_party"
             else:
                 logger.error(f"Failed to send join request: {response.status_code}")
                 if response.text:
