@@ -1012,7 +1012,11 @@ class SocialManager:
 
             # Focus Fortnite window (uses process name, more reliable)
             if focus_fortnite():
-                time.sleep(0.3)  # Give window time to focus
+                time.sleep(0.2)  # Give window time to focus
+
+                # Ensure focus before clicking
+                focus_fortnite()
+                time.sleep(0.1)
 
                 # Click center of screen to ensure Fortnite is ready
                 screen_width, screen_height = pyautogui.size()
@@ -1021,6 +1025,10 @@ class SocialManager:
                 pyautogui.click(center_x, center_y)
                 time.sleep(0.2)
 
+                # Ensure focus before first escape
+                focus_fortnite()
+                time.sleep(0.1)
+
                 # Hold ESC for 1.5 seconds to accept through Fortnite client
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
@@ -1028,6 +1036,11 @@ class SocialManager:
 
                 # Extra hold escape to ensure acceptance
                 time.sleep(0.2)
+
+                # Ensure focus before second escape
+                focus_fortnite()
+                time.sleep(0.1)
+
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
@@ -1072,7 +1085,11 @@ class SocialManager:
 
             # Focus Fortnite window (uses process name, more reliable)
             if focus_fortnite():
-                time.sleep(0.3)  # Give window time to focus
+                time.sleep(0.2)  # Give window time to focus
+
+                # Ensure focus before clicking
+                focus_fortnite()
+                time.sleep(0.1)
 
                 # Click center of screen to ensure Fortnite is ready
                 screen_width, screen_height = pyautogui.size()
@@ -1081,6 +1098,10 @@ class SocialManager:
                 pyautogui.click(center_x, center_y)
                 time.sleep(0.2)
 
+                # Ensure focus before first escape
+                focus_fortnite()
+                time.sleep(0.1)
+
                 # Hold ESC for 1.5 seconds to accept through Fortnite client
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
@@ -1088,6 +1109,11 @@ class SocialManager:
 
                 # Extra hold escape to ensure acceptance
                 time.sleep(0.2)
+
+                # Ensure focus before second escape
+                focus_fortnite()
+                time.sleep(0.1)
+
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
