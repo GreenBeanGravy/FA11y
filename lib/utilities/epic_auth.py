@@ -584,6 +584,133 @@ class LockerAPI:
         backend = type_map.get(cosmetic_type, cosmetic_type)
         return f"{backend}:{cosmetic_id}"
 
+    def set_favorite(self, template_id: str, is_favorite: bool) -> bool:
+        """
+        Set favorite status for a cosmetic item
+
+        Args:
+            template_id: Full template ID like "AthenaCharacter:CID_029_Athena_Commando_F_Halloween"
+            is_favorite: True to mark as favorite, False to unmark
+
+        Returns:
+            True if successful, False otherwise
+        """
+        # Get the item GUID from template ID
+        guid = self.template_id_map.get(template_id)
+
+        if not guid:
+            logger.warning(f"Could not find GUID for template ID: {template_id}")
+            # If not in map, try to load profile first
+            if not self.load_profile():
+                return False
+            guid = self.template_id_map.get(template_id)
+            if not guid:
+                logger.error(f"Template ID not found in owned items: {template_id}")
+                return False
+
+        # Use SetItemFavoriteStatusBatch API
+        body = {
+            "itemIds": [guid],
+            "itemFavStatus": [is_favorite]
+        }
+
+        result = self._mcp_operation("SetItemFavoriteStatusBatch", "athena", body)
+
+        if result:
+            logger.info(f"Set favorite status for {template_id} to {is_favorite}")
+            return True
+        else:
+            logger.error(f"Failed to set favorite status for {template_id}")
+            return False
+
+    def equip_multiple_cosmetics(self, items: List[Dict[str, any]]) -> bool:
+        """
+        Equip multiple cosmetics at once
+
+        Args:
+            items: List of dicts with keys: template_id, category, slot_index
+
+        Returns:
+            True if successful, False otherwise
+        """
+        loadout_data = []
+        for item in items:
+            loadout_data.append({
+                "category": item.get("category", "Character"),
+                "itemToSlot": item.get("template_id", ""),
+                "slotIndex": item.get("slot_index", 0),
+                "variantUpdates": []
+            })
+
+        body = {
+            "lockerItem": "",
+            "loadoutData": loadout_data
+        }
+
+        result = self._mcp_operation("SetCosmeticLockerSlots", "athena", body)
+        return result is not None
+
+    def save_loadout(self, loadout_type: str, preset_id: int, slots: List[Dict], display_name: str = "") -> bool:
+        """
+        Save a cosmetic loadout
+
+        Args:
+            loadout_type: Type like "CosmeticLoadout:LoadoutSchema_Character"
+            preset_id: Loadout index (0-9)
+            slots: List of slot dicts with slot_template and equipped_item
+            display_name: Optional loadout name
+
+        Returns:
+            True if successful, False otherwise
+        """
+        import json
+
+        loadout_data = {
+            "slots": slots
+        }
+        if display_name:
+            loadout_data["display_name"] = display_name
+
+        body = {
+            "loadoutType": loadout_type,
+            "presetId": preset_id,
+            "loadoutData": json.dumps(loadout_data)
+        }
+
+        result = self._mcp_operation("PutModularCosmeticLoadout", "athena", body)
+
+        if result:
+            logger.info(f"Saved loadout {preset_id} for type {loadout_type}")
+            return True
+        else:
+            logger.error(f"Failed to save loadout")
+            return False
+
+    def load_loadout(self, loadout_type: str, preset_id: int) -> bool:
+        """
+        Load a saved cosmetic loadout
+
+        Args:
+            loadout_type: Type like "CosmeticLoadout:LoadoutSchema_Character"
+            preset_id: Loadout index (0-9)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        body = {
+            "loadoutType": loadout_type,
+            "presetId": preset_id
+        }
+
+        result = self._mcp_operation("EquipModularCosmeticLoadoutPreset", "athena", body)
+
+        if result:
+            logger.info(f"Loaded loadout {preset_id} for type {loadout_type}")
+            return True
+        else:
+            logger.error(f"Failed to load loadout")
+            return False
+
 
 def get_locker_api(auth: EpicAuth) -> LockerAPI:
     """Get LockerAPI instance"""

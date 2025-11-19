@@ -73,6 +73,10 @@ class CategoryView(AccessibleDialog):
         # Search state
         self.current_search = ""
 
+        # Favorite filter/sort state
+        self.favorites_only = False
+        self.sort_favorites_first = False
+
         # Category-specific settings
         self.show_random = self._should_show_random()
         self.unequip_search_term = self._get_unequip_search_term()
@@ -83,12 +87,17 @@ class CategoryView(AccessibleDialog):
 
     def _should_show_random(self) -> bool:
         """Check if Random option should be shown for this category"""
-        # Emotes don't have random option
-        return self.category_name != "Emote"
+        # Don't show Random for All Cosmetics or Emotes
+        if self.category_name in ["All Cosmetics", "Emote"]:
+            return False
+        return True
 
     def _get_unequip_search_term(self) -> str:
         """Get the search term for unequipping based on category"""
-        if self.category_name in ["Outfit", "Pickaxe"]:
+        # No unequip option for All Cosmetics
+        if self.category_name == "All Cosmetics":
+            return None
+        elif self.category_name in ["Outfit", "Pickaxe"]:
             return "Default"
         elif self.category_name == "Glider":
             return "Glider"
@@ -106,13 +115,16 @@ class CategoryView(AccessibleDialog):
                 if cosmetic_id not in self.owned_ids:
                     continue
 
-            # Category filter
-            cosmetic_type = cosmetic.get("type", "")
-            type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
-            friendly_type = type_info.get("name", cosmetic_type)
-
-            if friendly_type == self.category_name:
+            # Category filter - "All Cosmetics" shows everything
+            if self.category_name == "All Cosmetics":
                 filtered.append(cosmetic)
+            else:
+                cosmetic_type = cosmetic.get("type", "")
+                type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+                friendly_type = type_info.get("name", cosmetic_type)
+
+                if friendly_type == self.category_name:
+                    filtered.append(cosmetic)
 
         # Sort by rarity (highest first) by default
         filtered = sorted(filtered, key=lambda x: (-x.get("rarity_value", 0), x.get("name", "")))
@@ -125,6 +137,21 @@ class CategoryView(AccessibleDialog):
         # Results count
         self.results_label = wx.StaticText(self, label="")
         sizer.addItem(self.results_label)
+
+        # Favorite filter controls
+        filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.favorites_only_btn = wx.ToggleButton(self, label="Favorites Only")
+        self.favorites_only_btn.SetValue(self.favorites_only)
+        self.favorites_only_btn.Bind(wx.EVT_TOGGLEBUTTON, self.on_favorites_only_toggle)
+        filter_sizer.Add(self.favorites_only_btn, flag=wx.ALL, border=5)
+
+        self.sort_favorites_btn = wx.ToggleButton(self, label="Sort Favorites First")
+        self.sort_favorites_btn.SetValue(self.sort_favorites_first)
+        self.sort_favorites_btn.Bind(wx.EVT_TOGGLEBUTTON, self.on_sort_favorites_toggle)
+        filter_sizer.Add(self.sort_favorites_btn, flag=wx.ALL, border=5)
+
+        sizer.addItem(filter_sizer)
 
         # Search box
         search_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -149,10 +176,16 @@ class CategoryView(AccessibleDialog):
             style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.LC_VRULES
         )
 
-        # Setup columns
-        self.cosmetics_list.InsertColumn(0, "Name", width=350)
-        self.cosmetics_list.InsertColumn(1, "Rarity", width=150)
-        self.cosmetics_list.InsertColumn(2, "Season", width=100)
+        # Setup columns - add Type column for All Cosmetics view
+        if self.category_name == "All Cosmetics":
+            self.cosmetics_list.InsertColumn(0, "Name", width=300)
+            self.cosmetics_list.InsertColumn(1, "Type", width=150)
+            self.cosmetics_list.InsertColumn(2, "Rarity", width=120)
+            self.cosmetics_list.InsertColumn(3, "Season", width=80)
+        else:
+            self.cosmetics_list.InsertColumn(0, "Name", width=350)
+            self.cosmetics_list.InsertColumn(1, "Rarity", width=150)
+            self.cosmetics_list.InsertColumn(2, "Season", width=100)
 
         self.cosmetics_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_item_selected)
         self.cosmetics_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_item_activated)
@@ -206,6 +239,10 @@ class CategoryView(AccessibleDialog):
         if key_code == wx.WXK_ESCAPE:
             self.EndModal(wx.ID_CANCEL)
             return
+        elif key_code == ord('F') or key_code == ord('f'):
+            # F key toggles favorite for selected cosmetic
+            self.on_toggle_favorite()
+            return
 
         event.Skip()
 
@@ -214,21 +251,42 @@ class CategoryView(AccessibleDialog):
         self.current_search = self.search_box.GetValue()
         self.update_list()
 
+    def on_favorites_only_toggle(self, event):
+        """Handle Favorites Only toggle"""
+        self.favorites_only = self.favorites_only_btn.GetValue()
+        if self.favorites_only:
+            speaker.speak("Filtering to favorites only")
+        else:
+            speaker.speak("Showing all cosmetics")
+        self.update_list()
+
+    def on_sort_favorites_toggle(self, event):
+        """Handle Sort Favorites First toggle"""
+        self.sort_favorites_first = self.sort_favorites_btn.GetValue()
+        if self.sort_favorites_first:
+            speaker.speak("Sorting favorites first")
+        else:
+            speaker.speak("Default sorting")
+        self.update_list()
+
     def filter_cosmetics(self) -> List[dict]:
-        """Filter cosmetics based on search"""
-        if not self.current_search:
-            return self.category_cosmetics.copy()
+        """Filter cosmetics based on search and favorites"""
+        # Start with category cosmetics
+        filtered = self.category_cosmetics.copy()
 
-        filtered = []
-        search_lower = self.current_search.lower()
+        # Apply favorites filter if enabled
+        if self.favorites_only:
+            filtered = [c for c in filtered if c.get("favorite", False)]
 
-        for cosmetic in self.category_cosmetics:
-            name = cosmetic.get("name", "").lower()
-            description = cosmetic.get("description", "").lower()
-            rarity = cosmetic.get("rarity", "").lower()
-
-            if search_lower in name or search_lower in description or search_lower in rarity:
-                filtered.append(cosmetic)
+        # Apply search filter if provided
+        if self.current_search:
+            search_lower = self.current_search.lower()
+            filtered = [
+                c for c in filtered
+                if search_lower in c.get("name", "").lower()
+                or search_lower in c.get("description", "").lower()
+                or search_lower in c.get("rarity", "").lower()
+            ]
 
         return filtered
 
@@ -236,12 +294,28 @@ class CategoryView(AccessibleDialog):
         """Update the cosmetics list"""
         self.filtered_cosmetics = self.filter_cosmetics()
 
+        # Sort favorites first if enabled
+        if self.sort_favorites_first:
+            self.filtered_cosmetics.sort(
+                key=lambda x: (
+                    not x.get("favorite", False),  # Favorites first (False sorts before True)
+                    -x.get("rarity_value", 0),      # Then by rarity (highest first)
+                    x.get("name", "")                # Then by name
+                )
+            )
+
         # Update results label
         count = len(self.filtered_cosmetics)
+        filter_desc = ""
+        if self.favorites_only:
+            filter_desc = " (favorites only)"
+        elif self.sort_favorites_first:
+            filter_desc = " (favorites first)"
+
         if self.current_search:
-            self.results_label.SetLabel(f"Showing {count} {self.category_name} cosmetics matching '{self.current_search}'")
+            self.results_label.SetLabel(f"Showing {count} {self.category_name} cosmetics matching '{self.current_search}'{filter_desc}")
         else:
-            self.results_label.SetLabel(f"Showing {count} {self.category_name} cosmetics")
+            self.results_label.SetLabel(f"Showing {count} {self.category_name} cosmetics{filter_desc}")
 
         # Clear and populate list
         self.cosmetics_list.Freeze()
@@ -253,20 +327,31 @@ class CategoryView(AccessibleDialog):
             # Add Random option at top (if applicable for this category)
             if self.show_random:
                 idx = self.cosmetics_list.InsertItem(list_offset, "🔄 Random")
-                self.cosmetics_list.SetItem(idx, 1, "Special")
-                self.cosmetics_list.SetItem(idx, 2, "-")
+                if self.category_name == "All Cosmetics":
+                    self.cosmetics_list.SetItem(idx, 1, "-")
+                    self.cosmetics_list.SetItem(idx, 2, "Special")
+                    self.cosmetics_list.SetItem(idx, 3, "-")
+                else:
+                    self.cosmetics_list.SetItem(idx, 1, "Special")
+                    self.cosmetics_list.SetItem(idx, 2, "-")
                 self.cosmetics_list.SetItemData(idx, -1)  # Special marker
                 self.cosmetics_list.SetItemTextColour(idx, wx.Colour(0, 217, 217))
                 list_offset += 1
 
-            # Add Unequip option (with category-specific label)
-            unequip_label = f"❌ Unequip ({self.unequip_search_term})"
-            idx = self.cosmetics_list.InsertItem(list_offset, unequip_label)
-            self.cosmetics_list.SetItem(idx, 1, "Special")
-            self.cosmetics_list.SetItem(idx, 2, "-")
-            self.cosmetics_list.SetItemData(idx, -2)  # Special marker
-            self.cosmetics_list.SetItemTextColour(idx, wx.Colour(255, 100, 100))
-            list_offset += 1
+            # Add Unequip option (with category-specific label, if applicable)
+            if self.unequip_search_term:
+                unequip_label = f"❌ Unequip ({self.unequip_search_term})"
+                idx = self.cosmetics_list.InsertItem(list_offset, unequip_label)
+                if self.category_name == "All Cosmetics":
+                    self.cosmetics_list.SetItem(idx, 1, "-")
+                    self.cosmetics_list.SetItem(idx, 2, "Special")
+                    self.cosmetics_list.SetItem(idx, 3, "-")
+                else:
+                    self.cosmetics_list.SetItem(idx, 1, "Special")
+                    self.cosmetics_list.SetItem(idx, 2, "-")
+                self.cosmetics_list.SetItemData(idx, -2)  # Special marker
+                self.cosmetics_list.SetItemTextColour(idx, wx.Colour(255, 100, 100))
+                list_offset += 1
 
             # Add regular cosmetics
             for cosmetic_idx, cosmetic in enumerate(self.filtered_cosmetics):
@@ -285,8 +370,19 @@ class CategoryView(AccessibleDialog):
                 season = f"C{cosmetic.get('introduction_chapter', '?')}S{cosmetic.get('introduction_season', '?')}"
 
                 list_idx = self.cosmetics_list.InsertItem(cosmetic_idx + list_offset, name)
-                self.cosmetics_list.SetItem(list_idx, 1, rarity)
-                self.cosmetics_list.SetItem(list_idx, 2, season)
+
+                # Add Type column for All Cosmetics view
+                if self.category_name == "All Cosmetics":
+                    cosmetic_type = cosmetic.get("type", "")
+                    type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+                    friendly_type = type_info.get("name", cosmetic_type)
+                    self.cosmetics_list.SetItem(list_idx, 1, friendly_type)
+                    self.cosmetics_list.SetItem(list_idx, 2, rarity)
+                    self.cosmetics_list.SetItem(list_idx, 3, season)
+                else:
+                    self.cosmetics_list.SetItem(list_idx, 1, rarity)
+                    self.cosmetics_list.SetItem(list_idx, 2, season)
+
                 self.cosmetics_list.SetItemData(list_idx, cosmetic_idx)
 
                 # Color code
@@ -364,6 +460,97 @@ class CategoryView(AccessibleDialog):
         """Handle double-click"""
         self.on_equip_clicked(None)
 
+    def on_toggle_favorite(self):
+        """Toggle favorite status for selected cosmetic"""
+        # Get selected item
+        index = self.cosmetics_list.GetFirstSelected()
+        if index == -1:
+            speaker.speak("No cosmetic selected")
+            return
+
+        cosmetic_idx = self.cosmetics_list.GetItemData(index)
+
+        # Don't allow favoriting Random or Unequip options
+        if cosmetic_idx < 0:
+            speaker.speak("Cannot favorite special options")
+            return
+
+        if cosmetic_idx >= len(self.filtered_cosmetics):
+            speaker.speak("Invalid cosmetic index")
+            return
+
+        cosmetic = self.filtered_cosmetics[cosmetic_idx]
+        cosmetic_id = cosmetic.get("id", "")
+        cosmetic_type = cosmetic.get("type", "")
+        name = cosmetic.get("name", "Unknown")
+
+        if not cosmetic_id or not cosmetic_type:
+            speaker.speak("Cannot favorite this item. Missing data.")
+            return
+
+        # Check if user is logged in
+        if not self.auth or not self.auth.access_token:
+            speaker.speak("Please log in to use favorites")
+            messageBox(
+                "You must be logged in to use the favorites feature.",
+                "Login Required",
+                wx.OK | wx.ICON_WARNING,
+                self
+            )
+            return
+
+        # Build template ID
+        template_id = f"{cosmetic_type}:{cosmetic_id}"
+
+        # Get current favorite status
+        current_favorite = cosmetic.get("favorite", False)
+        new_favorite = not current_favorite
+
+        # Update via API
+        try:
+            from lib.utilities.epic_auth import get_locker_api
+            locker_api = get_locker_api(self.auth)
+
+            # Load profile if not loaded
+            if not locker_api.template_id_map:
+                speaker.speak("Loading profile")
+                locker_api.load_profile()
+
+            speaker.speak(f"{'Unfavoriting' if current_favorite else 'Favoriting'} {name}")
+            success = locker_api.set_favorite(template_id, new_favorite)
+
+            if success:
+                # Update local data
+                cosmetic["favorite"] = new_favorite
+
+                # Also update in main cosmetics_data
+                for c in self.cosmetics_data:
+                    if c.get("id") == cosmetic_id:
+                        c["favorite"] = new_favorite
+                        break
+
+                # Speak confirmation
+                if new_favorite:
+                    speaker.speak(f"{name} added to favorites")
+                else:
+                    speaker.speak(f"{name} removed from favorites")
+
+                # Refresh list to show/hide star
+                wx.CallAfter(self.update_list)
+            else:
+                speaker.speak("Failed to update favorite status")
+                messageBox(
+                    "Failed to update favorite status via API. Check logs for details.",
+                    "Failed",
+                    wx.OK | wx.ICON_ERROR,
+                    self
+                )
+
+        except Exception as e:
+            logger.error(f"Error toggling favorite: {e}")
+            speaker.speak("Error toggling favorite")
+            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+
     def on_equip_clicked(self, event):
         """Handle Equip button"""
         index = self.cosmetics_list.GetFirstSelected()
@@ -383,15 +570,46 @@ class CategoryView(AccessibleDialog):
             self.equip_cosmetic(cosmetic)
 
     def equip_special(self, search_term: str):
-        """Equip Random or Unequip by searching"""
-        # Create a fake cosmetic entry for the search term
-        fake_cosmetic = {
-            "name": search_term,
-            "type": self._get_type_from_category(),
-            "rarity": "common",
-            "description": ""
-        }
-        self.equip_cosmetic(fake_cosmetic)
+        """Equip Random or Unequip"""
+        if search_term == "Rando":
+            # Random: Pick a random cosmetic from filtered list
+            if not self.filtered_cosmetics:
+                speaker.speak("No cosmetics available to randomize")
+                messageBox("No cosmetics available to randomize.", "Cannot Randomize", wx.OK | wx.ICON_WARNING, self)
+                return
+
+            import random
+            random_cosmetic = random.choice(self.filtered_cosmetics)
+            speaker.speak(f"Randomly selected {random_cosmetic.get('name', 'Unknown')}")
+            self.equip_cosmetic(random_cosmetic)
+        else:
+            # Unequip: Search for default/empty item
+            # For now, we'll search in all cosmetics for the search term
+            unequip_cosmetic = None
+
+            for cosmetic in self.cosmetics_data:
+                name = cosmetic.get("name", "").lower()
+                if search_term.lower() in name:
+                    # Check if it's the right type
+                    cosmetic_type = cosmetic.get("type", "")
+                    type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
+                    friendly_type = type_info.get("name", "")
+
+                    if friendly_type == self.category_name:
+                        unequip_cosmetic = cosmetic
+                        break
+
+            if unequip_cosmetic:
+                self.equip_cosmetic(unequip_cosmetic)
+            else:
+                speaker.speak(f"Could not find {search_term} item to unequip")
+                messageBox(
+                    f"Could not find a '{search_term}' item to unequip with.\n\n"
+                    f"This category may not have an unequip option available.",
+                    "Cannot Unequip",
+                    wx.OK | wx.ICON_WARNING,
+                    self
+                )
 
     def _get_type_from_category(self) -> str:
         """Get backend type from category name"""
@@ -613,14 +831,26 @@ class LockerGUI(AccessibleDialog):
         categories_label.SetFont(categories_label_font)
         sizer.addItem(categories_label)
 
-        # Category list in coordinate order
-        categories = ["Outfit", "Back Bling", "Pickaxe", "Glider", "Kicks", "Contrail",
+        # Create scrolled panel for categories to prevent cutoff
+        self.categories_panel = wx.ScrolledWindow(self, style=wx.VSCROLL)
+        self.categories_panel.SetScrollRate(0, 20)
+
+        categories_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Category list in coordinate order (All Cosmetics first, then individual categories)
+        categories = ["All Cosmetics", "Outfit", "Back Bling", "Pickaxe", "Glider", "Kicks", "Contrail",
                      "Emote", "Pet", "Wrap", "Loading Screen", "Music", "Car Body"]
 
         for category in categories:
-            btn = wx.Button(self, label=category, size=(200, 40))
+            btn = wx.Button(self.categories_panel, label=category, size=(200, 40))
             btn.Bind(wx.EVT_BUTTON, lambda evt, cat=category: self.on_category_selected(cat))
-            sizer.addItem(btn)
+            categories_sizer.Add(btn, flag=wx.ALL, border=5)
+
+        self.categories_panel.SetSizer(categories_sizer)
+        self.categories_panel.Layout()
+        categories_sizer.Fit(self.categories_panel)
+
+        sizer.addItem(self.categories_panel, flag=wx.EXPAND, proportion=1)
 
         # Bottom buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
