@@ -1025,6 +1025,12 @@ class SocialManager:
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
+
+                # Extra hold escape to ensure acceptance
+                time.sleep(0.2)
+                pyautogui.keyDown('escape')
+                time.sleep(1.5)
+                pyautogui.keyUp('escape')
             else:
                 logger.warning(f"Cannot accept invite: Failed to focus Fortnite")
                 speaker.speak("Cannot join. Failed to focus Fortnite.")
@@ -1076,6 +1082,12 @@ class SocialManager:
                 time.sleep(0.2)
 
                 # Hold ESC for 1.5 seconds to accept through Fortnite client
+                pyautogui.keyDown('escape')
+                time.sleep(1.5)
+                pyautogui.keyUp('escape')
+
+                # Extra hold escape to ensure acceptance
+                time.sleep(0.2)
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
