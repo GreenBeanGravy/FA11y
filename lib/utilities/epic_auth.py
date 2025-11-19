@@ -431,13 +431,9 @@ class EpicAuth:
             logger.error(f"Error loading cosmetics cache: {e}")
             return None
 
-    def refresh_cosmetics(self, enrich_with_fortnitetracker: bool = True, sample_size: int = 0) -> bool:
+    def refresh_cosmetics(self) -> bool:
         """
         Fetch fresh cosmetics data and save to cache
-
-        Args:
-            enrich_with_fortnitetracker: If True, enrich with FortniteTracker.gg data
-            sample_size: Number of items to enrich during refresh (0 = skip bulk enrichment, recommended for speed)
 
         Returns:
             True if successful, False otherwise
@@ -449,17 +445,6 @@ class EpicAuth:
             return False
 
         logger.info(f"Successfully fetched {len(cosmetics)} cosmetics from Fortnite-API.com")
-
-        # Optionally enrich with FortniteTracker.gg data
-        if enrich_with_fortnitetracker and sample_size > 0:
-            logger.info(f"Will enrich {sample_size} random cosmetics with FortniteTracker.gg data (this may take {sample_size * 0.5:.0f} seconds)...")
-            try:
-                cosmetics = enrich_cosmetics_with_fortnitetracker(cosmetics, sample_size)
-            except Exception as e:
-                logger.warning(f"Failed to enrich with FortniteTracker.gg data: {e}")
-        else:
-            logger.info("Skipping FortniteTracker.gg bulk enrichment for faster loading")
-
         logger.info("Saving cosmetics to cache...")
         return self.save_cosmetics_cache(cosmetics)
 
@@ -481,89 +466,13 @@ class EpicAuth:
 
             # Filter to only owned cosmetics
             owned_cosmetics = []
-            matched_ids = set()
-
             for cosmetic in all_cosmetics:
                 cosmetic_id = cosmetic.get("id", "")
                 # Check if this cosmetic is owned
                 if cosmetic_id in owned_ids:
                     owned_cosmetics.append(cosmetic)
-                    matched_ids.add(cosmetic_id)
 
             logger.info(f"Matched {len(owned_cosmetics)} owned cosmetics with Fortnite-API metadata")
-
-            # Check for unmatched owned cosmetics
-            unmatched_ids = owned_ids - matched_ids
-            if unmatched_ids:
-                unmatched_list = list(unmatched_ids)
-                logger.info(f"Found {len(unmatched_list)} owned cosmetics not in Fortnite-API database")
-                logger.info(f"Attempting FortniteTracker.gg fallback (this may take {len(unmatched_list) * 0.5:.0f} seconds)...")
-
-                # Try to get data from FortniteTracker for unmatched cosmetics
-                for idx, cosmetic_id in enumerate(unmatched_list, 1):
-                    # Log progress every 5 items or for first item
-                    if idx % 5 == 0 or idx == 1:
-                        logger.info(f"FortniteTracker fallback progress: {idx}/{len(unmatched_list)} ({(idx/len(unmatched_list))*100:.0f}%)")
-
-                    logger.debug(f"Fetching FortniteTracker data for unrecognized cosmetic: {cosmetic_id}")
-
-                    try:
-                        tracker_data = fetch_fortnitetracker_item(cosmetic_id)
-
-                        if tracker_data:
-                            # Create a basic cosmetic entry with FortniteTracker data
-                            rarity = tracker_data.get('rarity', 'common').lower()
-                            basic_cosmetic = {
-                                'name': tracker_data.get('name', cosmetic_id),
-                                'id': cosmetic_id,
-                                'type': tracker_data.get('type', 'Unknown'),
-                                'rarity': rarity,
-                                'rarity_value': self.get_rarity_value(rarity),
-                                'introduction_chapter': '?',
-                                'introduction_season': '?',
-                                'description': '',
-                                'favorite': False,
-                                'owned_variants': []
-                            }
-
-                            # Add FortniteTracker enrichment data if available
-                            if tracker_data.get('set_name'):
-                                basic_cosmetic['set_name'] = tracker_data['set_name']
-                            if tracker_data.get('vbucks_price'):
-                                basic_cosmetic['vbucks_price'] = tracker_data['vbucks_price']
-                            if tracker_data.get('gameplay_tags'):
-                                basic_cosmetic['gameplay_tags'] = tracker_data['gameplay_tags']
-
-                            owned_cosmetics.append(basic_cosmetic)
-                            logger.info(f"Successfully added cosmetic from FortniteTracker: {basic_cosmetic['name']} (Type: {basic_cosmetic['type']}, Rarity: {rarity}, ID: {cosmetic_id})")
-                        else:
-                            logger.warning(f"Could not fetch FortniteTracker data for: {cosmetic_id}")
-
-                            # Create minimal entry so user can still see they own it
-                            minimal_cosmetic = {
-                                'name': cosmetic_id,
-                                'id': cosmetic_id,
-                                'type': 'Unknown',
-                                'rarity': 'common',
-                                'rarity_value': 1,
-                                'introduction_chapter': '?',
-                                'introduction_season': '?',
-                                'description': 'Unrecognized cosmetic',
-                                'favorite': False,
-                                'owned_variants': []
-                            }
-                            owned_cosmetics.append(minimal_cosmetic)
-                            logger.info(f"Added minimal entry for unrecognized cosmetic: {cosmetic_id}")
-
-                    except Exception as e:
-                        logger.error(f"Error processing unmatched cosmetic {cosmetic_id}: {e}")
-
-                    # Rate limiting between FortniteTracker requests
-                    import time
-                    time.sleep(0.5)
-
-                logger.info(f"FortniteTracker fallback complete: {len(owned_cosmetics)} total owned cosmetics")
-
             return owned_cosmetics
 
         except Exception as e:
@@ -608,175 +517,6 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
 def get_epic_auth_instance() -> EpicAuth:
     """Get or create Epic auth instance"""
     return EpicAuth()
-
-
-# ============================================================================
-# FORTNITETRACKER.GG INTEGRATION - Supplementary cosmetics data
-# ============================================================================
-
-# Cache for FortniteTracker data to avoid repeated requests
-_fortnitetracker_cache = {}
-
-def fetch_fortnitetracker_item(cosmetic_id: str) -> Optional[Dict]:
-    """
-    Fetch supplementary data for a single cosmetic from FortniteTracker.gg
-
-    Args:
-        cosmetic_id: The cosmetic ID (e.g., 'CID_029_Athena_Commando_F_Halloween')
-
-    Returns:
-        Dict with enrichment data or None if failed
-    """
-    import re
-    from bs4 import BeautifulSoup
-
-    # Check cache first
-    if cosmetic_id in _fortnitetracker_cache:
-        return _fortnitetracker_cache[cosmetic_id]
-
-    try:
-        logger.info(f"Fetching data from FortniteTracker.gg for {cosmetic_id}...")
-
-        # Construct URL - FortniteTracker uses the cosmetic ID in the URL
-        url = f"https://fortnitetracker.gg/item-shop/{cosmetic_id}"
-        response = requests.get(url, timeout=15, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-
-        if response.status_code != 200:
-            logger.debug(f"FortniteTracker.gg returned {response.status_code} for {cosmetic_id}")
-            _fortnitetracker_cache[cosmetic_id] = None
-            return None
-
-        # Parse HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        enrichment_data = {}
-
-        # Try to extract cosmetic name from title or headers
-        title_tag = soup.find('title')
-        if title_tag:
-            title_text = title_tag.get_text()
-            # FortniteTracker titles are often like "Cosmetic Name - Fortnite Tracker"
-            name_match = re.search(r'(.+?)\s*[-–]\s*Fortnite', title_text)
-            if name_match:
-                enrichment_data['name'] = name_match.group(1).strip()
-
-        # Also try h1 tags
-        if 'name' not in enrichment_data:
-            h1_tags = soup.find_all('h1')
-            if h1_tags:
-                enrichment_data['name'] = h1_tags[0].get_text().strip()
-
-        # Try to extract type and rarity from page content
-        # FortniteTracker often shows these in specific elements
-        text_content = soup.get_text()
-        type_match = re.search(r'Type:\s*(\w+)', text_content, re.IGNORECASE)
-        if type_match:
-            enrichment_data['type'] = type_match.group(1).strip()
-
-        rarity_match = re.search(r'Rarity:\s*(\w+)', text_content, re.IGNORECASE)
-        if rarity_match:
-            enrichment_data['rarity'] = rarity_match.group(1).strip().lower()
-
-        # Try to extract set information
-        # Look for elements that might contain set info
-        set_elements = soup.find_all(text=re.compile(r'Set:', re.IGNORECASE))
-        for elem in set_elements:
-            parent = elem.find_parent()
-            if parent:
-                set_text = parent.get_text().strip()
-                match = re.search(r'Set:\s*(.+)', set_text, re.IGNORECASE)
-                if match:
-                    enrichment_data['set_name'] = match.group(1).strip()
-                    break
-
-        # Try to extract price information from tables
-        price_tables = soup.find_all('table')
-        for table in price_tables:
-            # Look for V-Bucks prices in table cells
-            cells = table.find_all(['td', 'th'])
-            for cell in cells:
-                text = cell.get_text().strip()
-                # Match patterns like "500" or "500 V-Bucks"
-                price_match = re.search(r'(\d+)\s*(?:V-?Bucks)?', text, re.IGNORECASE)
-                if price_match and 'price' in text.lower() or 'vbucks' in text.lower():
-                    enrichment_data['vbucks_price'] = int(price_match.group(1))
-                    break
-
-        # Try to extract gameplay tags
-        tags = []
-        tag_elements = soup.find_all(class_=re.compile(r'tag', re.IGNORECASE))
-        for tag_elem in tag_elements:
-            tag_text = tag_elem.get_text().strip()
-            if tag_text and len(tag_text) < 50:  # Reasonable tag length
-                tags.append(tag_text)
-        if tags:
-            enrichment_data['gameplay_tags'] = tags
-
-        # Cache the result (even if empty)
-        _fortnitetracker_cache[cosmetic_id] = enrichment_data if enrichment_data else None
-
-        if enrichment_data:
-            logger.info(f"Enriched {cosmetic_id} with FortniteTracker.gg data: {list(enrichment_data.keys())}")
-
-        return enrichment_data if enrichment_data else None
-
-    except Exception as e:
-        logger.debug(f"Error fetching FortniteTracker.gg data for {cosmetic_id}: {e}")
-        _fortnitetracker_cache[cosmetic_id] = None
-        return None
-
-
-def enrich_cosmetics_with_fortnitetracker(cosmetics_data: List[Dict], sample_size: int = 100) -> List[Dict]:
-    """
-    Enrich cosmetics data with FortniteTracker.gg information
-
-    This uses a sampling approach to avoid overwhelming FortniteTracker servers.
-    Full enrichment happens on-demand when users view individual items.
-
-    Args:
-        cosmetics_data: List of cosmetics from Fortnite-API.com
-        sample_size: Number of items to enrich (0 = skip bulk enrichment)
-
-    Returns:
-        Enriched cosmetics data
-    """
-    import time
-    import random
-
-    if not cosmetics_data or sample_size == 0:
-        return cosmetics_data
-
-    actual_sample_size = min(sample_size, len(cosmetics_data))
-    logger.info(f"Starting FortniteTracker.gg enrichment for {actual_sample_size} sample cosmetics...")
-    logger.info(f"This will take approximately {actual_sample_size * 0.5:.0f} seconds due to rate limiting")
-
-    # Sample random cosmetics to enrich
-    sample_cosmetics = random.sample(cosmetics_data, actual_sample_size)
-
-    enriched_count = 0
-    for idx, cosmetic in enumerate(sample_cosmetics, 1):
-        cosmetic_id = cosmetic.get("id", "")
-        if not cosmetic_id:
-            continue
-
-        # Log progress every 10 items
-        if idx % 10 == 0 or idx == 1:
-            logger.info(f"FortniteTracker enrichment progress: {idx}/{actual_sample_size} ({(idx/actual_sample_size)*100:.0f}%)")
-
-        # Fetch enrichment data
-        enrichment = fetch_fortnitetracker_item(cosmetic_id)
-        if enrichment:
-            # Merge enrichment data into cosmetic
-            cosmetic.update(enrichment)
-            enriched_count += 1
-
-        # Rate limiting: wait between requests
-        time.sleep(0.5)  # 2 requests per second max
-
-    logger.info(f"FortniteTracker enrichment complete: enriched {enriched_count}/{actual_sample_size} cosmetics")
-    return cosmetics_data
 
 
 # ============================================================================

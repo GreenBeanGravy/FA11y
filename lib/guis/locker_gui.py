@@ -466,31 +466,6 @@ class CategoryView(AccessibleDialog):
         details.append(f"Rarity: {rarity_display}")
         details.append(f"Season: Chapter {cosmetic.get('introduction_chapter', '?')}, Season {cosmetic.get('introduction_season', '?')}")
 
-        # Show set name if available (from FortniteTracker.gg)
-        set_name = cosmetic.get("set_name")
-        if set_name:
-            details.append(f"Set: {set_name}")
-
-        # Show V-Bucks price if available (from FortniteTracker.gg)
-        vbucks_price = cosmetic.get("vbucks_price")
-        if vbucks_price:
-            details.append(f"Price: {vbucks_price} V-Bucks")
-
-        # Show gameplay tags if available (from FortniteTracker.gg)
-        gameplay_tags = cosmetic.get("gameplay_tags")
-        if gameplay_tags:
-            details.append(f"Tags: {', '.join(gameplay_tags)}")
-
-        # Show release date if available (from FortniteTracker.gg)
-        release_date = cosmetic.get("release_date")
-        if release_date:
-            details.append(f"Released: {release_date}")
-
-        # Show last seen date if available (from FortniteTracker.gg)
-        last_seen = cosmetic.get("last_seen")
-        if last_seen:
-            details.append(f"Last seen: {last_seen}")
-
         if cosmetic.get("description"):
             details.append(f"\nDescription: {cosmetic['description']}")
 
@@ -967,9 +942,7 @@ class LockerGUI(AccessibleDialog):
     def on_refresh(self, event):
         """Handle refresh button"""
         result = messageBox(
-            "This will download fresh cosmetic data from:\n"
-            "• Fortnite-API.com (main cosmetics database)\n"
-            "• Fortnite.gg (set names and supplementary data)\n\n"
+            "This will download fresh cosmetic data from Fortnite-API.com.\n\n"
             "This will also enable new cosmetic types:\n"
             "• Spray, Emoji, Toy, Banner, Aura, and more!\n\n"
             "Continue?",
