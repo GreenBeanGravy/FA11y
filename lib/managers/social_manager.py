@@ -971,21 +971,29 @@ class SocialManager:
 
         try:
             import pyautogui
-            from lib.utilities.window_utils import get_active_window_title
+            from lib.utilities.window_utils import focus_fortnite
 
             # Minimize social GUI if open (thread-safe)
             minimized_window = self._minimize_social_gui_safe()
-            
-            # Check if Fortnite is focused
-            active_title = get_active_window_title()
-            if active_title and "Fortnite" in active_title:
+
+            # Focus Fortnite window (uses process name, more reliable)
+            if focus_fortnite():
+                time.sleep(0.3)  # Give window time to focus
+
+                # Click center of screen to ensure Fortnite is ready
+                screen_width, screen_height = pyautogui.size()
+                center_x = screen_width // 2
+                center_y = screen_height // 2
+                pyautogui.click(center_x, center_y)
+                time.sleep(0.2)
+
                 # Hold ESC for 1.5 seconds to accept through Fortnite client
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
             else:
-                logger.warning(f"Cannot accept invite: Fortnite not focused (Active: {active_title})")
-                speaker.speak("Cannot join. Fortnite is not focused.")
+                logger.warning(f"Cannot accept invite: Failed to focus Fortnite")
+                speaker.speak("Cannot join. Failed to focus Fortnite.")
 
             # Give it a moment to process
             time.sleep(2)
@@ -1017,20 +1025,28 @@ class SocialManager:
 
         try:
             import pyautogui
-            from lib.utilities.window_utils import get_active_window_title
+            from lib.utilities.window_utils import focus_fortnite
 
             # Minimize social GUI if open (thread-safe)
             minimized_window = self._minimize_social_gui_safe()
 
-            # Check if Fortnite is focused
-            active_title = get_active_window_title()
-            if active_title and "Fortnite" in active_title:
+            # Focus Fortnite window (uses process name, more reliable)
+            if focus_fortnite():
+                time.sleep(0.3)  # Give window time to focus
+
+                # Click center of screen to ensure Fortnite is ready
+                screen_width, screen_height = pyautogui.size()
+                center_x = screen_width // 2
+                center_y = screen_height // 2
+                pyautogui.click(center_x, center_y)
+                time.sleep(0.2)
+
                 # Hold ESC for 1.5 seconds to accept through Fortnite client
                 pyautogui.keyDown('escape')
                 time.sleep(1.5)
                 pyautogui.keyUp('escape')
             else:
-                logger.warning(f"Cannot auto-accept invite: Fortnite not focused (Active: {active_title})")
+                logger.warning(f"Cannot auto-accept invite: Failed to focus Fortnite")
                 # We don't speak here to avoid interrupting, just log
 
             # Monitor party status to see if join was successful
@@ -1213,6 +1229,17 @@ class SocialManager:
                 # Still track it in case we get an invite
                 self.outgoing_join_requests[friend.account_id] = (datetime.now(), display_name)
                 speaker.speak(f"Join request sent to {display_name}") # Treat as success
+            elif result == "no_party":
+                # Friend has no party, invite them to ours instead
+                logger.info(f"{display_name} has no party, inviting them to join us")
+                speaker.speak(f"{display_name} has no party. Inviting them to join you")
+
+                # Send party invite
+                invite_result = self.social_api.send_party_invite(friend.account_id)
+                if invite_result:
+                    speaker.speak(f"Invited {display_name} to your party")
+                else:
+                    speaker.speak(f"Failed to invite {display_name}")
             else:
                 speaker.speak("Failed to send join request")
 

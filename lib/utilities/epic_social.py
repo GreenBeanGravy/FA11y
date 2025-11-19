@@ -851,6 +851,37 @@ class EpicSocial:
             logger.error(f"Error sending party invite: {e}")
             return False
 
+    def get_user_party_info(self, account_id: str) -> Optional[dict]:
+        """
+        Get party information for a specific user
+
+        Args:
+            account_id: Epic account ID to check
+
+        Returns:
+            Party dict if user has a party, None otherwise
+        """
+        try:
+            response = requests.get(
+                f"{self.PARTY_BASE}/user/{account_id}",
+                headers=self._get_headers(),
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                party_data = response.json()
+                current_parties = party_data.get("current", [])
+                if current_parties:
+                    return current_parties[0]  # Return first (current) party
+                return None
+            else:
+                logger.debug(f"Could not get party info for {account_id}: {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.debug(f"Error getting party info for {account_id}: {e}")
+            return None
+
     def request_to_join_party(self, friend_account_id: str) -> bool:
         """
         Send request to join a friend's party
@@ -859,9 +890,15 @@ class EpicSocial:
             friend_account_id: Epic account ID of friend whose party to join
 
         Returns:
-            True if successful, False otherwise
+            True if successful, "no_party" if friend has no party, "already_sent" if already sent, False otherwise
         """
         try:
+            # First check if the friend actually has a party
+            friend_party = self.get_user_party_info(friend_account_id)
+            if not friend_party:
+                logger.info(f"Friend {friend_account_id} does not have a party to join")
+                return "no_party"
+
             # Send request to join
             request_body = {
                 "urn:epic:invite:platformdata_s": ""
