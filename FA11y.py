@@ -83,6 +83,10 @@ from lib.monitors.resource_monitor import resource_monitor
 from lib.monitors.storm_monitor import storm_monitor
 
 from lib.managers.game_object_manager import game_object_manager
+<<<<<<< HEAD
+from lib.utilities.window_utils import get_active_window_title, focus_window
+=======
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
 from lib.detection.match_tracker import match_tracker
 from lib.managers.social_manager import get_social_manager
 
@@ -649,27 +653,53 @@ def open_authentication():
 
 # Social manager wrapper functions
 def open_social_menu():
+<<<<<<< HEAD
+    """Open the social menu"""
+    from lib.guis.gui_utilities import launch_gui_thread_safe
+
+    if social_gui_open.is_set():
+        speaker.speak("Social menu is already open")
+        focus_window("Social Menu")
+        return
+
+    def _open():
+        global social_manager
+=======
     """Open social menu GUI"""
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
     def _do_open_social():
         """Inner function that runs on main thread"""
         global social_manager, social_gui_open
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
         if not social_manager:
             speaker.speak("Social features not enabled")
             return
 
+<<<<<<< HEAD
+=======
         # Check if social GUI is already open
         if social_gui_open.is_set():
             speaker.speak("Social menu is already open")
             return
 
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
         # Wait for initial data to load (with timeout)
         if not social_manager.initial_data_loaded.is_set():
             speaker.speak("Loading social data")
             if not social_manager.wait_for_initial_data(timeout=10):
                 speaker.speak("Timeout waiting for social data, opening anyway")
 
+<<<<<<< HEAD
+        social_gui_open.set()
+        try:
+            from lib.guis.social_gui import show_social_gui
+            show_social_gui(social_manager)
+        finally:
+            social_gui_open.clear()
+    
+    launch_gui_thread_safe(_open)
+=======
         try:
             from lib.guis.social_gui import show_social_gui
             social_gui_open.set()
@@ -684,6 +714,7 @@ def open_social_menu():
 
     # Launch on main thread (thread-safe)
     launch_gui_thread_safe(_do_open_social)
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
 
 def accept_notification():
     """Accept pending notification (Alt+Y)"""
@@ -880,14 +911,39 @@ def key_listener() -> None:
         'scroll up', 'scroll down'
     }
 
+<<<<<<< HEAD
+    # Actions that are allowed even when a GUI is focused
+    allowed_gui_actions = {
+        'accept notification',
+        'decline notification',
+        'toggle keybinds' # Always allowed
+    }
+
+=======
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
 
+<<<<<<< HEAD
+        # Check active window for GUI focus management
+        active_title = get_active_window_title()
+        
+        # List of our GUI titles (or partial matches)
+        # List of our GUI titles (or partial matches)
+        gui_titles = ["Social Menu", "Settings", "Locker", "Game Mode Selection", "Custom POI Creator", "Visited Objects", "Epic Games Login"]
+        
+        is_gui_focused = any(title in active_title for title in gui_titles)
+
+        numlock_on = is_numlock_on()
+        if config is None:
+            time.sleep(0.01) # Reduced sleep for faster response
+=======
         numlock_on = is_numlock_on()
         if config is None:
             time.sleep(0.1)
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
             continue
 
         mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
@@ -915,6 +971,15 @@ def key_listener() -> None:
             if action_lower in ['fire', 'target'] and not (ignore_numlock or numlock_on):
                 continue
 
+<<<<<<< HEAD
+            # Check if we should block this action due to GUI focus
+            if is_gui_focused and action_lower not in allowed_gui_actions:
+                # Block!
+                # logger.debug(f"Blocked action '{action_lower}' because GUI is focused") # Uncomment for debugging
+                continue
+
+=======
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
             # *** MODIFIED LOGIC STARTS HERE ***
             key_pressed = False
             if action_lower in mouse_key_actions:
@@ -1071,6 +1136,10 @@ def open_gamemode_selector() -> None:
         # Check if gamemode GUI is already open
         if gamemode_gui_open.is_set():
             speaker.speak("Gamemode selector is already open")
+<<<<<<< HEAD
+            focus_window("Game Mode Selection")
+=======
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
             return
 
         try:
@@ -1109,6 +1178,10 @@ def open_locker_selector() -> None:
         # Check if locker GUI is already open
         if locker_gui_open.is_set():
             speaker.speak("Locker is already open")
+<<<<<<< HEAD
+            focus_window("Locker")
+=======
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
             return
 
         if active_pinger:
@@ -1142,6 +1215,10 @@ def open_locker_viewer() -> None:
         # Check if locker GUI is already open
         if locker_gui_open.is_set():
             speaker.speak("Locker is already open")
+<<<<<<< HEAD
+            focus_window("Locker")
+=======
+>>>>>>> 7c21c23a460e8f25bc96524c200b22c8b26c9b15
             return
 
         if active_pinger:
