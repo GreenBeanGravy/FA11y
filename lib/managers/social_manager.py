@@ -74,7 +74,7 @@ class SocialManager:
         # Notification system - queue based for handling multiple notifications
         self.notification_queue = []  # Queue of (item, item_type) tuples
         self.current_notification = None  # Currently active notification
-        self.notification_timer = None  # Timer for 15-second auto-decline
+        self.notification_timer = None  # Timer for 15-second queue progression (if more notifications waiting)
         self.notification_lock = threading.Lock()
 
         # Background monitoring
@@ -474,24 +474,39 @@ class SocialManager:
         )
 
         if item_type == "friend_request":
-            speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Auto-declines in 15 seconds.")
+            if self.notification_queue:
+                # More notifications waiting
+                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.")
+            else:
+                # This is the only notification
+                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline.")
         else:  # party_invite
-            speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Auto-declines in 15 seconds.")
+            if self.notification_queue:
+                # More notifications waiting
+                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.")
+            else:
+                # This is the only notification
+                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline.")
 
-        # Start 15-second timer
-        self.notification_timer = threading.Timer(15.0, self._notification_timeout)
-        self.notification_timer.start()
+        # Start 15-second timer only if there are more notifications in queue
+        if self.notification_queue:
+            self.notification_timer = threading.Timer(15.0, self._notification_timeout)
+            self.notification_timer.start()
+        else:
+            # No timer - let user respond whenever they want
+            self.notification_timer = None
 
     def _notification_timeout(self):
-        """Handle notification timeout - do NOT auto-decline, just clear current notification"""
+        """Handle notification timeout - move to next notification if queue has more, otherwise keep current"""
         with self.notification_lock:
             if self.current_notification:
-                # Just clear the current notification so we can process others or wait
-                # We do NOT decline it. It stays in the pending list on the server.
-                self.current_notification = None
-                
-                # Process next notification if any
-                self._process_next_notification()
+                # Only move to next notification if there are more in queue
+                if self.notification_queue:
+                    # Clear current notification and process next
+                    # The previous notification stays in pending list on server (not declined)
+                    self.current_notification = None
+                    self._process_next_notification()
+                # else: queue is empty, keep current notification until user responds or it expires
 
     def accept_notification(self):
         """Accept current notification (Alt+Y) and process next in queue"""
