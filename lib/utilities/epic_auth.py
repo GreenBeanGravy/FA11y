@@ -421,12 +421,30 @@ class EpicAuth:
             logger.error(f"Error loading cosmetics cache: {e}")
             return None
 
-    def refresh_cosmetics(self) -> bool:
-        """Fetch fresh cosmetics data and save to cache"""
+    def refresh_cosmetics(self, enrich_with_fortnitegg: bool = True) -> bool:
+        """
+        Fetch fresh cosmetics data and save to cache
+
+        Args:
+            enrich_with_fortnitegg: If True, enrich with Fortnite.gg data
+
+        Returns:
+            True if successful, False otherwise
+        """
         cosmetics = self.fetch_cosmetics_from_api()
-        if cosmetics:
-            return self.save_cosmetics_cache(cosmetics)
-        return False
+        if not cosmetics:
+            return False
+
+        # Optionally enrich with Fortnite.gg data
+        if enrich_with_fortnitegg:
+            try:
+                gg_data = fetch_fortnitegg_data()
+                if gg_data:
+                    cosmetics = enrich_cosmetics_with_fortnitegg(cosmetics, gg_data)
+            except Exception as e:
+                logger.warning(f"Failed to enrich with Fortnite.gg data: {e}")
+
+        return self.save_cosmetics_cache(cosmetics)
 
     def get_owned_cosmetics_data(self) -> Optional[List[Dict]]:
         """
@@ -497,6 +515,113 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
 def get_epic_auth_instance() -> EpicAuth:
     """Get or create Epic auth instance"""
     return EpicAuth()
+
+
+# ============================================================================
+# FORTNITE.GG INTEGRATION - Supplementary cosmetics data
+# ============================================================================
+
+def fetch_fortnitegg_data() -> Optional[Dict]:
+    """
+    Fetch supplementary cosmetics data from Fortnite.gg
+
+    Returns:
+        Dict with 'sets' and 'items' or None if failed
+    """
+    import re
+
+    try:
+        logger.info("Fetching data from Fortnite.gg...")
+
+        # Fetch the JavaScript file
+        url = "https://fortnite.gg/data/items/all-v2.en.js"
+        response = requests.get(url, timeout=30)
+
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch Fortnite.gg data: {response.status_code}")
+            return None
+
+        # Parse the JavaScript data
+        content = response.text
+
+        # Extract Sets array
+        sets_match = re.search(r'Sets=(\[.*?\]);', content, re.DOTALL)
+        sets = []
+        if sets_match:
+            import json
+            sets_json = sets_match.group(1)
+            try:
+                sets = json.loads(sets_json)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse Sets array: {e}")
+
+        # Extract Items array
+        items_match = re.search(r'Items=(\[.*?\]);', content, re.DOTALL)
+        items = []
+        if items_match:
+            import json
+            items_json = items_match.group(1)
+            try:
+                items = json.loads(items_json)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse Items array: {e}")
+
+        logger.info(f"Fetched {len(sets)} sets and {len(items)} items from Fortnite.gg")
+
+        return {
+            "sets": sets,
+            "items": items
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching Fortnite.gg data: {e}")
+        return None
+
+
+def enrich_cosmetics_with_fortnitegg(cosmetics_data: List[Dict], fortnitegg_data: Dict) -> List[Dict]:
+    """
+    Enrich cosmetics data with Fortnite.gg information
+
+    Args:
+        cosmetics_data: List of cosmetics from Fortnite-API.com
+        fortnitegg_data: Data from Fortnite.gg
+
+    Returns:
+        Enriched cosmetics data
+    """
+    if not fortnitegg_data or not cosmetics_data:
+        return cosmetics_data
+
+    sets = fortnitegg_data.get("sets", [])
+    gg_items = fortnitegg_data.get("items", [])
+
+    # Create a map of Fortnite.gg items by name for quick lookup
+    gg_items_by_name = {}
+    for item in gg_items:
+        name = item.get("name", "").lower()
+        if name:
+            gg_items_by_name[name] = item
+
+    # Enrich each cosmetic with Fortnite.gg data
+    enriched_count = 0
+    for cosmetic in cosmetics_data:
+        name = cosmetic.get("name", "").lower()
+        if name in gg_items_by_name:
+            gg_item = gg_items_by_name[name]
+
+            # Add set information
+            set_index = gg_item.get("set")
+            if set_index is not None and 0 <= set_index < len(sets):
+                cosmetic["set_name"] = sets[set_index]
+
+            # Add Fortnite.gg specific data
+            cosmetic["fortnitegg_id"] = gg_item.get("id")
+            cosmetic["fortnitegg_type"] = gg_item.get("type")
+
+            enriched_count += 1
+
+    logger.info(f"Enriched {enriched_count} cosmetics with Fortnite.gg data")
+    return cosmetics_data
 
 
 # ============================================================================

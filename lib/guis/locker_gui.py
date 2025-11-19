@@ -28,17 +28,35 @@ speaker = Auto()
 
 # Map backend types to friendly names and slot info
 COSMETIC_TYPE_MAP = {
+    # Character cosmetics
     "AthenaCharacter": {"name": "Outfit", "category": "Character", "slot": 1},
     "AthenaBackpack": {"name": "Back Bling", "category": "Character", "slot": 2},
     "AthenaPickaxe": {"name": "Pickaxe", "category": "Character", "slot": 3},
     "AthenaGlider": {"name": "Glider", "category": "Character", "slot": 4},
-    "AthenaShoes": {"name": "Kicks", "category": "Character", "slot": 5},
+    "CosmeticShoes": {"name": "Kicks", "category": "Character", "slot": 5},  # Fixed: was AthenaShoes
     "AthenaSkyDiveContrail": {"name": "Contrail", "category": "Character", "slot": 6},
+    "SparksAura": {"name": "Aura", "category": "Character", "slot": None},  # New
+
+    # Emotes and expressions
     "AthenaDance": {"name": "Emote", "category": "Emotes", "slot": None},  # Multiple slots
+    "AthenaSpray": {"name": "Spray", "category": "Emotes", "slot": None},  # New
+    "AthenaEmoji": {"name": "Emoji", "category": "Emotes", "slot": None},  # New
+    "AthenaToy": {"name": "Toy", "category": "Emotes", "slot": None},  # New
+
+    # Sidekicks/Pets
     "AthenaPetCarrier": {"name": "Pet", "category": "Sidekicks", "slot": 1},
+    "AthenaPet": {"name": "Pet Cosmetic", "category": "Sidekicks", "slot": None},  # New
+    "CosmeticCompanion": {"name": "Companion", "category": "Sidekicks", "slot": None},  # New
+
+    # Wraps
     "AthenaItemWrap": {"name": "Wrap", "category": "Wraps", "slot": None},  # Multiple slots
+
+    # Lobby
     "AthenaLoadingScreen": {"name": "Loading Screen", "category": "Lobby", "slot": 3},
-    "AthenaMusicPack": {"name": "Music", "category": "Lobby", "slot": 2},
+    "AthenaMusicPack": {"name": "Music & Jam Tracks", "category": "Lobby", "slot": 2},  # Updated name
+    "BannerToken": {"name": "Banner", "category": "Lobby", "slot": None},  # New
+
+    # Vehicles
     "VehicleCosmetics_Body": {"name": "Car Body", "category": "Cars", "slot": 1}
 }
 
@@ -837,9 +855,22 @@ class LockerGUI(AccessibleDialog):
 
         categories_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Category list in coordinate order (All Cosmetics first, then individual categories)
-        categories = ["All Cosmetics", "Outfit", "Back Bling", "Pickaxe", "Glider", "Kicks", "Contrail",
-                     "Emote", "Pet", "Wrap", "Loading Screen", "Music", "Car Body"]
+        # Category list (All Cosmetics first, then grouped by type)
+        categories = [
+            "All Cosmetics",
+            # Character
+            "Outfit", "Back Bling", "Pickaxe", "Glider", "Kicks", "Contrail", "Aura",
+            # Emotes & Expressions
+            "Emote", "Spray", "Emoji", "Toy",
+            # Pets
+            "Pet", "Pet Cosmetic", "Companion",
+            # Wraps
+            "Wrap",
+            # Lobby
+            "Loading Screen", "Music & Jam Tracks", "Banner",
+            # Vehicles
+            "Car Body"
+        ]
 
         for category in categories:
             btn = wx.Button(self.categories_panel, label=category, size=(200, 40))
