@@ -13,6 +13,7 @@ import ctypes
 import ctypes.wintypes
 
 import wx
+import pyautogui
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
@@ -70,6 +71,99 @@ SORT_OPTIONS = [
     "Oldest First",
     "Favorites First"
 ]
+
+# Slot coordinates for automation
+SLOT_COORDS = {
+    1: (260, 400),
+    2: (420, 400),
+    3: (570, 400),
+    4: (720, 400),
+    5: (260, 560),
+    6: (420, 560),
+    7: (560, 550),
+    8: (720, 550)
+}
+
+# Category positions in Fortnite UI
+CATEGORY_COORDS = {
+    'Character': (110, 280),
+    'Emotes': (110, 335),
+    'Sidekicks': (110, 390),
+    'Wraps': (110, 445),
+    'Lobby': (110, 500),
+    'Cars': (110, 555),
+    'Instruments': (110, 610),
+    'Music': (110, 665)
+}
+
+
+def focus_fortnite_window() -> bool:
+    """Focus the Fortnite window before automation"""
+    try:
+        import win32gui
+        import win32con
+
+        def callback(hwnd, windows):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if "fortnite" in title.lower():
+                    windows.append((hwnd, title))
+            return True
+
+        windows = []
+        win32gui.EnumWindows(callback, windows)
+
+        if windows:
+            hwnd = windows[0][0]
+            logger.info(f"Found Fortnite window: {windows[0][1]}")
+
+            # Restore if minimized
+            if win32gui.IsIconic(hwnd):
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                time.sleep(0.2)
+
+            # Bring to foreground
+            win32gui.SetForegroundWindow(hwnd)
+            time.sleep(0.3)
+            return True
+        else:
+            logger.warning("Fortnite window not found")
+            return False
+    except ImportError:
+        # pywin32 not available, try alternative method
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+
+            # EnumWindows callback
+            EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+
+            def callback(hwnd, lParam):
+                length = user32.GetWindowTextLengthW(hwnd)
+                buff = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buff, length + 1)
+
+                if "fortnite" in buff.value.lower() and user32.IsWindowVisible(hwnd):
+                    lParam.contents = ctypes.c_int(hwnd)
+                    return False
+                return True
+
+            hwnd_result = ctypes.c_int(0)
+            user32.EnumWindows(EnumWindowsProc(callback), ctypes.byref(hwnd_result))
+
+            if hwnd_result.value:
+                user32.SetForegroundWindow(hwnd_result.value)
+                time.sleep(0.3)
+                return True
+            else:
+                logger.warning("Fortnite window not found (ctypes method)")
+                return False
+        except Exception as e:
+            logger.error(f"Error focusing Fortnite window: {e}")
+            return False
+    except Exception as e:
+        logger.error(f"Error focusing Fortnite window: {e}")
+        return False
 
 
 class CategoryView(AccessibleDialog):
@@ -637,17 +731,10 @@ class CategoryView(AccessibleDialog):
         return "Unknown"
 
     def equip_cosmetic(self, cosmetic: dict):
-        """Equip a cosmetic using direct API (no UI automation!)"""
+        """Equip a cosmetic using UI automation"""
         try:
             name = cosmetic.get("name", "Unknown")
-            cosmetic_id = cosmetic.get("id", "")
             cosmetic_type = cosmetic.get("type", "")
-
-            if not cosmetic_id or not cosmetic_type:
-                speaker.speak(f"Cannot equip {name}. Missing ID or type.")
-                messageBox(f"Cannot equip {name}.\nMissing cosmetic data.", "Cannot Equip", wx.OK | wx.ICON_WARNING, self)
-                return
-
             type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
             category = type_info.get("category")
             slot = type_info.get("slot")
@@ -664,31 +751,110 @@ class CategoryView(AccessibleDialog):
                     return
 
             speaker.speak(f"Equipping {name}")
-            logger.info(f"Equipping {name} (ID: {cosmetic_id}) to {category} slot {slot}")
+            logger.info(f"Equipping {name} to {category} slot {slot}")
 
-            # Build template ID
-            template_id = f"{cosmetic_type}:{cosmetic_id}"
+            # Minimize dialog
+            self.Iconize(True)
+            time.sleep(0.1)
 
-            # Equip via API (instant, no UI needed!)
-            from lib.utilities.epic_auth import get_locker_api
-            locker_api = get_locker_api(self.auth)
-
-            # Use slot index (API uses 0-based, but slot is 1-based for emotes/wraps)
-            slot_index = (slot - 1) if slot else 0
-
-            success = locker_api.equip_cosmetic(template_id, category, slot_index)
-
-            if success:
-                speaker.speak(f"{name} equipped!")
-                logger.info(f"Successfully equipped {name} via API")
-            else:
-                speaker.speak("Failed to equip cosmetic")
-                messageBox("Failed to equip cosmetic via API. Check logs for details.", "Equip Failed", wx.OK | wx.ICON_ERROR, self)
+            try:
+                success = self.perform_equip_automation(category, slot, name)
+                wx.CallLater(100, self._show_after_equip, success, name)
+            except Exception as automation_error:
+                logger.error(f"Error during automation: {automation_error}")
+                wx.CallAfter(self._show_after_equip, False, name)
+                raise
 
         except Exception as e:
             logger.error(f"Error equipping cosmetic: {e}")
             speaker.speak("Error equipping cosmetic")
-            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+            if not self.IsShown():
+                wx.CallAfter(self.Show)
+            wx.CallAfter(lambda: messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self))
+
+    def _show_after_equip(self, success: bool, name: str):
+        """Show dialog after equip"""
+        try:
+            time.sleep(0.2)
+            self.Iconize(False)
+            self.Raise()
+            self.SetFocus()
+
+            if success:
+                speaker.speak(f"{name} equipped!")
+            else:
+                speaker.speak("Equip failed")
+                wx.CallAfter(lambda: messageBox("Failed to equip cosmetic. Make sure Fortnite is open and in the locker.", "Equip Failed", wx.OK | wx.ICON_ERROR, self))
+        except Exception as e:
+            logger.error(f"Error showing dialog after equip: {e}")
+
+    def perform_equip_automation(self, category: str, slot: int, item_name: str) -> bool:
+        """Perform UI automation to equip"""
+        try:
+            slot_coords = SLOT_COORDS.get(slot)
+            if not slot_coords:
+                logger.error(f"Unknown slot number: {slot}")
+                return False
+
+            # Focus Fortnite window first
+            if not focus_fortnite_window():
+                speaker.speak("Cannot find Fortnite window. Make sure the game is running.")
+                return False
+
+            time.sleep(0.5)
+
+            # Click locker button
+            pyautogui.moveTo(420, 69, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.3)
+
+            # Click category
+            category_coords = CATEGORY_COORDS.get(category)
+            if category_coords:
+                pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
+                pyautogui.click()
+                time.sleep(0.3)
+
+                current_x, current_y = pyautogui.position()
+                pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                time.sleep(1.0)
+
+            # Click slot
+            pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
+            pyautogui.click()
+            time.sleep(1.0)
+
+            # Click search bar
+            pyautogui.moveTo(1030, 210, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.5)
+
+            # Type item name
+            pyautogui.write(item_name, interval=0.02)
+            time.sleep(0.3)
+            pyautogui.press('enter')
+            time.sleep(0.1)
+
+            # Click item twice to equip
+            pyautogui.moveTo(1020, 350, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.05)
+            pyautogui.click()
+            time.sleep(0.1)
+
+            # Press escape to exit
+            pyautogui.press('escape')
+            time.sleep(1)
+
+            # Click final position
+            pyautogui.moveTo(200, 69, duration=0.05)
+            pyautogui.click()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error in automation: {e}")
+            return False
 
     def ask_for_slot(self, cosmetic_type: str, name: str) -> Optional[int]:
         """Ask user which slot to equip to"""
