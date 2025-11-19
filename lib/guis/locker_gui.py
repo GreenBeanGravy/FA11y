@@ -43,10 +43,10 @@ COSMETIC_TYPE_MAP = {
     "AthenaEmoji": {"name": "Emoji", "category": "Emotes", "slot": None},  # New
     "AthenaToy": {"name": "Toy", "category": "Emotes", "slot": None},  # New
 
-    # Sidekicks/Pets
+    # Sidekicks/Pets (all consolidated into "Pet" category)
     "AthenaPetCarrier": {"name": "Pet", "category": "Sidekicks", "slot": 1},
-    "AthenaPet": {"name": "Pet Cosmetic", "category": "Sidekicks", "slot": None},  # New
-    "CosmeticCompanion": {"name": "Companion", "category": "Sidekicks", "slot": None},  # New
+    "AthenaPet": {"name": "Pet", "category": "Sidekicks", "slot": None},
+    "CosmeticCompanion": {"name": "Pet", "category": "Sidekicks", "slot": None},
 
     # Wraps
     "AthenaItemWrap": {"name": "Wrap", "category": "Wraps", "slot": None},  # Multiple slots
@@ -466,6 +466,11 @@ class CategoryView(AccessibleDialog):
         details.append(f"Rarity: {rarity_display}")
         details.append(f"Season: Chapter {cosmetic.get('introduction_chapter', '?')}, Season {cosmetic.get('introduction_season', '?')}")
 
+        # Show set name if available (from Fortnite.gg)
+        set_name = cosmetic.get("set_name")
+        if set_name:
+            details.append(f"Set: {set_name}")
+
         if cosmetic.get("description"):
             details.append(f"\nDescription: {cosmetic['description']}")
 
@@ -862,8 +867,8 @@ class LockerGUI(AccessibleDialog):
             "Outfit", "Back Bling", "Pickaxe", "Glider", "Kicks", "Contrail", "Aura",
             # Emotes & Expressions
             "Emote", "Spray", "Emoji", "Toy",
-            # Pets
-            "Pet", "Pet Cosmetic", "Companion",
+            # Pets (consolidated)
+            "Pet",
             # Wraps
             "Wrap",
             # Lobby
@@ -942,7 +947,12 @@ class LockerGUI(AccessibleDialog):
     def on_refresh(self, event):
         """Handle refresh button"""
         result = messageBox(
-            "This will download fresh cosmetic data from Fortnite-API.com. Continue?",
+            "This will download fresh cosmetic data from:\n"
+            "• Fortnite-API.com (main cosmetics database)\n"
+            "• Fortnite.gg (set names and supplementary data)\n\n"
+            "This will also enable new cosmetic types:\n"
+            "• Spray, Emoji, Toy, Banner, Aura, and more!\n\n"
+            "Continue?",
             "Refresh Locker Data",
             wx.YES_NO | wx.ICON_QUESTION,
             self
