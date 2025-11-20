@@ -922,8 +922,8 @@ def toggle_favorite_poi() -> None:
             poi_data_instance = POIData()
 
         # Get the favorites manager
-        from lib.managers.poi_data_manager import FavoritePOIManager
-        favorites_manager = FavoritePOIManager()
+        from lib.managers.poi_data_manager import FavoritesManager
+        favorites_manager = FavoritesManager()
 
         # Determine source tab based on current category
         source_tab_map = {

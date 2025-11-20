@@ -320,6 +320,117 @@ class EpicAuth:
             logger.error(f"Error getting account info: {e}")
             return None
 
+    def get_player_stats(self) -> Optional[Dict]:
+        """
+        Get player Fortnite statistics from StatsProxyService
+
+        Returns:
+            Dict with processed stats if successful, None otherwise
+            Keys: wins, kills, matches_played, kd_ratio, win_rate,
+                  minutes_played, players_outlived
+        """
+        try:
+            if not self.access_token or not self.account_id:
+                logger.error("Not authenticated, cannot get player stats")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}"
+            }
+
+            # Use StatsProxyService for stats (alltime)
+            response = requests.get(
+                f"https://statsproxy-public-service-live.ol.epicgames.com/statsproxy/api/statsv2/account/{self.account_id}",
+                headers=headers,
+                params={
+                    "startTime": 0,
+                    "endTime": 9223372036854775807  # Max long value for alltime
+                },
+                timeout=10
+            )
+
+            if response.status_code == 204:
+                # Stats are private
+                logger.info("Player stats are private")
+                return {"private": True}
+            elif response.status_code == 200:
+                stats_data = response.json()
+                raw_stats = stats_data.get("stats", {})
+
+                # Process stats - aggregate across all input types and playlists
+                processed = {
+                    "wins": 0,
+                    "kills": 0,
+                    "matches_played": 0,
+                    "minutes_played": 0,
+                    "players_outlived": 0,
+                    "top1": 0,
+                    "top3": 0,
+                    "top5": 0,
+                    "top6": 0,
+                    "top10": 0,
+                    "top12": 0,
+                    "top25": 0,
+                    "score": 0
+                }
+
+                # Aggregate stats from all keys
+                for key, value in raw_stats.items():
+                    # br_placetop1_* = wins
+                    if "placetop1_" in key or key.endswith("_placetop1"):
+                        processed["wins"] += value
+                    # br_kills_* = kills
+                    elif "_kills_" in key or key.endswith("_kills"):
+                        processed["kills"] += value
+                    # br_matchesplayed_* = matches played
+                    elif "matchesplayed" in key:
+                        processed["matches_played"] += value
+                    # br_minutesplayed_* = time played
+                    elif "minutesplayed" in key:
+                        processed["minutes_played"] += value
+                    # br_playersoutlived_* = players outlived
+                    elif "playersoutlived" in key:
+                        processed["players_outlived"] += value
+                    # Top placements
+                    elif "placetop3_" in key:
+                        processed["top3"] += value
+                    elif "placetop5_" in key:
+                        processed["top5"] += value
+                    elif "placetop6_" in key:
+                        processed["top6"] += value
+                    elif "placetop10_" in key:
+                        processed["top10"] += value
+                    elif "placetop12_" in key:
+                        processed["top12"] += value
+                    elif "placetop25_" in key:
+                        processed["top25"] += value
+                    # Score
+                    elif "_score_" in key or key.endswith("_score"):
+                        processed["score"] += value
+
+                # Calculate derived stats
+                if processed["matches_played"] > 0:
+                    processed["kd_ratio"] = processed["kills"] / max(processed["matches_played"] - processed["wins"], 1)
+                    processed["win_rate"] = (processed["wins"] / processed["matches_played"]) * 100
+                else:
+                    processed["kd_ratio"] = 0.0
+                    processed["win_rate"] = 0.0
+
+                logger.debug("Successfully retrieved and processed player statistics")
+                return processed
+
+            elif response.status_code == 401:
+                logger.warning("Authentication expired while getting stats")
+                self.invalidate_auth()
+                return None
+            else:
+                logger.error(f"Failed to get player stats: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting player stats: {e}")
+            return None
+
     def fetch_owned_cosmetics(self) -> Optional[List[str]]:
         """
         Fetch list of owned cosmetic IDs from Epic Games

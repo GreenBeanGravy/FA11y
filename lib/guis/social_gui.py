@@ -109,6 +109,9 @@ class SocialDialog(AccessibleDialog):
                 self.account_info_text.SetValue("Error loading account information\n\nPlease try refreshing or re-authenticating.")
                 return
 
+            # Get player stats
+            player_stats = auth.get_player_stats()
+
             # Format account info as readable text
             lines = []
             lines.append("=" * 60)
@@ -138,12 +141,27 @@ class SocialDialog(AccessibleDialog):
             lines.append(f"Preferred Language: {language}")
             lines.append("")
 
+            # Account Activity
+            last_login = account_info.get('lastLogin', 'N/A')
+            if last_login != 'N/A':
+                try:
+                    from datetime import datetime
+                    # Parse UTC time and convert to local
+                    dt_utc = datetime.fromisoformat(last_login.replace('Z', '+00:00'))
+                    dt_local = dt_utc.astimezone()
+                    last_login = dt_local.strftime("%Y-%m-%d %H:%M:%S %Z")
+                except:
+                    pass
+
+            lines.append(f"Last Login: {last_login}")
+            lines.append("")
+
             # Security
             tfa_enabled = account_info.get('tfaEnabled', False)
             email_verified = account_info.get('emailVerified', False)
-            lines.append("-" * 60)
+            lines.append("")
             lines.append("SECURITY")
-            lines.append("-" * 60)
+            lines.append("")
             lines.append(f"Two-Factor Authentication: {'Enabled' if tfa_enabled else 'Disabled'}")
             lines.append(f"Email Verified: {'Yes' if email_verified else 'No'}")
             lines.append("")
@@ -151,38 +169,68 @@ class SocialDialog(AccessibleDialog):
             # Display Name Management
             can_change = account_info.get('canUpdateDisplayName', False)
             num_changes = account_info.get('numberOfDisplayNameChanges', 0)
-            lines.append("-" * 60)
+            lines.append("")
             lines.append("DISPLAY NAME")
-            lines.append("-" * 60)
+            lines.append("")
             lines.append(f"Can Change Display Name: {'Yes' if can_change else 'No'}")
             lines.append(f"Display Name Changes Used: {num_changes} of 3")
             lines.append("")
 
-            # Account Activity
-            last_login = account_info.get('lastLogin', 'N/A')
-            if last_login != 'N/A':
-                try:
-                    from datetime import datetime
-                    dt = datetime.fromisoformat(last_login.replace('Z', '+00:00'))
-                    last_login = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-                except:
-                    pass
-
-            lines.append("-" * 60)
-            lines.append("ACCOUNT ACTIVITY")
-            lines.append("-" * 60)
-            lines.append(f"Last Login: {last_login}")
+            # Fortnite Statistics
+            lines.append("=" * 60)
+            lines.append("FORTNITE STATISTICS")
+            lines.append("=" * 60)
             lines.append("")
 
-            # Age & Minor Status
-            age_group = account_info.get('ageGroup', 'N/A')
-            minor_status = account_info.get('minorStatus', 'N/A')
-            lines.append("-" * 60)
-            lines.append("AGE INFORMATION")
-            lines.append("-" * 60)
-            lines.append(f"Age Group: {age_group}")
-            lines.append(f"Minor Status: {minor_status}")
-            lines.append("")
+            if player_stats is None:
+                lines.append("Error loading stats. Please try refreshing.")
+            elif player_stats.get('private'):
+                lines.append("Statistics are set to private.")
+                lines.append("Change privacy settings in-game to view stats.")
+            else:
+                # Career Stats
+                lines.append("")
+                lines.append("CAREER STATS")
+                lines.append("")
+                lines.append(f"Total Wins: {player_stats.get('wins', 0):,}")
+                lines.append(f"Total Kills: {player_stats.get('kills', 0):,}")
+                lines.append(f"Matches Played: {player_stats.get('matches_played', 0):,}")
+                lines.append(f"K/D Ratio: {player_stats.get('kd_ratio', 0):.2f}")
+                lines.append(f"Win Rate: {player_stats.get('win_rate', 0):.2f}%")
+                lines.append("")
+
+                # Time Stats
+                minutes = player_stats.get('minutes_played', 0)
+                hours = minutes / 60
+                days = hours / 24
+                lines.append(f"Time Played: {minutes:,} minutes ({hours:.1f} hours / {days:.1f} days)")
+                lines.append(f"Players Outlived: {player_stats.get('players_outlived', 0):,}")
+                lines.append("")
+
+                # Top Placements
+                if any(player_stats.get(f'top{i}', 0) > 0 for i in [3, 5, 6, 10, 12, 25]):
+                    lines.append("")
+                    lines.append("TOP PLACEMENTS")
+                    lines.append("")
+                    if player_stats.get('top3', 0) > 0:
+                        lines.append(f"Top 3 Finishes: {player_stats['top3']:,}")
+                    if player_stats.get('top5', 0) > 0:
+                        lines.append(f"Top 5 Finishes: {player_stats['top5']:,}")
+                    if player_stats.get('top6', 0) > 0:
+                        lines.append(f"Top 6 Finishes: {player_stats['top6']:,}")
+                    if player_stats.get('top10', 0) > 0:
+                        lines.append(f"Top 10 Finishes: {player_stats['top10']:,}")
+                    if player_stats.get('top12', 0) > 0:
+                        lines.append(f"Top 12 Finishes: {player_stats['top12']:,}")
+                    if player_stats.get('top25', 0) > 0:
+                        lines.append(f"Top 25 Finishes: {player_stats['top25']:,}")
+                    lines.append("")
+
+                # Score
+                if player_stats.get('score', 0) > 0:
+                    lines.append(f"Total Score: {player_stats['score']:,}")
+                    lines.append("")
+
             lines.append("=" * 60)
 
             # Set the text
@@ -191,10 +239,12 @@ class SocialDialog(AccessibleDialog):
             # Move cursor to beginning for screen reader
             self.account_info_text.SetInsertionPoint(0)
 
-            logger.info("Account information loaded successfully")
+            logger.info("Account information and stats loaded successfully")
 
         except Exception as e:
             logger.error(f"Error loading account info: {e}")
+            import traceback
+            traceback.print_exc()
             self.account_info_text.SetValue(f"Error loading account information\n\nError: {str(e)}\n\nPlease try refreshing or re-authenticating.")
 
     def on_refresh_account_info(self, event):
