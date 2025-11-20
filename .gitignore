@@ -15,5 +15,7 @@ __pycache__/
 
 # FA11y specific
 /config.txt
+/config/
+/logs/
 /debug
 pixel_inspector_log.txt

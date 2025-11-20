@@ -70,6 +70,7 @@ EXCLUDED_FOLDERS = [
     '__pycache__',  # Python cache
     'whls',         # Local wheel files
     'config',       # User configuration and data files
+    'logs',         # Log files
 ]
 
 # FakerInput configuration

@@ -279,6 +279,47 @@ class EpicAuth:
             logger.error(f"Error exchanging code for XMPP token: {e}")
             return None
 
+    def get_account_info(self) -> Optional[Dict]:
+        """
+        Get account information from Epic Games Account Service
+
+        Returns:
+            Dict with account details if successful, None otherwise
+            Fields: id, displayName, email, country, preferredLanguage, tfaEnabled,
+                   emailVerified, canUpdateDisplayName, numberOfDisplayNameChanges,
+                   lastDisplayNameChange, lastLogin, ageGroup, minorStatus
+        """
+        try:
+            if not self.access_token or not self.account_id:
+                logger.error("Not authenticated, cannot get account info")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}"
+            }
+
+            response = requests.get(
+                f"{self.ACCOUNT_URL}/{self.account_id}",
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                account_data = response.json()
+                logger.debug("Successfully retrieved account information")
+                return account_data
+            elif response.status_code == 401:
+                logger.warning("Authentication expired while getting account info")
+                self.invalidate_auth()
+                return None
+            else:
+                logger.error(f"Failed to get account info: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting account info: {e}")
+            return None
+
     def fetch_owned_cosmetics(self) -> Optional[List[str]]:
         """
         Fetch list of owned cosmetic IDs from Epic Games

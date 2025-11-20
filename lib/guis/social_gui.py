@@ -43,16 +43,127 @@ class SocialDialog(AccessibleDialog):
         sizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
 
         # Create tabs
+        self.me_panel = self._create_me_panel()
         self.friends_panel = self._create_friends_panel()
         self.requests_panel = self._create_requests_panel()
         self.party_panel = self._create_party_panel()
 
+        self.notebook.AddPage(self.me_panel, "Me")
         self.notebook.AddPage(self.friends_panel, "Friends")
         self.notebook.AddPage(self.requests_panel, "Friend Requests")
         self.notebook.AddPage(self.party_panel, "Party")
 
         # Bind tab change event
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_tab_changed)
+
+    def _create_me_panel(self):
+        """Create Me tab showing account information"""
+        panel = wx.Panel(self.notebook)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Title
+        title = wx.StaticText(panel, label="Account Information")
+        title_font = title.GetFont()
+        title_font.PointSize += 2
+        title_font = title_font.Bold()
+        title.SetFont(title_font)
+        sizer.Add(title, 0, wx.ALL, 10)
+
+        # Account info grid
+        grid_sizer = wx.FlexGridSizer(rows=0, cols=2, hgap=10, vgap=5)
+        grid_sizer.AddGrowableCol(1)
+
+        # Create labels and values
+        self.account_fields = {}
+        fields = [
+            ("Display Name:", "displayName"),
+            ("Account ID:", "id"),
+            ("Email:", "email"),
+            ("Country:", "country"),
+            ("Language:", "preferredLanguage"),
+            ("2FA Enabled:", "tfaEnabled"),
+            ("Email Verified:", "emailVerified"),
+            ("Can Change Display Name:", "canUpdateDisplayName"),
+            ("Display Name Changes:", "numberOfDisplayNameChanges"),
+            ("Last Login:", "lastLogin"),
+            ("Age Group:", "ageGroup"),
+            ("Minor Status:", "minorStatus")
+        ]
+
+        for label_text, field_key in fields:
+            label = wx.StaticText(panel, label=label_text)
+            value = wx.StaticText(panel, label="Loading...")
+            self.account_fields[field_key] = value
+
+            grid_sizer.Add(label, 0, wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL)
+            grid_sizer.Add(value, 0, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
+
+        sizer.Add(grid_sizer, 0, wx.ALL | wx.EXPAND, 10)
+
+        # Refresh button
+        refresh_btn = wx.Button(panel, label="Refresh")
+        refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh_account_info)
+        sizer.Add(refresh_btn, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+
+        panel.SetSizer(sizer)
+
+        # Load account info initially
+        self.load_account_info()
+
+        return panel
+
+    def load_account_info(self):
+        """Load account information from Epic Games API"""
+        try:
+            # Get account info from social manager's auth
+            if not self.social_manager or not self.social_manager.epic_social or not self.social_manager.epic_social.auth:
+                for field_key, value_label in self.account_fields.items():
+                    value_label.SetLabel("Not authenticated")
+                return
+
+            auth = self.social_manager.epic_social.auth
+            account_info = auth.get_account_info()
+
+            if not account_info:
+                for field_key, value_label in self.account_fields.items():
+                    value_label.SetLabel("Error loading")
+                return
+
+            # Update each field
+            for field_key, value_label in self.account_fields.items():
+                raw_value = account_info.get(field_key, "N/A")
+
+                # Format boolean values
+                if isinstance(raw_value, bool):
+                    display_value = "Yes" if raw_value else "No"
+                # Format datetime values
+                elif field_key == "lastLogin" and raw_value != "N/A":
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(raw_value.replace('Z', '+00:00'))
+                        display_value = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+                    except:
+                        display_value = raw_value
+                # Format number of display name changes
+                elif field_key == "numberOfDisplayNameChanges":
+                    display_value = f"{raw_value}/3"
+                else:
+                    display_value = str(raw_value)
+
+                value_label.SetLabel(display_value)
+
+            logger.info("Account information loaded successfully")
+
+        except Exception as e:
+            logger.error(f"Error loading account info: {e}")
+            for field_key, value_label in self.account_fields.items():
+                value_label.SetLabel("Error")
+
+    def on_refresh_account_info(self, event):
+        """Refresh account information"""
+        speaker.speak("Refreshing account information")
+        self.load_account_info()
+        speaker.speak("Account information refreshed")
 
     def _create_friends_panel(self):
         """Create friends tab"""
