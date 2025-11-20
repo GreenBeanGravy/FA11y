@@ -553,10 +553,11 @@ class EpicDiscovery:
                 # Creator pages use a different HTML structure than browse pages
                 # Pattern: <a href="/island?code=CODE" class="island byepic">
                 # Note: Uses DOUBLE quotes, has "byepic" class, nested divs
+                # Player count is AFTER the SVG element and may have "K" suffix (e.g., "218.4K")
                 island_pattern = re.compile(
                     r'<a href=["\']?/island\?code=([^"\'>&\s]+)["\']?[^>]*class=["\'][^"\']*island[^"\']*["\'][^>]*>.*?'
                     r'<img src=["\']([^"\']+)["\'][^>]*alt=["\']([^"\']+)["\'].*?'
-                    r'<div class=["\']players["\']>.*?(\d+)\s*</div>',
+                    r'<div class=["\']players["\'][^>]*>.*?</svg>\s*([\d.]+K?)\s*</div>',
                     re.DOTALL | re.IGNORECASE
                 )
 
@@ -578,9 +579,14 @@ class EpicDiscovery:
                     title = title.strip()
                     code = code.strip()
 
-                    # Parse player count
+                    # Parse player count (handle "K" suffix: "218.4K" = 218400)
                     try:
-                        player_count = int(players.strip())
+                        players_str = players.strip()
+                        if 'K' in players_str.upper():
+                            # Remove K and convert (218.4K -> 218.4 * 1000 = 218400)
+                            player_count = int(float(players_str.upper().replace('K', '')) * 1000)
+                        else:
+                            player_count = int(float(players_str))
                     except:
                         player_count = -1
 
