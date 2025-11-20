@@ -7,8 +7,9 @@ import requests
 import re
 import time
 from html.parser import HTMLParser
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import cloudscraper
@@ -73,6 +74,26 @@ class EpicDiscovery:
         # Cache for discovery token (version-specific)
         self._discovery_token_cache = {}  # {branch: token}
 
+        # Optimization: Reusable scraper instance (avoids recreation overhead)
+        self._scraper = None
+        if HAS_CLOUDSCRAPER:
+            try:
+                self._scraper = cloudscraper.create_scraper(
+                    browser={
+                        'browser': 'chrome',
+                        'platform': 'windows',
+                        'desktop': True
+                    }
+                )
+                logger.debug("Created reusable cloudscraper instance")
+            except Exception as e:
+                logger.warning(f"Failed to create cloudscraper: {e}")
+
+        # Optimization: Response cache {url: (html, timestamp)}
+        # Cache responses for 30 seconds to avoid duplicate requests
+        self._response_cache: Dict[str, Tuple[str, float]] = {}
+        self._cache_ttl = 30.0  # seconds
+
     def _get_headers(self) -> dict:
         """Get authorization headers for API requests"""
         if not self.auth.access_token:
@@ -83,6 +104,67 @@ class EpicDiscovery:
             "Content-Type": "application/json",
             "User-Agent": "Fortnite/++Fortnite+Release-20.00-CL-19458861 Windows/10.0.19041.1.768.64bit"
         }
+
+    def _fetch_url_cached(self, url: str, headers: Dict[str, str], use_cache: bool = True) -> Optional[str]:
+        """
+        Fetch URL with caching support
+
+        Args:
+            url: URL to fetch
+            headers: HTTP headers
+            use_cache: Whether to use cache (default True)
+
+        Returns:
+            HTML response or None if failed
+        """
+        # Check cache first
+        if use_cache and url in self._response_cache:
+            cached_html, cached_time = self._response_cache[url]
+            age = time.time() - cached_time
+            if age < self._cache_ttl:
+                logger.debug(f"Using cached response for {url} (age: {age:.1f}s)")
+                return cached_html
+            else:
+                # Cache expired, remove it
+                del self._response_cache[url]
+
+        # Rate limiting - wait 0.5 seconds between requests (optimized from 1s)
+        time.sleep(0.5)
+
+        # Fetch using reusable scraper if available
+        try:
+            if self._scraper:
+                response = self._scraper.get(url, headers=headers, timeout=15, allow_redirects=True)
+            elif HAS_CLOUDSCRAPER:
+                # Fallback: create temporary scraper
+                scraper = cloudscraper.create_scraper(
+                    browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True}
+                )
+                response = scraper.get(url, headers=headers, timeout=15, allow_redirects=True)
+            else:
+                # Final fallback: regular requests
+                logger.warning("cloudscraper not available, using regular requests (may be blocked)")
+                session = requests.Session()
+                response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
+
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch {url}: {response.status_code}")
+                if "cloudflare" in response.text.lower() or "cf-ray" in response.headers:
+                    logger.warning("Cloudflare protection detected")
+                return None
+
+            html = response.text
+
+            # Cache the response
+            if use_cache:
+                self._response_cache[url] = (html, time.time())
+                logger.debug(f"Cached response for {url}")
+
+            return html
+
+        except Exception as e:
+            logger.error(f"Error fetching {url}: {e}")
+            return None
 
     def get_discovery_token(self, branch: str = "++Fortnite+Release-38.11") -> Optional[str]:
         """
@@ -388,44 +470,21 @@ class EpicDiscovery:
                 "Cache-Control": "max-age=0"
             }
 
-            # Rate limiting - wait 1 second between requests
-            time.sleep(1)
-
-            # Use cloudscraper to bypass Cloudflare protection
-            if HAS_CLOUDSCRAPER:
-                scraper = cloudscraper.create_scraper(
-                    browser={
-                        'browser': 'chrome',
-                        'platform': 'windows',
-                        'desktop': True
-                    }
-                )
-                response = scraper.get(url, headers=headers, timeout=15, allow_redirects=True)
-            else:
-                # Fallback to regular requests if cloudscraper not available
-                logger.warning("cloudscraper not available, using regular requests (may be blocked)")
-                session = requests.Session()
-                response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
-
-            if response.status_code != 200:
-                logger.error(f"Failed to scrape fortnite.gg: {response.status_code}")
-                logger.debug(f"Response headers: {dict(response.headers)}")
-                # Check if it's a Cloudflare challenge
-                if "cloudflare" in response.text.lower() or "cf-ray" in response.headers:
-                    logger.warning("Cloudflare protection detected - cannot bypass automatically")
+            # Use optimized cached fetch
+            html = self._fetch_url_cached(url, headers)
+            if not html:
                 return []
-
-            html = response.text
 
             # Debug: log first 500 chars to see what we got
             logger.debug(f"Response preview: {html[:500]}")
 
             # Parse HTML using regex (simple and robust for this structure)
             # Pattern: <a class='island' href='/island?code=XXXX-XXXX-XXXX'>
+            # Note: Browse pages have SVG element before player count
             island_pattern = re.compile(
                 r"<a class='island' href='/island\?code=([\d-]+)'>.*?"
                 r"<img src='([^']+)'[^>]*alt='([^']+)'.*?"
-                r"<div class='players'>.*?(\d+)\s*</div>.*?"
+                r"<div class='players'[^>]*>.*?</svg>\s*(\d+)\s*</div>.*?"
                 r"<h3 class='island-title'>([^<]+)</h3>",
                 re.DOTALL
             )
@@ -464,9 +523,99 @@ class EpicDiscovery:
             logger.error(f"Error scraping fortnite.gg: {e}")
             return []
 
+    def _fetch_and_parse_creator_page(self, creator_name: str, page_num: int) -> List[DiscoveryIsland]:
+        """
+        Fetch and parse a single creator page
+
+        Args:
+            creator_name: Creator name
+            page_num: Page number to fetch
+
+        Returns:
+            List of DiscoveryIsland objects from this page
+        """
+        islands = []
+
+        # Build URL for creator page
+        url = f"https://fortnite.gg/creator?name={creator_name}"
+        if page_num > 1:
+            url += f"&page={page_num}"
+
+        logger.debug(f"Scraping creator page: {url}")
+
+        # Add browser-like headers
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://fortnite.gg/",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Cache-Control": "max-age=0"
+        }
+
+        # Use optimized cached fetch
+        html = self._fetch_url_cached(url, headers)
+        if not html:
+            return []
+
+        # Creator pages use a different HTML structure than browse pages
+        # Pattern: <a href="/island?code=CODE" class="island byepic">
+        # Note: Uses DOUBLE quotes, has "byepic" class, nested divs
+        # Player count is AFTER the SVG element and may have "K" suffix (e.g., "218.4K")
+        island_pattern = re.compile(
+            r'<a href=["\']?/island\?code=([^"\'>&\s]+)["\']?[^>]*class=["\'][^"\']*island[^"\']*["\'][^>]*>.*?'
+            r'<img src=["\']([^"\']+)["\'][^>]*alt=["\']([^"\']+)["\'].*?'
+            r'<div class=["\']players["\'][^>]*>.*?</svg>\s*([\d.]+K?)\s*</div>',
+            re.DOTALL | re.IGNORECASE
+        )
+
+        matches = island_pattern.findall(html)
+        logger.debug(f"Pattern matched {len(matches)} islands on page {page_num}")
+
+        for match in matches:
+            # Match groups: code, image_url, title (from alt), players
+            code, image_url, title, players = match
+
+            # Clean up title and code
+            title = title.strip()
+            code = code.strip()
+
+            # Parse player count (handle "K" suffix: "218.4K" = 218400)
+            try:
+                players_str = players.strip()
+                if 'K' in players_str.upper():
+                    # Remove K and convert (218.4K -> 218.4 * 1000 = 218400)
+                    player_count = int(float(players_str.upper().replace('K', '')) * 1000)
+                else:
+                    player_count = int(float(players_str))
+            except:
+                player_count = -1
+
+            # Create DiscoveryIsland object
+            island = DiscoveryIsland(
+                link_code=code,
+                title=title,
+                creator_name=creator_name,
+                description=None,
+                global_ccu=player_count,
+                image_url=image_url if image_url and not image_url.endswith('_s.jpeg') else image_url.replace('_s.jpeg', '.jpeg') if image_url else None
+            )
+
+            islands.append(island)
+            logger.debug(f"Scraped creator island: {title} ({code}) - {player_count} players")
+
+        return islands
+
     def scrape_creator_maps(self, creator_name: str, limit: int = 50, start_page: int = 1) -> List[DiscoveryIsland]:
         """
         Scrape maps from a specific creator's page on fortnite.gg
+
+        Optimized with parallel page fetching for better performance.
 
         Args:
             creator_name: Creator name (e.g., "epic")
@@ -483,127 +632,43 @@ class EpicDiscovery:
             islands_per_page = 24
             max_pages = max(1, (limit + islands_per_page - 1) // islands_per_page)
 
-            for page_num in range(start_page, start_page + max_pages):
-                # Stop if we've hit our limit
-                if len(islands) >= limit:
-                    break
+            # Optimization: Fetch multiple pages in parallel (limit to 3 concurrent requests)
+            # This significantly speeds up multi-page fetching while being respectful to the server
+            max_workers = min(3, max_pages)
 
-                # Build URL for creator page
-                url = f"https://fortnite.gg/creator?name={creator_name}"
-                if page_num > 1:
-                    url += f"&page={page_num}"
+            if max_pages == 1:
+                # Single page - no need for parallel fetching
+                page_islands = self._fetch_and_parse_creator_page(creator_name, start_page)
+                islands.extend(page_islands[:limit])
+            else:
+                # Multi-page - use parallel fetching
+                page_nums = list(range(start_page, start_page + max_pages))
 
-                logger.debug(f"Scraping creator page: {url}")
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # Submit all page fetch tasks
+                    future_to_page = {
+                        executor.submit(self._fetch_and_parse_creator_page, creator_name, page_num): page_num
+                        for page_num in page_nums
+                    }
 
-                # Add browser-like headers
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Referer": "https://fortnite.gg/",
-                    "DNT": "1",
-                    "Connection": "keep-alive",
-                    "Upgrade-Insecure-Requests": "1",
-                    "Sec-Fetch-Dest": "document",
-                    "Sec-Fetch-Mode": "navigate",
-                    "Sec-Fetch-Site": "same-origin",
-                    "Cache-Control": "max-age=0"
-                }
+                    # Collect results as they complete
+                    for future in as_completed(future_to_page):
+                        page_num = future_to_page[future]
+                        try:
+                            page_islands = future.result()
+                            if page_islands:
+                                islands.extend(page_islands)
+                                logger.info(f"Fetched {len(page_islands)} islands from page {page_num}")
+                            else:
+                                logger.debug(f"No islands found on page {page_num}")
+                        except Exception as e:
+                            logger.error(f"Error fetching page {page_num}: {e}")
 
-                # Rate limiting - wait 1 second between requests
-                time.sleep(1)
+                # Sort by player count (descending) to maintain consistent ordering
+                islands.sort(key=lambda x: x.global_ccu, reverse=True)
 
-                # Use cloudscraper to bypass Cloudflare protection
-                if HAS_CLOUDSCRAPER:
-                    scraper = cloudscraper.create_scraper(
-                        browser={
-                            'browser': 'chrome',
-                            'platform': 'windows',
-                            'desktop': True
-                        }
-                    )
-                    response = scraper.get(url, headers=headers, timeout=15, allow_redirects=True)
-                else:
-                    logger.warning("cloudscraper not available, using regular requests (may be blocked)")
-                    session = requests.Session()
-                    response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
-
-                if response.status_code != 200:
-                    logger.error(f"Failed to scrape creator page: {response.status_code}")
-                    if "cloudflare" in response.text.lower() or "cf-ray" in response.headers:
-                        logger.warning("Cloudflare protection detected")
-                    break
-
-                html = response.text
-
-                # Debug: Log HTML snippet
-                logger.debug(f"Response length: {len(html)} chars")
-                # Find first complete island entry
-                idx = html.find("<a href='/island?code=")
-                if idx < 0:
-                    idx = html.find('<a href="/island?code=')
-
-                if idx >= 0:
-                    # Show first 1500 chars of island entry to see full structure
-                    logger.debug(f"First island HTML (1500 chars): {html[idx:idx+1500]}")
-                else:
-                    logger.debug("No island links found in HTML")
-                    logger.debug(f"HTML start: {html[:500]}")
-
-                # Creator pages use a different HTML structure than browse pages
-                # Pattern: <a href="/island?code=CODE" class="island byepic">
-                # Note: Uses DOUBLE quotes, has "byepic" class, nested divs
-                # Player count is AFTER the SVG element and may have "K" suffix (e.g., "218.4K")
-                island_pattern = re.compile(
-                    r'<a href=["\']?/island\?code=([^"\'>&\s]+)["\']?[^>]*class=["\'][^"\']*island[^"\']*["\'][^>]*>.*?'
-                    r'<img src=["\']([^"\']+)["\'][^>]*alt=["\']([^"\']+)["\'].*?'
-                    r'<div class=["\']players["\'][^>]*>.*?</svg>\s*([\d.]+K?)\s*</div>',
-                    re.DOTALL | re.IGNORECASE
-                )
-
-                matches = island_pattern.findall(html)
-                logger.debug(f"Pattern matched {len(matches)} islands")
-
-                if not matches:
-                    logger.debug(f"No islands found on page {page_num}")
-                    break  # No more results, stop pagination
-
-                for match in matches:
-                    if len(islands) >= limit:
-                        break
-
-                    # Match groups: code, image_url, title (from alt), players
-                    code, image_url, title, players = match
-
-                    # Clean up title and code
-                    title = title.strip()
-                    code = code.strip()
-
-                    # Parse player count (handle "K" suffix: "218.4K" = 218400)
-                    try:
-                        players_str = players.strip()
-                        if 'K' in players_str.upper():
-                            # Remove K and convert (218.4K -> 218.4 * 1000 = 218400)
-                            player_count = int(float(players_str.upper().replace('K', '')) * 1000)
-                        else:
-                            player_count = int(float(players_str))
-                    except:
-                        player_count = -1
-
-                    # Create DiscoveryIsland object
-                    island = DiscoveryIsland(
-                        link_code=code,
-                        title=title,
-                        creator_name=creator_name,
-                        description=None,
-                        global_ccu=player_count,
-                        image_url=image_url if image_url and not image_url.endswith('_s.jpeg') else image_url.replace('_s.jpeg', '.jpeg') if image_url else None
-                    )
-
-                    islands.append(island)
-                    logger.debug(f"Scraped creator island: {title} ({code}) - {player_count} players")
-
-                logger.info(f"Scraped {len(matches)} islands from page {page_num}")
+                # Trim to limit
+                islands = islands[:limit]
 
             logger.info(f"Total scraped {len(islands)} islands for creator '{creator_name}'")
             return islands
