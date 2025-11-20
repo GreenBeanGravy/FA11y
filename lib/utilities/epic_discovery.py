@@ -266,6 +266,12 @@ class EpicDiscovery:
                 logger.debug(f"Panel has {len(results)} results")
 
                 for result in results:
+                    # Skip panel references (they start with "ref_" or "reference_")
+                    link_code = result.get("linkCode", "")
+                    if link_code.startswith(("ref_", "reference_")):
+                        logger.debug(f"Skipping panel reference: {link_code}")
+                        continue
+
                     # Parse the island data
                     island = self._parse_island_data(result)
                     if island:
@@ -277,6 +283,58 @@ class EpicDiscovery:
 
         except Exception as e:
             logger.error(f"Error extracting islands from surface: {e}")
+            return []
+
+    def get_all_islands(self, limit: int = 100) -> List[DiscoveryIsland]:
+        """
+        Get all available islands from the public Fortnite Data API
+
+        Args:
+            limit: Maximum number of islands to return (default 100)
+
+        Returns:
+            List of DiscoveryIsland objects
+        """
+        try:
+            # Use the public Data API (no authentication required!)
+            url = f"{self.DATA_API_BASE}/islands"
+
+            logger.debug(f"Get all islands request (Data API): GET {url}")
+
+            # Data API doesn't require authentication
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "FA11y/1.0"
+            }
+
+            # Get islands (up to limit)
+            response = requests.get(
+                url,
+                headers=headers,
+                params={"size": limit},
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                all_islands = data.get("data", [])
+
+                # Parse all islands
+                islands = []
+                for island_data in all_islands:
+                    island = self._parse_island_data(island_data)
+                    if island:
+                        islands.append(island)
+
+                logger.info(f"Retrieved {len(islands)} islands from Data API")
+                return islands
+            else:
+                logger.error(f"Failed to get islands (Data API): {response.status_code}")
+                logger.error(f"Response body: {response.text}")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error getting all islands: {e}")
             return []
 
     def search_islands(self, query: str, order_by: str = "globalCCU", page: int = 0) -> List[DiscoveryIsland]:
