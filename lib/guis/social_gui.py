@@ -210,6 +210,8 @@ class SocialDialog(AccessibleDialog):
                 fn_lines.append("Statistics are set to private.")
                 fn_lines.append("Change privacy settings in-game to view stats.")
             else:
+                # Overall Career Stats
+                fn_lines.append("OVERALL CAREER STATS")
                 fn_lines.append(f"Total Wins: {player_stats.get('wins', 0):,}")
                 fn_lines.append(f"Total Kills: {player_stats.get('kills', 0):,}")
                 fn_lines.append(f"Matches Played: {player_stats.get('matches_played', 0):,}")
@@ -222,22 +224,44 @@ class SocialDialog(AccessibleDialog):
                 fn_lines.append(f"Time Played: {minutes:,} minutes ({hours:.1f} hours / {days:.1f} days)")
                 fn_lines.append(f"Players Outlived: {player_stats.get('players_outlived', 0):,}")
 
+                # Per-Mode Breakdown
+                mode_breakdown = player_stats.get('mode_breakdown', {})
+                if mode_breakdown:
+                    # Check if any mode has stats
+                    has_mode_stats = any(
+                        mode_breakdown.get(mode, {}).get('matches', 0) > 0
+                        for mode in ['solo', 'duo', 'trio', 'squad']
+                    )
+
+                    if has_mode_stats:
+                        fn_lines.append("")
+                        fn_lines.append("PER-MODE BREAKDOWN")
+
+                        for mode_name in ['solo', 'duo', 'trio', 'squad']:
+                            mode_data = mode_breakdown.get(mode_name, {})
+                            if mode_data.get('matches', 0) > 0:
+                                mode_label = mode_name.capitalize() + "s" if mode_name != "solo" else "Solos"
+                                fn_lines.append(f"{mode_label}: {mode_data['wins']:,} wins, {mode_data['kills']:,} kills, {mode_data['matches']:,} matches (K/D: {mode_data['kd_ratio']:.2f}, WR: {mode_data['win_rate']:.1f}%)")
+
                 # Top Placements (only if there are any)
                 if any(player_stats.get(f'top{i}', 0) > 0 for i in [3, 5, 6, 10, 12, 25]):
+                    fn_lines.append("")
+                    fn_lines.append("TOP PLACEMENTS")
                     if player_stats.get('top3', 0) > 0:
-                        fn_lines.append(f"Top 3 Finishes: {player_stats['top3']:,}")
+                        fn_lines.append(f"Top 3: {player_stats['top3']:,}")
                     if player_stats.get('top5', 0) > 0:
-                        fn_lines.append(f"Top 5 Finishes: {player_stats['top5']:,}")
+                        fn_lines.append(f"Top 5: {player_stats['top5']:,}")
                     if player_stats.get('top6', 0) > 0:
-                        fn_lines.append(f"Top 6 Finishes: {player_stats['top6']:,}")
+                        fn_lines.append(f"Top 6: {player_stats['top6']:,}")
                     if player_stats.get('top10', 0) > 0:
-                        fn_lines.append(f"Top 10 Finishes: {player_stats['top10']:,}")
+                        fn_lines.append(f"Top 10: {player_stats['top10']:,}")
                     if player_stats.get('top12', 0) > 0:
-                        fn_lines.append(f"Top 12 Finishes: {player_stats['top12']:,}")
+                        fn_lines.append(f"Top 12: {player_stats['top12']:,}")
                     if player_stats.get('top25', 0) > 0:
-                        fn_lines.append(f"Top 25 Finishes: {player_stats['top25']:,}")
+                        fn_lines.append(f"Top 25: {player_stats['top25']:,}")
 
                 if player_stats.get('score', 0) > 0:
+                    fn_lines.append("")
                     fn_lines.append(f"Total Score: {player_stats['score']:,}")
 
             self.fortnite_stats_text.SetValue("\n".join(fn_lines))

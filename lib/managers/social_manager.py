@@ -379,17 +379,21 @@ class SocialManager:
             if not current_ranked:
                 return
 
+            # Check if this is the first run (initialization)
+            first_run = len(self.prev_ranked_progress) == 0
+
             # Check each ranking type for changes
             for ranking_type, current_data in current_ranked.items():
                 current_div = current_data.get('currentDivision', 0)
                 current_progress = current_data.get('promotionProgress', 0.0)
 
                 # Check if we have previous data for this mode
-                if ranking_type in self.prev_ranked_progress:
+                if ranking_type in self.prev_ranked_progress and not first_run:
                     prev_data = self.prev_ranked_progress[ranking_type]
                     prev_div = prev_data.get('currentDivision', 0)
 
                     # Check for division change (promotion or demotion)
+                    # Only announce if there's an actual change and player is ranked (not unranked)
                     if current_div != prev_div and current_div > 0:
                         mode_name = self._get_ranked_mode_name(ranking_type)
                         current_rank = self._division_to_rank_name(current_div)
@@ -409,11 +413,15 @@ class SocialManager:
                             speaker.speak(announcement)
                             logger.info(f"Ranked demotion: {announcement}")
 
-                # Update previous state
+                # Update previous state (silent on first run)
                 self.prev_ranked_progress[ranking_type] = {
                     'currentDivision': current_div,
                     'promotionProgress': current_progress
                 }
+
+            # Log initialization on first run
+            if first_run:
+                logger.info(f"Initialized ranked progress tracking for {len(self.prev_ranked_progress)} modes")
 
         except Exception as e:
             logger.error(f"Error checking ranked progress: {e}")

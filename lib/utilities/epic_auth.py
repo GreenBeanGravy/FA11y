@@ -416,6 +416,10 @@ class EpicAuth:
                     processed["kd_ratio"] = 0.0
                     processed["win_rate"] = 0.0
 
+                # Parse per-gamemode breakdowns from raw stats
+                mode_breakdown = self._parse_mode_breakdown(raw_stats)
+                processed["mode_breakdown"] = mode_breakdown
+
                 logger.debug("Successfully retrieved and processed player statistics")
                 return processed
 
@@ -431,9 +435,60 @@ class EpicAuth:
             logger.error(f"Error getting player stats: {e}")
             return None
 
+    def _parse_mode_breakdown(self, raw_stats: Dict) -> Dict:
+        """
+        Parse raw stats to extract per-gamemode breakdowns
+
+        Stats keys format: br_[stat]_[input]_m0_playlist_[playlistname]
+
+        Returns:
+            Dict with mode breakdowns (solo, duo, trio, squad)
+        """
+        modes = {
+            "solo": {"wins": 0, "kills": 0, "matches": 0},
+            "duo": {"wins": 0, "kills": 0, "matches": 0},
+            "trio": {"wins": 0, "kills": 0, "matches": 0},
+            "squad": {"wins": 0, "kills": 0, "matches": 0}
+        }
+
+        for key, value in raw_stats.items():
+            # Identify mode type from playlist name
+            key_lower = key.lower()
+            mode_type = None
+
+            # Identify team size
+            if "solo" in key_lower:
+                mode_type = "solo"
+            elif "duo" in key_lower:
+                mode_type = "duo"
+            elif "trio" in key_lower:
+                mode_type = "trio"
+            elif "squad" in key_lower:
+                mode_type = "squad"
+
+            if mode_type:
+                # Aggregate stats for this mode
+                if "placetop1" in key_lower:
+                    modes[mode_type]["wins"] += value
+                elif "kills" in key_lower:
+                    modes[mode_type]["kills"] += value
+                elif "matchesplayed" in key_lower:
+                    modes[mode_type]["matches"] += value
+
+        # Calculate K/D and win rate for each mode
+        for mode in modes.values():
+            if mode["matches"] > 0:
+                mode["kd_ratio"] = mode["kills"] / max(mode["matches"] - mode["wins"], 1)
+                mode["win_rate"] = (mode["wins"] / mode["matches"]) * 100
+            else:
+                mode["kd_ratio"] = 0.0
+                mode["win_rate"] = 0.0
+
+        return modes
+
     def get_ranked_progress(self) -> Optional[Dict]:
         """
-        Get ranked progress for all main competitive modes
+        Get ranked progress for all main competitive modes (current season only)
 
         Returns:
             Dict mapping ranking type to progress data if successful, None otherwise
@@ -459,15 +514,24 @@ class EpicAuth:
                 'ranked-figment-nobuild'        # OG Zero Build
             ]
 
+            # Use current date as endsAfter to only get current/active season data
+            # This filters out old season ranks
+            from datetime import datetime
+            current_date = datetime.utcnow().isoformat() + 'Z'
+
             ranked_data = {}
 
             for ranking_type in ranking_types:
                 try:
-                    # Use bulkByRankingType endpoint for efficient querying
+                    # Use bulkByRankingType endpoint with endsAfter parameter
+                    # endsAfter filters to only include tracks that end after this date (i.e., active tracks)
                     response = requests.post(
                         "https://fn-service-habanero-live-public.ogs.live.on.epicgames.com/api/v1/games/fortnite/trackprogress/bulkByRankingType",
                         headers=headers,
-                        params={"rankingType": ranking_type},
+                        params={
+                            "rankingType": ranking_type,
+                            "endsAfter": current_date  # Only get current season data
+                        },
                         json={"accountIds": [self.account_id]},
                         timeout=10
                     )
@@ -475,7 +539,7 @@ class EpicAuth:
                     if response.status_code == 200:
                         results = response.json()
                         if results and len(results) > 0:
-                            # Get the first result (should be our account)
+                            # Get the first result (should be our account for current season)
                             progress = results[0]
                             ranked_data[ranking_type] = {
                                 "currentDivision": progress.get("currentDivision", 0),
@@ -484,7 +548,7 @@ class EpicAuth:
                                 "trackguid": progress.get("trackguid", ""),
                                 "lastUpdated": progress.get("lastUpdated", "")
                             }
-                            logger.debug(f"Retrieved ranked progress for {ranking_type}")
+                            logger.debug(f"Retrieved current season ranked progress for {ranking_type}: Division {progress.get('currentDivision', 0)}")
                     elif response.status_code == 401:
                         logger.warning("Authentication expired while getting ranked progress")
                         self.invalidate_auth()
@@ -497,7 +561,7 @@ class EpicAuth:
                     logger.debug(f"Error fetching ranked data for {ranking_type}: {e}")
                     # Continue with other ranking types
 
-            logger.debug(f"Successfully retrieved ranked progress for {len(ranked_data)} modes")
+            logger.debug(f"Successfully retrieved current season ranked progress for {len(ranked_data)} modes")
             return ranked_data if ranked_data else {}
 
         except Exception as e:
