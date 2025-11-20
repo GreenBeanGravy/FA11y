@@ -547,14 +547,14 @@ class EpicDiscovery:
                     # Log first 500 chars to see what we got
                     logger.debug(f"HTML start: {html[:500]}")
 
-                # Pattern handles both standard codes (1234-5678-9012) and playlist names (set_br_playlists, campaign, etc.)
-                # <a class='island' href='/island?code=CODE_OR_PLAYLIST_NAME'>
+                # Creator pages use a different HTML structure than browse pages
+                # Pattern: <a href="/island?code=CODE" class="island byepic">
+                # Note: Uses DOUBLE quotes, has "byepic" class, nested divs
                 island_pattern = re.compile(
-                    r"<a class='island' href='/island\?code=([^']+)'>.*?"
-                    r"<img src='([^']+)'[^>]*alt='([^']+)'.*?"
-                    r"<div class='players'>.*?(\d+)\s*</div>.*?"
-                    r"<h3 class='island-title'>([^<]+)</h3>",
-                    re.DOTALL
+                    r'<a href=["\']?/island\?code=([^"\'>&\s]+)["\']?[^>]*class=["\'][^"\']*island[^"\']*["\'][^>]*>.*?'
+                    r'<img src=["\']([^"\']+)["\'][^>]*alt=["\']([^"\']+)["\'].*?'
+                    r'<div class=["\']players["\']>.*?(\d+)\s*</div>',
+                    re.DOTALL | re.IGNORECASE
                 )
 
                 matches = island_pattern.findall(html)
@@ -568,7 +568,8 @@ class EpicDiscovery:
                     if len(islands) >= limit:
                         break
 
-                    code, image_url, alt_text, players, title = match
+                    # Match groups: code, image_url, title (from alt), players
+                    code, image_url, title, players = match
 
                     # Clean up title and code
                     title = title.strip()
