@@ -46,13 +46,282 @@ class SocialDialog(AccessibleDialog):
         self.friends_panel = self._create_friends_panel()
         self.requests_panel = self._create_requests_panel()
         self.party_panel = self._create_party_panel()
+        self.me_panel = self._create_me_panel()
 
         self.notebook.AddPage(self.friends_panel, "Friends")
         self.notebook.AddPage(self.requests_panel, "Friend Requests")
         self.notebook.AddPage(self.party_panel, "Party")
+        self.notebook.AddPage(self.me_panel, "Me")
 
         # Bind tab change event
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_tab_changed)
+
+    def _create_me_panel(self):
+        """Create Me tab showing account information in 3 separate boxes"""
+        panel = wx.Panel(self.notebook)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Title
+        title = wx.StaticText(panel, label="Account Information")
+        title_font = title.GetFont()
+        title_font.PointSize += 2
+        title_font = title_font.Bold()
+        title.SetFont(title_font)
+        sizer.Add(title, 0, wx.ALL, 10)
+
+        # Epic Account Stats Box
+        epic_label = wx.StaticText(panel, label="Epic Account Stats")
+        epic_label_font = epic_label.GetFont()
+        epic_label_font = epic_label_font.Bold()
+        epic_label.SetFont(epic_label_font)
+        sizer.Add(epic_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        self.epic_account_text = wx.TextCtrl(
+            panel,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP,
+            size=(-1, 80)
+        )
+        font = self.epic_account_text.GetFont()
+        font.PointSize += 1
+        self.epic_account_text.SetFont(font)
+        sizer.Add(self.epic_account_text, 0, wx.ALL | wx.EXPAND, 10)
+
+        # Fortnite Stats Box
+        fn_label = wx.StaticText(panel, label="Fortnite Stats")
+        fn_label_font = fn_label.GetFont()
+        fn_label_font = fn_label_font.Bold()
+        fn_label.SetFont(fn_label_font)
+        sizer.Add(fn_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        self.fortnite_stats_text = wx.TextCtrl(
+            panel,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP,
+            size=(-1, 200)
+        )
+        font = self.fortnite_stats_text.GetFont()
+        font.PointSize += 1
+        self.fortnite_stats_text.SetFont(font)
+        sizer.Add(self.fortnite_stats_text, 1, wx.ALL | wx.EXPAND, 10)
+
+        # Fortnite Ranked Stats Box
+        ranked_label = wx.StaticText(panel, label="Fortnite Ranked Stats")
+        ranked_label_font = ranked_label.GetFont()
+        ranked_label_font = ranked_label_font.Bold()
+        ranked_label.SetFont(ranked_label_font)
+        sizer.Add(ranked_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        self.ranked_stats_text = wx.TextCtrl(
+            panel,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP,
+            size=(-1, 150)
+        )
+        font = self.ranked_stats_text.GetFont()
+        font.PointSize += 1
+        self.ranked_stats_text.SetFont(font)
+        sizer.Add(self.ranked_stats_text, 1, wx.ALL | wx.EXPAND, 10)
+
+        # Refresh button
+        refresh_btn = wx.Button(panel, label="Refresh Account Information")
+        refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh_account_info)
+        sizer.Add(refresh_btn, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+
+        panel.SetSizer(sizer)
+
+        # Load account info initially
+        self.load_account_info()
+
+        return panel
+
+    def _division_to_rank_name(self, division: int) -> str:
+        """Convert division number to human-readable rank name"""
+        if division == 0:
+            return "Unranked"
+        elif 1 <= division <= 3:
+            tier = ["III", "II", "I"][division - 1]
+            return f"Bronze {tier}"
+        elif 4 <= division <= 6:
+            tier = ["III", "II", "I"][division - 4]
+            return f"Silver {tier}"
+        elif 7 <= division <= 9:
+            tier = ["III", "II", "I"][division - 7]
+            return f"Gold {tier}"
+        elif 10 <= division <= 12:
+            tier = ["III", "II", "I"][division - 10]
+            return f"Platinum {tier}"
+        elif 13 <= division <= 15:
+            tier = ["III", "II", "I"][division - 13]
+            return f"Diamond {tier}"
+        elif division == 16:
+            return "Elite"
+        elif division == 17:
+            return "Champion"
+        elif division == 18:
+            return "Unreal"
+        else:
+            return f"Division {division}"
+
+    def _get_ranked_mode_name(self, ranking_type: str) -> str:
+        """Get friendly name for ranked mode"""
+        mode_names = {
+            'ranked-br': 'Battle Royale',
+            'ranked-zb': 'Zero Build',
+            'ranked_blastberry_build': 'Reload',
+            'ranked_blastberry_nobuild': 'Reload Zero Build',
+            'ranked-figment-build': 'OG',
+            'ranked-figment-nobuild': 'OG Zero Build'
+        }
+        return mode_names.get(ranking_type, ranking_type)
+
+    def load_account_info(self):
+        """Load account information from Epic Games API into 3 separate boxes"""
+        try:
+            # Get account info from social manager's auth
+            if not self.social_manager or not self.social_manager.auth:
+                self.epic_account_text.SetValue("Not authenticated. Please authenticate using ALT+SHIFT+V.")
+                self.fortnite_stats_text.SetValue("Not authenticated.")
+                self.ranked_stats_text.SetValue("Not authenticated.")
+                return
+
+            auth = self.social_manager.auth
+            account_info = auth.get_account_info()
+
+            if not account_info:
+                self.epic_account_text.SetValue("Error loading account information. Please try refreshing.")
+                self.fortnite_stats_text.SetValue("Error loading stats.")
+                self.ranked_stats_text.SetValue("Error loading ranked stats.")
+                return
+
+            # === EPIC ACCOUNT STATS BOX (Simple: username, email, ID only) ===
+            epic_lines = []
+            epic_lines.append(f"Username: {account_info.get('displayName', 'N/A')}")
+            epic_lines.append(f"Email: {account_info.get('email', 'N/A')}")
+            epic_lines.append(f"Account ID: {account_info.get('id', 'N/A')}")
+
+            self.epic_account_text.SetValue("\n".join(epic_lines))
+            self.epic_account_text.SetInsertionPoint(0)
+
+            # === FORTNITE STATS BOX ===
+            player_stats = auth.get_player_stats()
+            fn_lines = []
+
+            if player_stats is None:
+                fn_lines.append("Error loading stats. Please try refreshing.")
+            elif player_stats.get('private'):
+                fn_lines.append("Statistics are set to private.")
+                fn_lines.append("Change privacy settings in-game to view stats.")
+            else:
+                # Overall Career Stats
+                fn_lines.append("OVERALL CAREER STATS")
+                fn_lines.append(f"Total Wins: {player_stats.get('wins', 0):,}")
+                fn_lines.append(f"Total Kills: {player_stats.get('kills', 0):,}")
+                fn_lines.append(f"Matches Played: {player_stats.get('matches_played', 0):,}")
+                fn_lines.append(f"K/D Ratio: {player_stats.get('kd_ratio', 0):.2f}")
+                fn_lines.append(f"Win Rate: {player_stats.get('win_rate', 0):.2f}%")
+
+                minutes = player_stats.get('minutes_played', 0)
+                hours = minutes / 60
+                days = hours / 24
+                fn_lines.append(f"Time Played: {minutes:,} minutes ({hours:.1f} hours / {days:.1f} days)")
+                fn_lines.append(f"Players Outlived: {player_stats.get('players_outlived', 0):,}")
+
+                # Per-Mode Breakdown
+                mode_breakdown = player_stats.get('mode_breakdown', {})
+                if mode_breakdown:
+                    # Check if any mode has stats
+                    has_mode_stats = any(
+                        mode_breakdown.get(mode, {}).get('matches', 0) > 0
+                        for mode in ['solo', 'duo', 'trio', 'squad']
+                    )
+
+                    if has_mode_stats:
+                        fn_lines.append("")
+                        fn_lines.append("PER-MODE BREAKDOWN")
+
+                        for mode_name in ['solo', 'duo', 'trio', 'squad']:
+                            mode_data = mode_breakdown.get(mode_name, {})
+                            if mode_data.get('matches', 0) > 0:
+                                mode_label = mode_name.capitalize() + "s" if mode_name != "solo" else "Solos"
+                                fn_lines.append(f"{mode_label}: {mode_data['wins']:,} wins, {mode_data['kills']:,} kills, {mode_data['matches']:,} matches (K/D: {mode_data['kd_ratio']:.2f}, WR: {mode_data['win_rate']:.1f}%)")
+
+                # Top Placements (only if there are any)
+                if any(player_stats.get(f'top{i}', 0) > 0 for i in [3, 5, 6, 10, 12, 25]):
+                    fn_lines.append("")
+                    fn_lines.append("TOP PLACEMENTS")
+                    if player_stats.get('top3', 0) > 0:
+                        fn_lines.append(f"Top 3: {player_stats['top3']:,}")
+                    if player_stats.get('top5', 0) > 0:
+                        fn_lines.append(f"Top 5: {player_stats['top5']:,}")
+                    if player_stats.get('top6', 0) > 0:
+                        fn_lines.append(f"Top 6: {player_stats['top6']:,}")
+                    if player_stats.get('top10', 0) > 0:
+                        fn_lines.append(f"Top 10: {player_stats['top10']:,}")
+                    if player_stats.get('top12', 0) > 0:
+                        fn_lines.append(f"Top 12: {player_stats['top12']:,}")
+                    if player_stats.get('top25', 0) > 0:
+                        fn_lines.append(f"Top 25: {player_stats['top25']:,}")
+
+                if player_stats.get('score', 0) > 0:
+                    fn_lines.append("")
+                    fn_lines.append(f"Total Score: {player_stats['score']:,}")
+
+            self.fortnite_stats_text.SetValue("\n".join(fn_lines))
+            self.fortnite_stats_text.SetInsertionPoint(0)
+
+            # === FORTNITE RANKED STATS BOX ===
+            ranked_data = auth.get_ranked_progress()
+            ranked_lines = []
+
+            if ranked_data is None:
+                ranked_lines.append("Error loading ranked stats. Please try refreshing.")
+            elif not ranked_data:
+                ranked_lines.append("No ranked data available.")
+                ranked_lines.append("Play ranked matches to see your progress here.")
+            else:
+                # Show each ranked mode with current rank and progress
+                for ranking_type in ['ranked-br', 'ranked-zb', 'ranked_blastberry_build',
+                                      'ranked_blastberry_nobuild', 'ranked-figment-build', 'ranked-figment-nobuild']:
+                    if ranking_type in ranked_data:
+                        mode_data = ranked_data[ranking_type]
+                        mode_name = self._get_ranked_mode_name(ranking_type)
+                        current_div = mode_data.get('currentDivision', 0)
+                        highest_div = mode_data.get('highestDivision', 0)
+                        progress = mode_data.get('promotionProgress', 0.0)
+
+                        current_rank = self._division_to_rank_name(current_div)
+                        highest_rank = self._division_to_rank_name(highest_div)
+
+                        # Format: "Battle Royale: Gold II (65% to Gold I)"
+                        if current_div > 0:
+                            # Show next rank
+                            next_div = current_div + 1
+                            next_rank = self._division_to_rank_name(next_div)
+                            progress_pct = int(progress * 100)
+                            ranked_lines.append(f"{mode_name}: {current_rank} ({progress_pct}% to {next_rank})")
+                        else:
+                            ranked_lines.append(f"{mode_name}: {current_rank}")
+
+                        # Show highest rank if different from current
+                        if highest_div > current_div:
+                            ranked_lines.append(f"  Peak: {highest_rank}")
+
+            self.ranked_stats_text.SetValue("\n".join(ranked_lines))
+            self.ranked_stats_text.SetInsertionPoint(0)
+
+            logger.info("Account information and stats loaded successfully")
+
+        except Exception as e:
+            logger.error(f"Error loading account info: {e}")
+            import traceback
+            traceback.print_exc()
+            self.epic_account_text.SetValue(f"Error: {str(e)}")
+            self.fortnite_stats_text.SetValue(f"Error: {str(e)}")
+            self.ranked_stats_text.SetValue(f"Error: {str(e)}")
+
+    def on_refresh_account_info(self, event):
+        """Refresh account information"""
+        speaker.speak("Refreshing account information")
+        self.load_account_info()
+        speaker.speak("Account information refreshed")
 
     def _create_friends_panel(self):
         """Create friends tab"""

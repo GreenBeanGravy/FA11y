@@ -279,6 +279,295 @@ class EpicAuth:
             logger.error(f"Error exchanging code for XMPP token: {e}")
             return None
 
+    def get_account_info(self) -> Optional[Dict]:
+        """
+        Get account information from Epic Games Account Service
+
+        Returns:
+            Dict with account details if successful, None otherwise
+            Fields: id, displayName, email, country, preferredLanguage, tfaEnabled,
+                   emailVerified, canUpdateDisplayName, numberOfDisplayNameChanges,
+                   lastDisplayNameChange, lastLogin, ageGroup, minorStatus
+        """
+        try:
+            if not self.access_token or not self.account_id:
+                logger.error("Not authenticated, cannot get account info")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}"
+            }
+
+            response = requests.get(
+                f"{self.ACCOUNT_URL}/{self.account_id}",
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                account_data = response.json()
+                logger.debug("Successfully retrieved account information")
+                return account_data
+            elif response.status_code == 401:
+                logger.warning("Authentication expired while getting account info")
+                self.invalidate_auth()
+                return None
+            else:
+                logger.error(f"Failed to get account info: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting account info: {e}")
+            return None
+
+    def get_player_stats(self) -> Optional[Dict]:
+        """
+        Get player Fortnite statistics from StatsProxyService
+
+        Returns:
+            Dict with processed stats if successful, None otherwise
+            Keys: wins, kills, matches_played, kd_ratio, win_rate,
+                  minutes_played, players_outlived
+        """
+        try:
+            if not self.access_token or not self.account_id:
+                logger.error("Not authenticated, cannot get player stats")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}"
+            }
+
+            # Use StatsProxyService for stats (alltime)
+            response = requests.get(
+                f"https://statsproxy-public-service-live.ol.epicgames.com/statsproxy/api/statsv2/account/{self.account_id}",
+                headers=headers,
+                params={
+                    "startTime": 0,
+                    "endTime": 9223372036854775807  # Max long value for alltime
+                },
+                timeout=10
+            )
+
+            if response.status_code == 204:
+                # Stats are private
+                logger.info("Player stats are private")
+                return {"private": True}
+            elif response.status_code == 200:
+                stats_data = response.json()
+                raw_stats = stats_data.get("stats", {})
+
+                # Process stats - aggregate across all input types and playlists
+                processed = {
+                    "wins": 0,
+                    "kills": 0,
+                    "matches_played": 0,
+                    "minutes_played": 0,
+                    "players_outlived": 0,
+                    "top1": 0,
+                    "top3": 0,
+                    "top5": 0,
+                    "top6": 0,
+                    "top10": 0,
+                    "top12": 0,
+                    "top25": 0,
+                    "score": 0
+                }
+
+                # Aggregate stats from all keys
+                for key, value in raw_stats.items():
+                    # br_placetop1_* = wins
+                    if "placetop1_" in key or key.endswith("_placetop1"):
+                        processed["wins"] += value
+                    # br_kills_* = kills
+                    elif "_kills_" in key or key.endswith("_kills"):
+                        processed["kills"] += value
+                    # br_matchesplayed_* = matches played
+                    elif "matchesplayed" in key:
+                        processed["matches_played"] += value
+                    # br_minutesplayed_* = time played
+                    elif "minutesplayed" in key:
+                        processed["minutes_played"] += value
+                    # br_playersoutlived_* = players outlived
+                    elif "playersoutlived" in key:
+                        processed["players_outlived"] += value
+                    # Top placements
+                    elif "placetop3_" in key:
+                        processed["top3"] += value
+                    elif "placetop5_" in key:
+                        processed["top5"] += value
+                    elif "placetop6_" in key:
+                        processed["top6"] += value
+                    elif "placetop10_" in key:
+                        processed["top10"] += value
+                    elif "placetop12_" in key:
+                        processed["top12"] += value
+                    elif "placetop25_" in key:
+                        processed["top25"] += value
+                    # Score
+                    elif "_score_" in key or key.endswith("_score"):
+                        processed["score"] += value
+
+                # Calculate derived stats
+                if processed["matches_played"] > 0:
+                    processed["kd_ratio"] = processed["kills"] / max(processed["matches_played"] - processed["wins"], 1)
+                    processed["win_rate"] = (processed["wins"] / processed["matches_played"]) * 100
+                else:
+                    processed["kd_ratio"] = 0.0
+                    processed["win_rate"] = 0.0
+
+                # Parse per-gamemode breakdowns from raw stats
+                mode_breakdown = self._parse_mode_breakdown(raw_stats)
+                processed["mode_breakdown"] = mode_breakdown
+
+                logger.debug("Successfully retrieved and processed player statistics")
+                return processed
+
+            elif response.status_code == 401:
+                logger.warning("Authentication expired while getting stats")
+                self.invalidate_auth()
+                return None
+            else:
+                logger.error(f"Failed to get player stats: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting player stats: {e}")
+            return None
+
+    def _parse_mode_breakdown(self, raw_stats: Dict) -> Dict:
+        """
+        Parse raw stats to extract per-gamemode breakdowns
+
+        Stats keys format: br_[stat]_[input]_m0_playlist_[playlistname]
+
+        Returns:
+            Dict with mode breakdowns (solo, duo, trio, squad)
+        """
+        modes = {
+            "solo": {"wins": 0, "kills": 0, "matches": 0},
+            "duo": {"wins": 0, "kills": 0, "matches": 0},
+            "trio": {"wins": 0, "kills": 0, "matches": 0},
+            "squad": {"wins": 0, "kills": 0, "matches": 0}
+        }
+
+        for key, value in raw_stats.items():
+            # Identify mode type from playlist name
+            key_lower = key.lower()
+            mode_type = None
+
+            # Identify team size
+            if "solo" in key_lower:
+                mode_type = "solo"
+            elif "duo" in key_lower:
+                mode_type = "duo"
+            elif "trio" in key_lower:
+                mode_type = "trio"
+            elif "squad" in key_lower:
+                mode_type = "squad"
+
+            if mode_type:
+                # Aggregate stats for this mode
+                if "placetop1" in key_lower:
+                    modes[mode_type]["wins"] += value
+                elif "kills" in key_lower:
+                    modes[mode_type]["kills"] += value
+                elif "matchesplayed" in key_lower:
+                    modes[mode_type]["matches"] += value
+
+        # Calculate K/D and win rate for each mode
+        for mode in modes.values():
+            if mode["matches"] > 0:
+                mode["kd_ratio"] = mode["kills"] / max(mode["matches"] - mode["wins"], 1)
+                mode["win_rate"] = (mode["wins"] / mode["matches"]) * 100
+            else:
+                mode["kd_ratio"] = 0.0
+                mode["win_rate"] = 0.0
+
+        return modes
+
+    def get_ranked_progress(self) -> Optional[Dict]:
+        """
+        Get ranked progress for all main competitive modes (current season only)
+
+        Returns:
+            Dict mapping ranking type to progress data if successful, None otherwise
+            Keys per mode: currentDivision, highestDivision, promotionProgress, trackguid
+        """
+        try:
+            if not self.access_token or not self.account_id:
+                logger.error("Not authenticated, cannot get ranked progress")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}",
+                "Content-Type": "application/json"
+            }
+
+            # Ranking types to query (excluding Ballistic, Rocket Racing, Getaway)
+            ranking_types = [
+                'ranked-br',                    # Battle Royale Build
+                'ranked-zb',                    # Battle Royale Zero Build
+                'ranked_blastberry_build',      # Reload Build
+                'ranked_blastberry_nobuild',    # Reload Zero Build
+                'ranked-figment-build',         # OG Build
+                'ranked-figment-nobuild'        # OG Zero Build
+            ]
+
+            # Use current date as endsAfter to only get current/active season data
+            # This filters out old season ranks
+            from datetime import datetime
+            current_date = datetime.utcnow().isoformat() + 'Z'
+
+            ranked_data = {}
+
+            for ranking_type in ranking_types:
+                try:
+                    # Use bulkByRankingType endpoint with endsAfter parameter
+                    # endsAfter filters to only include tracks that end after this date (i.e., active tracks)
+                    response = requests.post(
+                        "https://fn-service-habanero-live-public.ogs.live.on.epicgames.com/api/v1/games/fortnite/trackprogress/bulkByRankingType",
+                        headers=headers,
+                        params={
+                            "rankingType": ranking_type,
+                            "endsAfter": current_date  # Only get current season data
+                        },
+                        json={"accountIds": [self.account_id]},
+                        timeout=10
+                    )
+
+                    if response.status_code == 200:
+                        results = response.json()
+                        if results and len(results) > 0:
+                            # Get the first result (should be our account for current season)
+                            progress = results[0]
+                            ranked_data[ranking_type] = {
+                                "currentDivision": progress.get("currentDivision", 0),
+                                "highestDivision": progress.get("highestDivision", 0),
+                                "promotionProgress": progress.get("promotionProgress", 0.0),
+                                "trackguid": progress.get("trackguid", ""),
+                                "lastUpdated": progress.get("lastUpdated", "")
+                            }
+                            logger.debug(f"Retrieved current season ranked progress for {ranking_type}: Division {progress.get('currentDivision', 0)}")
+                    elif response.status_code == 401:
+                        logger.warning("Authentication expired while getting ranked progress")
+                        self.invalidate_auth()
+                        return None
+                    else:
+                        logger.debug(f"No ranked data for {ranking_type}: {response.status_code}")
+                        # Continue with other ranking types
+
+                except Exception as e:
+                    logger.debug(f"Error fetching ranked data for {ranking_type}: {e}")
+                    # Continue with other ranking types
+
+            logger.debug(f"Successfully retrieved current season ranked progress for {len(ranked_data)} modes")
+            return ranked_data if ranked_data else {}
+
+        except Exception as e:
+            logger.error(f"Error getting ranked progress: {e}")
+            return None
+
     def fetch_owned_cosmetics(self) -> Optional[List[str]]:
         """
         Fetch list of owned cosmetic IDs from Epic Games

@@ -136,6 +136,14 @@ from lib.managers.custom_poi_manager import load_custom_pois
 ensure_config_dir()
 migrate_config_files()
 
+# Initialize logging system BEFORE other initializations
+from lib.utilities.logging_setup import setup_logging, cleanup_logging
+log_file_path = setup_logging()
+if log_file_path:
+    print(f"Logging to: {log_file_path}")
+else:
+    print("Warning: Logging system initialization failed")
+
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
 update_sound = pygame.mixer.Sound("sounds/update.ogg")
@@ -236,6 +244,8 @@ def cleanup_on_exit():
     try:
         if pygame.mixer.get_init():
             pygame.mixer.quit()
+        # Cleanup logging system
+        cleanup_logging()
     except:
         pass
 
@@ -398,6 +408,7 @@ def reload_config() -> None:
             'announce ammo': announce_ammo_manually,
             'toggle keybinds': toggle_keybinds,
             'toggle continuous ping': toggle_continuous_ping,
+            'toggle poi favorite': toggle_favorite_poi,
             'mark bad game object': mark_last_reached_object_as_bad,
             'cycle map': lambda: cycle_map("forwards"),
             'cycle map backwards': lambda: cycle_map("backwards"),
@@ -631,12 +642,17 @@ def open_authentication():
                 # Refresh auth instance
                 epic_auth = get_epic_auth_instance()
 
-                # Reinitialize social manager if it exists
+                # Initialize or reinitialize social manager and other auth-dependent features
                 if social_manager:
+                    # If social manager exists, stop and reinitialize
                     social_manager.stop_monitoring()
+
+                # Always initialize social manager if auth is valid
+                if epic_auth and epic_auth.access_token:
                     from lib.managers.social_manager import get_social_manager
                     social_manager = get_social_manager(epic_auth)
                     social_manager.start_monitoring()
+                    logger.info("Social manager initialized after authentication")
 
                 speaker.speak(f"Authentication successful for {epic_auth.display_name}")
                 logger.info(f"Re-authenticated as {epic_auth.display_name}")
@@ -871,6 +887,66 @@ def toggle_continuous_ping() -> None:
     active_pinger = ContinuousPOIPinger(poi_coords)
     active_pinger.start()
     speaker.speak(f"Continuous ping enabled for {poi_name}.")
+
+def toggle_favorite_poi() -> None:
+    """Toggle the currently selected POI as a favorite."""
+    global config, poi_data_instance, current_poi_category
+
+    try:
+        # Get current selected POI from config
+        config = read_config()
+        selected_poi_str = config.get('POI', 'selected_poi', fallback='none,0,0')
+        parts = selected_poi_str.split(',')
+
+        if len(parts) < 3 or parts[0].strip().lower() == 'none':
+            speaker.speak("No POI selected.")
+            return
+
+        poi_name = parts[0].strip()
+        poi_x = parts[1].strip()
+        poi_y = parts[2].strip()
+
+        # Don't allow favoriting special POIs
+        if poi_name.lower() in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(),
+                                SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
+            speaker.speak("Cannot favorite special POIs.")
+            return
+
+        # Don't allow favoriting game objects (they are dynamic "Closest X" POIs)
+        if current_poi_category == POI_CATEGORY_GAMEOBJECT:
+            speaker.speak("Cannot favorite game object locators.")
+            return
+
+        # Initialize POI data manager if needed
+        if poi_data_instance is None:
+            poi_data_instance = POIData()
+
+        # Get the favorites manager
+        from lib.managers.poi_data_manager import FavoritesManager
+        favorites_manager = FavoritesManager()
+
+        # Determine source tab based on current category
+        source_tab_map = {
+            POI_CATEGORY_REGULAR: "regular",
+            POI_CATEGORY_LANDMARK: "landmark",
+            POI_CATEGORY_CUSTOM: "custom",
+            POI_CATEGORY_FAVORITE: "favorite"
+        }
+        source_tab = source_tab_map.get(current_poi_category, "regular")
+
+        # Toggle favorite status
+        poi_tuple = (poi_name, poi_x, poi_y)
+        was_added = favorites_manager.toggle_favorite(poi_tuple, source_tab)
+
+        # Announce result
+        if was_added:
+            speaker.speak(f"Added {poi_name} to favorites.")
+        else:
+            speaker.speak(f"Removed {poi_name} from favorites.")
+
+    except Exception as e:
+        logger.error(f"Error toggling favorite POI: {e}")
+        speaker.speak("Error toggling favorite status.")
 
 def key_listener() -> None:
     """Listen for and handle key presses with modifier key support and fast shutdown response."""
@@ -1118,18 +1194,10 @@ def open_gamemode_selector() -> None:
 
         try:
             from lib.guis.gamemode_gui import launch_gamemode_selector
-            from lib.utilities.epic_auth import get_epic_auth_instance
-
-            # Get Epic auth instance for advanced discovery features
-            epic_auth = None
-            try:
-                epic_auth = get_epic_auth_instance()
-            except Exception as e:
-                logger.debug(f"Epic auth not available for gamemode selector: {e}")
 
             gamemode_gui_open.set()
             try:
-                launch_gamemode_selector(epic_auth=epic_auth)
+                launch_gamemode_selector()
             finally:
                 gamemode_gui_open.clear()
 
