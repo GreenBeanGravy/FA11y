@@ -136,23 +136,26 @@ class SocialDialog(AccessibleDialog):
         return panel
 
     def _division_to_rank_name(self, division: int) -> str:
-        """Convert division number to human-readable rank name"""
+        """
+        Convert division number to human-readable rank name
+        In Fortnite: I is lowest, II is middle, III is highest within each tier
+        """
         if division == 0:
             return "Unranked"
         elif 1 <= division <= 3:
-            tier = ["III", "II", "I"][division - 1]
+            tier = ["I", "II", "III"][division - 1]
             return f"Bronze {tier}"
         elif 4 <= division <= 6:
-            tier = ["III", "II", "I"][division - 4]
+            tier = ["I", "II", "III"][division - 4]
             return f"Silver {tier}"
         elif 7 <= division <= 9:
-            tier = ["III", "II", "I"][division - 7]
+            tier = ["I", "II", "III"][division - 7]
             return f"Gold {tier}"
         elif 10 <= division <= 12:
-            tier = ["III", "II", "I"][division - 10]
+            tier = ["I", "II", "III"][division - 10]
             return f"Platinum {tier}"
         elif 13 <= division <= 15:
-            tier = ["III", "II", "I"][division - 13]
+            tier = ["I", "II", "III"][division - 13]
             return f"Diamond {tier}"
         elif division == 16:
             return "Elite"
