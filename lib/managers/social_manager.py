@@ -394,6 +394,7 @@ class SocialManager:
                 if ranking_type in self.prev_ranked_progress and not first_run:
                     prev_data = self.prev_ranked_progress[ranking_type]
                     prev_div = prev_data.get('currentDivision', 0)
+                    prev_progress = prev_data.get('promotionProgress', 0.0)
 
                     # Check for division change (promotion or demotion)
                     # Only announce if there's an actual change and player is ranked (not unranked)
@@ -418,6 +419,20 @@ class SocialManager:
                             announcement = f"{mode_name} ranked: Demoted to {current_rank}."
                             speaker.speak(announcement)
                             logger.info(f"Ranked demotion: {announcement}")
+
+                    # Check for progress change within the same division
+                    elif current_div == prev_div and current_div > 0:
+                        # Only announce if progress has changed
+                        if current_progress != prev_progress:
+                            mode_name = self._get_ranked_mode_name(ranking_type)
+                            current_rank = self._division_to_rank_name(current_div + 1)
+                            next_div = current_div + 2
+                            next_rank = self._division_to_rank_name(next_div)
+                            progress_pct = int(current_progress * 100)
+
+                            announcement = f"{mode_name} ranked: {progress_pct}% towards {next_rank}"
+                            speaker.speak(announcement)
+                            logger.info(f"Ranked progress update: {current_rank} - {announcement}")
 
                 # Update previous state (silent on first run)
                 self.prev_ranked_progress[ranking_type] = {
