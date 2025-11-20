@@ -210,8 +210,10 @@ class EpicDiscovery:
             logger.debug(f"Discovery surface request: POST {url}?appId=Fortnite")
             logger.debug(f"Payload: {payload}")
 
-            # Use X-Epic-Access-Token header with discovery token (NOT Authorization!)
+            # Use BOTH Authorization and X-Epic-Access-Token headers
+            # Authorization for account auth, X-Epic-Access-Token for discovery access
             headers = {
+                "Authorization": f"Bearer {self.auth.access_token}",
                 "X-Epic-Access-Token": discovery_token,
                 "Content-Type": "application/json",
                 "User-Agent": "Fortnite/++Fortnite+Release-20.00-CL-19458861 Windows/10.0.19041.1.768.64bit"
