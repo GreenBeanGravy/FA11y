@@ -10,6 +10,12 @@ from html.parser import HTMLParser
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
+try:
+    import cloudscraper
+    HAS_CLOUDSCRAPER = True
+except ImportError:
+    HAS_CLOUDSCRAPER = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -385,9 +391,21 @@ class EpicDiscovery:
             # Rate limiting - wait 1 second between requests
             time.sleep(1)
 
-            # Use a session to maintain cookies
-            session = requests.Session()
-            response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
+            # Use cloudscraper to bypass Cloudflare protection
+            if HAS_CLOUDSCRAPER:
+                scraper = cloudscraper.create_scraper(
+                    browser={
+                        'browser': 'chrome',
+                        'platform': 'windows',
+                        'desktop': True
+                    }
+                )
+                response = scraper.get(url, headers=headers, timeout=15, allow_redirects=True)
+            else:
+                # Fallback to regular requests if cloudscraper not available
+                logger.warning("cloudscraper not available, using regular requests (may be blocked)")
+                session = requests.Session()
+                response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
 
             if response.status_code != 200:
                 logger.error(f"Failed to scrape fortnite.gg: {response.status_code}")
