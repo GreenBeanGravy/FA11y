@@ -296,13 +296,16 @@ class SocialDialog(AccessibleDialog):
                         highest_div = mode_data.get('highestDivision', 0)
                         progress = mode_data.get('promotionProgress', 0.0)
 
-                        current_rank = self._division_to_rank_name(current_div)
-                        highest_rank = self._division_to_rank_name(highest_div)
+                        # API uses 0-indexed divisions for ranked tiers
+                        # Division 1 = Bronze II, Division 2 = Bronze III, etc.
+                        # Add 1 to get the display rank
+                        current_rank = self._division_to_rank_name(current_div + 1)
+                        highest_rank = self._division_to_rank_name(highest_div + 1)
 
-                        # Format: "Battle Royale: Gold II (65% to Gold I)"
+                        # Format: "Battle Royale: Bronze II (20% to Bronze III)"
                         if current_div > 0:
                             # Show next rank
-                            next_div = current_div + 1
+                            next_div = current_div + 2  # +1 for offset, +1 for next tier
                             next_rank = self._division_to_rank_name(next_div)
                             progress_pct = int(progress * 100)
                             ranked_lines.append(f"{mode_name}: {current_rank} ({progress_pct}% to {next_rank})")
