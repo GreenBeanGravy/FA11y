@@ -75,7 +75,7 @@ class EpicDiscovery:
             "User-Agent": "Fortnite/++Fortnite+Release-20.00-CL-19458861 Windows/10.0.19041.1.768.64bit"
         }
 
-    def get_discovery_token(self, branch: str = "++Fortnite+Release-34.10") -> Optional[str]:
+    def get_discovery_token(self, branch: str = "++Fortnite+Release-38.11") -> Optional[str]:
         """
         Get discovery token for v2 API access
 
@@ -83,7 +83,7 @@ class EpicDiscovery:
         It's version-specific and should be cached per session.
 
         Args:
-            branch: Fortnite branch/version (e.g., "++Fortnite+Release-34.10")
+            branch: Fortnite branch/version (e.g., "++Fortnite+Release-38.11")
 
         Returns:
             Base64-encoded discovery token or None if failed
@@ -174,7 +174,7 @@ class EpicDiscovery:
             logger.error(f"Error parsing island data: {e}")
             return None
 
-    def get_discovery_surface(self, surface_name: str = SURFACE_MAIN, branch: str = "++Fortnite+Release-34.10") -> Optional[Dict]:
+    def get_discovery_surface(self, surface_name: str = SURFACE_MAIN, branch: str = "++Fortnite+Release-38.11") -> Optional[Dict]:
         """
         Get discovery surface data using Discovery v2 API
 
