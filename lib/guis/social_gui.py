@@ -24,6 +24,7 @@ class SocialDialog(AccessibleDialog):
     def __init__(self, parent, social_manager):
         super().__init__(parent, title="Social Menu", helpId="SocialMenu")
         self.social_manager = social_manager
+        self._is_destroying = False  # Flag to track if dialog is being destroyed
         self.setupDialog()
         self.SetSize((800, 600))
         self.CentreOnParent()
@@ -34,6 +35,8 @@ class SocialDialog(AccessibleDialog):
 
         # Bind Escape key to close dialog
         self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
+        # Bind close event to mark destruction
+        self.Bind(wx.EVT_CLOSE, self.on_close)
 
     def makeSettings(self, sizer: BoxSizerHelper):
         """Create dialog content"""
@@ -475,6 +478,17 @@ class SocialDialog(AccessibleDialog):
 
     def refresh_friends_list(self, event=None):
         """Refresh friends list with filtering and search"""
+        # Check if dialog is being destroyed or widget is invalid
+        if self._is_destroying or not self.friends_list or not hasattr(self.friends_list, 'Clear'):
+            return
+
+        # Additional safety check - verify widget hasn't been deleted
+        try:
+            self.friends_list.GetCount()
+        except RuntimeError:
+            # Widget has been deleted
+            return
+
         self.friends_list.Clear()
 
         with self.social_manager.lock:
@@ -519,6 +533,17 @@ class SocialDialog(AccessibleDialog):
 
     def refresh_requests_list(self, event=None):
         """Refresh requests list"""
+        # Check if dialog is being destroyed or widget is invalid
+        if self._is_destroying or not self.requests_list or not hasattr(self.requests_list, 'Clear'):
+            return
+
+        # Additional safety check - verify widget hasn't been deleted
+        try:
+            self.requests_list.GetCount()
+        except RuntimeError:
+            # Widget has been deleted
+            return
+
         self.requests_list.Clear()
 
         with self.social_manager.lock:
@@ -544,6 +569,17 @@ class SocialDialog(AccessibleDialog):
 
     def refresh_party_list(self, event=None):
         """Refresh party members list"""
+        # Check if dialog is being destroyed or widget is invalid
+        if self._is_destroying or not self.party_list or not hasattr(self.party_list, 'Clear'):
+            return
+
+        # Additional safety check - verify widget hasn't been deleted
+        try:
+            self.party_list.GetCount()
+        except RuntimeError:
+            # Widget has been deleted
+            return
+
         self.party_list.Clear()
 
         with self.social_manager.lock:
@@ -739,10 +775,16 @@ class SocialDialog(AccessibleDialog):
         # Refresh to update the star and sorting
         wx.CallAfter(self.refresh_friends_list)
 
+    def on_close(self, event):
+        """Handle dialog close event"""
+        self._is_destroying = True
+        event.Skip()
+
     def on_char_hook(self, event):
         """Handle key press for dialog (Escape to close)"""
         keycode = event.GetKeyCode()
         if keycode == wx.WXK_ESCAPE:
+            self._is_destroying = True
             self.EndModal(wx.ID_CANCEL)
             wx.CallAfter(self._return_focus_to_game)
         else:
