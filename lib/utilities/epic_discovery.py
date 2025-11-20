@@ -538,13 +538,16 @@ class EpicDiscovery:
 
                 # Debug: Log HTML snippet
                 logger.debug(f"Response length: {len(html)} chars")
-                # Find first island occurrence
-                idx = html.find('island')
+                # Find first complete island entry
+                idx = html.find("<a href='/island?code=")
+                if idx < 0:
+                    idx = html.find('<a href="/island?code=')
+
                 if idx >= 0:
-                    logger.debug(f"First 'island' occurrence: ...{html[max(0,idx-100):idx+500]}")
+                    # Show first 1500 chars of island entry to see full structure
+                    logger.debug(f"First island HTML (1500 chars): {html[idx:idx+1500]}")
                 else:
-                    logger.debug("No 'island' text found in HTML")
-                    # Log first 500 chars to see what we got
+                    logger.debug("No island links found in HTML")
                     logger.debug(f"HTML start: {html[:500]}")
 
                 # Creator pages use a different HTML structure than browse pages
