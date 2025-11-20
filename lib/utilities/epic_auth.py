@@ -431,6 +431,79 @@ class EpicAuth:
             logger.error(f"Error getting player stats: {e}")
             return None
 
+    def get_ranked_progress(self) -> Optional[Dict]:
+        """
+        Get ranked progress for all main competitive modes
+
+        Returns:
+            Dict mapping ranking type to progress data if successful, None otherwise
+            Keys per mode: currentDivision, highestDivision, promotionProgress, trackguid
+        """
+        try:
+            if not self.access_token or not self.account_id:
+                logger.error("Not authenticated, cannot get ranked progress")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {self.access_token}",
+                "Content-Type": "application/json"
+            }
+
+            # Ranking types to query (excluding Ballistic, Rocket Racing, Getaway)
+            ranking_types = [
+                'ranked-br',                    # Battle Royale Build
+                'ranked-zb',                    # Battle Royale Zero Build
+                'ranked_blastberry_build',      # Reload Build
+                'ranked_blastberry_nobuild',    # Reload Zero Build
+                'ranked-figment-build',         # OG Build
+                'ranked-figment-nobuild'        # OG Zero Build
+            ]
+
+            ranked_data = {}
+
+            for ranking_type in ranking_types:
+                try:
+                    # Use bulkByRankingType endpoint for efficient querying
+                    response = requests.post(
+                        "https://fn-service-habanero-live-public.ogs.live.on.epicgames.com/api/v1/games/fortnite/trackprogress/bulkByRankingType",
+                        headers=headers,
+                        params={"rankingType": ranking_type},
+                        json={"accountIds": [self.account_id]},
+                        timeout=10
+                    )
+
+                    if response.status_code == 200:
+                        results = response.json()
+                        if results and len(results) > 0:
+                            # Get the first result (should be our account)
+                            progress = results[0]
+                            ranked_data[ranking_type] = {
+                                "currentDivision": progress.get("currentDivision", 0),
+                                "highestDivision": progress.get("highestDivision", 0),
+                                "promotionProgress": progress.get("promotionProgress", 0.0),
+                                "trackguid": progress.get("trackguid", ""),
+                                "lastUpdated": progress.get("lastUpdated", "")
+                            }
+                            logger.debug(f"Retrieved ranked progress for {ranking_type}")
+                    elif response.status_code == 401:
+                        logger.warning("Authentication expired while getting ranked progress")
+                        self.invalidate_auth()
+                        return None
+                    else:
+                        logger.debug(f"No ranked data for {ranking_type}: {response.status_code}")
+                        # Continue with other ranking types
+
+                except Exception as e:
+                    logger.debug(f"Error fetching ranked data for {ranking_type}: {e}")
+                    # Continue with other ranking types
+
+            logger.debug(f"Successfully retrieved ranked progress for {len(ranked_data)} modes")
+            return ranked_data if ranked_data else {}
+
+        except Exception as e:
+            logger.error(f"Error getting ranked progress: {e}")
+            return None
+
     def fetch_owned_cosmetics(self) -> Optional[List[str]]:
         """
         Fetch list of owned cosmetic IDs from Epic Games

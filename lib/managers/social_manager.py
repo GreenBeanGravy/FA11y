@@ -66,6 +66,9 @@ class SocialManager:
         self.prev_outgoing_count = 0
         self.prev_party_invite_count = 0
 
+        # Ranked progress tracking for change detection
+        self.prev_ranked_progress: Dict[str, Dict] = {}  # Maps ranking_type -> {currentDivision, promotionProgress}
+
         # Track outgoing join requests for auto-accept logic
         # Maps account_id -> (timestamp, display_name)
         self.outgoing_join_requests: Dict[str, tuple] = {}
@@ -212,8 +215,9 @@ class SocialManager:
                     # Do a full refresh after resuming
                     self.refresh_all_data()
 
-                # Fast poll: invites and requests (every 5 seconds)
+                # Fast poll: invites, requests, and ranked progress (every 5 seconds)
                 self.refresh_fast_data()
+                self._check_ranked_progress()
 
                 # Slow poll: friends and party (every 30 seconds)
                 slow_poll_counter += 1
@@ -323,6 +327,96 @@ class SocialManager:
 
         except Exception as e:
             logger.error(f"Error refreshing slow data: {e}")
+
+    def _division_to_rank_name(self, division: int) -> str:
+        """Convert division number to human-readable rank name"""
+        if division == 0:
+            return "Unranked"
+        elif 1 <= division <= 3:
+            tier = ["III", "II", "I"][division - 1]
+            return f"Bronze {tier}"
+        elif 4 <= division <= 6:
+            tier = ["III", "II", "I"][division - 4]
+            return f"Silver {tier}"
+        elif 7 <= division <= 9:
+            tier = ["III", "II", "I"][division - 7]
+            return f"Gold {tier}"
+        elif 10 <= division <= 12:
+            tier = ["III", "II", "I"][division - 10]
+            return f"Platinum {tier}"
+        elif 13 <= division <= 15:
+            tier = ["III", "II", "I"][division - 13]
+            return f"Diamond {tier}"
+        elif division == 16:
+            return "Elite"
+        elif division == 17:
+            return "Champion"
+        elif division == 18:
+            return "Unreal"
+        else:
+            return f"Division {division}"
+
+    def _get_ranked_mode_name(self, ranking_type: str) -> str:
+        """Get friendly name for ranked mode"""
+        mode_names = {
+            'ranked-br': 'Battle Royale',
+            'ranked-zb': 'Zero Build',
+            'ranked_blastberry_build': 'Reload',
+            'ranked_blastberry_nobuild': 'Reload Zero Build',
+            'ranked-figment-build': 'OG',
+            'ranked-figment-nobuild': 'OG Zero Build'
+        }
+        return mode_names.get(ranking_type, ranking_type)
+
+    def _check_ranked_progress(self):
+        """Check for ranked progress changes and announce promotions/demotions"""
+        try:
+            if not self.auth or not self.auth.is_valid:
+                return
+
+            # Get current ranked progress
+            current_ranked = self.auth.get_ranked_progress()
+            if not current_ranked:
+                return
+
+            # Check each ranking type for changes
+            for ranking_type, current_data in current_ranked.items():
+                current_div = current_data.get('currentDivision', 0)
+                current_progress = current_data.get('promotionProgress', 0.0)
+
+                # Check if we have previous data for this mode
+                if ranking_type in self.prev_ranked_progress:
+                    prev_data = self.prev_ranked_progress[ranking_type]
+                    prev_div = prev_data.get('currentDivision', 0)
+
+                    # Check for division change (promotion or demotion)
+                    if current_div != prev_div and current_div > 0:
+                        mode_name = self._get_ranked_mode_name(ranking_type)
+                        current_rank = self._division_to_rank_name(current_div)
+
+                        if current_div > prev_div:
+                            # Promotion!
+                            next_div = current_div + 1
+                            next_rank = self._division_to_rank_name(next_div)
+                            progress_pct = int(current_progress * 100)
+
+                            announcement = f"{mode_name} ranked: Promoted to {current_rank} ({progress_pct}% towards {next_rank})!"
+                            speaker.speak(announcement)
+                            logger.info(f"Ranked promotion: {announcement}")
+                        elif current_div < prev_div:
+                            # Demotion
+                            announcement = f"{mode_name} ranked: Demoted to {current_rank}."
+                            speaker.speak(announcement)
+                            logger.info(f"Ranked demotion: {announcement}")
+
+                # Update previous state
+                self.prev_ranked_progress[ranking_type] = {
+                    'currentDivision': current_div,
+                    'promotionProgress': current_progress
+                }
+
+        except Exception as e:
+            logger.error(f"Error checking ranked progress: {e}")
 
     def _cleanup_old_join_requests(self):
         """Remove join requests older than timeout period"""
