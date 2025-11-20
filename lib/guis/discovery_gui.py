@@ -196,7 +196,7 @@ class DiscoveryDialog(AccessibleDialog):
         threading.Thread(target=_load_task, daemon=True).start()
 
     def load_browse_islands(self, event=None):
-        """Load islands from discovery surface"""
+        """Load all available islands from Data API"""
         # Check if dialog is being destroyed or widget is invalid
         if self._is_destroying or not self.browse_list or not hasattr(self.browse_list, 'Clear'):
             return
@@ -208,14 +208,14 @@ class DiscoveryDialog(AccessibleDialog):
             return
 
         self.browse_list.Clear()
-        self.browse_list.Append("Loading islands...")
+        self.browse_list.Append("Loading all islands...")
 
-        speaker.speak("Loading islands")
+        speaker.speak("Loading all islands")
 
         def _load():
-            surface_data = self.discovery_api.get_discovery_surface()
-            if surface_data:
-                islands = self.discovery_api.get_islands_from_surface(surface_data)
+            # Use get_all_islands() to get all available islands from the Data API
+            islands = self.discovery_api.get_all_islands(limit=100)
+            if islands:
                 wx.CallAfter(self._populate_browse_list, islands)
             else:
                 wx.CallAfter(self._show_browse_error)
