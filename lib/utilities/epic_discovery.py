@@ -536,6 +536,17 @@ class EpicDiscovery:
 
                 html = response.text
 
+                # Debug: Log HTML snippet
+                logger.debug(f"Response length: {len(html)} chars")
+                # Find first island occurrence
+                idx = html.find('island')
+                if idx >= 0:
+                    logger.debug(f"First 'island' occurrence: ...{html[max(0,idx-100):idx+500]}")
+                else:
+                    logger.debug("No 'island' text found in HTML")
+                    # Log first 500 chars to see what we got
+                    logger.debug(f"HTML start: {html[:500]}")
+
                 # Pattern handles both standard codes (1234-5678-9012) and playlist names (set_br_playlists, campaign, etc.)
                 # <a class='island' href='/island?code=CODE_OR_PLAYLIST_NAME'>
                 island_pattern = re.compile(
@@ -547,6 +558,7 @@ class EpicDiscovery:
                 )
 
                 matches = island_pattern.findall(html)
+                logger.debug(f"Pattern matched {len(matches)} islands")
 
                 if not matches:
                     logger.debug(f"No islands found on page {page_num}")

@@ -44,19 +44,62 @@ class DiscoveryDialog(AccessibleDialog):
         self.notebook = wx.Notebook(self)
         sizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
 
-        # Create tabs
+        # Create tabs (Epic Gamemodes first as default)
+        self.epic_panel = self._create_epic_gamemodes_panel()
         self.browse_panel = self._create_browse_panel()
         self.search_panel = self._create_search_panel()
-        self.bycode_panel = self._create_bycode_panel()
         self.creator_panel = self._create_creator_panel()
+        self.bycode_panel = self._create_bycode_panel()
 
+        self.notebook.AddPage(self.epic_panel, "Epic Gamemodes")
         self.notebook.AddPage(self.browse_panel, "Browse")
         self.notebook.AddPage(self.search_panel, "Search")
-        self.notebook.AddPage(self.bycode_panel, "By Code")
         self.notebook.AddPage(self.creator_panel, "By Creator")
+        self.notebook.AddPage(self.bycode_panel, "By Code")
+
+        # Pre-load all tabs on startup
+        wx.CallAfter(self._preload_all_tabs)
 
         # Bind tab change event
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_tab_changed)
+
+    def _create_epic_gamemodes_panel(self):
+        """Create Epic Gamemodes tab - Epic Games creator maps from fortnite.gg"""
+        panel = wx.Panel(self.notebook)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Title
+        title = wx.StaticText(panel, label="Epic Games - Official Gamemodes")
+        title_font = title.GetFont()
+        title_font.PointSize += 2
+        title_font = title_font.Bold()
+        title.SetFont(title_font)
+        sizer.Add(title, 0, wx.ALL, 10)
+
+        # Epic gamemodes list
+        self.epic_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        sizer.Add(self.epic_list, 1, wx.EXPAND | wx.ALL, 5)
+
+        # Action button
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.launch_epic_btn = wx.Button(panel, label="Launch Gamemode")
+        self.refresh_epic_btn = wx.Button(panel, label="Refresh")
+        btn_sizer.Add(self.launch_epic_btn, 0, wx.ALL, 5)
+        btn_sizer.Add(self.refresh_epic_btn, 0, wx.ALL, 5)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
+
+        # Bind events
+        self.launch_epic_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_epic)
+        self.refresh_epic_btn.Bind(wx.EVT_BUTTON, self.on_refresh_epic)
+        self.epic_list.Bind(wx.EVT_KEY_DOWN, self.on_epic_key_down)
+        self.epic_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_copy_code_epic)
+
+        panel.SetSizer(sizer)
+
+        # Set initial loading message
+        self.epic_list.Append("Loading Epic Games gamemodes from fortnite.gg...")
+
+        return panel
 
     def _create_browse_panel(self):
         """Create Browse tab"""
@@ -235,17 +278,91 @@ class DiscoveryDialog(AccessibleDialog):
         panel.SetSizer(sizer)
         return panel
 
+    def _preload_all_tabs(self):
+        """Pre-load data for tabs that need it"""
+        # Load Epic Gamemodes tab (scrape Epic creator from fortnite.gg)
+        self.load_epic_gamemodes()
+        # Load Browse tab
+        self.load_browse_islands()
+        # Search and By Code tabs are loaded on-demand only
+        # Creator tab is loaded on-demand only
+
     def on_tab_changed(self, event):
-        """Handle tab change - load data asynchronously"""
-        page = event.GetSelection()
+        """Handle tab change"""
+        # With pre-loading, we don't need to load on tab change anymore
+        # All necessary data is loaded on GUI open
+        event.Skip()
 
-        def _load_task():
-            if page == 0:  # Browse
-                wx.CallAfter(self.load_browse_islands)
-            # Search and By Code tabs don't need initial loading
+    def load_epic_gamemodes(self, event=None):
+        """Load Epic Games gamemodes from fortnite.gg creator page"""
+        if self._is_destroying or not self.epic_list:
+            return
 
-        # Run load in background thread
-        threading.Thread(target=_load_task, daemon=True).start()
+        try:
+            self.epic_list.GetCount()
+        except RuntimeError:
+            return
+
+        self.epic_list.Clear()
+        self.epic_list.Append("Loading Epic Games gamemodes...")
+        speaker.speak("Loading Epic gamemodes")
+
+        def _load():
+            # Scrape Epic creator maps from fortnite.gg
+            islands = self.discovery_api.scrape_creator_maps("epic", limit=50)
+            if islands:
+                wx.CallAfter(self._populate_epic_list, islands)
+            else:
+                wx.CallAfter(self._show_epic_error)
+
+        threading.Thread(target=_load, daemon=True).start()
+
+    def _populate_epic_list(self, islands):
+        """Populate Epic list with gamemodes"""
+        if self._is_destroying or not self.epic_list:
+            return
+
+        try:
+            self.epic_list.GetCount()
+        except RuntimeError:
+            return
+
+        self.epic_list.Clear()
+
+        if not islands:
+            self.epic_list.Append("No gamemodes found")
+            speaker.speak("No gamemodes found")
+            return
+
+        for island in islands:
+            # Display Epic gamemodes
+            if island.global_ccu >= 0:
+                label = f"{island.title} ({island.global_ccu} playing)"
+            else:
+                label = island.title
+            self.epic_list.Append(label, island)
+
+        if islands:
+            self.epic_list.SetSelection(0)
+            speaker.speak(f"{len(islands)} Epic gamemodes loaded")
+
+    def _show_epic_error(self):
+        """Show error message in epic list"""
+        if self._is_destroying or not self.epic_list:
+            return
+
+        try:
+            self.epic_list.GetCount()
+        except RuntimeError:
+            return
+
+        self.epic_list.Clear()
+        self.epic_list.Append("Error loading Epic gamemodes. Please try refreshing.")
+        speaker.speak("Error loading Epic gamemodes")
+
+    def on_refresh_epic(self, event):
+        """Refresh epic list"""
+        self.load_epic_gamemodes()
 
     def load_browse_islands(self, event=None):
         """Load popular islands from fortnite.gg"""
@@ -490,8 +607,8 @@ class DiscoveryDialog(AccessibleDialog):
         if island and hasattr(island, 'link_code'):
             # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            # Announce launch
-            speaker.speak(f"Launching {island.title}")
+            # Announce launch (matching gamemode selector behavior)
+            speaker.speak(f"{island.title} selected. Press P to ready up!")
             # Close dialog (exactly like gamemode selector)
             self._is_destroying = True
             wx.CallAfter(self.EndModal, wx.ID_OK)
@@ -510,8 +627,28 @@ class DiscoveryDialog(AccessibleDialog):
         if island and hasattr(island, 'link_code'):
             # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            # Announce launch
-            speaker.speak(f"Launching {island.title}")
+            # Announce launch (matching gamemode selector behavior)
+            speaker.speak(f"{island.title} selected. Press P to ready up!")
+            # Close dialog (exactly like gamemode selector)
+            self._is_destroying = True
+            wx.CallAfter(self.EndModal, wx.ID_OK)
+            wx.CallAfter(self._return_focus_to_game)
+        else:
+            speaker.speak("No code available")
+
+    def on_copy_code_epic(self, event):
+        """Copy gamemode code from epic list and launch (close dialog)"""
+        sel = self.epic_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No gamemode selected")
+            return
+
+        island = self.epic_list.GetClientData(sel)
+        if island and hasattr(island, 'link_code'):
+            # Copy code to clipboard
+            pyperclip.copy(island.link_code)
+            # Announce launch (matching gamemode selector behavior)
+            speaker.speak(f"{island.title} selected. Press P to ready up!")
             # Close dialog (exactly like gamemode selector)
             self._is_destroying = True
             wx.CallAfter(self.EndModal, wx.ID_OK)
@@ -530,14 +667,48 @@ class DiscoveryDialog(AccessibleDialog):
         if island and hasattr(island, 'link_code'):
             # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            # Announce launch
-            speaker.speak(f"Launching {island.title}")
+            # Announce launch (matching gamemode selector behavior)
+            speaker.speak(f"{island.title} selected. Press P to ready up!")
             # Close dialog (exactly like gamemode selector)
             self._is_destroying = True
             wx.CallAfter(self.EndModal, wx.ID_OK)
             wx.CallAfter(self._return_focus_to_game)
         else:
             speaker.speak("No code available")
+
+    def on_epic_key_down(self, event):
+        """Handle key press in epic list"""
+        keycode = event.GetKeyCode()
+
+        # Arrow key handling with wrapping
+        if keycode == wx.WXK_UP:
+            sel = self.epic_list.GetSelection()
+            if sel == 0 or sel == wx.NOT_FOUND:
+                last = self.epic_list.GetCount() - 1
+                if last >= 0:
+                    self.epic_list.SetSelection(last)
+            else:
+                self.epic_list.SetSelection(sel - 1)
+            return
+
+        elif keycode == wx.WXK_DOWN:
+            sel = self.epic_list.GetSelection()
+            last = self.epic_list.GetCount() - 1
+            if sel == last or sel == wx.NOT_FOUND:
+                self.epic_list.SetSelection(0)
+            else:
+                self.epic_list.SetSelection(sel + 1)
+            return
+
+        elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
+            return
+
+        # Enter key launches gamemode
+        elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_copy_code_epic(event)
+            return
+
+        event.Skip()
 
     def on_browse_key_down(self, event):
         """Handle key press in browse list"""
