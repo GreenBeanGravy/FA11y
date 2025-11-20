@@ -196,7 +196,7 @@ class DiscoveryDialog(AccessibleDialog):
         threading.Thread(target=_load_task, daemon=True).start()
 
     def load_browse_islands(self, event=None):
-        """Load all available islands from Data API"""
+        """Load popular islands from fortnite.gg"""
         # Check if dialog is being destroyed or widget is invalid
         if self._is_destroying or not self.browse_list or not hasattr(self.browse_list, 'Clear'):
             return
@@ -208,13 +208,13 @@ class DiscoveryDialog(AccessibleDialog):
             return
 
         self.browse_list.Clear()
-        self.browse_list.Append("Loading all islands...")
+        self.browse_list.Append("Loading islands from fortnite.gg...")
 
-        speaker.speak("Loading all islands")
+        speaker.speak("Loading islands")
 
         def _load():
-            # Use get_all_islands() to get all available islands from the Data API
-            islands = self.discovery_api.get_all_islands(limit=100)
+            # Scrape fortnite.gg for the most popular islands
+            islands = self.discovery_api.scrape_fortnite_gg(search_query="", limit=50)
             if islands:
                 wx.CallAfter(self._populate_browse_list, islands)
             else:
@@ -241,7 +241,11 @@ class DiscoveryDialog(AccessibleDialog):
 
         for island in islands:
             creator = island.creator_name if island.creator_name else "Unknown"
-            label = f"{island.title} by {creator} - {island.link_code}"
+            # Include player count if available
+            if island.global_ccu >= 0:
+                label = f"{island.title} ({island.global_ccu} playing) - {island.link_code}"
+            else:
+                label = f"{island.title} by {creator} - {island.link_code}"
             self.browse_list.Append(label, island)
 
         if islands:
@@ -283,11 +287,12 @@ class DiscoveryDialog(AccessibleDialog):
             return
 
         self.search_list.Clear()
-        self.search_list.Append(f"Searching for '{query}'...")
+        self.search_list.Append(f"Searching fortnite.gg for '{query}'...")
         speaker.speak(f"Searching for {query}")
 
         def _search():
-            islands = self.discovery_api.search_islands(query)
+            # Use fortnite.gg scraper for search
+            islands = self.discovery_api.scrape_fortnite_gg(search_query=query, limit=50)
             wx.CallAfter(self._populate_search_list, islands, query)
 
         threading.Thread(target=_search, daemon=True).start()

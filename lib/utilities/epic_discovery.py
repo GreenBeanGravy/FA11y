@@ -4,6 +4,9 @@ Handles Fortnite Creative Discovery surfaces, search, and creator features
 """
 import logging
 import requests
+import re
+import time
+from html.parser import HTMLParser
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
@@ -335,6 +338,94 @@ class EpicDiscovery:
 
         except Exception as e:
             logger.error(f"Error getting all islands: {e}")
+            return []
+
+    def scrape_fortnite_gg(self, search_query: str = "", limit: int = 50) -> List[DiscoveryIsland]:
+        """
+        Scrape island data from fortnite.gg
+
+        Args:
+            search_query: Optional search query (e.g., "among us", "zone wars")
+            limit: Maximum number of islands to return (default 50)
+
+        Returns:
+            List of DiscoveryIsland objects scraped from fortnite.gg
+        """
+        islands = []
+
+        try:
+            # Build URL
+            base_url = "https://fortnite.gg/creative"
+            params = {}
+            if search_query:
+                params["search"] = search_query
+
+            # Build query string
+            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            url = f"{base_url}?{query_string}" if query_string else base_url
+
+            logger.debug(f"Scraping fortnite.gg: {url}")
+
+            # Add respectful headers and rate limiting
+            headers = {
+                "User-Agent": "FA11y/1.0 (Educational/Accessibility Tool)",
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "en-US,en;q=0.9"
+            }
+
+            # Rate limiting - wait 1 second between requests
+            time.sleep(1)
+
+            response = requests.get(url, headers=headers, timeout=15)
+
+            if response.status_code != 200:
+                logger.error(f"Failed to scrape fortnite.gg: {response.status_code}")
+                return []
+
+            html = response.text
+
+            # Parse HTML using regex (simple and robust for this structure)
+            # Pattern: <a class='island' href='/island?code=XXXX-XXXX-XXXX'>
+            island_pattern = re.compile(
+                r"<a class='island' href='/island\?code=([\d-]+)'>.*?"
+                r"<img src='([^']+)'[^>]*alt='([^']+)'.*?"
+                r"<div class='players'>.*?(\d+)\s*</div>.*?"
+                r"<h3 class='island-title'>([^<]+)</h3>",
+                re.DOTALL
+            )
+
+            matches = island_pattern.findall(html)
+
+            for match in matches[:limit]:
+                code, image_url, alt_text, players, title = match
+
+                # Clean up title (remove extra whitespace)
+                title = title.strip()
+
+                # Parse player count
+                try:
+                    player_count = int(players.strip())
+                except:
+                    player_count = -1
+
+                # Create DiscoveryIsland object
+                island = DiscoveryIsland(
+                    link_code=code,
+                    title=title,
+                    creator_name=None,  # Not easily available in the list view
+                    description=None,
+                    global_ccu=player_count,
+                    image_url=image_url if image_url and not image_url.endswith('_s.jpeg') else image_url.replace('_s.jpeg', '.jpeg') if image_url else None
+                )
+
+                islands.append(island)
+                logger.debug(f"Scraped island: {title} ({code}) - {player_count} players")
+
+            logger.info(f"Scraped {len(islands)} islands from fortnite.gg")
+            return islands
+
+        except Exception as e:
+            logger.error(f"Error scraping fortnite.gg: {e}")
             return []
 
     def search_islands(self, query: str, order_by: str = "globalCCU", page: int = 0) -> List[DiscoveryIsland]:
