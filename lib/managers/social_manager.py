@@ -426,13 +426,23 @@ class SocialManager:
                         if current_progress != prev_progress:
                             mode_name = self._get_ranked_mode_name(ranking_type)
                             current_rank = self._division_to_rank_name(current_div + 1)
-                            next_div = current_div + 2
+                            next_div = current_div + 2  # +1 for offset, +1 for next tier
                             next_rank = self._division_to_rank_name(next_div)
-                            progress_pct = int(current_progress * 100)
 
-                            announcement = f"{mode_name} ranked: {progress_pct}% towards {next_rank}"
+                            # Calculate the difference in percentage
+                            prev_pct = int(prev_progress * 100)
+                            current_pct = int(current_progress * 100)
+                            diff_pct = current_pct - prev_pct
+
+                            # Determine if gained or lost
+                            if diff_pct > 0:
+                                delta_text = f"Gained {diff_pct} percent"
+                            else:
+                                delta_text = f"Lost {abs(diff_pct)} percent"
+
+                            announcement = f"{mode_name} ranked: {current_pct}% towards {next_rank} - {delta_text}"
                             speaker.speak(announcement)
-                            logger.info(f"Ranked progress update: {current_rank} - {announcement}")
+                            logger.info(f"Ranked progress update: {current_rank} ({prev_pct}% -> {current_pct}%) - {delta_text}")
 
                 # Update previous state (silent on first run)
                 self.prev_ranked_progress[ranking_type] = {
