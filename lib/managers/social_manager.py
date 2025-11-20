@@ -399,11 +399,14 @@ class SocialManager:
                     # Only announce if there's an actual change and player is ranked (not unranked)
                     if current_div != prev_div and current_div > 0:
                         mode_name = self._get_ranked_mode_name(ranking_type)
-                        current_rank = self._division_to_rank_name(current_div)
+                        # API uses 0-indexed divisions for ranked tiers
+                        # Division 1 = Bronze II, Division 2 = Bronze III, etc.
+                        # Add 1 to get the display rank
+                        current_rank = self._division_to_rank_name(current_div + 1)
 
                         if current_div > prev_div:
                             # Promotion!
-                            next_div = current_div + 1
+                            next_div = current_div + 2  # +1 for offset, +1 for next tier
                             next_rank = self._division_to_rank_name(next_div)
                             progress_pct = int(current_progress * 100)
 

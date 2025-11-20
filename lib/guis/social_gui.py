@@ -130,8 +130,11 @@ class SocialDialog(AccessibleDialog):
 
         panel.SetSizer(sizer)
 
-        # Load account info initially
-        self.load_account_info()
+        # Set initial loading message (will be loaded when tab is first shown)
+        loading_msg = "Loading... (switch to this tab to load data)"
+        self.epic_account_text.SetValue(loading_msg)
+        self.fortnite_stats_text.SetValue(loading_msg)
+        self.ranked_stats_text.SetValue(loading_msg)
 
         return panel
 
@@ -293,13 +296,16 @@ class SocialDialog(AccessibleDialog):
                         highest_div = mode_data.get('highestDivision', 0)
                         progress = mode_data.get('promotionProgress', 0.0)
 
-                        current_rank = self._division_to_rank_name(current_div)
-                        highest_rank = self._division_to_rank_name(highest_div)
+                        # API uses 0-indexed divisions for ranked tiers
+                        # Division 1 = Bronze II, Division 2 = Bronze III, etc.
+                        # Add 1 to get the display rank
+                        current_rank = self._division_to_rank_name(current_div + 1)
+                        highest_rank = self._division_to_rank_name(highest_div + 1)
 
-                        # Format: "Battle Royale: Gold II (65% to Gold I)"
+                        # Format: "Battle Royale: Bronze II (20% to Bronze III)"
                         if current_div > 0:
                             # Show next rank
-                            next_div = current_div + 1
+                            next_div = current_div + 2  # +1 for offset, +1 for next tier
                             next_rank = self._division_to_rank_name(next_div)
                             progress_pct = int(progress * 100)
                             ranked_lines.append(f"{mode_name}: {current_rank} ({progress_pct}% to {next_rank})")
@@ -458,7 +464,7 @@ class SocialDialog(AccessibleDialog):
     def on_tab_changed(self, event):
         """Handle tab change - refresh data asynchronously"""
         page = event.GetSelection()
-        
+
         def _refresh_task():
             if page == 0:  # Friends
                 self.social_manager.force_refresh_data("friends")
@@ -469,7 +475,10 @@ class SocialDialog(AccessibleDialog):
             elif page == 2:  # Party
                 self.social_manager.force_refresh_data("party")
                 wx.CallAfter(self.refresh_party_list)
-                
+            elif page == 3:  # Me tab
+                # Load account info (fresh data from API)
+                wx.CallAfter(self.load_account_info)
+
         # Run refresh in background thread to avoid UI freeze
         import threading
         threading.Thread(target=_refresh_task, daemon=True).start()
