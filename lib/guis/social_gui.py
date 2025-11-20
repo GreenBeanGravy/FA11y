@@ -43,15 +43,15 @@ class SocialDialog(AccessibleDialog):
         sizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
 
         # Create tabs
-        self.me_panel = self._create_me_panel()
         self.friends_panel = self._create_friends_panel()
         self.requests_panel = self._create_requests_panel()
         self.party_panel = self._create_party_panel()
+        self.me_panel = self._create_me_panel()
 
-        self.notebook.AddPage(self.me_panel, "Me")
         self.notebook.AddPage(self.friends_panel, "Friends")
         self.notebook.AddPage(self.requests_panel, "Friend Requests")
         self.notebook.AddPage(self.party_panel, "Party")
+        self.notebook.AddPage(self.me_panel, "Me")
 
         # Bind tab change event
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_tab_changed)
@@ -69,39 +69,21 @@ class SocialDialog(AccessibleDialog):
         title.SetFont(title_font)
         sizer.Add(title, 0, wx.ALL, 10)
 
-        # Account info grid
-        grid_sizer = wx.FlexGridSizer(rows=0, cols=2, hgap=10, vgap=5)
-        grid_sizer.AddGrowableCol(1)
+        # Use multiline read-only text control for screen reader accessibility
+        self.account_info_text = wx.TextCtrl(
+            panel,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP,
+            size=(-1, 400)
+        )
+        # Set font to match rest of UI
+        font = self.account_info_text.GetFont()
+        font.PointSize += 1
+        self.account_info_text.SetFont(font)
 
-        # Create labels and values
-        self.account_fields = {}
-        fields = [
-            ("Display Name:", "displayName"),
-            ("Account ID:", "id"),
-            ("Email:", "email"),
-            ("Country:", "country"),
-            ("Language:", "preferredLanguage"),
-            ("2FA Enabled:", "tfaEnabled"),
-            ("Email Verified:", "emailVerified"),
-            ("Can Change Display Name:", "canUpdateDisplayName"),
-            ("Display Name Changes:", "numberOfDisplayNameChanges"),
-            ("Last Login:", "lastLogin"),
-            ("Age Group:", "ageGroup"),
-            ("Minor Status:", "minorStatus")
-        ]
-
-        for label_text, field_key in fields:
-            label = wx.StaticText(panel, label=label_text)
-            value = wx.StaticText(panel, label="Loading...")
-            self.account_fields[field_key] = value
-
-            grid_sizer.Add(label, 0, wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL)
-            grid_sizer.Add(value, 0, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL)
-
-        sizer.Add(grid_sizer, 0, wx.ALL | wx.EXPAND, 10)
+        sizer.Add(self.account_info_text, 1, wx.ALL | wx.EXPAND, 10)
 
         # Refresh button
-        refresh_btn = wx.Button(panel, label="Refresh")
+        refresh_btn = wx.Button(panel, label="Refresh Account Information")
         refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh_account_info)
         sizer.Add(refresh_btn, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
@@ -116,48 +98,104 @@ class SocialDialog(AccessibleDialog):
         """Load account information from Epic Games API"""
         try:
             # Get account info from social manager's auth
-            if not self.social_manager or not self.social_manager.epic_social or not self.social_manager.epic_social.auth:
-                for field_key, value_label in self.account_fields.items():
-                    value_label.SetLabel("Not authenticated")
+            if not self.social_manager or not self.social_manager.auth:
+                self.account_info_text.SetValue("Not authenticated\n\nPlease authenticate using ALT+SHIFT+V to view account information.")
                 return
 
-            auth = self.social_manager.epic_social.auth
+            auth = self.social_manager.auth
             account_info = auth.get_account_info()
 
             if not account_info:
-                for field_key, value_label in self.account_fields.items():
-                    value_label.SetLabel("Error loading")
+                self.account_info_text.SetValue("Error loading account information\n\nPlease try refreshing or re-authenticating.")
                 return
 
-            # Update each field
-            for field_key, value_label in self.account_fields.items():
-                raw_value = account_info.get(field_key, "N/A")
+            # Format account info as readable text
+            lines = []
+            lines.append("=" * 60)
+            lines.append("ACCOUNT INFORMATION")
+            lines.append("=" * 60)
+            lines.append("")
 
-                # Format boolean values
-                if isinstance(raw_value, bool):
-                    display_value = "Yes" if raw_value else "No"
-                # Format datetime values
-                elif field_key == "lastLogin" and raw_value != "N/A":
-                    try:
-                        from datetime import datetime
-                        dt = datetime.fromisoformat(raw_value.replace('Z', '+00:00'))
-                        display_value = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-                    except:
-                        display_value = raw_value
-                # Format number of display name changes
-                elif field_key == "numberOfDisplayNameChanges":
-                    display_value = f"{raw_value}/3"
-                else:
-                    display_value = str(raw_value)
+            # Display Name
+            display_name = account_info.get('displayName', 'N/A')
+            lines.append(f"Display Name: {display_name}")
+            lines.append("")
 
-                value_label.SetLabel(display_value)
+            # Account ID
+            account_id = account_info.get('id', 'N/A')
+            lines.append(f"Account ID: {account_id}")
+            lines.append("")
+
+            # Email
+            email = account_info.get('email', 'N/A')
+            lines.append(f"Email: {email}")
+            lines.append("")
+
+            # Region & Language
+            country = account_info.get('country', 'N/A')
+            language = account_info.get('preferredLanguage', 'N/A')
+            lines.append(f"Country: {country}")
+            lines.append(f"Preferred Language: {language}")
+            lines.append("")
+
+            # Security
+            tfa_enabled = account_info.get('tfaEnabled', False)
+            email_verified = account_info.get('emailVerified', False)
+            lines.append("-" * 60)
+            lines.append("SECURITY")
+            lines.append("-" * 60)
+            lines.append(f"Two-Factor Authentication: {'Enabled' if tfa_enabled else 'Disabled'}")
+            lines.append(f"Email Verified: {'Yes' if email_verified else 'No'}")
+            lines.append("")
+
+            # Display Name Management
+            can_change = account_info.get('canUpdateDisplayName', False)
+            num_changes = account_info.get('numberOfDisplayNameChanges', 0)
+            lines.append("-" * 60)
+            lines.append("DISPLAY NAME")
+            lines.append("-" * 60)
+            lines.append(f"Can Change Display Name: {'Yes' if can_change else 'No'}")
+            lines.append(f"Display Name Changes Used: {num_changes} of 3")
+            lines.append("")
+
+            # Account Activity
+            last_login = account_info.get('lastLogin', 'N/A')
+            if last_login != 'N/A':
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(last_login.replace('Z', '+00:00'))
+                    last_login = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+                except:
+                    pass
+
+            lines.append("-" * 60)
+            lines.append("ACCOUNT ACTIVITY")
+            lines.append("-" * 60)
+            lines.append(f"Last Login: {last_login}")
+            lines.append("")
+
+            # Age & Minor Status
+            age_group = account_info.get('ageGroup', 'N/A')
+            minor_status = account_info.get('minorStatus', 'N/A')
+            lines.append("-" * 60)
+            lines.append("AGE INFORMATION")
+            lines.append("-" * 60)
+            lines.append(f"Age Group: {age_group}")
+            lines.append(f"Minor Status: {minor_status}")
+            lines.append("")
+            lines.append("=" * 60)
+
+            # Set the text
+            self.account_info_text.SetValue("\n".join(lines))
+
+            # Move cursor to beginning for screen reader
+            self.account_info_text.SetInsertionPoint(0)
 
             logger.info("Account information loaded successfully")
 
         except Exception as e:
             logger.error(f"Error loading account info: {e}")
-            for field_key, value_label in self.account_fields.items():
-                value_label.SetLabel("Error")
+            self.account_info_text.SetValue(f"Error loading account information\n\nError: {str(e)}\n\nPlease try refreshing or re-authenticating.")
 
     def on_refresh_account_info(self, event):
         """Refresh account information"""

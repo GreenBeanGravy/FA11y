@@ -89,6 +89,7 @@ def setup_logging() -> Optional[str]:
         log_file.flush()
 
         # Redirect stdout and stderr to both console and log file
+        # This captures print() statements
         sys.stdout = TeeOutput(sys.__stdout__, log_file)
         sys.stderr = TeeOutput(sys.__stderr__, log_file)
 
@@ -100,20 +101,20 @@ def setup_logging() -> Optional[str]:
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
 
-        # Add console handler
+        # Add console handler ONLY for warnings and errors (not INFO or DEBUG)
         console_handler = logging.StreamHandler(sys.__stdout__)
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.WARNING)  # Only show WARNING, ERROR, CRITICAL
         console_handler.setFormatter(logging.Formatter(
             '[%(levelname)s] %(message)s'
         ))
         root_logger.addHandler(console_handler)
 
-        # Add file handler with full formatting
+        # Add file handler with full formatting - captures everything
         file_handler = LogFileHandler(log_filename)
         file_handler.setLevel(logging.DEBUG)
         root_logger.addHandler(file_handler)
 
-        # Log successful initialization
+        # Log successful initialization (goes to file only, not console)
         logging.info(f"Logging system initialized - Log file: {log_filename}")
 
         # Setup exception hook to log unhandled exceptions
