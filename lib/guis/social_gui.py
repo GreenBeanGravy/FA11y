@@ -130,8 +130,11 @@ class SocialDialog(AccessibleDialog):
 
         panel.SetSizer(sizer)
 
-        # Load account info initially
-        self.load_account_info()
+        # Set initial loading message (will be loaded when tab is first shown)
+        loading_msg = "Loading... (switch to this tab to load data)"
+        self.epic_account_text.SetValue(loading_msg)
+        self.fortnite_stats_text.SetValue(loading_msg)
+        self.ranked_stats_text.SetValue(loading_msg)
 
         return panel
 
@@ -458,7 +461,7 @@ class SocialDialog(AccessibleDialog):
     def on_tab_changed(self, event):
         """Handle tab change - refresh data asynchronously"""
         page = event.GetSelection()
-        
+
         def _refresh_task():
             if page == 0:  # Friends
                 self.social_manager.force_refresh_data("friends")
@@ -469,7 +472,10 @@ class SocialDialog(AccessibleDialog):
             elif page == 2:  # Party
                 self.social_manager.force_refresh_data("party")
                 wx.CallAfter(self.refresh_party_list)
-                
+            elif page == 3:  # Me tab
+                # Load account info (fresh data from API)
+                wx.CallAfter(self.load_account_info)
+
         # Run refresh in background thread to avoid UI freeze
         import threading
         threading.Thread(target=_refresh_task, daemon=True).start()
