@@ -366,23 +366,41 @@ class EpicDiscovery:
 
             logger.debug(f"Scraping fortnite.gg: {url}")
 
-            # Add respectful headers and rate limiting
+            # Add browser-like headers to avoid bot detection
             headers = {
-                "User-Agent": "FA11y/1.0 (Educational/Accessibility Tool)",
-                "Accept": "text/html,application/xhtml+xml",
-                "Accept-Language": "en-US,en;q=0.9"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Referer": "https://fortnite.gg/",
+                "DNT": "1",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-origin",
+                "Cache-Control": "max-age=0"
             }
 
             # Rate limiting - wait 1 second between requests
             time.sleep(1)
 
-            response = requests.get(url, headers=headers, timeout=15)
+            # Use a session to maintain cookies
+            session = requests.Session()
+            response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
 
             if response.status_code != 200:
                 logger.error(f"Failed to scrape fortnite.gg: {response.status_code}")
+                logger.debug(f"Response headers: {dict(response.headers)}")
+                # Check if it's a Cloudflare challenge
+                if "cloudflare" in response.text.lower() or "cf-ray" in response.headers:
+                    logger.warning("Cloudflare protection detected - cannot bypass automatically")
                 return []
 
             html = response.text
+
+            # Debug: log first 500 chars to see what we got
+            logger.debug(f"Response preview: {html[:500]}")
 
             # Parse HTML using regex (simple and robust for this structure)
             # Pattern: <a class='island' href='/island?code=XXXX-XXXX-XXXX'>
