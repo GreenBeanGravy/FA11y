@@ -464,6 +464,132 @@ class EpicDiscovery:
             logger.error(f"Error scraping fortnite.gg: {e}")
             return []
 
+    def scrape_creator_maps(self, creator_name: str, limit: int = 50, start_page: int = 1) -> List[DiscoveryIsland]:
+        """
+        Scrape maps from a specific creator's page on fortnite.gg
+
+        Args:
+            creator_name: Creator name (e.g., "epic")
+            limit: Maximum islands to return (default 50)
+            start_page: Starting page number (default 1)
+
+        Returns:
+            List of DiscoveryIsland objects from the creator
+        """
+        islands = []
+
+        try:
+            # Determine how many pages to fetch (typically 24 islands per page)
+            islands_per_page = 24
+            max_pages = max(1, (limit + islands_per_page - 1) // islands_per_page)
+
+            for page_num in range(start_page, start_page + max_pages):
+                # Stop if we've hit our limit
+                if len(islands) >= limit:
+                    break
+
+                # Build URL for creator page
+                url = f"https://fortnite.gg/creator?name={creator_name}"
+                if page_num > 1:
+                    url += f"&page={page_num}"
+
+                logger.debug(f"Scraping creator page: {url}")
+
+                # Add browser-like headers
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Referer": "https://fortnite.gg/",
+                    "DNT": "1",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "same-origin",
+                    "Cache-Control": "max-age=0"
+                }
+
+                # Rate limiting - wait 1 second between requests
+                time.sleep(1)
+
+                # Use cloudscraper to bypass Cloudflare protection
+                if HAS_CLOUDSCRAPER:
+                    scraper = cloudscraper.create_scraper(
+                        browser={
+                            'browser': 'chrome',
+                            'platform': 'windows',
+                            'desktop': True
+                        }
+                    )
+                    response = scraper.get(url, headers=headers, timeout=15, allow_redirects=True)
+                else:
+                    logger.warning("cloudscraper not available, using regular requests (may be blocked)")
+                    session = requests.Session()
+                    response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
+
+                if response.status_code != 200:
+                    logger.error(f"Failed to scrape creator page: {response.status_code}")
+                    if "cloudflare" in response.text.lower() or "cf-ray" in response.headers:
+                        logger.warning("Cloudflare protection detected")
+                    break
+
+                html = response.text
+
+                # Pattern handles both standard codes (1234-5678-9012) and playlist names (set_br_playlists, campaign, etc.)
+                # <a class='island' href='/island?code=CODE_OR_PLAYLIST_NAME'>
+                island_pattern = re.compile(
+                    r"<a class='island' href='/island\?code=([^']+)'>.*?"
+                    r"<img src='([^']+)'[^>]*alt='([^']+)'.*?"
+                    r"<div class='players'>.*?(\d+)\s*</div>.*?"
+                    r"<h3 class='island-title'>([^<]+)</h3>",
+                    re.DOTALL
+                )
+
+                matches = island_pattern.findall(html)
+
+                if not matches:
+                    logger.debug(f"No islands found on page {page_num}")
+                    break  # No more results, stop pagination
+
+                for match in matches:
+                    if len(islands) >= limit:
+                        break
+
+                    code, image_url, alt_text, players, title = match
+
+                    # Clean up title and code
+                    title = title.strip()
+                    code = code.strip()
+
+                    # Parse player count
+                    try:
+                        player_count = int(players.strip())
+                    except:
+                        player_count = -1
+
+                    # Create DiscoveryIsland object
+                    island = DiscoveryIsland(
+                        link_code=code,
+                        title=title,
+                        creator_name=creator_name,
+                        description=None,
+                        global_ccu=player_count,
+                        image_url=image_url if image_url and not image_url.endswith('_s.jpeg') else image_url.replace('_s.jpeg', '.jpeg') if image_url else None
+                    )
+
+                    islands.append(island)
+                    logger.debug(f"Scraped creator island: {title} ({code}) - {player_count} players")
+
+                logger.info(f"Scraped {len(matches)} islands from page {page_num}")
+
+            logger.info(f"Total scraped {len(islands)} islands for creator '{creator_name}'")
+            return islands
+
+        except Exception as e:
+            logger.error(f"Error scraping creator maps: {e}")
+            return islands  # Return what we got so far
+
     def search_islands(self, query: str, order_by: str = "globalCCU", page: int = 0) -> List[DiscoveryIsland]:
         """
         Search for islands/gamemodes using the public Fortnite Data API

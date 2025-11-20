@@ -48,10 +48,12 @@ class DiscoveryDialog(AccessibleDialog):
         self.browse_panel = self._create_browse_panel()
         self.search_panel = self._create_search_panel()
         self.bycode_panel = self._create_bycode_panel()
+        self.creator_panel = self._create_creator_panel()
 
         self.notebook.AddPage(self.browse_panel, "Browse")
         self.notebook.AddPage(self.search_panel, "Search")
         self.notebook.AddPage(self.bycode_panel, "By Code")
+        self.notebook.AddPage(self.creator_panel, "By Creator")
 
         # Bind tab change event
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_tab_changed)
@@ -179,6 +181,56 @@ class DiscoveryDialog(AccessibleDialog):
         font.PointSize += 1
         self.island_info_text.SetFont(font)
         sizer.Add(self.island_info_text, 1, wx.ALL | wx.EXPAND, 10)
+
+        panel.SetSizer(sizer)
+        return panel
+
+    def _create_creator_panel(self):
+        """Create By Creator tab"""
+        panel = wx.Panel(self.notebook)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Title
+        title = wx.StaticText(panel, label="Browse by Creator")
+        title_font = title.GetFont()
+        title_font.PointSize += 2
+        title_font = title_font.Bold()
+        title.SetFont(title_font)
+        sizer.Add(title, 0, wx.ALL, 10)
+
+        # Creator name input
+        creator_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        creator_label = wx.StaticText(panel, label="Creator:")
+        creator_sizer.Add(creator_label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        self.creator_box = wx.TextCtrl(panel, size=(200, -1), style=wx.TE_PROCESS_ENTER, value="epic")
+        self.creator_box.Bind(wx.EVT_TEXT_ENTER, self.on_load_creator)
+        creator_sizer.Add(self.creator_box, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        load_creator_btn = wx.Button(panel, label="Load Maps")
+        load_creator_btn.Bind(wx.EVT_BUTTON, self.on_load_creator)
+        creator_sizer.Add(load_creator_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        epic_btn = wx.Button(panel, label="Epic Games")
+        epic_btn.Bind(wx.EVT_BUTTON, self.on_load_epic)
+        creator_sizer.Add(epic_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        sizer.Add(creator_sizer, 0, wx.EXPAND)
+
+        # Creator islands list
+        self.creator_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        sizer.Add(self.creator_list, 1, wx.EXPAND | wx.ALL, 5)
+
+        # Action buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.copy_code_creator_btn = wx.Button(panel, label="Copy Code")
+        btn_sizer.Add(self.copy_code_creator_btn, 0, wx.ALL, 5)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
+
+        # Bind events
+        self.copy_code_creator_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_creator)
+        self.creator_list.Bind(wx.EVT_KEY_DOWN, self.on_creator_key_down)
+        self.creator_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_copy_code_creator)
 
         panel.SetSizer(sizer)
         return panel
@@ -340,6 +392,66 @@ class DiscoveryDialog(AccessibleDialog):
 
         threading.Thread(target=_lookup, daemon=True).start()
 
+    def on_load_creator(self, event):
+        """Load maps for specified creator"""
+        creator_name = self.creator_box.GetValue().strip()
+
+        if not creator_name:
+            speaker.speak("Please enter a creator name")
+            return
+
+        self.load_creator_maps(creator_name)
+
+    def on_load_epic(self, event):
+        """Quick button to load Epic Games maps"""
+        self.creator_box.SetValue("epic")
+        self.load_creator_maps("epic")
+
+    def load_creator_maps(self, creator_name):
+        """Load maps from a specific creator"""
+        if self._is_destroying or not self.creator_list:
+            return
+
+        self.creator_list.Clear()
+        self.creator_list.Append(f"Loading maps from {creator_name}...")
+        speaker.speak(f"Loading maps from {creator_name}")
+
+        def _load():
+            # Scrape creator maps from fortnite.gg
+            islands = self.discovery_api.scrape_creator_maps(creator_name, limit=50)
+            wx.CallAfter(self._populate_creator_list, islands, creator_name)
+
+        threading.Thread(target=_load, daemon=True).start()
+
+    def _populate_creator_list(self, islands, creator_name):
+        """Populate creator list with results"""
+        if self._is_destroying or not self.creator_list:
+            return
+
+        try:
+            self.creator_list.GetCount()
+        except RuntimeError:
+            return
+
+        self.creator_list.Clear()
+
+        if not islands:
+            self.creator_list.Append(f"No islands found for '{creator_name}'")
+            speaker.speak(f"No islands found for {creator_name}")
+            return
+
+        for island in islands:
+            # Include player count if available
+            if island.global_ccu >= 0:
+                label = f"{island.title} ({island.global_ccu} playing) - {island.link_code}"
+            else:
+                label = f"{island.title} - {island.link_code}"
+            self.creator_list.Append(label, island)
+
+        if islands:
+            self.creator_list.SetSelection(0)
+            speaker.speak(f"{len(islands)} maps loaded for {creator_name}")
+
     def _show_island_info(self, island, code):
         """Show island information"""
         if self._is_destroying or not self.island_info_text:
@@ -368,7 +480,7 @@ class DiscoveryDialog(AccessibleDialog):
         speaker.speak(f"Found: {island.title}")
 
     def on_copy_code_browse(self, event):
-        """Copy island code from browse list"""
+        """Copy island code from browse list and launch (close dialog)"""
         sel = self.browse_list.GetSelection()
         if sel == wx.NOT_FOUND:
             speaker.speak("No island selected")
@@ -376,13 +488,19 @@ class DiscoveryDialog(AccessibleDialog):
 
         island = self.browse_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
+            # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            speaker.speak(f"Copied code: {island.link_code}")
+            # Announce launch
+            speaker.speak(f"Launching {island.title}")
+            # Close dialog (exactly like gamemode selector)
+            self._is_destroying = True
+            wx.CallAfter(self.EndModal, wx.ID_OK)
+            wx.CallAfter(self._return_focus_to_game)
         else:
             speaker.speak("No code available")
 
     def on_copy_code_search(self, event):
-        """Copy island code from search list"""
+        """Copy island code from search list and launch (close dialog)"""
         sel = self.search_list.GetSelection()
         if sel == wx.NOT_FOUND:
             speaker.speak("No island selected")
@@ -390,8 +508,34 @@ class DiscoveryDialog(AccessibleDialog):
 
         island = self.search_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
+            # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            speaker.speak(f"Copied code: {island.link_code}")
+            # Announce launch
+            speaker.speak(f"Launching {island.title}")
+            # Close dialog (exactly like gamemode selector)
+            self._is_destroying = True
+            wx.CallAfter(self.EndModal, wx.ID_OK)
+            wx.CallAfter(self._return_focus_to_game)
+        else:
+            speaker.speak("No code available")
+
+    def on_copy_code_creator(self, event):
+        """Copy island code from creator list and launch (close dialog)"""
+        sel = self.creator_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No island selected")
+            return
+
+        island = self.creator_list.GetClientData(sel)
+        if island and hasattr(island, 'link_code'):
+            # Copy code to clipboard
+            pyperclip.copy(island.link_code)
+            # Announce launch
+            speaker.speak(f"Launching {island.title}")
+            # Close dialog (exactly like gamemode selector)
+            self._is_destroying = True
+            wx.CallAfter(self.EndModal, wx.ID_OK)
+            wx.CallAfter(self._return_focus_to_game)
         else:
             speaker.speak("No code available")
 
@@ -459,6 +603,40 @@ class DiscoveryDialog(AccessibleDialog):
         # Enter key copies code
         elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
             self.on_copy_code_search(event)
+            return
+
+        event.Skip()
+
+    def on_creator_key_down(self, event):
+        """Handle key press in creator list"""
+        keycode = event.GetKeyCode()
+
+        # Arrow key handling with wrapping
+        if keycode == wx.WXK_UP:
+            sel = self.creator_list.GetSelection()
+            if sel == 0 or sel == wx.NOT_FOUND:
+                last = self.creator_list.GetCount() - 1
+                if last >= 0:
+                    self.creator_list.SetSelection(last)
+            else:
+                self.creator_list.SetSelection(sel - 1)
+            return
+
+        elif keycode == wx.WXK_DOWN:
+            sel = self.creator_list.GetSelection()
+            last = self.creator_list.GetCount() - 1
+            if sel == last or sel == wx.NOT_FOUND:
+                self.creator_list.SetSelection(0)
+            else:
+                self.creator_list.SetSelection(sel + 1)
+            return
+
+        elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
+            return
+
+        # Enter key copies code
+        elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_copy_code_creator(event)
             return
 
         event.Skip()
