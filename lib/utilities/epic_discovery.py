@@ -55,10 +55,14 @@ class EpicDiscovery:
 
         # Epic Games API endpoints
         self.DISCOVERY_BASE = "https://fn-service-discovery-live-public.ogs.live.on.epicgames.com/api/v2/discovery"
+        self.DISCOVERY_TOKEN_URL = "https://fngw-mcp-gc-livefn.ol.epicgames.com/fortnite/api/discovery/accessToken"
         # Note: Search endpoints require game client authentication, not available with web OAuth
         self.SEARCH_BASE = "https://fngw-svc-gc-livefn.ol.epicgames.com/api"
         # Public Fortnite Data API (no authentication required!)
         self.DATA_API_BASE = "https://api.fortnite.com/ecosystem/v1"
+
+        # Cache for discovery token (version-specific)
+        self._discovery_token_cache = {}  # {branch: token}
 
     def _get_headers(self) -> dict:
         """Get authorization headers for API requests"""
@@ -70,6 +74,55 @@ class EpicDiscovery:
             "Content-Type": "application/json",
             "User-Agent": "Fortnite/++Fortnite+Release-20.00-CL-19458861 Windows/10.0.19041.1.768.64bit"
         }
+
+    def get_discovery_token(self, branch: str = "++Fortnite+Release-34.10") -> Optional[str]:
+        """
+        Get discovery token for v2 API access
+
+        This token is required for Discovery Service v2 endpoints.
+        It's version-specific and should be cached per session.
+
+        Args:
+            branch: Fortnite branch/version (e.g., "++Fortnite+Release-34.10")
+
+        Returns:
+            Base64-encoded discovery token or None if failed
+        """
+        # Check cache first
+        if branch in self._discovery_token_cache:
+            logger.debug(f"Using cached discovery token for {branch}")
+            return self._discovery_token_cache[branch]
+
+        try:
+            url = f"{self.DISCOVERY_TOKEN_URL}/{branch}"
+            logger.debug(f"Getting discovery token: GET {url}")
+
+            response = requests.get(
+                url,
+                headers=self._get_headers(),
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                token = data.get("token")
+
+                if token:
+                    # Cache the token
+                    self._discovery_token_cache[branch] = token
+                    logger.info(f"Successfully obtained discovery token for {branch}")
+                    return token
+                else:
+                    logger.error("Discovery token not found in response")
+                    return None
+            else:
+                logger.error(f"Failed to get discovery token: {response.status_code}")
+                logger.error(f"Response: {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting discovery token: {e}")
+            return None
 
     def _parse_island_data(self, island_data: Dict) -> Optional[DiscoveryIsland]:
         """
@@ -121,17 +174,24 @@ class EpicDiscovery:
             logger.error(f"Error parsing island data: {e}")
             return None
 
-    def get_discovery_surface(self, surface_name: str = SURFACE_MAIN) -> Optional[Dict]:
+    def get_discovery_surface(self, surface_name: str = SURFACE_MAIN, branch: str = "++Fortnite+Release-34.10") -> Optional[Dict]:
         """
-        Get discovery surface data
+        Get discovery surface data using Discovery v2 API
 
         Args:
             surface_name: Name of the surface to query
+            branch: Fortnite branch/version for token retrieval
 
         Returns:
             Surface data with panels and islands
         """
         try:
+            # Get discovery token first
+            discovery_token = self.get_discovery_token(branch)
+            if not discovery_token:
+                logger.error("Failed to obtain discovery token, cannot query surface")
+                return None
+
             payload = {
                 "playerId": self.auth.account_id,
                 "partyMemberIds": [self.auth.account_id],
@@ -150,9 +210,16 @@ class EpicDiscovery:
             logger.debug(f"Discovery surface request: POST {url}?appId=Fortnite")
             logger.debug(f"Payload: {payload}")
 
+            # Use X-Epic-Access-Token header with discovery token (NOT Authorization!)
+            headers = {
+                "X-Epic-Access-Token": discovery_token,
+                "Content-Type": "application/json",
+                "User-Agent": "Fortnite/++Fortnite+Release-20.00-CL-19458861 Windows/10.0.19041.1.768.64bit"
+            }
+
             response = requests.post(
                 url,
-                headers=self._get_headers(),
+                headers=headers,
                 json=payload,
                 params={
                     "appId": "Fortnite",

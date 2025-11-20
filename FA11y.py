@@ -162,6 +162,7 @@ key_listener_thread = None
 stop_key_listener = threading.Event()
 config_gui_open = threading.Event()
 social_gui_open = threading.Event()
+discovery_gui_open = threading.Event()
 locker_gui_open = threading.Event()
 gamemode_gui_open = threading.Event()
 visited_objects_gui_open = threading.Event()
@@ -170,6 +171,7 @@ keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
 social_manager = None
+discovery_api = None
 
 # Global shutdown flag for instant shutdown
 _shutdown_requested = threading.Event()
@@ -420,6 +422,7 @@ def reload_config() -> None:
             'check hotspots': check_hotspots,
             'open visited objects': open_visited_objects,
             'open social menu': open_social_menu,
+            'open discovery gui': open_discovery_gui,
             'open authentication': open_authentication,
             'accept notification': accept_notification,
             'decline notification': decline_notification,
@@ -612,7 +615,7 @@ def open_authentication():
 
     def _do_authentication():
         """Inner function that runs on main thread"""
-        global social_manager, auth_expired, auth_expiration_announced
+        global social_manager, discovery_api, auth_expired, auth_expiration_announced
 
         try:
             from lib.utilities.epic_auth import get_epic_auth_instance
@@ -647,12 +650,18 @@ def open_authentication():
                     # If social manager exists, stop and reinitialize
                     social_manager.stop_monitoring()
 
-                # Always initialize social manager if auth is valid
+                # Always initialize social manager and discovery API if auth is valid
                 if epic_auth and epic_auth.access_token:
                     from lib.managers.social_manager import get_social_manager
+                    from lib.utilities.epic_discovery import EpicDiscovery
+
                     social_manager = get_social_manager(epic_auth)
                     social_manager.start_monitoring()
                     logger.info("Social manager initialized after authentication")
+
+                    # Initialize discovery API
+                    discovery_api = EpicDiscovery(epic_auth)
+                    logger.info("Discovery API initialized after authentication")
 
                 speaker.speak(f"Authentication successful for {epic_auth.display_name}")
                 logger.info(f"Re-authenticated as {epic_auth.display_name}")
@@ -695,6 +704,30 @@ def open_social_menu():
         finally:
             social_gui_open.clear()
     
+    launch_gui_thread_safe(_open)
+
+def open_discovery_gui():
+    """Open the discovery GUI"""
+    from lib.guis.gui_utilities import launch_gui_thread_safe
+
+    if discovery_gui_open.is_set():
+        speaker.speak("Discovery GUI is already open")
+        focus_window("Discovery GUI")
+        return
+
+    def _open():
+        global discovery_api
+        if not discovery_api:
+            speaker.speak("Discovery features not enabled. Please authenticate first.")
+            return
+
+        discovery_gui_open.set()
+        try:
+            from lib.guis.discovery_gui import show_discovery_gui
+            show_discovery_gui(discovery_api)
+        finally:
+            discovery_gui_open.clear()
+
     launch_gui_thread_safe(_open)
 
 def accept_notification():
@@ -977,7 +1010,7 @@ def key_listener() -> None:
         
         # List of our GUI titles (or partial matches)
         # List of our GUI titles (or partial matches)
-        gui_titles = ["Social Menu", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login"]
+        gui_titles = ["Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login"]
         
         is_gui_focused = any(title in active_title for title in gui_titles)
 
@@ -2044,7 +2077,7 @@ def validate_epic_auth(epic_auth) -> bool:
 
 def main() -> None:
     """Main entry point for FA11y with instant shutdown capability."""
-    global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener, social_manager
+    global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener, social_manager, discovery_api
     try:
         print("Starting FA11y...")
 
@@ -2143,10 +2176,17 @@ def main() -> None:
                     # Refresh auth instance after login
                     epic_auth = get_epic_auth_instance()
 
-            # Start social manager and other Epic auth-dependent features
+            # Start social manager, discovery API, and other Epic auth-dependent features
             if epic_auth and epic_auth.access_token:
+                from lib.utilities.epic_discovery import EpicDiscovery
+
                 social_manager = get_social_manager(epic_auth)
                 social_manager.start_monitoring()
+
+                # Initialize discovery API
+                discovery_api = EpicDiscovery(epic_auth)
+                logger.info("Discovery API initialized at startup")
+
                 print(f"Social features enabled for {epic_auth.display_name}")
                 speaker.speak(f"Social features enabled for {epic_auth.display_name}")
             else:
