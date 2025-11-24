@@ -5,9 +5,74 @@ Provides functions for managing custom points of interest with map-specific supp
 from typing import Optional, Tuple, List, Dict
 import os
 import logging
+from lib.config.config_manager import config_manager
 
 # Initialize logger
 logger = logging.getLogger(__name__)
+
+
+# Custom loader/saver for CUSTOM_POI.txt
+def _load_custom_pois_file(filename: str) -> List[Tuple[str, int, int, str]]:
+    """
+    Custom loader for CUSTOM_POI.txt format.
+    
+    Args:
+        filename: Path to the custom POI file
+        
+    Returns:
+        List of (poi_name, x, y, map_name) tuples
+    """
+    pois = []
+    if not os.path.exists(filename):
+        return pois
+        
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                poi_data = parse_custom_poi_line(line)
+                if poi_data:
+                    pois.append(poi_data)
+    except Exception as e:
+        logger.error(f"Error loading custom POIs from {filename}: {e}")
+    
+    return pois
+
+
+def _save_custom_pois_file(filename: str, pois: List[Tuple[str, int, int, str]]) -> bool:
+    """
+    Custom saver for CUSTOM_POI.txt format.
+    
+    Args:
+        filename: Path to the custom POI file
+        pois: List of (poi_name, x, y, map_name) tuples
+        
+    Returns:
+        True if saved successfully, False otherwise
+    """
+    try:
+        # Ensure directory exists
+        directory = os.path.dirname(filename)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+            
+        with open(filename, 'w', encoding='utf-8') as f:
+            for poi_name, x, y, map_name in pois:
+                f.write(f"{poi_name},{x},{y},{map_name}\n")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving custom POIs to {filename}: {e}")
+        return False
+
+
+# Register CUSTOM_POI.txt with config manager
+config_manager.register(
+    'custom_pois',
+    'config/CUSTOM_POI.txt',
+    format='custom',
+    default=[],
+    custom_loader=_load_custom_pois_file,
+    custom_saver=_save_custom_pois_file
+)
 
 def parse_custom_poi_line(line: str) -> Optional[Tuple[str, int, int, str]]:
     """
@@ -48,25 +113,23 @@ def load_custom_pois(map_name: str = None) -> List[Tuple[str, str, str]]:
     Returns:
         List of valid (name, x, y) POI tuples
     """
-    custom_pois = []
-    
-    if not os.path.exists('CUSTOM_POI.txt'):
-        return custom_pois
-        
     try:
-        with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
-            for line in f:
-                poi_data = parse_custom_poi_line(line)
-                if poi_data:
-                    name, x, y, poi_map = poi_data
-                    
-                    # If map_name is provided, filter by that map
-                    if map_name is None or poi_map == map_name:
-                        custom_pois.append((name, str(x), str(y)))
+        # Load all POIs from config manager
+        all_pois = config_manager.get('custom_pois', default=[])
+        
+        # Filter by map if specified
+        filtered_pois = []
+        for poi_data in all_pois:
+            if len(poi_data) >= 4:
+                name, x, y, poi_map = poi_data
+                # If map_name is provided, filter by that map
+                if map_name is None or poi_map == map_name:
+                    filtered_pois.append((name, str(x), str(y)))
+        
+        return filtered_pois
     except Exception as e:
         logger.error(f"Error loading custom POIs: {e}")
-        
-    return custom_pois
+        return []
 
 def save_custom_poi(poi_name: str, x: int, y: int, map_name: str = "main") -> bool:
     """
@@ -82,9 +145,14 @@ def save_custom_poi(poi_name: str, x: int, y: int, map_name: str = "main") -> bo
         True if saved successfully, False otherwise
     """
     try:
-        with open('CUSTOM_POI.txt', 'a', encoding='utf-8') as f:
-            f.write(f"{poi_name},{x},{y},{map_name}\n")
-        return True
+        # Load existing POIs
+        all_pois = config_manager.get('custom_pois', default=[])
+        
+        # Add new POI
+        all_pois.append((poi_name, x, y, map_name))
+        
+        # Save back to config
+        return config_manager.set('custom_pois', data=all_pois)
     except Exception as e:
         logger.error(f"Error saving custom POI: {e}")
         return False
@@ -100,26 +168,20 @@ def handle_custom_poi_selection(selected_poi: str, use_ppi: bool = False) -> Tup
     Returns:
         Tuple of (poi_name, (x, y)) or (None, None) if not found
     """
-    # Load all custom POIs (no map filtering for direct selection)
-    custom_pois = []
+    try:
+        # Load all custom POIs (no map filtering for direct selection)
+        all_pois = config_manager.get('custom_pois', default=[])
+        
+        # Match selected POI name
+        selected_poi_lower = selected_poi.lower()
+        for poi_data in all_pois:
+            if len(poi_data) >= 4:
+                name, x, y, _ = poi_data  # Map name not needed for selection
+                if name.lower() == selected_poi_lower:
+                    return (name, (x, y))
+    except Exception as e:
+        logger.error(f"Error loading custom POIs: {e}")
     
-    if os.path.exists('CUSTOM_POI.txt'):
-        try:
-            with open('CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
-                for line in f:
-                    poi_data = parse_custom_poi_line(line)
-                    if poi_data:
-                        name, x, y, _ = poi_data  # Map name not needed for selection
-                        custom_pois.append((name, x, y))
-        except Exception as e:
-            logger.error(f"Error loading custom POIs: {e}")
-    
-    # Match selected POI name
-    selected_poi = selected_poi.lower()
-    for poi_name, x, y in custom_pois:
-        if poi_name.lower() == selected_poi:
-            return (poi_name, (x, y))
-            
     return (None, None)
 
 def create_custom_poi(current_position: Optional[Tuple[int, int]], poi_name: str, map_name: str = "main") -> bool:

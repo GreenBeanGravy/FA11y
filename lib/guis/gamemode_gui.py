@@ -38,7 +38,7 @@ def safe_speak(text: str):
         text: Text to speak
     """
     try:
-        safe_speak(text)
+        speaker.speak(text)
     except Exception as e:
         # Log the error but don't crash
         logger.debug(f"TTS error (non-critical): {e}")
@@ -213,7 +213,10 @@ class GamemodeGUI(AccessibleDialog):
             while not pyautogui.pixelMatchesColor(85, 371, (255, 255, 255)):
                 if time.time() - start_time > 5:
                     logger.error("Timeout waiting for search results")
-                    return (False, "Search results not found - gamemode may not exist")
+                    pyautogui.scroll(3)
+                    time.sleep(0.2)
+                    pyautogui.scroll(3)
+                    return (False, "Search results not found - gamemode may not exist or something else broke")
                 time.sleep(0.1)
             time.sleep(0.1)
 

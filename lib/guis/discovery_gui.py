@@ -4,6 +4,7 @@ Provides interface for browsing Fortnite Creative islands and gamemodes
 """
 import logging
 import time
+import re
 import wx
 import threading
 import pyperclip
@@ -18,6 +19,25 @@ from lib.utilities.window_utils import focus_fortnite
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
+
+
+def is_standard_code_format(code: str) -> bool:
+    """
+    Check if code matches standard Fortnite island code format.
+    
+    Standard formats:
+    - ####-####-#### (12 digits with dashes)
+    - ############ (12 digits without dashes)
+    
+    Args:
+        code: Island code to check
+        
+    Returns:
+        True if code is in standard format, False otherwise
+    """
+    if not code:
+        return False
+    return bool(re.match(r'^\d{4}-\d{4}-\d{4}$', code) or re.match(r'^\d{12}$', code))
 
 
 class DiscoveryDialog(AccessibleDialog):
@@ -36,10 +56,14 @@ class DiscoveryDialog(AccessibleDialog):
         self.discovery_api = discovery_api
         self._is_destroying = False  # Flag to track if dialog is being destroyed
 
-        # Pagination state
+        # Pagination state (for browse)
         self.current_page = 1
         self.items_per_page = 50
         self.total_items = 0
+
+        # Search pagination state
+        self.search_current_page = 1
+        self.search_query = ""
 
         # Current sort filter
         self.current_sort = "popular"
@@ -115,6 +139,7 @@ class DiscoveryDialog(AccessibleDialog):
         self.launch_epic_btn.Bind(wx.EVT_BUTTON, self.on_launch_epic)
         self.refresh_epic_btn.Bind(wx.EVT_BUTTON, self.on_refresh_epic)
         self.epic_list.Bind(wx.EVT_KEY_DOWN, self.on_epic_key_down)
+        self.epic_list.Bind(wx.EVT_CHAR, self.on_epic_char)
         self.epic_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_epic)
 
         panel.SetSizer(sizer)
@@ -181,6 +206,7 @@ class DiscoveryDialog(AccessibleDialog):
         self.browse_prev_btn.Bind(wx.EVT_BUTTON, self.on_browse_prev_page)
         self.browse_next_btn.Bind(wx.EVT_BUTTON, self.on_browse_next_page)
         self.browse_list.Bind(wx.EVT_KEY_DOWN, self.on_browse_key_down)
+        self.browse_list.Bind(wx.EVT_CHAR, self.on_browse_char)
         self.browse_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_browse)
 
         panel.SetSizer(sizer)
@@ -223,6 +249,16 @@ class DiscoveryDialog(AccessibleDialog):
         self.search_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         sizer.Add(self.search_list, 1, wx.EXPAND | wx.ALL, 5)
 
+        # Pagination controls
+        search_page_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.search_prev_btn = wx.Button(panel, label="< Previous")
+        self.search_page_label = wx.StaticText(panel, label="Page 1")
+        self.search_next_btn = wx.Button(panel, label="Next >")
+        search_page_sizer.Add(self.search_prev_btn, 0, wx.ALL, 5)
+        search_page_sizer.Add(self.search_page_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        search_page_sizer.Add(self.search_next_btn, 0, wx.ALL, 5)
+        sizer.Add(search_page_sizer, 0, wx.ALIGN_CENTER, 5)
+
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.copy_code_search_btn = wx.Button(panel, label="Copy Code")
@@ -234,7 +270,10 @@ class DiscoveryDialog(AccessibleDialog):
         # Bind events
         self.copy_code_search_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_search)
         self.launch_search_btn.Bind(wx.EVT_BUTTON, self.on_launch_search)
+        self.search_prev_btn.Bind(wx.EVT_BUTTON, self.on_search_prev_page)
+        self.search_next_btn.Bind(wx.EVT_BUTTON, self.on_search_next_page)
         self.search_list.Bind(wx.EVT_KEY_DOWN, self.on_search_key_down)
+        self.search_list.Bind(wx.EVT_CHAR, self.on_search_char)
         self.search_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_search)
 
         panel.SetSizer(sizer)
@@ -330,6 +369,7 @@ class DiscoveryDialog(AccessibleDialog):
         self.copy_code_creator_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_creator)
         self.launch_creator_btn.Bind(wx.EVT_BUTTON, self.on_launch_creator)
         self.creator_list.Bind(wx.EVT_KEY_DOWN, self.on_creator_key_down)
+        self.creator_list.Bind(wx.EVT_CHAR, self.on_creator_char)
         self.creator_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_creator)
 
         panel.SetSizer(sizer)
@@ -523,6 +563,23 @@ class DiscoveryDialog(AccessibleDialog):
         speaker.speak(f"Page {self.current_page}")
         self.load_browse_islands()
 
+    def on_search_prev_page(self, event):
+        """Go to previous page in search results"""
+        if self.search_current_page > 1:
+            self.search_current_page -= 1
+            self.search_page_label.SetLabel(f"Page {self.search_current_page}")
+            speaker.speak(f"Page {self.search_current_page}")
+            self.perform_search(new_search=False)
+        else:
+            speaker.speak("Already on first page")
+
+    def on_search_next_page(self, event):
+        """Go to next page in search results"""
+        self.search_current_page += 1
+        self.search_page_label.SetLabel(f"Page {self.search_current_page}")
+        speaker.speak(f"Page {self.search_current_page}")
+        self.perform_search(new_search=False)
+
     def on_launch_browse(self, event):
         """Launch selected gamemode from browse list"""
         sel = self.browse_list.GetSelection()
@@ -544,7 +601,7 @@ class DiscoveryDialog(AccessibleDialog):
         """Handle search button click"""
         self.perform_search()
 
-    def perform_search(self):
+    def perform_search(self, new_search=True):
         """Perform island search"""
         query = self.search_box.GetValue().strip()
 
@@ -552,14 +609,19 @@ class DiscoveryDialog(AccessibleDialog):
             speaker.speak("Please enter a search term")
             return
 
+        # Reset to page 1 for new searches
+        if new_search:
+            self.search_current_page = 1
+            self.search_query = query
+        
         self.search_list.Clear()
-        self.search_list.Append(f"Searching fortnite.gg for '{query}'...")
-        speaker.speak(f"Searching for {query}")
+        self.search_list.Append(f"Searching fortnite.gg for '{self.search_query}'...")
+        speaker.speak(f"Searching for {self.search_query}, page {self.search_current_page}")
 
         def _search():
             # Use fortnite.gg scraper for search
-            islands = self.discovery_api.scrape_fortnite_gg(search_query=query, limit=50)
-            wx.CallAfter(self._populate_search_list, islands, query)
+            islands = self.discovery_api.scrape_fortnite_gg(search_query=self.search_query, limit=50)
+            wx.CallAfter(self._populate_search_list, islands, self.search_query)
 
         threading.Thread(target=_search, daemon=True).start()
 
@@ -587,6 +649,8 @@ class DiscoveryDialog(AccessibleDialog):
 
         if islands:
             self.search_list.SetSelection(0)
+            # Update page label
+            self.search_page_label.SetLabel(f"Page {self.search_current_page}")
             speaker.speak(f"{len(islands)} islands found")
 
     def on_lookup_code(self, event):
@@ -703,7 +767,11 @@ class DiscoveryDialog(AccessibleDialog):
         island = self.browse_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
             pyperclip.copy(island.link_code)
-            speaker.speak(f"Copied code: {island.link_code}")
+            # Use title instead of code for non-standard formats
+            if is_standard_code_format(island.link_code):
+                speaker.speak(f"Copied code: {island.link_code}")
+            else:
+                speaker.speak(f"Copied code: {island.title}")
         else:
             speaker.speak("No code available")
 
@@ -717,7 +785,11 @@ class DiscoveryDialog(AccessibleDialog):
         island = self.search_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
             pyperclip.copy(island.link_code)
-            speaker.speak(f"Copied code: {island.link_code}")
+            # Use title instead of code for non-standard formats
+            if is_standard_code_format(island.link_code):
+                speaker.speak(f"Copied code: {island.link_code}")
+            else:
+                speaker.speak(f"Copied code: {island.title}")
         else:
             speaker.speak("No code available")
 
@@ -731,7 +803,11 @@ class DiscoveryDialog(AccessibleDialog):
         island = self.epic_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
             pyperclip.copy(island.link_code)
-            speaker.speak(f"Copied code: {island.link_code}")
+            # Use title instead of code for non-standard formats
+            if is_standard_code_format(island.link_code):
+                speaker.speak(f"Copied code: {island.link_code}")
+            else:
+                speaker.speak(f"Copied code: {island.title}")
         else:
             speaker.speak("No code available")
 
@@ -758,7 +834,11 @@ class DiscoveryDialog(AccessibleDialog):
         island = self.creator_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
             pyperclip.copy(island.link_code)
-            speaker.speak(f"Copied code: {island.link_code}")
+            # Use title instead of code for non-standard formats
+            if is_standard_code_format(island.link_code):
+                speaker.speak(f"Copied code: {island.link_code}")
+            else:
+                speaker.speak(f"Copied code: {island.title}")
         else:
             speaker.speak("No code available")
 
@@ -792,6 +872,11 @@ class DiscoveryDialog(AccessibleDialog):
         """Handle key press in epic list"""
         keycode = event.GetKeyCode()
 
+        # CTRL+C to copy code/name
+        if event.ControlDown() and keycode == ord('C'):
+            self.on_copy_code_epic(event)
+            return
+
         # Arrow key handling with wrapping
         if keycode == wx.WXK_UP:
             sel = self.epic_list.GetSelection()
@@ -822,9 +907,25 @@ class DiscoveryDialog(AccessibleDialog):
 
         event.Skip()
 
+    def on_epic_char(self, event):
+        """Handle char events in epic list (for ENTER key)"""
+        keycode = event.GetKeyCode()
+        
+        # Handle ENTER key
+        if keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_launch_epic(event)
+            return
+        
+        event.Skip()
+
     def on_browse_key_down(self, event):
         """Handle key press in browse list"""
         keycode = event.GetKeyCode()
+
+        # CTRL+C to copy code/name
+        if event.ControlDown() and keycode == ord('C'):
+            self.on_copy_code_browse(event)
+            return
 
         # Arrow key handling with wrapping
         if keycode == wx.WXK_UP:
@@ -856,9 +957,25 @@ class DiscoveryDialog(AccessibleDialog):
 
         event.Skip()
 
+    def on_browse_char(self, event):
+        """Handle char events in browse list (for ENTER key)"""
+        keycode = event.GetKeyCode()
+        
+        # Handle ENTER key
+        if keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_launch_browse(event)
+            return
+        
+        event.Skip()
+
     def on_search_key_down(self, event):
         """Handle key press in search list"""
         keycode = event.GetKeyCode()
+
+        # CTRL+C to copy code/name
+        if event.ControlDown() and keycode == ord('C'):
+            self.on_copy_code_search(event)
+            return
 
         # Arrow key handling with wrapping
         if keycode == wx.WXK_UP:
@@ -890,9 +1007,25 @@ class DiscoveryDialog(AccessibleDialog):
 
         event.Skip()
 
+    def on_search_char(self, event):
+        """Handle char events in search list (for ENTER key)"""
+        keycode = event.GetKeyCode()
+        
+        # Handle ENTER key
+        if keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_launch_search(event)
+            return
+        
+        event.Skip()
+
     def on_creator_key_down(self, event):
         """Handle key press in creator list"""
         keycode = event.GetKeyCode()
+
+        # CTRL+C to copy code/name
+        if event.ControlDown() and keycode == ord('C'):
+            self.on_copy_code_creator(event)
+            return
 
         # Arrow key handling with wrapping
         if keycode == wx.WXK_UP:
@@ -922,6 +1055,17 @@ class DiscoveryDialog(AccessibleDialog):
             self.on_launch_creator(event)
             return
 
+        event.Skip()
+
+    def on_creator_char(self, event):
+        """Handle char events in creator list (for ENTER key)"""
+        keycode = event.GetKeyCode()
+        
+        # Handle ENTER key
+        if keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
+            self.on_launch_creator(event)
+            return
+        
         event.Skip()
 
     def on_close(self, event):
@@ -993,10 +1137,11 @@ class DiscoveryDialog(AccessibleDialog):
                 pyautogui.click()
                 time.sleep(0.1)
 
-                # Type the gamemode code
+                # Type the gamemode code or title (use title for non-standard codes)
                 pyautogui.hotkey('ctrl', 'a')
                 time.sleep(0.1)
-                pyautogui.typewrite(code)
+                search_text = code if is_standard_code_format(code) else title
+                pyautogui.typewrite(search_text)
                 pyautogui.press('enter')
 
                 # Wait for search results - check if pixel 85,371 is white (255,255,255)
@@ -1004,7 +1149,10 @@ class DiscoveryDialog(AccessibleDialog):
                 while not pyautogui.pixelMatchesColor(85, 371, (255, 255, 255)):
                     if time.time() - start_time > 5:
                         logger.error("Timeout waiting for search results")
-                        speaker.speak("Failed to select gamemode: Search results not found - gamemode may not exist")
+                        speaker.speak("Failed to select gamemode: Search results not found - gamemode may not exist or something else broke")
+                        pyautogui.scroll(3)
+                        time.sleep(0.2)
+                        pyautogui.scroll(3)
                         return
                     time.sleep(0.1)
                 time.sleep(0.1)

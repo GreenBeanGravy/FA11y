@@ -370,6 +370,7 @@ class FavoritePOI:
     x: str
     y: str
     source_tab: str
+    map_name: str = "main"  # Default to main map for backward compatibility
 
 
 class FavoritesManager:
@@ -477,13 +478,14 @@ class FavoritesManager:
                 logger.error(f"Error saving favorites: {e}")
                 return False
 
-    def toggle_favorite(self, poi: Tuple[str, str, str], source_tab: str) -> bool:
+    def toggle_favorite(self, poi: Tuple[str, str, str], source_tab: str, map_name: str = "main") -> bool:
         """
         Toggle a POI as favorite (add if not present, remove if present).
 
         Args:
             poi: POI tuple (name, x, y)
             source_tab: Source tab/category of the POI
+            map_name: Map this POI belongs to (default: "main")
 
         Returns:
             True if POI was added to favorites, False if removed
@@ -501,7 +503,7 @@ class FavoritesManager:
                     return False
                 return False
             else:
-                new_fav = FavoritePOI(name=name, x=x, y=y, source_tab=source_tab)
+                new_fav = FavoritePOI(name=name, x=x, y=y, source_tab=source_tab, map_name=map_name)
                 self.favorites.append(new_fav)
                 success = self.save_favorites()
                 if not success:
@@ -523,14 +525,19 @@ class FavoritesManager:
         with _favorites_lock:
             return any(f.name == poi_name for f in self.favorites)
 
-    def get_favorites_as_tuples(self) -> List[Tuple[str, str, str]]:
+    def get_favorites_as_tuples(self, map_name: str = None) -> List[Tuple[str, str, str]]:
         """
-        Get all favorites as tuples.
+        Get all favorites as tuples, optionally filtered by map.
+
+        Args:
+            map_name: Optional map name to filter by (None = all favorites)
 
         Returns:
             List of POI tuples (name, x, y)
         """
         with _favorites_lock:
+            if map_name:
+                return [(f.name, f.x, f.y) for f in self.favorites if f.map_name == map_name]
             return [(f.name, f.x, f.y) for f in self.favorites]
 
     def get_source_tab(self, poi_name: str) -> Optional[str]:

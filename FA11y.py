@@ -934,6 +934,75 @@ def toggle_continuous_ping() -> None:
     active_pinger.start()
     speaker.speak(f"Continuous ping enabled for {poi_name}.")
 
+def _refresh_poi_selector_after_favorite_toggle(was_added: bool, poi_name: str) -> None:
+    """
+    Refresh POI selector state after toggling a favorite.
+    Forces reload of favorites data from disk for all maps.
+    
+    Args:
+        was_added: True if POI was added to favorites, False if removed
+        poi_name: Name of the POI that was toggled
+    """
+    global config, current_poi_category
+    
+    try:
+        # Force reload favorites from disk for all maps
+        from lib.managers.poi_data_manager import get_favorites_manager
+        favorites_manager = get_favorites_manager()
+        favorites_manager.load_favorites()  # Reload from disk to get fresh data
+        
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        
+        # Get updated favorites list for current map (now with fresh data)
+        favorites = favorites_manager.get_favorites_as_tuples(map_name=current_map)
+        
+        logger.info(f"Favorites refreshed: {len(favorites)} favorites for map '{current_map}'")
+        
+        # If we removed the last favorite and we're in favorites category, switch to special
+        if not was_added and not favorites and current_poi_category == POI_CATEGORY_FAVORITE:
+            logger.info("Last favorite removed, switching to special category")
+            current_poi_category = POI_CATEGORY_SPECIAL
+            
+            # Get first POI in special category and update config
+            special_pois = get_pois_by_category(POI_CATEGORY_SPECIAL)
+            if special_pois:
+                first_poi = special_pois[0]
+                config.set('POI', 'selected_poi', f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}")
+                save_config(config)
+        
+        # If we just added a favorite while in favorites category, keep current selection
+        elif was_added and current_poi_category == POI_CATEGORY_FAVORITE:
+            # Current POI is already selected, just log it
+            logger.info(f"Added {poi_name} to favorites, keeping current selection")
+        
+        # If we're in favorites category and removed a POI, ensure current selection is still valid
+        elif not was_added and current_poi_category == POI_CATEGORY_FAVORITE:
+            selected_poi_str = config.get('POI', 'selected_poi', fallback='none,0,0')
+            selected_poi_name = selected_poi_str.split(',')[0].strip()
+            
+            # Check if currently selected POI is still in favorites
+            favorite_names = [f[0] for f in favorites]
+            
+            if selected_poi_name not in favorite_names:
+                if favorites:
+                    # Current selection no longer in favorites, select first favorite
+                    first_fav = favorites[0]
+                    config.set('POI', 'selected_poi', f"{first_fav[0]}, {first_fav[1]}, {first_fav[2]}")
+                    save_config(config)
+                    logger.info(f"Updated selection to first favorite: {first_fav[0]}")
+                else:
+                    # No favorites left, handled by the first condition above
+                    pass
+        
+        # If we added a new favorite and we're NOT in favorites category, user might want to cycle to it later
+        elif was_added and current_poi_category != POI_CATEGORY_FAVORITE:
+            logger.info(f"Added {poi_name} to favorites while in {current_poi_category} category")
+                
+    except Exception as e:
+        logger.error(f"Error refreshing POI selector after favorite toggle: {e}")
+
+
 def toggle_favorite_poi() -> None:
     """Toggle the currently selected POI as a favorite."""
     global config, poi_data_instance, current_poi_category
@@ -967,9 +1036,9 @@ def toggle_favorite_poi() -> None:
         if poi_data_instance is None:
             poi_data_instance = POIData()
 
-        # Get the favorites manager
-        from lib.managers.poi_data_manager import FavoritesManager
-        favorites_manager = FavoritesManager()
+        # Get the favorites manager (use singleton)
+        from lib.managers.poi_data_manager import get_favorites_manager
+        favorites_manager = get_favorites_manager()
 
         # Determine source tab based on current category
         source_tab_map = {
@@ -980,9 +1049,15 @@ def toggle_favorite_poi() -> None:
         }
         source_tab = source_tab_map.get(current_poi_category, "regular")
 
+        # Get current map for filtering
+        current_map = config.get('POI', 'current_map', fallback='main')
+        
         # Toggle favorite status
         poi_tuple = (poi_name, poi_x, poi_y)
-        was_added = favorites_manager.toggle_favorite(poi_tuple, source_tab)
+        was_added = favorites_manager.toggle_favorite(poi_tuple, source_tab, current_map)
+
+        # Refresh the POI selector state after toggling favorite
+        _refresh_poi_selector_after_favorite_toggle(was_added, poi_name)
 
         # Announce result
         if was_added:
@@ -1435,17 +1510,11 @@ def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
             special_pois.append((SPECIAL_POI_CLOSEST_LANDMARK, "0", "0"))
         return special_pois
     
-    # Favorites
+    # Favorites (filtered by current map)
     if category == POI_CATEGORY_FAVORITE:
-        favorites_file = 'config/FAVORITE_POIS.txt'
-        if os.path.exists(favorites_file):
-            try:
-                with open(favorites_file, 'r') as f:
-                    favorites_data = json.load(f)
-                    return [(f['name'], f['x'], f['y']) for f in favorites_data]
-            except (json.JSONDecodeError, FileNotFoundError):
-                return []
-        return []
+        from lib.managers.poi_data_manager import get_favorites_manager
+        favorites_manager = get_favorites_manager()
+        return favorites_manager.get_favorites_as_tuples(map_name=current_map)
     
     # Custom POIs
     if category == POI_CATEGORY_CUSTOM:
