@@ -54,12 +54,12 @@ class EpicDiscovery:
     SURFACE_EPIC_PAGE = "CreativeDiscoverySurface_EpicPage"
     SURFACE_CREATOR_PAGE = "CreativeDiscoverySurface_CreatorPage"
 
-    def __init__(self, epic_auth_instance):
+    def __init__(self, epic_auth_instance=None):
         """
-        Initialize with an EpicAuth instance
+        Initialize Discovery API
 
         Args:
-            epic_auth_instance: Instance of EpicAuth for authentication
+            epic_auth_instance: Instance of EpicAuth for authentication (optional for public features)
         """
         self.auth = epic_auth_instance
 
@@ -85,7 +85,7 @@ class EpicDiscovery:
                         'desktop': True
                     }
                 )
-                logger.debug("Created reusable cloudscraper instance")
+                pass  # Scraper created successfully
             except Exception as e:
                 logger.warning(f"Failed to create cloudscraper: {e}")
 
@@ -122,7 +122,6 @@ class EpicDiscovery:
             cached_html, cached_time = self._response_cache[url]
             age = time.time() - cached_time
             if age < self._cache_ttl:
-                logger.debug(f"Using cached response for {url} (age: {age:.1f}s)")
                 return cached_html
             else:
                 # Cache expired, remove it
@@ -158,7 +157,6 @@ class EpicDiscovery:
             # Cache the response
             if use_cache:
                 self._response_cache[url] = (html, time.time())
-                logger.debug(f"Cached response for {url}")
 
             return html
 
@@ -172,12 +170,10 @@ class EpicDiscovery:
         """
         # Check cache first
         if branch in self._discovery_token_cache:
-            logger.debug(f"Using cached discovery token for {branch}")
             return self._discovery_token_cache[branch]
 
         try:
             url = f"{self.DISCOVERY_TOKEN_URL}/{branch}"
-            logger.debug(f"Getting discovery token: GET {url}")
 
             response = requests.get(
                 url,
@@ -192,7 +188,6 @@ class EpicDiscovery:
                 if token:
                     # Cache the token
                     self._discovery_token_cache[branch] = token
-                    logger.info(f"Successfully obtained discovery token for {branch}")
                     return token
                 else:
                     logger.error("Discovery token not found in response")
@@ -470,7 +465,6 @@ class EpicDiscovery:
             query_string = "&".join([f"{k}={v}" for k, v in params.items()])
             url = f"{base_url}?{query_string}" if query_string else base_url
 
-            logger.debug(f"Scraping fortnite.gg: {url}")
 
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -489,7 +483,6 @@ class EpicDiscovery:
             # Limit results
             islands = islands[:limit]
 
-            logger.info(f"Scraped {len(islands)} islands from fortnite.gg")
             return islands
 
         except Exception as e:
@@ -532,7 +525,6 @@ class EpicDiscovery:
                 islands.sort(key=lambda x: x.global_ccu, reverse=True)
                 islands = islands[:limit]
 
-            logger.info(f"Total scraped {len(islands)} islands for creator '{creator_name}'")
             return islands
 
         except Exception as e:
@@ -547,7 +539,6 @@ class EpicDiscovery:
         if page_num > 1:
             url += f"&page={page_num}"
 
-        logger.debug(f"Scraping creator page: {url}")
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

@@ -36,7 +36,7 @@ class DisplayNameCache:
         try:
             data = config_manager.get('display_names')
             if not data:
-                logger.info("No display name cache found, starting fresh")
+                logger.debug("No display name cache found, starting fresh")
                 self.cache = {}
                 return
 
@@ -56,7 +56,7 @@ class DisplayNameCache:
                         logger.debug(f"Expired cache entry for {account_id} (age: {age_days} days)")
 
             self.cache = valid_entries
-            logger.info(f"Loaded {len(self.cache)} valid display name cache entries")
+            logger.debug(f"Loaded {len(self.cache)} valid display name cache entries")
 
         except Exception as e:
             logger.error(f"Error loading display name cache: {e}")
@@ -134,7 +134,7 @@ class DisplayNameCache:
             del self.cache[account_id]
 
         if expired_ids:
-            logger.info(f"Cleared {len(expired_ids)} expired cache entries")
+            logger.debug(f"Cleared {len(expired_ids)} expired cache entries")
             self.save_cache()
 
 

@@ -9,6 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+# Guard to prevent double initialization
+_logging_initialized = False
+_current_log_file = None
+
 
 class TeeOutput:
     """Redirects output to both console and log file"""
@@ -43,8 +47,8 @@ class LogFileHandler(logging.FileHandler):
     def __init__(self, filename, mode='a', encoding='utf-8', delay=False):
         super().__init__(filename, mode, encoding, delay)
         self.setFormatter(logging.Formatter(
-            '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            '[%(asctime)s] [%(levelname)s] %(message)s',
+            datefmt='%H:%M:%S'
         ))
 
 
@@ -58,6 +62,12 @@ def setup_logging() -> Optional[str]:
     Returns:
         Path to current log file, or None if setup failed
     """
+    global _logging_initialized, _current_log_file
+
+    # Prevent double initialization
+    if _logging_initialized:
+        return _current_log_file
+
     try:
         # Create logs directory
         logs_dir = Path("logs")
@@ -114,6 +124,14 @@ def setup_logging() -> Optional[str]:
         file_handler.setLevel(logging.DEBUG)
         root_logger.addHandler(file_handler)
 
+        # Suppress verbose logging from external libraries
+        # Only show WARNING and above from these noisy libraries
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('requests').setLevel(logging.WARNING)
+        logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
+        logging.getLogger('chardet').setLevel(logging.WARNING)
+        logging.getLogger('PIL').setLevel(logging.WARNING)
+
         # Log successful initialization (goes to file only, not console)
         logging.info(f"Logging system initialized - Log file: {log_filename}")
 
@@ -131,7 +149,11 @@ def setup_logging() -> Optional[str]:
 
         sys.excepthook = exception_hook
 
-        return str(log_filename)
+        # Mark as initialized
+        _logging_initialized = True
+        _current_log_file = str(log_filename)
+
+        return _current_log_file
 
     except Exception as e:
         # If logging setup fails, print to console but don't crash

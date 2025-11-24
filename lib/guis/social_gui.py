@@ -192,9 +192,23 @@ class SocialDialog(AccessibleDialog):
                 return
 
             auth = self.social_manager.auth
+
+            # Check if auth is still valid before making API calls
+            if not auth.is_valid:
+                self.epic_account_text.SetValue("Authentication expired. Press ALT+E to re-authenticate.")
+                self.fortnite_stats_text.SetValue("Authentication expired.")
+                self.ranked_stats_text.SetValue("Authentication expired.")
+                return
+
             account_info = auth.get_account_info()
 
             if not account_info:
+                # Check if auth was invalidated during the request
+                if not auth.is_valid:
+                    self.epic_account_text.SetValue("Authentication expired. Press ALT+E to re-authenticate.")
+                    self.fortnite_stats_text.SetValue("Authentication expired.")
+                    self.ranked_stats_text.SetValue("Authentication expired.")
+                    return
                 self.epic_account_text.SetValue("Error loading account information. Please try refreshing.")
                 self.fortnite_stats_text.SetValue("Error loading stats.")
                 self.ranked_stats_text.SetValue("Error loading ranked stats.")

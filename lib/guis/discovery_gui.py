@@ -3,15 +3,18 @@ Discovery GUI for FA11y
 Provides interface for browsing Fortnite Creative islands and gamemodes
 """
 import logging
+import time
 import wx
 import threading
 import pyperclip
+import pyautogui
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
     AccessibleDialog, BoxSizerHelper, ButtonHelper,
     messageBox, BORDER_FOR_DIALOGS
 )
+from lib.utilities.window_utils import focus_fortnite
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -20,10 +23,27 @@ speaker = Auto()
 class DiscoveryDialog(AccessibleDialog):
     """Dialog for browsing Fortnite Creative islands"""
 
+    # Sort filter options
+    SORT_OPTIONS = [
+        ("Popular", "popular"),
+        ("Newest", "newest"),
+        ("Most Players", "players"),
+        ("A-Z", "alpha"),
+    ]
+
     def __init__(self, parent, discovery_api):
         super().__init__(parent, title="Discovery GUI", helpId="DiscoveryGUI")
         self.discovery_api = discovery_api
         self._is_destroying = False  # Flag to track if dialog is being destroyed
+
+        # Pagination state
+        self.current_page = 1
+        self.items_per_page = 50
+        self.total_items = 0
+
+        # Current sort filter
+        self.current_sort = "popular"
+
         self.setupDialog()
         self.SetSize((800, 600))
         self.CentreOnParent()
@@ -80,19 +100,22 @@ class DiscoveryDialog(AccessibleDialog):
         self.epic_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         sizer.Add(self.epic_list, 1, wx.EXPAND | wx.ALL, 5)
 
-        # Action button
+        # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.copy_epic_btn = wx.Button(panel, label="Copy Code")
         self.launch_epic_btn = wx.Button(panel, label="Launch Gamemode")
         self.refresh_epic_btn = wx.Button(panel, label="Refresh")
+        btn_sizer.Add(self.copy_epic_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.launch_epic_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.refresh_epic_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
 
         # Bind events
-        self.launch_epic_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_epic)
+        self.copy_epic_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_epic)
+        self.launch_epic_btn.Bind(wx.EVT_BUTTON, self.on_launch_epic)
         self.refresh_epic_btn.Bind(wx.EVT_BUTTON, self.on_refresh_epic)
         self.epic_list.Bind(wx.EVT_KEY_DOWN, self.on_epic_key_down)
-        self.epic_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_copy_code_epic)
+        self.epic_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_epic)
 
         panel.SetSizer(sizer)
 
@@ -114,23 +137,51 @@ class DiscoveryDialog(AccessibleDialog):
         title.SetFont(title_font)
         sizer.Add(title, 0, wx.ALL, 10)
 
+        # Sort filter
+        filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sort_label = wx.StaticText(panel, label="Sort by:")
+        filter_sizer.Add(sort_label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        sort_choices = [opt[0] for opt in self.SORT_OPTIONS]
+        self.browse_sort_choice = wx.Choice(panel, choices=sort_choices)
+        self.browse_sort_choice.SetSelection(0)
+        self.browse_sort_choice.Bind(wx.EVT_CHOICE, self.on_browse_sort_changed)
+        filter_sizer.Add(self.browse_sort_choice, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+        sizer.Add(filter_sizer, 0, wx.EXPAND)
+
         # Island list
         self.browse_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         sizer.Add(self.browse_list, 1, wx.EXPAND | wx.ALL, 5)
 
+        # Pagination controls
+        page_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.browse_prev_btn = wx.Button(panel, label="< Previous")
+        self.browse_page_label = wx.StaticText(panel, label="Page 1")
+        self.browse_next_btn = wx.Button(panel, label="Next >")
+        page_sizer.Add(self.browse_prev_btn, 0, wx.ALL, 5)
+        page_sizer.Add(self.browse_page_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        page_sizer.Add(self.browse_next_btn, 0, wx.ALL, 5)
+        sizer.Add(page_sizer, 0, wx.ALIGN_CENTER, 5)
+
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.copy_code_btn = wx.Button(panel, label="Copy Code")
+        self.launch_browse_btn = wx.Button(panel, label="Launch Gamemode")
         self.refresh_browse_btn = wx.Button(panel, label="Refresh")
         btn_sizer.Add(self.copy_code_btn, 0, wx.ALL, 5)
+        btn_sizer.Add(self.launch_browse_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.refresh_browse_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
 
         # Bind events
         self.copy_code_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_browse)
+        self.launch_browse_btn.Bind(wx.EVT_BUTTON, self.on_launch_browse)
         self.refresh_browse_btn.Bind(wx.EVT_BUTTON, self.on_refresh_browse)
+        self.browse_prev_btn.Bind(wx.EVT_BUTTON, self.on_browse_prev_page)
+        self.browse_next_btn.Bind(wx.EVT_BUTTON, self.on_browse_next_page)
         self.browse_list.Bind(wx.EVT_KEY_DOWN, self.on_browse_key_down)
-        self.browse_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_copy_code_browse)
+        self.browse_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_browse)
 
         panel.SetSizer(sizer)
 
@@ -175,13 +226,16 @@ class DiscoveryDialog(AccessibleDialog):
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.copy_code_search_btn = wx.Button(panel, label="Copy Code")
+        self.launch_search_btn = wx.Button(panel, label="Launch Gamemode")
         btn_sizer.Add(self.copy_code_search_btn, 0, wx.ALL, 5)
+        btn_sizer.Add(self.launch_search_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
 
         # Bind events
         self.copy_code_search_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_search)
+        self.launch_search_btn.Bind(wx.EVT_BUTTON, self.on_launch_search)
         self.search_list.Bind(wx.EVT_KEY_DOWN, self.on_search_key_down)
-        self.search_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_copy_code_search)
+        self.search_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_search)
 
         panel.SetSizer(sizer)
         return panel
@@ -267,13 +321,16 @@ class DiscoveryDialog(AccessibleDialog):
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.copy_code_creator_btn = wx.Button(panel, label="Copy Code")
+        self.launch_creator_btn = wx.Button(panel, label="Launch Gamemode")
         btn_sizer.Add(self.copy_code_creator_btn, 0, wx.ALL, 5)
+        btn_sizer.Add(self.launch_creator_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
 
         # Bind events
         self.copy_code_creator_btn.Bind(wx.EVT_BUTTON, self.on_copy_code_creator)
+        self.launch_creator_btn.Bind(wx.EVT_BUTTON, self.on_launch_creator)
         self.creator_list.Bind(wx.EVT_KEY_DOWN, self.on_creator_key_down)
-        self.creator_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_copy_code_creator)
+        self.creator_list.Bind(wx.EVT_LISTBOX_DCLICK, self.on_launch_creator)
 
         panel.SetSizer(sizer)
         return panel
@@ -437,7 +494,47 @@ class DiscoveryDialog(AccessibleDialog):
 
     def on_refresh_browse(self, event):
         """Refresh browse list"""
+        self.current_page = 1
         self.load_browse_islands()
+
+    def on_browse_sort_changed(self, event):
+        """Handle sort selection change"""
+        selection = self.browse_sort_choice.GetSelection()
+        if selection >= 0 and selection < len(self.SORT_OPTIONS):
+            self.current_sort = self.SORT_OPTIONS[selection][1]
+            self.current_page = 1
+            speaker.speak(f"Sorting by {self.SORT_OPTIONS[selection][0]}")
+            self.load_browse_islands()
+
+    def on_browse_prev_page(self, event):
+        """Go to previous page"""
+        if self.current_page > 1:
+            self.current_page -= 1
+            self.browse_page_label.SetLabel(f"Page {self.current_page}")
+            speaker.speak(f"Page {self.current_page}")
+            self.load_browse_islands()
+        else:
+            speaker.speak("Already on first page")
+
+    def on_browse_next_page(self, event):
+        """Go to next page"""
+        self.current_page += 1
+        self.browse_page_label.SetLabel(f"Page {self.current_page}")
+        speaker.speak(f"Page {self.current_page}")
+        self.load_browse_islands()
+
+    def on_launch_browse(self, event):
+        """Launch selected gamemode from browse list"""
+        sel = self.browse_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No island selected")
+            return
+
+        island = self.browse_list.GetClientData(sel)
+        if island and hasattr(island, 'link_code'):
+            self._launch_gamemode(island.link_code, island.title)
+        else:
+            speaker.speak("No code available")
 
     def on_search_enter(self, event):
         """Handle Enter key in search box"""
@@ -605,19 +702,13 @@ class DiscoveryDialog(AccessibleDialog):
 
         island = self.browse_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            # Announce launch (matching gamemode selector behavior)
-            speaker.speak(f"{island.title} selected. Press P to ready up!")
-            # Close dialog (exactly like gamemode selector)
-            self._is_destroying = True
-            wx.CallAfter(self.EndModal, wx.ID_OK)
-            wx.CallAfter(self._return_focus_to_game)
+            speaker.speak(f"Copied code: {island.link_code}")
         else:
             speaker.speak("No code available")
 
     def on_copy_code_search(self, event):
-        """Copy island code from search list and launch (close dialog)"""
+        """Copy island code from search list"""
         sel = self.search_list.GetSelection()
         if sel == wx.NOT_FOUND:
             speaker.speak("No island selected")
@@ -625,19 +716,13 @@ class DiscoveryDialog(AccessibleDialog):
 
         island = self.search_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            # Announce launch (matching gamemode selector behavior)
-            speaker.speak(f"{island.title} selected. Press P to ready up!")
-            # Close dialog (exactly like gamemode selector)
-            self._is_destroying = True
-            wx.CallAfter(self.EndModal, wx.ID_OK)
-            wx.CallAfter(self._return_focus_to_game)
+            speaker.speak(f"Copied code: {island.link_code}")
         else:
             speaker.speak("No code available")
 
     def on_copy_code_epic(self, event):
-        """Copy gamemode code from epic list and launch (close dialog)"""
+        """Copy gamemode code from epic list"""
         sel = self.epic_list.GetSelection()
         if sel == wx.NOT_FOUND:
             speaker.speak("No gamemode selected")
@@ -645,19 +730,26 @@ class DiscoveryDialog(AccessibleDialog):
 
         island = self.epic_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            # Announce launch (matching gamemode selector behavior)
-            speaker.speak(f"{island.title} selected. Press P to ready up!")
-            # Close dialog (exactly like gamemode selector)
-            self._is_destroying = True
-            wx.CallAfter(self.EndModal, wx.ID_OK)
-            wx.CallAfter(self._return_focus_to_game)
+            speaker.speak(f"Copied code: {island.link_code}")
+        else:
+            speaker.speak("No code available")
+
+    def on_launch_epic(self, event):
+        """Launch gamemode from epic list"""
+        sel = self.epic_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No gamemode selected")
+            return
+
+        island = self.epic_list.GetClientData(sel)
+        if island and hasattr(island, 'link_code'):
+            self._launch_gamemode(island.link_code, island.title)
         else:
             speaker.speak("No code available")
 
     def on_copy_code_creator(self, event):
-        """Copy island code from creator list and launch (close dialog)"""
+        """Copy island code from creator list"""
         sel = self.creator_list.GetSelection()
         if sel == wx.NOT_FOUND:
             speaker.speak("No island selected")
@@ -665,14 +757,34 @@ class DiscoveryDialog(AccessibleDialog):
 
         island = self.creator_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            # Copy code to clipboard
             pyperclip.copy(island.link_code)
-            # Announce launch (matching gamemode selector behavior)
-            speaker.speak(f"{island.title} selected. Press P to ready up!")
-            # Close dialog (exactly like gamemode selector)
-            self._is_destroying = True
-            wx.CallAfter(self.EndModal, wx.ID_OK)
-            wx.CallAfter(self._return_focus_to_game)
+            speaker.speak(f"Copied code: {island.link_code}")
+        else:
+            speaker.speak("No code available")
+
+    def on_launch_creator(self, event):
+        """Launch gamemode from creator list"""
+        sel = self.creator_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No island selected")
+            return
+
+        island = self.creator_list.GetClientData(sel)
+        if island and hasattr(island, 'link_code'):
+            self._launch_gamemode(island.link_code, island.title)
+        else:
+            speaker.speak("No code available")
+
+    def on_launch_search(self, event):
+        """Launch gamemode from search results"""
+        sel = self.search_list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            speaker.speak("No island selected")
+            return
+
+        island = self.search_list.GetClientData(sel)
+        if island and hasattr(island, 'link_code'):
+            self._launch_gamemode(island.link_code, island.title)
         else:
             speaker.speak("No code available")
 
@@ -705,7 +817,7 @@ class DiscoveryDialog(AccessibleDialog):
 
         # Enter key launches gamemode
         elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
-            self.on_copy_code_epic(event)
+            self.on_launch_epic(event)
             return
 
         event.Skip()
@@ -737,9 +849,9 @@ class DiscoveryDialog(AccessibleDialog):
         elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
             return
 
-        # Enter key copies code
+        # Enter key launches gamemode
         elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
-            self.on_copy_code_browse(event)
+            self.on_launch_browse(event)
             return
 
         event.Skip()
@@ -771,9 +883,9 @@ class DiscoveryDialog(AccessibleDialog):
         elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
             return
 
-        # Enter key copies code
+        # Enter key launches gamemode
         elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
-            self.on_copy_code_search(event)
+            self.on_launch_search(event)
             return
 
         event.Skip()
@@ -805,9 +917,9 @@ class DiscoveryDialog(AccessibleDialog):
         elif keycode == wx.WXK_LEFT or keycode == wx.WXK_RIGHT:
             return
 
-        # Enter key copies code
+        # Enter key launches gamemode
         elif keycode == wx.WXK_RETURN or keycode == wx.WXK_NUMPAD_ENTER:
-            self.on_copy_code_creator(event)
+            self.on_launch_creator(event)
             return
 
         event.Skip()
@@ -840,6 +952,80 @@ class DiscoveryDialog(AccessibleDialog):
 
         except Exception as e:
             logger.debug(f"Could not return focus to game: {e}")
+
+    def _launch_gamemode(self, code: str, title: str):
+        """Launch a gamemode by code using in-game automation"""
+        speaker.speak(f"Launching {title}")
+
+        # Close dialog first
+        self._is_destroying = True
+        self.EndModal(wx.ID_OK)
+
+        # Run automation in separate thread to not block
+        def _do_automation():
+            try:
+                # Ensure Fortnite stays in focus
+                if not focus_fortnite():
+                    logger.error("Could not focus Fortnite window")
+                    speaker.speak("Failed to select gamemode: Could not focus Fortnite window")
+                    return
+                time.sleep(0.3)
+
+                # Click initial position to open discovery
+                pyautogui.moveTo(69, 69, duration=0.04)
+                pyautogui.click()
+                time.sleep(0.5)
+
+                # Move mouse to scroll position
+                pyautogui.moveTo(950, 470, duration=0.04)
+                time.sleep(0.1)
+
+                # Scroll down once
+                pyautogui.scroll(-3)
+                time.sleep(0.2)
+
+                # Scroll down again
+                pyautogui.scroll(-3)
+                time.sleep(1.1)  # Wait extra second for UI to settle
+
+                # Click to open search
+                pyautogui.moveTo(160, 170, duration=0.04)
+                pyautogui.click()
+                time.sleep(0.1)
+
+                # Type the gamemode code
+                pyautogui.hotkey('ctrl', 'a')
+                time.sleep(0.1)
+                pyautogui.typewrite(code)
+                pyautogui.press('enter')
+
+                # Wait for search results - check if pixel 85,371 is white (255,255,255)
+                start_time = time.time()
+                while not pyautogui.pixelMatchesColor(85, 371, (255, 255, 255)):
+                    if time.time() - start_time > 5:
+                        logger.error("Timeout waiting for search results")
+                        speaker.speak("Failed to select gamemode: Search results not found - gamemode may not exist")
+                        return
+                    time.sleep(0.1)
+                time.sleep(0.1)
+
+                # Click the gamemode result
+                pyautogui.moveTo(192, 493, duration=0.04)
+                pyautogui.click()
+                time.sleep(0.7)
+
+                # Click to confirm/select
+                pyautogui.moveTo(250, 910, duration=0.04)
+                pyautogui.click()
+                time.sleep(0.5)
+
+                speaker.speak(f"{title} selected!")
+
+            except Exception as e:
+                logger.error(f"Error launching gamemode: {e}")
+                speaker.speak(f"Failed to select gamemode: {e}")
+
+        threading.Thread(target=_do_automation, daemon=True).start()
 
 
 def show_discovery_gui(discovery_api):

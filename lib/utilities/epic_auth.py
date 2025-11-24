@@ -8,6 +8,7 @@ import logging
 import requests
 import webbrowser
 import base64
+import urllib.parse
 from typing import Optional, Dict, List
 from datetime import datetime, timedelta
 
@@ -23,7 +24,7 @@ class EpicAuth:
         config_manager.register('epic_auth', 'config/epic_auth_cache.json',
                                format='json', default={})
         config_manager.register('fortnite_locker', cache_file,
-                               format='json', default=[])
+                               format='json', default={})
 
         # Store cache file path for reference
         self.cache_file = cache_file
@@ -63,11 +64,10 @@ class EpicAuth:
 
             # Check if token is still valid
             if expiry and datetime.fromisoformat(expiry) > datetime.now():
-                logger.info(f"Loaded cached auth for {self.display_name}")
                 self.is_valid = True
                 return True
             else:
-                logger.info("Cached auth expired")
+                logger.warning("Cached auth expired")
                 self.is_valid = False
                 return False
         except Exception as e:
@@ -86,7 +86,6 @@ class EpicAuth:
             }
             config_manager.set('epic_auth', data=data)
             self.is_valid = True  # Mark auth as valid when saving
-            logger.info(f"Saved auth for {display_name}")
         except Exception as e:
             logger.error(f"Error saving auth: {e}")
 
@@ -98,14 +97,44 @@ class EpicAuth:
             self.account_id = None
             self.display_name = None
             self.is_valid = False  # Mark auth as invalid when clearing
-            logger.info("Cleared cached auth")
         except Exception as e:
             logger.error(f"Error clearing auth: {e}")
 
     def invalidate_auth(self):
         """Mark authentication as invalid without clearing tokens (for 401 errors)"""
+        was_valid = self.is_valid
         self.is_valid = False
         logger.warning(f"Authentication marked as invalid for {self.display_name or 'unknown user'}")
+
+        # Notify about auth expiration if it was previously valid
+        if was_valid:
+            logger.error("Epic Games authentication expired; prompting user to re-authenticate")
+            try:
+                import FA11y
+                FA11y.handle_auth_expiration()
+            except:
+                pass  # FA11y might not be available in all contexts
+
+    def try_silent_webview_auth(self, timeout: float = 10.0) -> bool:
+        """
+        Attempt silent authentication using hidden wx WebView.
+        Uses wx's native cookie management.
+
+        Args:
+            timeout: Maximum time to wait for auth
+
+        Returns:
+            True if authentication succeeded silently
+        """
+        try:
+            # Import here to avoid circular dependency
+            from lib.guis.epic_browser_login import silent_webview_auth
+
+            logger.debug("Attempting silent WebView authentication")
+            return silent_webview_auth(self, timeout)
+        except Exception as e:
+            logger.error(f"Error in silent WebView auth: {e}")
+            return False
 
     def get_authorization_url(self) -> str:
         """
@@ -163,7 +192,6 @@ class EpicAuth:
                     token_data["expires_in"]
                 )
 
-                logger.info(f"Successfully authenticated as {self.display_name}")
                 return True
             else:
                 logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
@@ -224,7 +252,6 @@ class EpicAuth:
             if response.status_code == 200:
                 exchange_data = response.json()
                 exchange_code = exchange_data.get("code")
-                logger.info("Successfully generated exchange code for XMPP")
                 return exchange_code
             else:
                 logger.error(f"Failed to get exchange code: {response.status_code} - {response.text}")
@@ -266,7 +293,6 @@ class EpicAuth:
 
             if response.status_code == 200:
                 token_data = response.json()
-                logger.info("Successfully exchanged code for XMPP token")
                 return {
                     "access_token": token_data["access_token"],
                     "account_id": token_data["account_id"]
@@ -306,7 +332,6 @@ class EpicAuth:
 
             if response.status_code == 200:
                 account_data = response.json()
-                logger.debug("Successfully retrieved account information")
                 return account_data
             elif response.status_code == 401:
                 logger.warning("Authentication expired while getting account info")
@@ -351,7 +376,6 @@ class EpicAuth:
 
             if response.status_code == 204:
                 # Stats are private
-                logger.info("Player stats are private")
                 return {"private": True}
             elif response.status_code == 200:
                 stats_data = response.json()
@@ -420,7 +444,6 @@ class EpicAuth:
                 mode_breakdown = self._parse_mode_breakdown(raw_stats)
                 processed["mode_breakdown"] = mode_breakdown
 
-                logger.debug("Successfully retrieved and processed player statistics")
                 return processed
 
             elif response.status_code == 401:
@@ -548,20 +571,18 @@ class EpicAuth:
                                 "trackguid": progress.get("trackguid", ""),
                                 "lastUpdated": progress.get("lastUpdated", "")
                             }
-                            logger.debug(f"Retrieved current season ranked progress for {ranking_type}: Division {progress.get('currentDivision', 0)}")
                     elif response.status_code == 401:
                         logger.warning("Authentication expired while getting ranked progress")
                         self.invalidate_auth()
                         return None
                     else:
-                        logger.debug(f"No ranked data for {ranking_type}: {response.status_code}")
-                        # Continue with other ranking types
+                        # No ranked data for this type, continue with others
+                        pass
 
                 except Exception as e:
-                    logger.debug(f"Error fetching ranked data for {ranking_type}: {e}")
                     # Continue with other ranking types
+                    pass
 
-            logger.debug(f"Successfully retrieved current season ranked progress for {len(ranked_data)} modes")
             return ranked_data if ranked_data else {}
 
         except Exception as e:
@@ -608,7 +629,6 @@ class EpicAuth:
                             cosmetic_id = template_id.split(":")[1]
                             owned_ids.append(cosmetic_id)
 
-                logger.info(f"Found {len(owned_ids)} owned cosmetics")
                 return owned_ids
             elif response.status_code == 401:
                 # Token expired or invalid
@@ -667,7 +687,6 @@ class EpicAuth:
                     }
                     formatted_cosmetics.append(formatted_item)
 
-                logger.info(f"Fetched {len(formatted_cosmetics)} cosmetics from Fortnite-API")
                 return formatted_cosmetics
             else:
                 logger.error(f"Failed to fetch cosmetics: {response.status_code}")
@@ -703,7 +722,6 @@ class EpicAuth:
         """Save cosmetics data to cache file"""
         try:
             config_manager.set('fortnite_locker', data=cosmetics)
-            logger.info(f"Saved {len(cosmetics)} cosmetics to cache")
             return True
         except Exception as e:
             logger.error(f"Error saving cosmetics cache: {e}")
@@ -713,8 +731,6 @@ class EpicAuth:
         """Load cosmetics data from cache file"""
         try:
             cosmetics = config_manager.get('fortnite_locker')
-            if cosmetics:
-                logger.info(f"Loaded {len(cosmetics)} cosmetics from cache")
             return cosmetics if cosmetics else None
         except Exception as e:
             logger.error(f"Error loading cosmetics cache: {e}")
@@ -727,14 +743,11 @@ class EpicAuth:
         Returns:
             True if successful, False otherwise
         """
-        logger.info("Fetching all cosmetics from Fortnite-API.com...")
         cosmetics = self.fetch_cosmetics_from_api()
         if not cosmetics:
             logger.error("Failed to fetch cosmetics from Fortnite-API.com")
             return False
 
-        logger.info(f"Successfully fetched {len(cosmetics)} cosmetics from Fortnite-API.com")
-        logger.info("Saving cosmetics to cache...")
         return self.save_cosmetics_cache(cosmetics)
 
     def get_owned_cosmetics_data(self) -> Optional[List[Dict]]:
@@ -761,7 +774,6 @@ class EpicAuth:
                 if cosmetic_id in owned_ids:
                     owned_cosmetics.append(cosmetic)
 
-            logger.info(f"Matched {len(owned_cosmetics)} owned cosmetics with Fortnite-API metadata")
             return owned_cosmetics
 
         except Exception as e:
@@ -788,13 +800,11 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
             logger.error("Authentication required for owned_only mode")
             return None
 
-        logger.info("Fetching owned cosmetics...")
         return auth.get_owned_cosmetics_data()
 
     # Otherwise, return all cosmetics
     # If force refresh or no cache exists, fetch new data
     if force_refresh or not os.path.exists(auth.cache_file):
-        logger.info("Fetching cosmetics data from Fortnite-API...")
         if not auth.refresh_cosmetics():
             logger.error("Failed to fetch cosmetics data")
             return None
@@ -859,7 +869,6 @@ class LockerAPI:
                 self.owned_items[guid] = item_data
                 self.template_id_map[template_id] = guid
 
-        logger.info(f"Loaded {len(self.owned_items)} items")
         return True
 
     def equip_cosmetic(self, template_id: str, category: str = "Character", slot_index: int = 0) -> bool:
@@ -926,7 +935,6 @@ class LockerAPI:
         result = self._mcp_operation("SetItemFavoriteStatusBatch", "athena", body)
 
         if result:
-            logger.info(f"Set favorite status for {template_id} to {is_favorite}")
             return True
         else:
             logger.error(f"Failed to set favorite status for {template_id}")
@@ -989,10 +997,9 @@ class LockerAPI:
         result = self._mcp_operation("PutModularCosmeticLoadout", "athena", body)
 
         if result:
-            logger.info(f"Saved loadout {preset_id} for type {loadout_type}")
             return True
         else:
-            logger.error(f"Failed to save loadout")
+            logger.error("Failed to save loadout")
             return False
 
     def load_loadout(self, loadout_type: str, preset_id: int) -> bool:
@@ -1014,10 +1021,9 @@ class LockerAPI:
         result = self._mcp_operation("EquipModularCosmeticLoadoutPreset", "athena", body)
 
         if result:
-            logger.info(f"Loaded loadout {preset_id} for type {loadout_type}")
             return True
         else:
-            logger.error(f"Failed to load loadout")
+            logger.error("Failed to load loadout")
             return False
 
 

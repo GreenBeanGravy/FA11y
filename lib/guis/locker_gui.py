@@ -804,7 +804,7 @@ class CategoryView(AccessibleDialog):
             time.sleep(0.5)
 
             # Click locker button
-            pyautogui.moveTo(420, 69, duration=0.05)
+            pyautogui.moveTo(350, 69, duration=0.05)
             pyautogui.click()
             time.sleep(0.3)
 
@@ -846,8 +846,8 @@ class CategoryView(AccessibleDialog):
             pyautogui.press('escape')
             time.sleep(1)
 
-            # Click final position
-            pyautogui.moveTo(200, 69, duration=0.05)
+            # Click final position (PLAY tab)
+            pyautogui.moveTo(130, 69, duration=0.05)
             pyautogui.click()
 
             return True

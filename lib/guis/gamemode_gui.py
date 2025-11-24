@@ -18,6 +18,7 @@ from lib.guis.gui_utilities import (
     messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
     center_mouse_in_window, BORDER_FOR_DIALOGS
 )
+from lib.utilities.window_utils import focus_fortnite
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -116,11 +117,11 @@ class GamemodeGUI(AccessibleDialog):
 
             if text:
                 self.EndModal(wx.ID_OK)
-                success = self.select_gamemode_by_code(text)
+                success, error = self.select_gamemode_by_code(text)
                 if success:
-                    safe_speak(f"{text} selected. Press P to ready up!")
+                    safe_speak(f"{text} selected!")
                 else:
-                    safe_speak("Failed to select gamemode")
+                    safe_speak(f"Failed to select gamemode: {error}")
         else:
             dlg.Destroy()
 
@@ -128,14 +129,14 @@ class GamemodeGUI(AccessibleDialog):
         """Handle saved gamemode selection"""
         try:
             self.EndModal(wx.ID_OK)
-            success = self.select_gamemode_by_code(gamemode[1])
+            success, error = self.select_gamemode_by_code(gamemode[1])
             if success:
-                safe_speak(f"{gamemode[0]} selected. Press P to ready up!")
+                safe_speak(f"{gamemode[0]} selected!")
             else:
-                safe_speak("Failed to select gamemode")
+                safe_speak(f"Failed to select gamemode: {error}")
         except Exception as e:
             logger.error(f"Error selecting gamemode: {e}")
-            safe_speak("Error selecting gamemode")
+            safe_speak(f"Failed to select gamemode: {e}")
 
     def load_gamemodes(self) -> List[Tuple[str, str, List[str]]]:
         """Load saved gamemode configurations"""
@@ -165,42 +166,72 @@ class GamemodeGUI(AccessibleDialog):
 
         return gamemodes
 
-    def select_gamemode_by_code(self, code: str) -> bool:
-        """Select gamemode using automation"""
+    def select_gamemode_by_code(self, code: str) -> tuple:
+        """
+        Select gamemode using automation
+
+        Returns:
+            tuple: (success: bool, error_message: str or None)
+        """
         try:
-            pyautogui.moveTo(109, 67, duration=0.04)
+            # Ensure Fortnite stays in focus
+            if not focus_fortnite():
+                logger.error("Could not focus Fortnite window")
+                return (False, "Could not focus Fortnite window")
+            time.sleep(0.3)
+
+            # Click initial position to open discovery
+            pyautogui.moveTo(69, 69, duration=0.04)
             pyautogui.click()
             time.sleep(0.5)
 
-            pyautogui.moveTo(1280, 200, duration=0.04)
+            # Move mouse to scroll position
+            pyautogui.moveTo(950, 470, duration=0.04)
+            time.sleep(0.1)
+
+            # Scroll down once
+            pyautogui.scroll(-3)
+            time.sleep(0.2)
+
+            # Scroll down again
+            pyautogui.scroll(-3)
+            time.sleep(1.1)  # Wait extra second for UI to settle
+
+            # Click to open search
+            pyautogui.moveTo(160, 170, duration=0.04)
             pyautogui.click()
             time.sleep(0.1)
 
+            # Type the gamemode code
             pyautogui.hotkey('ctrl', 'a')
             time.sleep(0.1)
             pyautogui.typewrite(code)
             pyautogui.press('enter')
 
+            # Wait for search results - check if pixel 85,371 is white (255,255,255)
             start_time = time.time()
-            while not pyautogui.pixelMatchesColor(135, 401, (255, 255, 255)):
+            while not pyautogui.pixelMatchesColor(85, 371, (255, 255, 255)):
                 if time.time() - start_time > 5:
-                    return False
+                    logger.error("Timeout waiting for search results")
+                    return (False, "Search results not found - gamemode may not exist")
                 time.sleep(0.1)
             time.sleep(0.1)
 
-            pyautogui.moveTo(257, 527, duration=0.04)
+            # Click the gamemode result
+            pyautogui.moveTo(192, 493, duration=0.04)
             pyautogui.click()
             time.sleep(0.7)
-            pyautogui.moveTo(285, 910, duration=0.04)
+
+            # Click to confirm/select
+            pyautogui.moveTo(250, 910, duration=0.04)
             pyautogui.click()
             time.sleep(0.5)
 
-            pyautogui.press('b', presses=2, interval=0.05)
-            return True
+            return (True, None)
 
         except Exception as e:
             logger.error(f"Error selecting gamemode: {e}")
-            return False
+            return (False, f"Automation error: {e}")
 
     def onKeyEvent(self, event):
         """Handle key events"""

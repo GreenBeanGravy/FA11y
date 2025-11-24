@@ -175,7 +175,7 @@ class EpicSocial:
                     # Success! Cache it and save to file
                     self.display_cache.set(account_id, display_name)
                     self.display_cache.save_cache()
-                    logger.info(f"Fetched and cached display name for {account_id}: {display_name}")
+                    logger.debug(f"Fetched and cached display name for {account_id}: {display_name}")
                     return display_name
                 else:
                     # User exists but has no display name set
@@ -225,7 +225,7 @@ class EpicSocial:
             # All names were cached!
             return result
 
-        logger.info(f"Fetching {len(uncached_ids)} uncached display names using bulk endpoint...")
+        logger.debug(f"Fetching {len(uncached_ids)} uncached display names using bulk endpoint...")
 
         # Second pass: fetch uncached names in batches of 100 (Epic's max)
         successful_fetches = {}
@@ -256,7 +256,7 @@ class EpicSocial:
                             result[account_id] = display_name
                             successful_fetches[account_id] = display_name
 
-                    logger.info(f"Fetched {len(accounts)} display names from batch of {len(batch)}")
+                    logger.debug(f"Fetched {len(accounts)} display names from batch of {len(batch)}")
                 else:
                     logger.warning(f"Bulk lookup failed: HTTP {response.status_code}")
 
@@ -276,7 +276,7 @@ class EpicSocial:
         if successful_fetches:
             self.display_cache.set_bulk(successful_fetches)
             self.display_cache.save_cache()
-            logger.info(f"Successfully fetched and cached {len(successful_fetches)} display names")
+            logger.debug(f"Successfully fetched and cached {len(successful_fetches)} display names")
 
         return result
 
@@ -331,7 +331,7 @@ class EpicSocial:
                     )
                     friends.append(friend)
 
-                logger.info(f"Retrieved {len(friends)} friends")
+                logger.debug(f"Retrieved {len(friends)} friends")
                 return friends
 
             elif response.status_code == 401:
@@ -374,7 +374,7 @@ class EpicSocial:
             return None
 
         online_friends = [f for f in friends if f.status in ["online", "away"]]
-        logger.info(f"Found {len(online_friends)} online friends")
+        logger.debug(f"Found {len(online_friends)} online friends")
         return online_friends
 
     def get_pending_requests(self) -> Optional[List[FriendRequest]]:
@@ -436,7 +436,7 @@ class EpicSocial:
                         created_at=datetime.fromisoformat(req.get("created", "").replace("Z", "+00:00")) if req.get("created") else datetime.now()
                     ))
 
-                logger.info(f"Retrieved {len(requests_list)} pending friend requests")
+                logger.debug(f"Retrieved {len(requests_list)} pending friend requests")
                 return requests_list
 
             elif response.status_code == 401:
@@ -494,7 +494,7 @@ class EpicSocial:
                             "mutual_friends": result.get("epicMutuals", 0)
                         })
 
-                logger.info(f"Found {len(users)} users matching '{query}'")
+                logger.debug(f"Found {len(users)} users matching '{query}'")
                 return users
             else:
                 logger.error(f"Failed to search users: {response.status_code}")
@@ -534,7 +534,7 @@ class EpicSocial:
                 )
 
                 if response.status_code in [200, 201, 204]:
-                    logger.info(f"Successfully sent friend request to {username}")
+                    logger.debug(f"Successfully sent friend request to {username}")
                     return True
                 else:
                     logger.error(f"Failed to send friend request: {response.status_code} - {response.text}")
@@ -569,7 +569,7 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 201, 204]:
-                logger.info(f"Successfully accepted friend request from {account_id}")
+                logger.debug(f"Successfully accepted friend request from {account_id}")
                 return True
             else:
                 logger.error(f"Failed to accept friend request: {response.status_code}")
@@ -597,7 +597,7 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 204]:
-                logger.info(f"Successfully declined friend request from {account_id}")
+                logger.debug(f"Successfully declined friend request from {account_id}")
                 return True
             else:
                 logger.error(f"Failed to decline friend request: {response.status_code}")
@@ -625,7 +625,7 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 204]:
-                logger.info(f"Successfully removed friend {account_id}")
+                logger.debug(f"Successfully removed friend {account_id}")
                 return True
             else:
                 logger.error(f"Failed to remove friend: {response.status_code}")
@@ -659,7 +659,7 @@ class EpicSocial:
                 # API returns {"current": [...], "pending": [], ...}
                 current_parties = party_data.get("current", [])
                 if not current_parties:
-                    logger.info("Not currently in a party")
+                    logger.debug("Not currently in a party")
                     return []
 
                 # Get the first (current) party
@@ -692,11 +692,11 @@ class EpicSocial:
                         joined_at=datetime.fromisoformat(member.get("joined_at", "").replace("Z", "+00:00")) if member.get("joined_at") else datetime.now()
                     ))
 
-                logger.info(f"Retrieved {len(party_members)} party members")
+                logger.debug(f"Retrieved {len(party_members)} party members")
                 return party_members
 
             elif response.status_code == 404:
-                logger.info("Not currently in a party")
+                logger.debug("Not currently in a party")
                 return []
             else:
                 logger.error(f"Failed to get party info: {response.status_code}")
@@ -763,11 +763,11 @@ class EpicSocial:
                         expires_at=datetime.fromisoformat(ping.get("expires_at", "").replace("Z", "+00:00")) if ping.get("expires_at") else None
                     ))
 
-                logger.info(f"Retrieved {len(invites)} party invites")
+                logger.debug(f"Retrieved {len(invites)} party invites")
                 return invites
 
             elif response.status_code == 404:
-                logger.info("No party invites")
+                logger.debug("No party invites")
                 return []
             else:
                 logger.error(f"Failed to get party invites: {response.status_code}")
@@ -824,11 +824,11 @@ class EpicSocial:
                 )
 
                 if response.status_code in [200, 201, 204]:
-                    logger.info(f"Successfully sent party invite to {account_id}")
+                    logger.debug(f"Successfully sent party invite to {account_id}")
                     return True
                 elif response.status_code == 409:
                     # Invite already exists - treat as success
-                    logger.info(f"Party invite already sent to {account_id}")
+                    logger.debug(f"Party invite already sent to {account_id}")
                     return "already_sent"
                 else:
                     logger.error(f"Failed to send party invite: {response.status_code}")
@@ -906,15 +906,15 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 201, 204]:
-                logger.info(f"Successfully sent join request to {friend_account_id}")
+                logger.debug(f"Successfully sent join request to {friend_account_id}")
                 return True
             elif response.status_code == 409:
                 # Request already exists
-                logger.info(f"Join request already sent to {friend_account_id}")
+                logger.debug(f"Join request already sent to {friend_account_id}")
                 return "already_sent"
             elif response.status_code == 404:
                 # Friend truly has no party (confirmed by API)
-                logger.info(f"Friend {friend_account_id} has no party (404 from API)")
+                logger.debug(f"Friend {friend_account_id} has no party (404 from API)")
                 return "no_party"
             else:
                 logger.error(f"Failed to send join request: {response.status_code}")
@@ -963,7 +963,7 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 201, 204]:
-                logger.info(f"Successfully joined party {party_id}")
+                logger.debug(f"Successfully joined party {party_id}")
 
                 # Fetch fresh party data after join (FortnitePy does this)
                 # This ensures we have the latest party state
@@ -980,12 +980,12 @@ class EpicSocial:
 
                     if party_response.status_code == 200:
                         party_data = party_response.json()
-                        logger.info(f"Fetched fresh party data after join. Members: {len(party_data.get('members', []))}")
+                        logger.debug(f"Fetched fresh party data after join. Members: {len(party_data.get('members', []))}")
 
                         # Log our member status
                         for member in party_data.get('members', []):
                             if member.get('account_id') == self.auth.account_id:
-                                logger.info(f"Our member state: role={member.get('role')}, joined_at={member.get('joined_at')}")
+                                logger.debug(f"Our member state: role={member.get('role')}, joined_at={member.get('joined_at')}")
                                 break
                     else:
                         logger.warning(f"Failed to fetch fresh party data: {party_response.status_code}")
@@ -1023,7 +1023,7 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 204]:
-                logger.info(f"Successfully declined party invite {invite_id}")
+                logger.debug(f"Successfully declined party invite {invite_id}")
                 return True
             else:
                 logger.error(f"Failed to decline party invite: {response.status_code}")
@@ -1054,7 +1054,7 @@ class EpicSocial:
                 # API returns {"current": [...], "pending": [], ...}
                 current_parties = party_data.get("current", [])
                 if not current_parties:
-                    logger.info("Not in a party, nothing to leave")
+                    logger.debug("Not in a party, nothing to leave")
                     return True
 
                 party_id = current_parties[0].get("id")
@@ -1067,13 +1067,13 @@ class EpicSocial:
                 )
 
                 if response.status_code in [200, 204]:
-                    logger.info("Successfully left party")
+                    logger.debug("Successfully left party")
                     return True
                 else:
                     logger.error(f"Failed to leave party: {response.status_code}")
                     return False
             else:
-                logger.info("Not in a party")
+                logger.debug("Not in a party")
                 return True
 
         except Exception as e:
@@ -1109,7 +1109,7 @@ class EpicSocial:
 
             elif response.status_code == 409:
                 # Request already exists
-                logger.info(f"Join request already sent to {friend_account_id}")
+                logger.debug(f"Join request already sent to {friend_account_id}")
                 return "already_sent"
             else:
                 logger.error(f"Failed to send join request: {response.status_code}")
@@ -1158,7 +1158,7 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 201, 204]:
-                logger.info(f"Successfully joined party {party_id}")
+                logger.debug(f"Successfully joined party {party_id}")
 
                 # Fetch fresh party data after join (FortnitePy does this)
                 # This ensures we have the latest party state
@@ -1175,12 +1175,12 @@ class EpicSocial:
 
                     if party_response.status_code == 200:
                         party_data = party_response.json()
-                        logger.info(f"Fetched fresh party data after join. Members: {len(party_data.get('members', []))}")
+                        logger.debug(f"Fetched fresh party data after join. Members: {len(party_data.get('members', []))}")
 
                         # Log our member status
                         for member in party_data.get('members', []):
                             if member.get('account_id') == self.auth.account_id:
-                                logger.info(f"Our member state: role={member.get('role')}, joined_at={member.get('joined_at')}")
+                                logger.debug(f"Our member state: role={member.get('role')}, joined_at={member.get('joined_at')}")
                                 break
                     else:
                         logger.warning(f"Failed to fetch fresh party data: {party_response.status_code}")
@@ -1218,7 +1218,7 @@ class EpicSocial:
             )
 
             if response.status_code in [200, 204]:
-                logger.info(f"Successfully declined party invite {invite_id}")
+                logger.debug(f"Successfully declined party invite {invite_id}")
                 return True
             else:
                 logger.error(f"Failed to decline party invite: {response.status_code}")
@@ -1249,7 +1249,7 @@ class EpicSocial:
                 # API returns {"current": [...], "pending": [], ...}
                 current_parties = party_data.get("current", [])
                 if not current_parties:
-                    logger.info("Not in a party, nothing to leave")
+                    logger.debug("Not in a party, nothing to leave")
                     return True
 
                 party_id = current_parties[0].get("id")
@@ -1262,13 +1262,13 @@ class EpicSocial:
                 )
 
                 if response.status_code in [200, 204]:
-                    logger.info("Successfully left party")
+                    logger.debug("Successfully left party")
                     return True
                 else:
                     logger.error(f"Failed to leave party: {response.status_code}")
                     return False
             else:
-                logger.info("Not in a party")
+                logger.debug("Not in a party")
                 return True
 
         except Exception as e:
@@ -1314,13 +1314,13 @@ class EpicSocial:
                 )
 
                 if response.status_code in [200, 204]:
-                    logger.info(f"Successfully promoted {member_account_id} to party leader")
+                    logger.debug(f"Successfully promoted {member_account_id} to party leader")
                     return True
                 else:
                     logger.error(f"Failed to promote party member: {response.status_code} - {response.text}")
                     return False
             else:
-                logger.info("Not in a party")
+                logger.debug("Not in a party")
                 return False
 
         except Exception as e:
@@ -1366,13 +1366,13 @@ class EpicSocial:
                 )
 
                 if response.status_code in [200, 204]:
-                    logger.info(f"Successfully kicked member {member_account_id}")
+                    logger.debug(f"Successfully kicked member {member_account_id}")
                     return True
                 else:
                     logger.error(f"Failed to kick party member: {response.status_code} - {response.text}")
                     return False
             else:
-                logger.info("Not in a party")
+                logger.debug("Not in a party")
                 return False
 
         except Exception as e:

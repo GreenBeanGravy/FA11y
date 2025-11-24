@@ -151,7 +151,7 @@ class SocialManager:
         self.running = True
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.monitor_thread.start()
-        logger.info("Social monitoring started")
+        logger.debug("Social monitoring started")
 
     def stop_monitoring(self):
         """Stop background monitoring thread"""
@@ -161,7 +161,7 @@ class SocialManager:
         self.running = False
         if self.monitor_thread:
             self.monitor_thread.join(timeout=2)
-        logger.info("Social monitoring stopped")
+        logger.debug("Social monitoring stopped")
 
     def wait_for_initial_data(self, timeout=10):
         """
@@ -178,12 +178,12 @@ class SocialManager:
     def _monitor_loop(self):
         """Background monitoring loop with fast and slow polling"""
         # Delay initial fetch to let FA11y start without blocking
-        logger.info("Social monitor starting, waiting 3 seconds before initial refresh...")
+        logger.debug("Social monitor starting, waiting 3 seconds before initial refresh...")
         time.sleep(3)
 
         # Initial fetch (now non-blocking thanks to lock refactor)
         self.refresh_all_data()
-        logger.info("Initial social data refresh complete")
+        logger.debug("Initial social data refresh complete")
         self.initial_data_loaded.set()  # Signal that initial data is ready
 
         # Counter for slow poll cycles
@@ -210,7 +210,7 @@ class SocialManager:
 
                 # Auth is valid - check if we're resuming from pause
                 if was_paused:
-                    logger.info("Auth is now valid, resuming social monitoring")
+                    logger.debug("Auth is now valid, resuming social monitoring")
                     was_paused = False
                     # Do a full refresh after resuming
                     self.refresh_all_data()
@@ -452,7 +452,7 @@ class SocialManager:
 
             # Log initialization on first run
             if first_run:
-                logger.info(f"Initialized ranked progress tracking for {len(self.prev_ranked_progress)} modes")
+                logger.debug(f"Initialized ranked progress tracking for {len(self.prev_ranked_progress)} modes")
 
         except Exception as e:
             logger.error(f"Error checking ranked progress: {e}")
@@ -514,7 +514,7 @@ class SocialManager:
                             
                             if active_title and "Fortnite" in active_title:
                                 # Auto-accept! They accepted our join request
-                                logger.info(f"Auto-accepting invite from {display_name} (responded to our join request)")
+                                logger.debug(f"Auto-accepting invite from {display_name} (responded to our join request)")
                                 # Remove from tracking
                                 del self.outgoing_join_requests[from_account_id]
                                 # Accept outside of lock
@@ -525,7 +525,7 @@ class SocialManager:
                                 ).start()
                             else:
                                 # Fortnite not focused, treat as normal invite
-                                logger.info(f"Cannot auto-accept invite from {display_name}: Fortnite not focused")
+                                logger.debug(f"Cannot auto-accept invite from {display_name}: Fortnite not focused")
                                 self._show_notification(latest_invite, "party_invite")
                         else:
                             # Expired, show normal notification
@@ -725,7 +725,7 @@ class SocialManager:
             self.party_members = [PartyMember.from_dict(m) for m in cache_data.get("party_members", [])]
             self.party_invites = [PartyInvite.from_dict(i) for i in cache_data.get("party_invites", [])]
 
-            logger.info(f"Loaded social cache from {cache_data.get('last_updated')}")
+            logger.debug(f"Loaded social cache from {cache_data.get('last_updated')}")
 
         except Exception as e:
             logger.error(f"Error loading social cache: {e}")
@@ -745,7 +745,7 @@ class SocialManager:
             else:
                 self.favorite_friends = set()
 
-            logger.info(f"Loaded {len(self.favorite_friends)} favorite friends")
+            logger.debug(f"Loaded {len(self.favorite_friends)} favorite friends")
         except Exception as e:
             logger.error(f"Error loading favorites: {e}")
 
@@ -783,7 +783,7 @@ class SocialManager:
             direction: 'forwards' or 'backwards'
         """
         try:
-            logger.info(f"Cycle view called (direction: {direction})")
+            logger.debug(f"Cycle view called (direction: {direction})")
             current_idx = self.view_order.index(self.current_view)
 
             if direction == "forwards":
@@ -812,7 +812,7 @@ class SocialManager:
             direction: 'up' or 'down'
         """
         try:
-            logger.info(f"Navigate called (direction: {direction})")
+            logger.debug(f"Navigate called (direction: {direction})")
             items = self._get_current_view_items()
 
             if not items:
@@ -1389,7 +1389,7 @@ class SocialManager:
             )
 
             if response.status_code in [200, 201, 204]:
-                logger.info(f"Successfully sent friend request to {display_name}")
+                logger.debug(f"Successfully sent friend request to {display_name}")
                 speaker.speak(f"Friend request sent to {display_name}")
                 # Refresh data
                 threading.Thread(target=self.refresh_all_data, daemon=True).start()
@@ -1416,7 +1416,7 @@ class SocialManager:
                 speaker.speak(f"Party invite sent to {display_name}") # Treat as success for user feedback
             else:
                 # Retry logic for party detection
-                logger.info("Initial invite failed, retrying party detection...")
+                logger.debug("Initial invite failed, retrying party detection...")
                 self.refresh_slow_data() # Refresh party info
                 
                 # Try 2 more times
@@ -1443,7 +1443,7 @@ class SocialManager:
             if result == True:
                 # Track this join request for auto-accept logic
                 self.outgoing_join_requests[friend.account_id] = (datetime.now(), display_name)
-                logger.info(f"Tracking join request to {display_name} for auto-accept")
+                logger.debug(f"Tracking join request to {display_name} for auto-accept")
                 speaker.speak(f"Join request sent to {display_name}")
             elif result == "already_sent":
                 # Still track it in case we get an invite
@@ -1451,7 +1451,7 @@ class SocialManager:
                 speaker.speak(f"Join request sent to {display_name}") # Treat as success
             elif result == "no_party":
                 # Friend has no party, invite them to ours instead
-                logger.info(f"{display_name} has no party, inviting them to join us")
+                logger.debug(f"{display_name} has no party, inviting them to join us")
                 speaker.speak(f"{display_name} has no party. Inviting them to join you")
 
                 # Send party invite

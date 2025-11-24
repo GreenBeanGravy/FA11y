@@ -424,6 +424,7 @@ def reload_config() -> None:
             'open social menu': open_social_menu,
             'open discovery gui': open_discovery_gui,
             'open authentication': open_authentication,
+            'open browser login': open_browser_login,
             'accept notification': accept_notification,
             'decline notification': decline_notification,
         })
@@ -609,6 +610,37 @@ def handle_auth_expiration():
         logger.warning("Epic Games authentication expired")
         auth_expiration_announced = True
 
+def _on_auth_success(epic_auth):
+    """Handle successful authentication (shared helper)"""
+    global social_manager, discovery_api, auth_expired, auth_expiration_announced
+
+    # Clear auth expiration flags
+    auth_expired.clear()
+    auth_expiration_announced = False
+
+    # Initialize or reinitialize social manager and other auth-dependent features
+    if social_manager:
+        # If social manager exists, stop and reinitialize
+        social_manager.stop_monitoring()
+
+    # Always initialize social manager and discovery API if auth is valid
+    if epic_auth and epic_auth.access_token:
+        from lib.managers.social_manager import get_social_manager
+        from lib.utilities.epic_discovery import EpicDiscovery
+
+        social_manager = get_social_manager(epic_auth)
+        social_manager.start_monitoring()
+        logger.debug("Social manager initialized after authentication")
+
+        # Initialize discovery API
+        discovery_api = EpicDiscovery(epic_auth)
+        logger.debug("Discovery API initialized after authentication")
+
+def open_browser_login():
+    """Open Epic Games authentication dialog (same as open_authentication)"""
+    # Browser login is now integrated into the main auth dialog
+    open_authentication()
+
 def open_authentication():
     """Open Epic Games authentication dialog for re-authentication (ALT+E)"""
     from lib.guis.gui_utilities import launch_gui_thread_safe
@@ -622,8 +654,6 @@ def open_authentication():
             from lib.guis.epic_login_dialog import LoginDialog
             import wx
 
-            speaker.speak("Opening authentication dialog")
-
             epic_auth = get_epic_auth_instance()
 
             # Create wx app if needed (safe because we're on main thread now)
@@ -631,40 +661,20 @@ def open_authentication():
             if app is None:
                 app = wx.App(False)
 
-            # Show login dialog
+            speaker.speak("Opening authentication dialog")
+
+            # Show login dialog with browser login option
             login_dialog = LoginDialog(None, epic_auth)
             result = login_dialog.ShowModal()
             authenticated = login_dialog.authenticated
             login_dialog.Destroy()
 
             if authenticated:
-                # Clear auth expiration flags
-                auth_expired.clear()
-                auth_expiration_announced = False
-
                 # Refresh auth instance
                 epic_auth = get_epic_auth_instance()
-
-                # Initialize or reinitialize social manager and other auth-dependent features
-                if social_manager:
-                    # If social manager exists, stop and reinitialize
-                    social_manager.stop_monitoring()
-
-                # Always initialize social manager and discovery API if auth is valid
-                if epic_auth and epic_auth.access_token:
-                    from lib.managers.social_manager import get_social_manager
-                    from lib.utilities.epic_discovery import EpicDiscovery
-
-                    social_manager = get_social_manager(epic_auth)
-                    social_manager.start_monitoring()
-                    logger.info("Social manager initialized after authentication")
-
-                    # Initialize discovery API
-                    discovery_api = EpicDiscovery(epic_auth)
-                    logger.info("Discovery API initialized after authentication")
-
-                speaker.speak(f"Authentication successful for {epic_auth.display_name}")
-                logger.info(f"Re-authenticated as {epic_auth.display_name}")
+                _on_auth_success(epic_auth)
+                # Don't announce again - the dialog already announced it
+                logger.debug(f"Re-authenticated as {epic_auth.display_name}")
             else:
                 speaker.speak("Authentication cancelled")
 
@@ -707,7 +717,7 @@ def open_social_menu():
     launch_gui_thread_safe(_open)
 
 def open_discovery_gui():
-    """Open the discovery GUI"""
+    """Open the discovery GUI (does not require authentication)"""
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
     if discovery_gui_open.is_set():
@@ -717,14 +727,17 @@ def open_discovery_gui():
 
     def _open():
         global discovery_api
+        # Create discovery API if not already available (no auth required for public features)
         if not discovery_api:
-            speaker.speak("Discovery features not enabled. Please authenticate first.")
-            return
+            from lib.utilities.epic_discovery import EpicDiscovery
+            local_discovery_api = EpicDiscovery(epic_auth if epic_auth and epic_auth.is_valid else None)
+        else:
+            local_discovery_api = discovery_api
 
         discovery_gui_open.set()
         try:
             from lib.guis.discovery_gui import show_discovery_gui
-            show_discovery_gui(discovery_api)
+            show_discovery_gui(local_discovery_api)
         finally:
             discovery_gui_open.clear()
 
@@ -2060,10 +2073,10 @@ def validate_epic_auth(epic_auth) -> bool:
         )
 
         if response.status_code == 401:
-            logger.info("Epic auth token expired (401 response)")
+            logger.debug("Epic auth token expired (401 response)")
             return False
         elif response.status_code == 200:
-            logger.info("Epic auth token validated successfully")
+            logger.debug("Epic auth token validated successfully")
             return True
         else:
             logger.warning(f"Unexpected status during auth validation: {response.status_code}")
@@ -2074,6 +2087,9 @@ def validate_epic_auth(epic_auth) -> bool:
         logger.warning(f"Error validating Epic auth token: {e}")
         # If we can't validate, assume valid to avoid blocking
         return True
+
+
+# Removed: attempt_cookie_auth_before_gui - now using wx WebView's native cookie management
 
 def main() -> None:
     """Main entry point for FA11y with instant shutdown capability."""
@@ -2089,7 +2105,7 @@ def main() -> None:
         from lib.guis.gui_utilities import initialize_global_wx_app
         try:
             initialize_global_wx_app()
-            logger.info("Global wx.App initialized successfully")
+            logger.debug("Global wx.App initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize wx.App: {e}")
             # Continue anyway - GUIs will try to create app when needed
@@ -2153,7 +2169,20 @@ def main() -> None:
             epic_auth = get_epic_auth_instance()
 
             # Validate auth token (checks if exists and if valid via API request)
-            if not validate_epic_auth(epic_auth):
+            auth_valid = validate_epic_auth(epic_auth)
+
+            # Try silent WebView authentication before showing GUI
+            if not auth_valid and epic_auth:
+                print("Attempting silent authentication...")
+                if epic_auth.try_silent_webview_auth(timeout=10.0):
+                    auth_valid = True
+                    print(f"Authenticated as {epic_auth.display_name}")
+                    logger.info("Silent WebView authentication succeeded")
+                else:
+                    logger.debug("Silent WebView authentication failed; will show login dialog")
+
+            # Only show GUI if we couldn't authenticate automatically
+            if not auth_valid:
                 print("Epic Games authentication required for social features")
                 speaker.speak("Epic Games authentication required. Opening login dialog.")
 
@@ -2165,6 +2194,7 @@ def main() -> None:
                 login_dialog = LoginDialog(None, epic_auth)
                 login_dialog.ShowModal()
                 authenticated = login_dialog.authenticated
+                success_announced = getattr(login_dialog, "success_announced", False)
                 login_dialog.Destroy()
                 # Don't destroy app - keep it alive for future GUI usage
 
@@ -2175,6 +2205,9 @@ def main() -> None:
                 else:
                     # Refresh auth instance after login
                     epic_auth = get_epic_auth_instance()
+                    if epic_auth and epic_auth.access_token and not success_announced:
+                        speaker.speak(f"Authenticated as {epic_auth.display_name}")
+                    auth_valid = True
 
             # Start social manager, discovery API, and other Epic auth-dependent features
             if epic_auth and epic_auth.access_token:
@@ -2185,7 +2218,7 @@ def main() -> None:
 
                 # Initialize discovery API
                 discovery_api = EpicDiscovery(epic_auth)
-                logger.info("Discovery API initialized at startup")
+                logger.debug("Discovery API initialized at startup")
 
                 print(f"Social features enabled for {epic_auth.display_name}")
                 speaker.speak(f"Social features enabled for {epic_auth.display_name}")
