@@ -6,9 +6,13 @@ from lib.managers.hotbar_manager import get_last_detected_rarity
 speaker = Auto()
 
 # Simplified HSR - using the new rarity detection from hotbar_detection
-health_color, shield_color = (158, 255, 99), (110, 235, 255)
-tolerance = 70
-health_decreases, shield_decreases = [4, 3, 3], [3, 4, 3] # These seem specific to a pixel-bar reading logic
+health_color, shield_color = (247, 255, 26), (213, 255, 232)
+tolerance = 30  # Stricter tolerance for more accurate detection
+
+# Full calibrated decrease pattern (100 HP -> 1 HP)
+# Calibrated on 2025-11-30 using health_calibrator tool
+health_decreases = [3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 3, 4, 4, 3, 4, 3, 3, 3, 4, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 4, 3, 3]
+shield_decreases = health_decreases  # Shields use same pattern as health
 
 def pixel_within_tolerance(pixel_color, target_color, tol):
     return all(abs(pc - tc) <= tol for pc, tc in zip(pixel_color, target_color))
@@ -39,8 +43,8 @@ def check_health_shields():
     try:
         screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
         pixels = screenshot.load()
-        check_value(pixels, 423, 1024, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
-        check_value(pixels, 423, 984, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
+        check_value(pixels, 408, 1000, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
+        check_value(pixels, 408, 970, shield_decreases, shield_color, tolerance, 'Shields', 'No Shields')
     except Exception as e:
         print(f"Error in check_health_shields: {e}")
         speaker.speak("Error checking health and shields.")

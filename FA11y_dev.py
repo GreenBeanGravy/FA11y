@@ -5,6 +5,8 @@ Entry point for FA11y developer tools.
 
 Usage:
     python FA11y_dev.py pixel_inspector
+    python FA11y_dev.py health_shield_debugger
+    python FA11y_dev.py health_calibrator
     python FA11y_dev.py --list
 """
 
@@ -26,8 +28,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python FA11y_dev.py pixel_inspector    # Run the pixel inspector tool
-    python FA11y_dev.py --list             # List available tools
+    python FA11y_dev.py pixel_inspector          # Run the pixel inspector tool
+    python FA11y_dev.py health_shield_debugger   # Run the health/shield debugger
+    python FA11y_dev.py health_calibrator        # Run the health bar calibrator
+    python FA11y_dev.py --list                   # List available tools
         """
     )
 
