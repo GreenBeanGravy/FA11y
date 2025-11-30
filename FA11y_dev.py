@@ -7,6 +7,8 @@ Usage:
     python FA11y_dev.py pixel_inspector
     python FA11y_dev.py health_shield_debugger
     python FA11y_dev.py health_calibrator
+    python FA11y_dev.py ppi_configurator
+    python FA11y_dev.py direction_configurator
     python FA11y_dev.py --list
 """
 
@@ -31,6 +33,8 @@ Examples:
     python FA11y_dev.py pixel_inspector          # Run the pixel inspector tool
     python FA11y_dev.py health_shield_debugger   # Run the health/shield debugger
     python FA11y_dev.py health_calibrator        # Run the health bar calibrator
+    python FA11y_dev.py ppi_configurator         # Run the PPI (minimap position) configurator
+    python FA11y_dev.py direction_configurator   # Run the player direction configurator
     python FA11y_dev.py --list                   # List available tools
         """
     )
