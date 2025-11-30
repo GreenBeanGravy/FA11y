@@ -55,10 +55,10 @@ MIN_AREA = 1008
 MAX_AREA = 1386
 
 # Minimap constants
-MINIMAP_START = (1735, 154)
-MINIMAP_END = (1766, 184)
-MINIMAP_MIN_AREA = 800
-MINIMAP_MAX_AREA = 1100
+MINIMAP_START = (1745, 144)
+MINIMAP_END = (1776, 174)
+MINIMAP_MIN_AREA = 650
+MINIMAP_MAX_AREA = 1130
 
 # Detection region dimensions
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
@@ -92,13 +92,12 @@ class PlayerPositionTracker:
             position = None
             angle = None
             
-            # Only use PPI if minimap is visible
-            if check_for_minimap() or check_for_full_map():
-                position = ppi_find_player_position()
-                if position is not None:
-                    self.last_position = position
-                    # Get angle from minimap
-                    _, angle = find_minimap_icon_direction()
+            # Always try PPI regardless of map check
+            position = ppi_find_player_position()
+            if position is not None:
+                self.last_position = position
+                # Get angle from minimap
+                _, angle = find_minimap_icon_direction()
             
             if angle is not None:
                 self.last_angle = angle
@@ -174,10 +173,10 @@ def handle_closed_map_ppi(poi_name, poi_coords):
         player_position = None
         
         for attempt in range(max_attempts):
-            if check_for_minimap() or check_for_full_map():
-                player_position = ppi_find_player_position()
-                if player_position is not None:
-                    break
+            # Always try PPI
+            player_position = ppi_find_player_position()
+            if player_position is not None:
+                break
             time.sleep(0.1)
         
         # Reopen map
@@ -281,7 +280,7 @@ def find_minimap_icon_direction():
     screenshot_large = cv2.resize(screenshot, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR,
                                 interpolation=cv2.INTER_LINEAR)
     
-    white_mask = cv2.inRange(screenshot_large, (253, 253, 253), (255, 255, 255))
+    white_mask = cv2.inRange(screenshot_large, (226, 226, 226), (255, 255, 255))
     contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     for contour in contours:
@@ -599,8 +598,7 @@ def generate_poi_message(poi_name, player_angle, poi_info, player_location=None)
 
 def find_player_position():
     """Find player position using the map (wrapper for PPI module) with automatic map check"""
-    if not (check_for_minimap() or check_for_full_map()):
-        return None
+    # Always try PPI
     return ppi_find_player_position()
 
 def find_closest_poi(icon_location, poi_list):
@@ -1228,11 +1226,10 @@ def get_player_info_ppi():
     player_location = None
     player_angle = None
 
-    # Only use PPI - check if map is open first
-    if check_for_minimap() or check_for_full_map():
-        player_location = ppi_find_player_position()
-        if player_location is not None:
-            _, player_angle = find_minimap_icon_direction()
+    # Always try PPI regardless of map check
+    player_location = ppi_find_player_position()
+    if player_location is not None:
+        _, player_angle = find_minimap_icon_direction()
     
     # Always try to get angle from minimap if we don't have it
     if player_angle is None:

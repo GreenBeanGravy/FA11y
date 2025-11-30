@@ -8,10 +8,10 @@ from mss import mss
 
 # Centralized minimap region and scale (should match utilities.py)
 MINIMAP_REGION = {
-    'left': 1600,
-    'top': 20,
-    'width': 300,
-    'height': 300
+    'left': 1637,
+    'top': 33,
+    'width': 250,
+    'height': 250
 }
 MINIMAP_SCALE_FACTOR = 0.5
 

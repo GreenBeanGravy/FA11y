@@ -1,7 +1,6 @@
 """
 Player Position Interface (PPI) module for FA11y
 Handles map-based position detection using computer vision.
-Uses universal GPU acceleration (OpenCL/T-API) with automatic CPU fallback.
 """
 import cv2
 import numpy as np
@@ -10,7 +9,6 @@ from mss import mss
 from typing import Optional, Tuple
 from lib.utilities.utilities import read_config
 
-# --- Universal GPU Acceleration Setup ---
 # Check if OpenCL is available and enable it. OpenCV's T-API will handle the rest.
 use_gpu = cv2.ocl.haveOpenCL()
 if use_gpu:
@@ -19,10 +17,9 @@ if use_gpu:
     # print("OpenCL-compatible GPU found. Enabling GPU acceleration.")
 # else:
     # print("No OpenCL-compatible GPU found. Using CPU for PPI.")
-# ---
 
 # PPI constants
-PPI_CAPTURE_REGION = {"top": 20, "left": 1600, "width": 300, "height": 300}
+PPI_CAPTURE_REGION = {"top": 33, "left": 1637, "width": 250, "height": 250}
 
 # Core constants for screen regions (imported from player_position for consistency)
 ROI_START_ORIG = (524, 84)
@@ -118,7 +115,7 @@ def find_best_match(captured_area):
             if m.distance < 0.75 * n.distance:
                 good_matches.append(m)
     
-    MIN_MATCHES = 10
+    MIN_MATCHES = 25
     if len(good_matches) > MIN_MATCHES:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([map_manager.current_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)

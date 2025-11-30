@@ -11,6 +11,15 @@ import cv2
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, MINIMAP_REGION
+
+# Override or define local region to match new settings
+MINIMAP_REGION = {
+    'left': 1637,
+    'top': 33,
+    'width': 250,
+    'height': 250
+}
+
 from lib.monitors.background_monitor import monitor
 from lib.detection.player_position import find_player_position, find_minimap_icon_direction
 from lib.utilities.spatial_audio import SpatialAudio
