@@ -1186,6 +1186,12 @@ class PPIConfigurator:
         self.show_keypoints = True
         self.show_matches = True
 
+        # Capture region (editable)
+        self.region_top = ppi.PPI_CAPTURE_REGION["top"]
+        self.region_left = ppi.PPI_CAPTURE_REGION["left"]
+        self.region_width = ppi.PPI_CAPTURE_REGION["width"]
+        self.region_height = ppi.PPI_CAPTURE_REGION["height"]
+
         # Available maps
         self.available_maps = self._find_available_maps()
         self.current_map_index = 0
@@ -1210,9 +1216,15 @@ class PPIConfigurator:
         return sorted(maps) if maps else ["main"]
 
     def capture_minimap(self):
-        """Capture the minimap region."""
+        """Capture the minimap region using current settings."""
+        region = {
+            "top": self.region_top,
+            "left": self.region_left,
+            "width": self.region_width,
+            "height": self.region_height
+        }
         with mss() as sct:
-            screenshot_rgba = np.array(sct.grab(ppi.PPI_CAPTURE_REGION))
+            screenshot_rgba = np.array(sct.grab(region))
         return cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2GRAY)
 
     def load_map(self, map_name: str):
@@ -1344,20 +1356,24 @@ class PPIConfigurator:
         kp_text = f"Keypoints: {len(kp1) if kp1 else 0} (minimap) / {len(kp2) if kp2 else 0} (map)"
         cv2.putText(panel, kp_text, (10, y_pos), font, 0.5, (255, 255, 255), 1)
 
+        y_pos += 25
+        region_text = f"Region: ({self.region_left}, {self.region_top}) {self.region_width}x{self.region_height}"
+        cv2.putText(panel, region_text, (10, y_pos), font, 0.5, (255, 255, 255), 1)
+
         # Controls
-        y_pos += 35
+        y_pos += 30
         cv2.putText(panel, "CONTROLS:", (10, y_pos), font, 0.5, (0, 255, 255), 1)
 
-        y_pos += 22
-        cv2.putText(panel, "M: Cycle maps | R/F: Adjust Lowe ratio", (10, y_pos),
+        y_pos += 18
+        cv2.putText(panel, "M: Cycle maps | R/F: Lowe ratio | N/B: Min matches", (10, y_pos),
                    font, 0.4, (255, 255, 255), 1)
 
         y_pos += 18
-        cv2.putText(panel, "N/B: Min matches | K: Toggle keypoints", (10, y_pos),
+        cv2.putText(panel, "Arrows: Move region | [/]: Width | ;/': Height", (10, y_pos),
                    font, 0.4, (255, 255, 255), 1)
 
         y_pos += 18
-        cv2.putText(panel, "P: Print config | S: Save screenshot | Q/ESC: Exit", (10, y_pos),
+        cv2.putText(panel, "K: Toggle keypoints | P: Print | S: Save | Q/ESC: Exit", (10, y_pos),
                    font, 0.4, (255, 255, 255), 1)
 
         # Combine visualizations
@@ -1381,6 +1397,7 @@ class PPIConfigurator:
         print("="*60)
         current_map = self.available_maps[self.current_map_index] if self.available_maps else "None"
         print(f"Current Map: {current_map}")
+        print(f"Capture Region: top={self.region_top}, left={self.region_left}, width={self.region_width}, height={self.region_height}")
         print(f"Lowe's Ratio: {self.lowe_ratio}")
         print(f"Min Matches: {self.min_matches}")
         print(f"Show Keypoints: {self.show_keypoints}")
@@ -1398,6 +1415,9 @@ class PPIConfigurator:
         print("  R/F       - Increase/decrease Lowe's ratio")
         print("  N/B       - Increase/decrease min matches")
         print("  K         - Toggle keypoint visualization")
+        print("  Arrow Keys- Move capture region position")
+        print("  [/]       - Decrease/increase region width")
+        print("  ;/'       - Decrease/increase region height")
         print("  P         - Print current config to console")
         print("  S         - Save screenshot")
         print("  Q/ESC     - Exit")
@@ -1467,6 +1487,32 @@ class PPIConfigurator:
                         cv2.imwrite(filename, visualization)
                         print(f"[Dev Mode] Screenshot saved: {filename}")
 
+                # Region adjustment controls
+                elif key == 82:  # Up arrow - move up
+                    self.region_top = max(0, self.region_top - 10)
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+                elif key == 84:  # Down arrow - move down
+                    self.region_top += 10
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+                elif key == 81:  # Left arrow - move left
+                    self.region_left = max(0, self.region_left - 10)
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+                elif key == 83:  # Right arrow - move right
+                    self.region_left += 10
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+                elif key == ord('['):  # Decrease width
+                    self.region_width = max(50, self.region_width - 10)
+                    print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
+                elif key == ord(']'):  # Increase width
+                    self.region_width += 10
+                    print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
+                elif key == ord(';'):  # Decrease height
+                    self.region_height = max(50, self.region_height - 10)
+                    print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
+                elif key == ord("'"):  # Increase height
+                    self.region_height += 10
+                    print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
+
         except KeyboardInterrupt:
             print("\n[Dev Mode] Interrupted by user")
 
@@ -1503,13 +1549,18 @@ class DirectionConfigurator:
         self.min_area = 800
         self.max_area = 1100
 
-        # Minimap regions
-        self.minimap_start = (1735, 154)
-        self.minimap_end = (1766, 184)
+        # Minimap regions (editable)
+        self.minimap_x = 1735
+        self.minimap_y = 154
+        self.minimap_width = 31  # 1766 - 1735
+        self.minimap_height = 30  # 184 - 154
 
-        # Main screen regions (from player_position.py)
-        self.roi_start = (524, 84)
-        self.roi_end = (1390, 1010)
+        # Main screen regions (editable)
+        self.main_x = 524
+        self.main_y = 84
+        self.main_width = 866  # 1390 - 524
+        self.main_height = 926  # 1010 - 84
+
         self.main_min_area = 1008
         self.main_max_area = 1386
 
@@ -1551,19 +1602,9 @@ class DirectionConfigurator:
         import pyautogui
 
         if self.use_minimap:
-            region = (
-                self.minimap_start[0],
-                self.minimap_start[1],
-                self.minimap_end[0] - self.minimap_start[0],
-                self.minimap_end[1] - self.minimap_start[1]
-            )
+            region = (self.minimap_x, self.minimap_y, self.minimap_width, self.minimap_height)
         else:
-            region = (
-                self.roi_start[0],
-                self.roi_start[1],
-                self.roi_end[0] - self.roi_start[0],
-                self.roi_end[1] - self.roi_start[1]
-            )
+            region = (self.main_x, self.main_y, self.main_width, self.main_height)
 
         screenshot_rgba = np.array(pyautogui.screenshot(region=region))
         if screenshot_rgba.shape[2] == 4:
@@ -1754,24 +1795,27 @@ class DirectionConfigurator:
         cv2.putText(panel, f"Contours Found: {len(contours)}", (10, y_pos),
                    font, 0.5, (255, 255, 255), 1)
 
+        y_pos += 22
+        if self.use_minimap:
+            region_text = f"Region: ({self.minimap_x}, {self.minimap_y}) {self.minimap_width}x{self.minimap_height}"
+        else:
+            region_text = f"Region: ({self.main_x}, {self.main_y}) {self.main_width}x{self.main_height}"
+        cv2.putText(panel, region_text, (10, y_pos), font, 0.5, (255, 255, 255), 1)
+
         # Controls
-        y_pos += 30
+        y_pos += 25
         cv2.putText(panel, "CONTROLS:", (10, y_pos), font, 0.5, (0, 255, 255), 1)
 
-        y_pos += 20
-        cv2.putText(panel, "T: Toggle minimap/main | Up/Down: Scale factor", (10, y_pos),
+        y_pos += 18
+        cv2.putText(panel, "T: Mode | Arrows: Move region | HJKL: Resize", (10, y_pos),
                    font, 0.4, (255, 255, 255), 1)
 
         y_pos += 18
-        cv2.putText(panel, "W/S: White threshold min | E/D: White threshold max", (10, y_pos),
+        cv2.putText(panel, "W/S: White min | E/D: White max | A/Z: Min area", (10, y_pos),
                    font, 0.4, (255, 255, 255), 1)
 
         y_pos += 18
-        cv2.putText(panel, "A/Z: Min area | Q/X: Max area", (10, y_pos),
-                   font, 0.4, (255, 255, 255), 1)
-
-        y_pos += 18
-        cv2.putText(panel, "V: Cycle view mode | P: Print config | ESC: Exit", (10, y_pos),
+        cv2.putText(panel, "V: View mode | P: Print | ESC: Exit", (10, y_pos),
                    font, 0.4, (255, 255, 255), 1)
 
         # Combine
@@ -1785,12 +1829,14 @@ class DirectionConfigurator:
         print("DIRECTION CONFIGURATOR - CURRENT CONFIGURATION:")
         print("="*60)
         print(f"Mode: {'MINIMAP' if self.use_minimap else 'MAIN SCREEN'}")
-        print(f"Scale Factor: {self.scale_factor}x")
-        print(f"White Threshold: {self.white_threshold_min}-{self.white_threshold_max}")
         if self.use_minimap:
+            print(f"Minimap Region: x={self.minimap_x}, y={self.minimap_y}, width={self.minimap_width}, height={self.minimap_height}")
             print(f"Area Range: {self.min_area}-{self.max_area}")
         else:
+            print(f"Main Screen Region: x={self.main_x}, y={self.main_y}, width={self.main_width}, height={self.main_height}")
             print(f"Area Range: {self.main_min_area}-{self.main_max_area}")
+        print(f"Scale Factor: {self.scale_factor}x")
+        print(f"White Threshold: {self.white_threshold_min}-{self.white_threshold_max}")
         print(f"View Mode: {self.view_mode}")
         print("="*60 + "\n")
 
@@ -1801,11 +1847,13 @@ class DirectionConfigurator:
         print("=" * 60)
         print("\nControls:")
         print("  T           - Toggle between minimap and main screen icon")
-        print("  Up/Down     - Increase/decrease scale factor")
+        print("  Arrow Keys  - Move capture region position")
+        print("  H/L         - Decrease/increase region width")
+        print("  J/K         - Decrease/increase region height")
+        print("  1/2         - Increase/decrease scale factor")
         print("  W/S         - Adjust white threshold min")
         print("  E/D         - Adjust white threshold max")
         print("  A/Z         - Adjust min area")
-        print("  Q/X         - Adjust max area")
         print("  V           - Cycle view mode")
         print("  P           - Print current config")
         print("  ESC         - Exit")
@@ -1839,12 +1887,70 @@ class DirectionConfigurator:
                     self.use_minimap = not self.use_minimap
                     mode = "MINIMAP" if self.use_minimap else "MAIN SCREEN"
                     print(f"[Dev Mode] Mode: {mode}")
-                elif key == 82:  # Up arrow - increase scale
+                elif key == ord('1'):  # Increase scale
                     self.scale_factor = min(10, self.scale_factor + 1)
                     print(f"[Dev Mode] Scale factor: {self.scale_factor}x")
-                elif key == 84:  # Down arrow - decrease scale
+                elif key == ord('2'):  # Decrease scale
                     self.scale_factor = max(1, self.scale_factor - 1)
                     print(f"[Dev Mode] Scale factor: {self.scale_factor}x")
+
+                # Region adjustment controls
+                elif key == 82:  # Up arrow - move up
+                    if self.use_minimap:
+                        self.minimap_y = max(0, self.minimap_y - 5)
+                        print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
+                    else:
+                        self.main_y = max(0, self.main_y - 5)
+                        print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
+                elif key == 84:  # Down arrow - move down
+                    if self.use_minimap:
+                        self.minimap_y += 5
+                        print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
+                    else:
+                        self.main_y += 5
+                        print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
+                elif key == 81:  # Left arrow - move left
+                    if self.use_minimap:
+                        self.minimap_x = max(0, self.minimap_x - 5)
+                        print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
+                    else:
+                        self.main_x = max(0, self.main_x - 5)
+                        print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
+                elif key == 83:  # Right arrow - move right
+                    if self.use_minimap:
+                        self.minimap_x += 5
+                        print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
+                    else:
+                        self.main_x += 5
+                        print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
+                elif key == ord('h'):  # Decrease width
+                    if self.use_minimap:
+                        self.minimap_width = max(10, self.minimap_width - 5)
+                        print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
+                    else:
+                        self.main_width = max(50, self.main_width - 10)
+                        print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
+                elif key == ord('l'):  # Increase width
+                    if self.use_minimap:
+                        self.minimap_width += 5
+                        print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
+                    else:
+                        self.main_width += 10
+                        print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
+                elif key == ord('j'):  # Decrease height
+                    if self.use_minimap:
+                        self.minimap_height = max(10, self.minimap_height - 5)
+                        print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
+                    else:
+                        self.main_height = max(50, self.main_height - 10)
+                        print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
+                elif key == ord('k'):  # Increase height
+                    if self.use_minimap:
+                        self.minimap_height += 5
+                        print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
+                    else:
+                        self.main_height += 10
+                        print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
                 elif key == ord('w'):  # Increase white min
                     self.white_threshold_min = min(255, self.white_threshold_min + 1)
                     print(f"[Dev Mode] White threshold: {self.white_threshold_min}-{self.white_threshold_max}")
