@@ -8,7 +8,7 @@ speaker = Auto()
 # Simplified HSR - using the new rarity detection from hotbar_detection
 health_color, shield_color = (247, 255, 26), (213, 255, 232)
 tolerance = 70
-health_decreases, shield_decreases = [4, 4, 3, 3], [4, 4, 3, 3] # These seem specific to a pixel-bar reading logic
+health_decreases, shield_decreases = [4, 3, 3, 4], [4, 3, 3, 4] # These seem specific to a pixel-bar reading logic
 
 def pixel_within_tolerance(pixel_color, target_color, tol):
     return all(abs(pc - tc) <= tol for pc, tc in zip(pixel_color, target_color))
