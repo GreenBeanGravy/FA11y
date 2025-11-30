@@ -426,15 +426,15 @@ class HealthShieldDebugger:
     def __init__(self):
         """Initialize the Health/Shield Debugger."""
         # Health/Shield detection parameters (from hsr.py)
-        self.health_color = (158, 255, 99)
-        self.shield_color = (110, 235, 255)
+        self.health_color = (247, 255, 26)
+        self.shield_color = (213, 255, 232)
         self.tolerance = 70
-        self.health_decreases = [4, 3, 3]
-        self.shield_decreases = [3, 4, 3]
-        self.health_start_x = 423
-        self.health_y = 1024
-        self.shield_start_x = 423
-        self.shield_y = 984
+        self.health_decreases = [4, 4, 3, 3]
+        self.shield_decreases = [4, 4, 3, 3]
+        self.health_start_x = 408
+        self.health_y = 1000
+        self.shield_start_x = 408
+        self.shield_y = 970
 
         self.window_name = "FA11y Health/Shield Debugger"
         self.running = False
