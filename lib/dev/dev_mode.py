@@ -428,7 +428,7 @@ class HealthShieldDebugger:
         # Health/Shield detection parameters (from hsr.py)
         self.health_color = (247, 255, 26)
         self.shield_color = (213, 255, 232)
-        self.tolerance = 70
+        self.tolerance = 30  # Stricter tolerance
         self.health_decreases = [4, 3, 3, 4]
         self.shield_decreases = [4, 3, 3, 4]
         self.health_start_x = 408
@@ -436,10 +436,15 @@ class HealthShieldDebugger:
         self.shield_start_x = 408
         self.shield_y = 970
 
-        self.window_name = "FA11y Health/Shield Debugger"
+        self.window_name = "FA11y Health/Shield Debugger (Interactive)"
         self.running = False
 
+        # Interactive mode state
+        self.selected_pattern_index = 0  # Which decrease pattern index is selected
+        self.editing_health = True  # True = editing health, False = editing shield
+
         print(f"[Dev Mode] Health/Shield Debugger initialized")
+        print(f"[Dev Mode] Interactive mode enabled - use keyboard to adjust parameters")
 
     def pixel_within_tolerance(self, pixel_color, target_color, tol):
         """Check if pixel color is within tolerance of target color."""
@@ -508,6 +513,42 @@ class HealthShieldDebugger:
 
         return detected_value
 
+    def print_current_config(self):
+        """Print the current configuration to console."""
+        print("\n" + "="*60)
+        print("CURRENT CONFIGURATION:")
+        print("="*60)
+        print(f"Health Start Position: ({self.health_start_x}, {self.health_y})")
+        print(f"Shield Start Position: ({self.shield_start_x}, {self.shield_y})")
+        print(f"Health Decreases: {self.health_decreases}")
+        print(f"Shield Decreases: {self.shield_decreases}")
+        print(f"Tolerance: {self.tolerance}")
+        print("="*60 + "\n")
+
+    def get_bounding_box(self, pixels_data, padding=50):
+        """
+        Calculate the bounding box that encompasses all checked pixels.
+
+        Args:
+            pixels_data: List of pixel data dictionaries
+            padding: Extra padding around the bounding box
+
+        Returns:
+            Tuple of (x1, y1, x2, y2) or None if no pixels
+        """
+        if not pixels_data:
+            return None
+
+        x_coords = [p['x'] for p in pixels_data]
+        y_coords = [p['y'] for p in pixels_data]
+
+        min_x = max(0, min(x_coords) - padding)
+        max_x = max(x_coords) + padding
+        min_y = max(0, min(y_coords) - padding)
+        max_y = max(y_coords) + padding
+
+        return (min_x, min_y, max_x, max_y)
+
     def draw_visualization(self, screenshot_bgr, pixels_data, detected_health, detected_shield):
         """
         Draw visualization overlay on the screenshot.
@@ -521,13 +562,27 @@ class HealthShieldDebugger:
         Returns:
             Annotated screenshot
         """
-        vis = screenshot_bgr.copy()
+        # Get bounding box and crop the visualization
+        bbox = self.get_bounding_box(pixels_data, padding=100)
+        if bbox is None:
+            # Fallback if no pixels
+            vis = screenshot_bgr.copy()
+            crop_offset_x, crop_offset_y = 0, 0
+        else:
+            x1, y1, x2, y2 = bbox
+            # Crop to the bounding box
+            vis = screenshot_bgr[y1:y2, x1:x2].copy()
+            crop_offset_x, crop_offset_y = x1, y1
 
-        # Draw all checked pixels
+        # Draw all checked pixels (adjust coordinates for cropped view)
         for data in pixels_data:
-            x, y = data['x'], data['y']
+            x, y = data['x'] - crop_offset_x, data['y'] - crop_offset_y
             within_tol = data['within_tolerance']
             name = data['name']
+
+            # Skip if outside cropped area
+            if x < 0 or y < 0 or x >= vis.shape[1] or y >= vis.shape[0]:
+                continue
 
             # Color code the pixels
             if within_tol:
@@ -545,87 +600,98 @@ class HealthShieldDebugger:
             # Draw a circle at each checked pixel
             cv2.circle(vis, (x, y), size, color, -1)
 
-        # Draw starting positions with larger markers
-        cv2.circle(vis, (self.health_start_x, self.health_y), 7, (0, 255, 255), 2)  # Yellow
-        cv2.putText(vis, "Health Start", (self.health_start_x + 10, self.health_y),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+        # Draw starting positions with larger markers (adjust for crop)
+        health_x = self.health_start_x - crop_offset_x
+        health_y = self.health_y - crop_offset_y
+        shield_x = self.shield_start_x - crop_offset_x
+        shield_y = self.shield_y - crop_offset_y
 
-        cv2.circle(vis, (self.shield_start_x, self.shield_y), 7, (0, 255, 255), 2)  # Yellow
-        cv2.putText(vis, "Shield Start", (self.shield_start_x + 10, self.shield_y),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+        if 0 <= health_x < vis.shape[1] and 0 <= health_y < vis.shape[0]:
+            marker_color = (0, 255, 255) if self.editing_health else (128, 128, 128)
+            cv2.circle(vis, (health_x, health_y), 7, marker_color, 2)
+            cv2.putText(vis, "Health Start", (health_x + 10, health_y),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, marker_color, 1)
+
+        if 0 <= shield_x < vis.shape[1] and 0 <= shield_y < vis.shape[0]:
+            marker_color = (0, 255, 255) if not self.editing_health else (128, 128, 128)
+            cv2.circle(vis, (shield_x, shield_y), 7, marker_color, 2)
+            cv2.putText(vis, "Shield Start", (shield_x + 10, shield_y),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, marker_color, 1)
 
         # Create info panel
-        panel_height = 300
+        panel_height = 400
         panel_width = vis.shape[1]
         panel = np.zeros((panel_height, panel_width, 3), dtype=np.uint8)
 
         # Display detected values
         font = cv2.FONT_HERSHEY_SIMPLEX
-        y_pos = 30
+        y_pos = 25
 
-        cv2.putText(panel, "HEALTH & SHIELD DEBUGGER", (10, y_pos),
-                   font, 0.8, (0, 255, 255), 2)
-
-        y_pos += 40
-        health_text = f"Health: {detected_health if detected_health else 'NOT DETECTED'}"
-        health_color = (0, 255, 0) if detected_health else (0, 0, 255)
-        cv2.putText(panel, health_text, (10, y_pos), font, 0.7, health_color, 2)
+        # Title
+        cv2.putText(panel, "INTERACTIVE HEALTH & SHIELD DEBUGGER", (10, y_pos),
+                   font, 0.7, (0, 255, 255), 2)
 
         y_pos += 35
-        shield_text = f"Shield: {detected_shield if detected_shield else 'NOT DETECTED'}"
-        shield_color = (0, 255, 0) if detected_shield else (0, 0, 255)
-        cv2.putText(panel, shield_text, (10, y_pos), font, 0.7, shield_color, 2)
-
-        # Display target colors
-        y_pos += 50
-        cv2.putText(panel, "Target Colors:", (10, y_pos), font, 0.6, (255, 255, 255), 1)
+        health_text = f"Health: {detected_health if detected_health else 'NOT DETECTED'}"
+        health_color = (0, 255, 0) if detected_health else (0, 0, 255)
+        cv2.putText(panel, health_text, (10, y_pos), font, 0.6, health_color, 2)
 
         y_pos += 30
-        cv2.putText(panel, f"Health RGB: {self.health_color}", (10, y_pos),
-                   font, 0.5, (255, 255, 255), 1)
-        # Draw color swatch for health
-        cv2.rectangle(panel, (250, y_pos - 15), (280, y_pos + 5),
-                     (self.health_color[2], self.health_color[1], self.health_color[0]), -1)
+        shield_text = f"Shield: {detected_shield if detected_shield else 'NOT DETECTED'}"
+        shield_color = (0, 255, 0) if detected_shield else (0, 0, 255)
+        cv2.putText(panel, shield_text, (10, y_pos), font, 0.6, shield_color, 2)
+
+        # Current settings
+        y_pos += 35
+        mode = "HEALTH" if self.editing_health else "SHIELD"
+        cv2.putText(panel, f"Editing: {mode} (Press TAB to switch)", (10, y_pos),
+                   font, 0.5, (255, 255, 0), 1)
 
         y_pos += 25
-        cv2.putText(panel, f"Shield RGB: {self.shield_color}", (10, y_pos),
+        current_decreases = self.health_decreases if self.editing_health else self.shield_decreases
+        pattern_display = [f"[{val}]" if i == self.selected_pattern_index else f"{val}"
+                          for i, val in enumerate(current_decreases)]
+        cv2.putText(panel, f"Pattern: {' '.join(pattern_display)}", (10, y_pos),
                    font, 0.5, (255, 255, 255), 1)
-        # Draw color swatch for shield
-        cv2.rectangle(panel, (250, y_pos - 15), (280, y_pos + 5),
-                     (self.shield_color[2], self.shield_color[1], self.shield_color[0]), -1)
 
-        y_pos += 25
-        cv2.putText(panel, f"Tolerance: +/- {self.tolerance}", (10, y_pos),
+        y_pos += 20
+        cv2.putText(panel, f"Tolerance: {self.tolerance}", (10, y_pos),
                    font, 0.5, (255, 255, 255), 1)
+
+        # Interactive Controls
+        y_pos += 35
+        cv2.putText(panel, "CONTROLS:", (10, y_pos), font, 0.5, (0, 255, 255), 1)
+
+        y_pos += 22
+        cv2.putText(panel, "Arrow Keys: Move start position", (10, y_pos),
+                   font, 0.4, (255, 255, 255), 1)
+
+        y_pos += 18
+        cv2.putText(panel, "1-4: Select pattern index | +/-: Adjust selected value", (10, y_pos),
+                   font, 0.4, (255, 255, 255), 1)
+
+        y_pos += 18
+        cv2.putText(panel, "T/G: Increase/Decrease tolerance", (10, y_pos),
+                   font, 0.4, (255, 255, 255), 1)
+
+        y_pos += 18
+        cv2.putText(panel, "TAB: Switch Health/Shield | P: Print config to console", (10, y_pos),
+                   font, 0.4, (255, 255, 255), 1)
+
+        y_pos += 18
+        cv2.putText(panel, "S: Save screenshot | Q/ESC: Exit", (10, y_pos),
+                   font, 0.4, (255, 255, 255), 1)
 
         # Legend
-        y_pos += 40
-        cv2.putText(panel, "Legend:", (10, y_pos), font, 0.6, (255, 255, 255), 1)
+        y_pos += 30
+        cv2.circle(panel, (15, y_pos - 3), 3, (0, 255, 0), -1)
+        cv2.putText(panel, "Match", (30, y_pos), font, 0.4, (255, 255, 255), 1)
 
-        y_pos += 25
-        cv2.circle(panel, (20, y_pos - 5), 3, (0, 255, 0), -1)
-        cv2.putText(panel, "= Pixel within tolerance (MATCH)", (35, y_pos),
-                   font, 0.5, (255, 255, 255), 1)
+        cv2.circle(panel, (100, y_pos - 3), 1, (0, 0, 255), -1)
+        cv2.putText(panel, "Health", (115, y_pos), font, 0.4, (255, 255, 255), 1)
 
-        y_pos += 20
-        cv2.circle(panel, (20, y_pos - 5), 1, (0, 0, 255), -1)
-        cv2.putText(panel, "= Health pixel checked (no match)", (35, y_pos),
-                   font, 0.5, (255, 255, 255), 1)
-
-        y_pos += 20
-        cv2.circle(panel, (20, y_pos - 5), 1, (255, 0, 0), -1)
-        cv2.putText(panel, "= Shield pixel checked (no match)", (35, y_pos),
-                   font, 0.5, (255, 255, 255), 1)
-
-        y_pos += 20
-        cv2.circle(panel, (20, y_pos - 5), 7, (0, 255, 255), 2)
-        cv2.putText(panel, "= Starting position", (35, y_pos),
-                   font, 0.5, (255, 255, 255), 1)
-
-        # Controls
-        y_pos = panel_height - 30
-        cv2.putText(panel, "Press 'q' or ESC to exit | Press 's' to save screenshot",
-                   (10, y_pos), font, 0.5, (200, 200, 200), 1)
+        cv2.circle(panel, (190, y_pos - 3), 1, (255, 0, 0), -1)
+        cv2.putText(panel, "Shield", (205, y_pos), font, 0.4, (255, 255, 255), 1)
 
         # Combine visualization and panel
         combined = np.vstack([vis, panel])
@@ -635,16 +701,24 @@ class HealthShieldDebugger:
     def run(self):
         """Run the health/shield debugger tool."""
         print("\n" + "=" * 60)
-        print("FA11y Health/Shield Debugger - Developer Mode")
+        print("FA11y INTERACTIVE Health/Shield Debugger")
         print("=" * 60)
-        print("\nThis tool visualizes the health and shield bar detection process.")
+        print("\nThis tool lets you adjust detection parameters in real-time.")
         print("\nControls:")
-        print("  - Press 'q' or ESC to exit")
-        print("  - Press 's' to save a screenshot")
-        print("  - Press SPACE to refresh")
+        print("  Arrow Keys - Move start position")
+        print("  1-4        - Select pattern index to edit")
+        print("  +/-        - Increase/decrease selected pattern value")
+        print("  T/G        - Increase/decrease tolerance")
+        print("  TAB        - Switch between Health/Shield editing")
+        print("  P          - Print current config to console")
+        print("  S          - Save screenshot")
+        print("  Q/ESC      - Exit")
         print("=" * 60 + "\n")
 
         self.running = True
+
+        # Print initial config
+        self.print_current_config()
 
         # Create window
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
@@ -687,6 +761,7 @@ class HealthShieldDebugger:
 
                 # Check for key press
                 key = cv2.waitKey(1) & 0xFF
+
                 if key == ord('q') or key == 27:  # 'q' or ESC
                     break
                 elif key == ord('s'):  # Save screenshot
@@ -694,8 +769,69 @@ class HealthShieldDebugger:
                     filename = f"health_shield_debug_{timestamp}.png"
                     cv2.imwrite(filename, visualization)
                     print(f"[Dev Mode] Screenshot saved: {filename}")
-                elif key == ord(' '):  # Space to refresh
-                    print("[Dev Mode] Refreshing...")
+                elif key == ord('p'):  # Print config
+                    self.print_current_config()
+                elif key == 9:  # TAB - switch between health/shield
+                    self.editing_health = not self.editing_health
+                    mode = "HEALTH" if self.editing_health else "SHIELD"
+                    print(f"[Dev Mode] Now editing: {mode}")
+
+                # Arrow keys - move start position
+                elif key == 82:  # Up arrow
+                    if self.editing_health:
+                        self.health_y -= 1
+                    else:
+                        self.shield_y -= 1
+                elif key == 84:  # Down arrow
+                    if self.editing_health:
+                        self.health_y += 1
+                    else:
+                        self.shield_y += 1
+                elif key == 81:  # Left arrow
+                    if self.editing_health:
+                        self.health_start_x -= 1
+                    else:
+                        self.shield_start_x -= 1
+                elif key == 83:  # Right arrow
+                    if self.editing_health:
+                        self.health_start_x += 1
+                    else:
+                        self.shield_start_x += 1
+
+                # Pattern index selection (1-4 keys)
+                elif key in [ord('1'), ord('2'), ord('3'), ord('4')]:
+                    self.selected_pattern_index = int(chr(key)) - 1
+                    current_decreases = self.health_decreases if self.editing_health else self.shield_decreases
+                    if self.selected_pattern_index < len(current_decreases):
+                        print(f"[Dev Mode] Selected pattern index: {self.selected_pattern_index}")
+
+                # Adjust selected pattern value
+                elif key == ord('+') or key == ord('='):  # + key
+                    if self.editing_health:
+                        if self.selected_pattern_index < len(self.health_decreases):
+                            self.health_decreases[self.selected_pattern_index] += 1
+                            print(f"[Dev Mode] Health pattern: {self.health_decreases}")
+                    else:
+                        if self.selected_pattern_index < len(self.shield_decreases):
+                            self.shield_decreases[self.selected_pattern_index] += 1
+                            print(f"[Dev Mode] Shield pattern: {self.shield_decreases}")
+                elif key == ord('-') or key == ord('_'):  # - key
+                    if self.editing_health:
+                        if self.selected_pattern_index < len(self.health_decreases):
+                            self.health_decreases[self.selected_pattern_index] = max(1, self.health_decreases[self.selected_pattern_index] - 1)
+                            print(f"[Dev Mode] Health pattern: {self.health_decreases}")
+                    else:
+                        if self.selected_pattern_index < len(self.shield_decreases):
+                            self.shield_decreases[self.selected_pattern_index] = max(1, self.shield_decreases[self.selected_pattern_index] - 1)
+                            print(f"[Dev Mode] Shield pattern: {self.shield_decreases}")
+
+                # Tolerance adjustment
+                elif key == ord('t'):  # Increase tolerance
+                    self.tolerance += 1
+                    print(f"[Dev Mode] Tolerance: {self.tolerance}")
+                elif key == ord('g'):  # Decrease tolerance
+                    self.tolerance = max(1, self.tolerance - 1)
+                    print(f"[Dev Mode] Tolerance: {self.tolerance}")
 
         except KeyboardInterrupt:
             print("\n[Dev Mode] Interrupted by user")
