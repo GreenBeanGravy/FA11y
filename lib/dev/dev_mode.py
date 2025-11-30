@@ -429,8 +429,8 @@ class HealthShieldDebugger:
         self.health_color = (247, 255, 26)
         self.shield_color = (213, 255, 232)
         self.tolerance = 30  # Stricter tolerance
-        self.health_decreases = [4, 3, 3, 4]
-        self.shield_decreases = [4, 3, 3, 4]
+        self.health_decreases = [4, 4, 3, 3]
+        self.shield_decreases = [4, 4, 3, 3]
         self.health_start_x = 408
         self.health_y = 1000
         self.shield_start_x = 408
