@@ -1204,6 +1204,11 @@ class PPIConfigurator:
         self.running = False
         self.window_name = "FA11y PPI Configurator (Interactive)"
 
+        # Keyboard state tracking (using pynput)
+        self.keys_pressed = set()
+        self.shift_pressed = False
+        self.keyboard_listener = None
+
         print(f"[Dev Mode] PPI Configurator initialized")
         print(f"[Dev Mode] Found {len(self.available_maps)} maps")
         print(f"[Dev Mode] GPU acceleration: {cv2.ocl.haveOpenCL()}")
@@ -1390,6 +1395,36 @@ class PPIConfigurator:
 
         return combined
 
+    def _on_key_press(self, key):
+        """Handle key press events."""
+        from pynput import keyboard
+        try:
+            # Check for shift
+            if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
+                self.shift_pressed = True
+            # Store other keys
+            elif hasattr(key, 'char'):
+                self.keys_pressed.add(key.char)
+            else:
+                self.keys_pressed.add(key)
+        except AttributeError:
+            pass
+
+    def _on_key_release(self, key):
+        """Handle key release events."""
+        from pynput import keyboard
+        try:
+            # Check for shift release
+            if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
+                self.shift_pressed = False
+            # Remove from pressed set
+            elif hasattr(key, 'char'):
+                self.keys_pressed.discard(key.char)
+            else:
+                self.keys_pressed.discard(key)
+        except AttributeError:
+            pass
+
     def print_current_config(self):
         """Print current configuration to console."""
         print("\n" + "="*60)
@@ -1415,7 +1450,7 @@ class PPIConfigurator:
         print("  R/F       - Increase/decrease Lowe's ratio")
         print("  N/B       - Increase/decrease min matches")
         print("  K         - Toggle keypoint visualization")
-        print("  Arrow Keys- Move capture region position")
+        print("  Arrow Keys- Move capture region (hold Shift for 1px steps)")
         print("  [/]       - Decrease/increase region width")
         print("  ;/'       - Decrease/increase region height")
         print("  P         - Print current config to console")
@@ -1426,9 +1461,20 @@ class PPIConfigurator:
         self.running = True
         self.print_current_config()
 
+        # Start keyboard listener (pynput)
+        from pynput import keyboard
+        self.keyboard_listener = keyboard.Listener(
+            on_press=self._on_key_press,
+            on_release=self._on_key_release
+        )
+        self.keyboard_listener.start()
+
         # Create window
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(self.window_name, 1400, 700)
+
+        # Track last processed keys to avoid repeats
+        last_keys = set()
 
         try:
             while self.running:
@@ -1455,78 +1501,75 @@ class PPIConfigurator:
                     else:
                         print(f"[Dev Mode] Error: Could not load map {current_map}")
 
-                # Handle keyboard input
-                key = cv2.waitKey(1)
-                if key == -1:  # No key pressed
-                    continue
+                # Keep window responsive
+                cv2.waitKey(1)
 
-                key_masked = key & 0xFF  # For regular character keys
+                # Handle keyboard input using pynput state
+                current_keys = self.keys_pressed.copy()
 
-                # Arrow key detection (works on Windows and Linux)
-                is_up = key == 2490368 or key_masked == 82
-                is_down = key == 2621440 or key_masked == 84
-                is_left = key == 2424832 or key_masked == 81
-                is_right = key == 2555904 or key_masked == 83
+                # Process newly pressed keys (avoid repeats)
+                new_keys = current_keys - last_keys
 
-                # Check for Shift modifier (different step size)
-                # On Windows with Shift: arrow keys have different codes
-                # We'll use a slower default and faster with regular arrows
-                step_size = 1 if (key > 1000000) else 10  # Fine adjustment if special key code
+                # Determine step size based on Shift modifier
+                step_size = 1 if self.shift_pressed else 10
 
-                if key_masked == ord('q') or key_masked == 27:  # Q or ESC
+                # Character keys (one-time actions)
+                if 'q' in new_keys or keyboard.Key.esc in current_keys:
                     break
-                elif key_masked == ord('m'):  # Cycle maps
+                elif 'm' in new_keys:
                     self.current_map_index = (self.current_map_index + 1) % len(self.available_maps)
                     print(f"[Dev Mode] Switched to map: {self.available_maps[self.current_map_index]}")
-                elif key_masked == ord('r'):  # Increase Lowe's ratio
+                elif 'r' in new_keys:
                     self.lowe_ratio = min(0.99, self.lowe_ratio + 0.05)
                     print(f"[Dev Mode] Lowe's ratio: {self.lowe_ratio:.2f}")
-                elif key_masked == ord('f'):  # Decrease Lowe's ratio
+                elif 'f' in new_keys:
                     self.lowe_ratio = max(0.50, self.lowe_ratio - 0.05)
                     print(f"[Dev Mode] Lowe's ratio: {self.lowe_ratio:.2f}")
-                elif key_masked == ord('n'):  # Increase min matches
+                elif 'n' in new_keys:
                     self.min_matches += 1
                     print(f"[Dev Mode] Min matches: {self.min_matches}")
-                elif key_masked == ord('b'):  # Decrease min matches
+                elif 'b' in new_keys:
                     self.min_matches = max(1, self.min_matches - 1)
                     print(f"[Dev Mode] Min matches: {self.min_matches}")
-                elif key_masked == ord('k'):  # Toggle keypoints
+                elif 'k' in new_keys:
                     self.show_keypoints = not self.show_keypoints
                     print(f"[Dev Mode] Keypoints: {'ON' if self.show_keypoints else 'OFF'}")
-                elif key_masked == ord('p'):  # Print config
+                elif 'p' in new_keys:
                     self.print_current_config()
-                elif key_masked == ord('s'):  # Save screenshot
+                elif 's' in new_keys:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"ppi_debug_{timestamp}.png"
                     if 'visualization' in locals():
                         cv2.imwrite(filename, visualization)
                         print(f"[Dev Mode] Screenshot saved: {filename}")
-
-                # Region adjustment controls with arrow keys
-                elif is_up:  # Up arrow - move up
-                    self.region_top = max(0, self.region_top - step_size)
-                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif is_down:  # Down arrow - move down
-                    self.region_top += step_size
-                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif is_left:  # Left arrow - move left
-                    self.region_left = max(0, self.region_left - step_size)
-                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif is_right:  # Right arrow - move right
-                    self.region_left += step_size
-                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif key_masked == ord('['):  # Decrease width
+                elif '[' in new_keys:
                     self.region_width = max(50, self.region_width - 10)
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
-                elif key_masked == ord(']'):  # Increase width
+                elif ']' in new_keys:
                     self.region_width += 10
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
-                elif key_masked == ord(';'):  # Decrease height
+                elif ';' in new_keys:
                     self.region_height = max(50, self.region_height - 10)
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
-                elif key_masked == ord("'"):  # Increase height
+                elif "'" in new_keys:
                     self.region_height += 10
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
+
+                # Arrow keys (allow continuous movement)
+                if keyboard.Key.up in current_keys:
+                    self.region_top = max(0, self.region_top - step_size)
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+                if keyboard.Key.down in current_keys:
+                    self.region_top += step_size
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+                if keyboard.Key.left in current_keys:
+                    self.region_left = max(0, self.region_left - step_size)
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+                if keyboard.Key.right in current_keys:
+                    self.region_left += step_size
+                    print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
+
+                last_keys = current_keys
 
         except KeyboardInterrupt:
             print("\n[Dev Mode] Interrupted by user")
@@ -1538,6 +1581,11 @@ class PPIConfigurator:
         """Clean up resources."""
         print(f"\n[Dev Mode] Shutting down PPI Configurator...")
         self.running = False
+
+        # Stop keyboard listener
+        if self.keyboard_listener:
+            self.keyboard_listener.stop()
+
         cv2.destroyAllWindows()
         cv2.waitKey(1)
         print("[Dev Mode] PPI Configurator closed.")
@@ -1584,6 +1632,11 @@ class DirectionConfigurator:
         self.use_minimap = True  # True = minimap, False = main screen
         self.view_mode = 0  # 0=all, 1=original, 2=upscaled, 3=mask, 4=contours
         self.window_name = "FA11y Direction Configurator (Interactive)"
+
+        # Keyboard state tracking (using pynput)
+        self.keys_pressed = set()
+        self.shift_pressed = False
+        self.keyboard_listener = None
 
         print(f"[Dev Mode] Direction Configurator initialized")
         print(f"[Dev Mode] Default scale factor: {self.scale_factor}x")
@@ -1838,6 +1891,36 @@ class DirectionConfigurator:
 
         return combined
 
+    def _on_key_press(self, key):
+        """Handle key press events."""
+        from pynput import keyboard
+        try:
+            # Check for shift
+            if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
+                self.shift_pressed = True
+            # Store other keys
+            elif hasattr(key, 'char'):
+                self.keys_pressed.add(key.char)
+            else:
+                self.keys_pressed.add(key)
+        except AttributeError:
+            pass
+
+    def _on_key_release(self, key):
+        """Handle key release events."""
+        from pynput import keyboard
+        try:
+            # Check for shift release
+            if key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
+                self.shift_pressed = False
+            # Remove from pressed set
+            elif hasattr(key, 'char'):
+                self.keys_pressed.discard(key.char)
+            else:
+                self.keys_pressed.discard(key)
+        except AttributeError:
+            pass
+
     def print_current_config(self):
         """Print current configuration to console."""
         print("\n" + "="*60)
@@ -1862,7 +1945,7 @@ class DirectionConfigurator:
         print("=" * 60)
         print("\nControls:")
         print("  T           - Toggle between minimap and main screen icon")
-        print("  Arrow Keys  - Move capture region position")
+        print("  Arrow Keys  - Move capture region (hold Shift for fine control)")
         print("  H/L         - Decrease/increase region width")
         print("  J/K         - Decrease/increase region height")
         print("  1/2         - Increase/decrease scale factor")
@@ -1877,9 +1960,20 @@ class DirectionConfigurator:
         self.running = True
         self.print_current_config()
 
+        # Start keyboard listener (pynput)
+        from pynput import keyboard
+        self.keyboard_listener = keyboard.Listener(
+            on_press=self._on_key_press,
+            on_release=self._on_key_release
+        )
+        self.keyboard_listener.start()
+
         # Create window
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(self.window_name, 900, 900)
+
+        # Track last processed keys to avoid repeats
+        last_keys = set()
 
         try:
             while self.running:
