@@ -1456,60 +1456,75 @@ class PPIConfigurator:
                         print(f"[Dev Mode] Error: Could not load map {current_map}")
 
                 # Handle keyboard input
-                key = cv2.waitKey(1) & 0xFF
+                key = cv2.waitKey(1)
+                if key == -1:  # No key pressed
+                    continue
 
-                if key == ord('q') or key == 27:  # Q or ESC
+                key_masked = key & 0xFF  # For regular character keys
+
+                # Arrow key detection (works on Windows and Linux)
+                is_up = key == 2490368 or key_masked == 82
+                is_down = key == 2621440 or key_masked == 84
+                is_left = key == 2424832 or key_masked == 81
+                is_right = key == 2555904 or key_masked == 83
+
+                # Check for Shift modifier (different step size)
+                # On Windows with Shift: arrow keys have different codes
+                # We'll use a slower default and faster with regular arrows
+                step_size = 1 if (key > 1000000) else 10  # Fine adjustment if special key code
+
+                if key_masked == ord('q') or key_masked == 27:  # Q or ESC
                     break
-                elif key == ord('m'):  # Cycle maps
+                elif key_masked == ord('m'):  # Cycle maps
                     self.current_map_index = (self.current_map_index + 1) % len(self.available_maps)
                     print(f"[Dev Mode] Switched to map: {self.available_maps[self.current_map_index]}")
-                elif key == ord('r'):  # Increase Lowe's ratio
+                elif key_masked == ord('r'):  # Increase Lowe's ratio
                     self.lowe_ratio = min(0.99, self.lowe_ratio + 0.05)
                     print(f"[Dev Mode] Lowe's ratio: {self.lowe_ratio:.2f}")
-                elif key == ord('f'):  # Decrease Lowe's ratio
+                elif key_masked == ord('f'):  # Decrease Lowe's ratio
                     self.lowe_ratio = max(0.50, self.lowe_ratio - 0.05)
                     print(f"[Dev Mode] Lowe's ratio: {self.lowe_ratio:.2f}")
-                elif key == ord('n'):  # Increase min matches
+                elif key_masked == ord('n'):  # Increase min matches
                     self.min_matches += 1
                     print(f"[Dev Mode] Min matches: {self.min_matches}")
-                elif key == ord('b'):  # Decrease min matches
+                elif key_masked == ord('b'):  # Decrease min matches
                     self.min_matches = max(1, self.min_matches - 1)
                     print(f"[Dev Mode] Min matches: {self.min_matches}")
-                elif key == ord('k'):  # Toggle keypoints
+                elif key_masked == ord('k'):  # Toggle keypoints
                     self.show_keypoints = not self.show_keypoints
                     print(f"[Dev Mode] Keypoints: {'ON' if self.show_keypoints else 'OFF'}")
-                elif key == ord('p'):  # Print config
+                elif key_masked == ord('p'):  # Print config
                     self.print_current_config()
-                elif key == ord('s'):  # Save screenshot
+                elif key_masked == ord('s'):  # Save screenshot
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"ppi_debug_{timestamp}.png"
                     if 'visualization' in locals():
                         cv2.imwrite(filename, visualization)
                         print(f"[Dev Mode] Screenshot saved: {filename}")
 
-                # Region adjustment controls
-                elif key == 82:  # Up arrow - move up
-                    self.region_top = max(0, self.region_top - 10)
+                # Region adjustment controls with arrow keys
+                elif is_up:  # Up arrow - move up
+                    self.region_top = max(0, self.region_top - step_size)
                     print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif key == 84:  # Down arrow - move down
-                    self.region_top += 10
+                elif is_down:  # Down arrow - move down
+                    self.region_top += step_size
                     print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif key == 81:  # Left arrow - move left
-                    self.region_left = max(0, self.region_left - 10)
+                elif is_left:  # Left arrow - move left
+                    self.region_left = max(0, self.region_left - step_size)
                     print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif key == 83:  # Right arrow - move right
-                    self.region_left += 10
+                elif is_right:  # Right arrow - move right
+                    self.region_left += step_size
                     print(f"[Dev Mode] Region moved to ({self.region_left}, {self.region_top})")
-                elif key == ord('['):  # Decrease width
+                elif key_masked == ord('['):  # Decrease width
                     self.region_width = max(50, self.region_width - 10)
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
-                elif key == ord(']'):  # Increase width
+                elif key_masked == ord(']'):  # Increase width
                     self.region_width += 10
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
-                elif key == ord(';'):  # Decrease height
+                elif key_masked == ord(';'):  # Decrease height
                     self.region_height = max(50, self.region_height - 10)
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
-                elif key == ord("'"):  # Increase height
+                elif key_masked == ord("'"):  # Increase height
                     self.region_height += 10
                     print(f"[Dev Mode] Region size: {self.region_width}x{self.region_height}")
 
@@ -1879,123 +1894,139 @@ class DirectionConfigurator:
                 cv2.imshow(self.window_name, visualization)
 
                 # Handle keyboard input
-                key = cv2.waitKey(1) & 0xFF
+                key = cv2.waitKey(1)
+                if key == -1:  # No key pressed
+                    continue
 
-                if key == 27:  # ESC
+                key_masked = key & 0xFF  # For regular character keys
+
+                # Arrow key detection (works on Windows and Linux)
+                is_up = key == 2490368 or key_masked == 82
+                is_down = key == 2621440 or key_masked == 84
+                is_left = key == 2424832 or key_masked == 81
+                is_right = key == 2555904 or key_masked == 83
+
+                # Check for fine adjustment (use smaller step when special key codes detected)
+                if self.use_minimap:
+                    step_size = 1 if (key > 1000000) else 5
+                else:
+                    step_size = 1 if (key > 1000000) else 10
+
+                if key_masked == 27:  # ESC
                     break
-                elif key == ord('t'):  # Toggle mode
+                elif key_masked == ord('t'):  # Toggle mode
                     self.use_minimap = not self.use_minimap
                     mode = "MINIMAP" if self.use_minimap else "MAIN SCREEN"
                     print(f"[Dev Mode] Mode: {mode}")
-                elif key == ord('1'):  # Increase scale
+                elif key_masked == ord('1'):  # Increase scale
                     self.scale_factor = min(10, self.scale_factor + 1)
                     print(f"[Dev Mode] Scale factor: {self.scale_factor}x")
-                elif key == ord('2'):  # Decrease scale
+                elif key_masked == ord('2'):  # Decrease scale
                     self.scale_factor = max(1, self.scale_factor - 1)
                     print(f"[Dev Mode] Scale factor: {self.scale_factor}x")
 
-                # Region adjustment controls
-                elif key == 82:  # Up arrow - move up
+                # Region adjustment controls with arrow keys
+                elif is_up:  # Up arrow - move up
                     if self.use_minimap:
-                        self.minimap_y = max(0, self.minimap_y - 5)
+                        self.minimap_y = max(0, self.minimap_y - step_size)
                         print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
                     else:
-                        self.main_y = max(0, self.main_y - 5)
+                        self.main_y = max(0, self.main_y - step_size)
                         print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
-                elif key == 84:  # Down arrow - move down
+                elif is_down:  # Down arrow - move down
                     if self.use_minimap:
-                        self.minimap_y += 5
+                        self.minimap_y += step_size
                         print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
                     else:
-                        self.main_y += 5
+                        self.main_y += step_size
                         print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
-                elif key == 81:  # Left arrow - move left
+                elif is_left:  # Left arrow - move left
                     if self.use_minimap:
-                        self.minimap_x = max(0, self.minimap_x - 5)
+                        self.minimap_x = max(0, self.minimap_x - step_size)
                         print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
                     else:
-                        self.main_x = max(0, self.main_x - 5)
+                        self.main_x = max(0, self.main_x - step_size)
                         print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
-                elif key == 83:  # Right arrow - move right
+                elif is_right:  # Right arrow - move right
                     if self.use_minimap:
-                        self.minimap_x += 5
+                        self.minimap_x += step_size
                         print(f"[Dev Mode] Minimap region moved to ({self.minimap_x}, {self.minimap_y})")
                     else:
-                        self.main_x += 5
+                        self.main_x += step_size
                         print(f"[Dev Mode] Main region moved to ({self.main_x}, {self.main_y})")
-                elif key == ord('h'):  # Decrease width
+                elif key_masked == ord('h'):  # Decrease width
                     if self.use_minimap:
                         self.minimap_width = max(10, self.minimap_width - 5)
                         print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
                     else:
                         self.main_width = max(50, self.main_width - 10)
                         print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
-                elif key == ord('l'):  # Increase width
+                elif key_masked == ord('l'):  # Increase width
                     if self.use_minimap:
                         self.minimap_width += 5
                         print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
                     else:
                         self.main_width += 10
                         print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
-                elif key == ord('j'):  # Decrease height
+                elif key_masked == ord('j'):  # Decrease height
                     if self.use_minimap:
                         self.minimap_height = max(10, self.minimap_height - 5)
                         print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
                     else:
                         self.main_height = max(50, self.main_height - 10)
                         print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
-                elif key == ord('k'):  # Increase height
+                elif key_masked == ord('k'):  # Increase height
                     if self.use_minimap:
                         self.minimap_height += 5
                         print(f"[Dev Mode] Minimap size: {self.minimap_width}x{self.minimap_height}")
                     else:
                         self.main_height += 10
                         print(f"[Dev Mode] Main size: {self.main_width}x{self.main_height}")
-                elif key == ord('w'):  # Increase white min
+                elif key_masked == ord('w'):  # Increase white min
                     self.white_threshold_min = min(255, self.white_threshold_min + 1)
                     print(f"[Dev Mode] White threshold: {self.white_threshold_min}-{self.white_threshold_max}")
-                elif key == ord('s'):  # Decrease white min
+                elif key_masked == ord('s'):  # Decrease white min
                     self.white_threshold_min = max(0, self.white_threshold_min - 1)
                     print(f"[Dev Mode] White threshold: {self.white_threshold_min}-{self.white_threshold_max}")
-                elif key == ord('e'):  # Increase white max
+                elif key_masked == ord('e'):  # Increase white max
                     self.white_threshold_max = min(255, self.white_threshold_max + 1)
                     print(f"[Dev Mode] White threshold: {self.white_threshold_min}-{self.white_threshold_max}")
-                elif key == ord('d'):  # Decrease white max
+                elif key_masked == ord('d'):  # Decrease white max
                     self.white_threshold_max = max(0, self.white_threshold_max - 1)
                     print(f"[Dev Mode] White threshold: {self.white_threshold_min}-{self.white_threshold_max}")
-                elif key == ord('a'):  # Increase min area
+                elif key_masked == ord('a'):  # Increase min area
                     if self.use_minimap:
                         self.min_area += 10
                         print(f"[Dev Mode] Min area: {self.min_area}")
                     else:
                         self.main_min_area += 10
                         print(f"[Dev Mode] Min area: {self.main_min_area}")
-                elif key == ord('z'):  # Decrease min area
+                elif key_masked == ord('z'):  # Decrease min area
                     if self.use_minimap:
                         self.min_area = max(0, self.min_area - 10)
                         print(f"[Dev Mode] Min area: {self.min_area}")
                     else:
                         self.main_min_area = max(0, self.main_min_area - 10)
                         print(f"[Dev Mode] Min area: {self.main_min_area}")
-                elif key == ord('q'):  # Increase max area
+                elif key_masked == ord('q'):  # Increase max area
                     if self.use_minimap:
                         self.max_area += 10
                         print(f"[Dev Mode] Max area: {self.max_area}")
                     else:
                         self.main_max_area += 10
                         print(f"[Dev Mode] Max area: {self.main_max_area}")
-                elif key == ord('x'):  # Decrease max area
+                elif key_masked == ord('x'):  # Decrease max area
                     if self.use_minimap:
                         self.max_area = max(0, self.max_area - 10)
                         print(f"[Dev Mode] Max area: {self.max_area}")
                     else:
                         self.main_max_area = max(0, self.main_max_area - 10)
                         print(f"[Dev Mode] Max area: {self.main_max_area}")
-                elif key == ord('v'):  # Cycle view mode
+                elif key_masked == ord('v'):  # Cycle view mode
                     self.view_mode = (self.view_mode + 1) % 5
                     modes = ["All", "Original", "Upscaled", "Mask", "Contours"]
                     print(f"[Dev Mode] View mode: {modes[self.view_mode]}")
-                elif key == ord('p'):  # Print config
+                elif key_masked == ord('p'):  # Print config
                     self.print_current_config()
 
         except KeyboardInterrupt:
