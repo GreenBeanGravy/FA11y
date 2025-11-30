@@ -4,6 +4,7 @@ FA11y Developer Mode Module
 This module provides developer tools and utilities for FA11y development.
 Currently includes:
 - Pixel Inspector: Visual tool for examining screenshot pixels with zoom and color info
+- Health/Shield Debugger: Visualizes health and shield bar detection with pixel-by-pixel analysis
 """
 
 import cv2
@@ -410,6 +411,307 @@ class PixelInspector:
         print("[Dev Mode] Pixel Inspector closed.")
 
 
+class HealthShieldDebugger:
+    """
+    Developer tool for debugging health and shield bar detection.
+
+    Features:
+    - Visualizes exactly which pixels are being checked
+    - Shows RGB values at each pixel location
+    - Displays tolerance check results
+    - Highlights the matching pixel (if found)
+    - Shows the path the checker follows
+    """
+
+    def __init__(self):
+        """Initialize the Health/Shield Debugger."""
+        # Health/Shield detection parameters (from hsr.py)
+        self.health_color = (158, 255, 99)
+        self.shield_color = (110, 235, 255)
+        self.tolerance = 70
+        self.health_decreases = [4, 3, 3]
+        self.shield_decreases = [3, 4, 3]
+        self.health_start_x = 423
+        self.health_y = 1024
+        self.shield_start_x = 423
+        self.shield_y = 984
+
+        self.window_name = "FA11y Health/Shield Debugger"
+        self.running = False
+
+        print(f"[Dev Mode] Health/Shield Debugger initialized")
+
+    def pixel_within_tolerance(self, pixel_color, target_color, tol):
+        """Check if pixel color is within tolerance of target color."""
+        return all(abs(pc - tc) <= tol for pc, tc in zip(pixel_color, target_color))
+
+    def get_checked_pixels(self, start_x, y, decreases, max_value=100):
+        """
+        Get the list of pixel coordinates that will be checked.
+
+        Returns:
+            List of (x, y, value) tuples
+        """
+        pixels = []
+        x = start_x
+        for i in range(max_value, 0, -1):
+            pixels.append((x, y, i))
+            if decreases:
+                x -= decreases[i % len(decreases)]
+            else:
+                x -= 1
+        return pixels
+
+    def check_and_visualize_bar(self, screenshot_rgb, start_x, y, decreases, color,
+                                name, pixels_data):
+        """
+        Check a health/shield bar and collect visualization data.
+
+        Args:
+            screenshot_rgb: Screenshot in RGB format
+            start_x: Starting x coordinate
+            y: Y coordinate of the bar
+            decreases: Array of x-decrements
+            color: Target RGB color
+            name: Name of the bar (Health/Shield)
+            pixels_data: List to append pixel data to
+
+        Returns:
+            Detected value or None
+        """
+        x = start_x
+        detected_value = None
+
+        for i in range(100, 0, -1):
+            if 0 <= x < screenshot_rgb.shape[1] and 0 <= y < screenshot_rgb.shape[0]:
+                pixel_rgb = screenshot_rgb[y, x]
+                pixel_color = (int(pixel_rgb[0]), int(pixel_rgb[1]), int(pixel_rgb[2]))
+
+                within_tol = self.pixel_within_tolerance(pixel_color, color, self.tolerance)
+
+                pixels_data.append({
+                    'x': x,
+                    'y': y,
+                    'value': i,
+                    'color': pixel_color,
+                    'within_tolerance': within_tol,
+                    'name': name
+                })
+
+                if within_tol and detected_value is None:
+                    detected_value = i
+
+            if decreases:
+                x -= decreases[i % len(decreases)]
+            else:
+                x -= 1
+
+        return detected_value
+
+    def draw_visualization(self, screenshot_bgr, pixels_data, detected_health, detected_shield):
+        """
+        Draw visualization overlay on the screenshot.
+
+        Args:
+            screenshot_bgr: Screenshot in BGR format (for OpenCV display)
+            pixels_data: List of pixel data dictionaries
+            detected_health: Detected health value
+            detected_shield: Detected shield value
+
+        Returns:
+            Annotated screenshot
+        """
+        vis = screenshot_bgr.copy()
+
+        # Draw all checked pixels
+        for data in pixels_data:
+            x, y = data['x'], data['y']
+            within_tol = data['within_tolerance']
+            name = data['name']
+
+            # Color code the pixels
+            if within_tol:
+                # Green for pixels within tolerance
+                color = (0, 255, 0)
+                size = 3
+            else:
+                # Red for pixels outside tolerance
+                if name == 'Health':
+                    color = (0, 0, 255)  # Red for health
+                else:
+                    color = (255, 0, 0)  # Blue for shield
+                size = 1
+
+            # Draw a circle at each checked pixel
+            cv2.circle(vis, (x, y), size, color, -1)
+
+        # Draw starting positions with larger markers
+        cv2.circle(vis, (self.health_start_x, self.health_y), 7, (0, 255, 255), 2)  # Yellow
+        cv2.putText(vis, "Health Start", (self.health_start_x + 10, self.health_y),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+        cv2.circle(vis, (self.shield_start_x, self.shield_y), 7, (0, 255, 255), 2)  # Yellow
+        cv2.putText(vis, "Shield Start", (self.shield_start_x + 10, self.shield_y),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+        # Create info panel
+        panel_height = 300
+        panel_width = vis.shape[1]
+        panel = np.zeros((panel_height, panel_width, 3), dtype=np.uint8)
+
+        # Display detected values
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        y_pos = 30
+
+        cv2.putText(panel, "HEALTH & SHIELD DEBUGGER", (10, y_pos),
+                   font, 0.8, (0, 255, 255), 2)
+
+        y_pos += 40
+        health_text = f"Health: {detected_health if detected_health else 'NOT DETECTED'}"
+        health_color = (0, 255, 0) if detected_health else (0, 0, 255)
+        cv2.putText(panel, health_text, (10, y_pos), font, 0.7, health_color, 2)
+
+        y_pos += 35
+        shield_text = f"Shield: {detected_shield if detected_shield else 'NOT DETECTED'}"
+        shield_color = (0, 255, 0) if detected_shield else (0, 0, 255)
+        cv2.putText(panel, shield_text, (10, y_pos), font, 0.7, shield_color, 2)
+
+        # Display target colors
+        y_pos += 50
+        cv2.putText(panel, "Target Colors:", (10, y_pos), font, 0.6, (255, 255, 255), 1)
+
+        y_pos += 30
+        cv2.putText(panel, f"Health RGB: {self.health_color}", (10, y_pos),
+                   font, 0.5, (255, 255, 255), 1)
+        # Draw color swatch for health
+        cv2.rectangle(panel, (250, y_pos - 15), (280, y_pos + 5),
+                     (self.health_color[2], self.health_color[1], self.health_color[0]), -1)
+
+        y_pos += 25
+        cv2.putText(panel, f"Shield RGB: {self.shield_color}", (10, y_pos),
+                   font, 0.5, (255, 255, 255), 1)
+        # Draw color swatch for shield
+        cv2.rectangle(panel, (250, y_pos - 15), (280, y_pos + 5),
+                     (self.shield_color[2], self.shield_color[1], self.shield_color[0]), -1)
+
+        y_pos += 25
+        cv2.putText(panel, f"Tolerance: +/- {self.tolerance}", (10, y_pos),
+                   font, 0.5, (255, 255, 255), 1)
+
+        # Legend
+        y_pos += 40
+        cv2.putText(panel, "Legend:", (10, y_pos), font, 0.6, (255, 255, 255), 1)
+
+        y_pos += 25
+        cv2.circle(panel, (20, y_pos - 5), 3, (0, 255, 0), -1)
+        cv2.putText(panel, "= Pixel within tolerance (MATCH)", (35, y_pos),
+                   font, 0.5, (255, 255, 255), 1)
+
+        y_pos += 20
+        cv2.circle(panel, (20, y_pos - 5), 1, (0, 0, 255), -1)
+        cv2.putText(panel, "= Health pixel checked (no match)", (35, y_pos),
+                   font, 0.5, (255, 255, 255), 1)
+
+        y_pos += 20
+        cv2.circle(panel, (20, y_pos - 5), 1, (255, 0, 0), -1)
+        cv2.putText(panel, "= Shield pixel checked (no match)", (35, y_pos),
+                   font, 0.5, (255, 255, 255), 1)
+
+        y_pos += 20
+        cv2.circle(panel, (20, y_pos - 5), 7, (0, 255, 255), 2)
+        cv2.putText(panel, "= Starting position", (35, y_pos),
+                   font, 0.5, (255, 255, 255), 1)
+
+        # Controls
+        y_pos = panel_height - 30
+        cv2.putText(panel, "Press 'q' or ESC to exit | Press 's' to save screenshot",
+                   (10, y_pos), font, 0.5, (200, 200, 200), 1)
+
+        # Combine visualization and panel
+        combined = np.vstack([vis, panel])
+
+        return combined
+
+    def run(self):
+        """Run the health/shield debugger tool."""
+        print("\n" + "=" * 60)
+        print("FA11y Health/Shield Debugger - Developer Mode")
+        print("=" * 60)
+        print("\nThis tool visualizes the health and shield bar detection process.")
+        print("\nControls:")
+        print("  - Press 'q' or ESC to exit")
+        print("  - Press 's' to save a screenshot")
+        print("  - Press SPACE to refresh")
+        print("=" * 60 + "\n")
+
+        self.running = True
+
+        # Create window
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self.window_name, 1280, 900)
+
+        try:
+            while self.running:
+                # Capture screenshot
+                screenshot_bgr = screenshot_manager.capture_full_screen()
+
+                if screenshot_bgr is None:
+                    print("[Dev Mode] Warning: Failed to capture screenshot")
+                    continue
+
+                # Convert to RGB for processing (same as FA11y does)
+                screenshot_rgb = cv2.cvtColor(screenshot_bgr, cv2.COLOR_BGR2RGB)
+
+                # Collect pixel data
+                pixels_data = []
+
+                # Check health bar
+                detected_health = self.check_and_visualize_bar(
+                    screenshot_rgb, self.health_start_x, self.health_y,
+                    self.health_decreases, self.health_color, 'Health', pixels_data
+                )
+
+                # Check shield bar
+                detected_shield = self.check_and_visualize_bar(
+                    screenshot_rgb, self.shield_start_x, self.shield_y,
+                    self.shield_decreases, self.shield_color, 'Shield', pixels_data
+                )
+
+                # Draw visualization
+                visualization = self.draw_visualization(
+                    screenshot_bgr, pixels_data, detected_health, detected_shield
+                )
+
+                # Display
+                cv2.imshow(self.window_name, visualization)
+
+                # Check for key press
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q') or key == 27:  # 'q' or ESC
+                    break
+                elif key == ord('s'):  # Save screenshot
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"health_shield_debug_{timestamp}.png"
+                    cv2.imwrite(filename, visualization)
+                    print(f"[Dev Mode] Screenshot saved: {filename}")
+                elif key == ord(' '):  # Space to refresh
+                    print("[Dev Mode] Refreshing...")
+
+        except KeyboardInterrupt:
+            print("\n[Dev Mode] Interrupted by user")
+
+        finally:
+            self.cleanup()
+
+    def cleanup(self):
+        """Clean up resources and close windows."""
+        print(f"\n[Dev Mode] Shutting down Health/Shield Debugger...")
+        self.running = False
+        cv2.destroyAllWindows()
+        cv2.waitKey(1)
+        print("[Dev Mode] Health/Shield Debugger closed.")
+
+
 class DevMode:
     """
     Main developer mode controller.
@@ -421,6 +723,7 @@ class DevMode:
         """Initialize developer mode."""
         self.tools = {
             'pixel_inspector': PixelInspector,
+            'health_shield_debugger': HealthShieldDebugger,
         }
         print("[Dev Mode] FA11y Developer Mode initialized")
 
