@@ -1321,9 +1321,9 @@ class PPIConfigurator:
                                           color=(255, 0, 0),
                                           flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-        # Create info panel
+        # Create info panel - match minimap display width
         panel_height = 250
-        panel_width = max(minimap_display.shape[1], 600)
+        panel_width = minimap_display.shape[1]  # Match minimap width exactly
         panel = np.zeros((panel_height, panel_width, 3), dtype=np.uint8)
 
         font = cv2.FONT_HERSHEY_SIMPLEX
