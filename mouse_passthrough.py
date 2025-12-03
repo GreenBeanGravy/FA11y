@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Optimized Mouse Passthrough Service - High Performance 1000Hz
-Optimized for minimal latency and maximum throughput at 1000Hz polling
-Run as Administrator for best results
+Mouse Passthrough Service
+Captures mouse input from one physical mouse and relays it through FakerInput driver.
+Useful for bypassing input restrictions or using specific mice with games/applications.
 """
 
 import sys
@@ -11,21 +11,33 @@ import ctypes.wintypes
 from ctypes import wintypes, Structure, POINTER, byref, windll, c_void_p
 import threading
 import time
-import json
 import signal
 import os
 import traceback
-from typing import Optional, Callable, Deque
+from typing import Optional
 from dataclasses import dataclass, asdict
 from collections import deque
+from lib.config.config_manager import config_manager
 
-# Windows constants
+DEFAULT_CONFIG = {
+    "DPI": 1600,
+    "BUFFER_SIZE": 256,
+    "HEARTBEAT_ENABLED": True,
+    "HEARTBEAT_INTERVAL": 0.3,
+    "HEARTBEAT_DISTANCE": 2,
+    "PERFORMANCE_LOG_INTERVAL": 1.0,
+    "PERFORMANCE_DISPLAY_ENABLED": True,
+    "MAX_RECENT_MOVEMENTS": 100,
+    "MAX_RECENT_OUTPUTS": 50,
+    "CACHE_INT16_RANGE": 100,
+    "DETECTION_TIMEOUT": 10.0
+}
+
 HC_ACTION = 0
 WH_MOUSE_LL = 14
 LLMHF_INJECTED = 1
 WM_QUIT = 0x0012
 
-# Mouse message constants
 WM_MOUSEMOVE = 0x0200
 WM_LBUTTONDOWN = 0x0201
 WM_LBUTTONUP = 0x0202
@@ -35,7 +47,6 @@ WM_MBUTTONDOWN = 0x0207
 WM_MBUTTONUP = 0x0208
 WM_MOUSEWHEEL = 0x020A
 
-# Raw Input constants
 WM_INPUT = 0x00FF
 RIM_TYPEMOUSE = 0
 RIDEV_INPUTSINK = 0x00000100
@@ -43,25 +54,21 @@ RIDEV_REMOVE = 0x00000001
 RIDI_DEVICENAME = 0x20000007
 PM_REMOVE = 0x0001
 
-# Raw mouse flags
 MOUSE_MOVE_RELATIVE = 0
 
 LPVOID = ctypes.c_void_p
 ULONG_PTR = ctypes.c_ulonglong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_ulong
 LRESULT = ctypes.c_int64 if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_int32
 
-# Hook procedure type
 HOOKPROC = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
 WNDPROC = ctypes.WINFUNCTYPE(LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
 
 def is_admin():
-    """Simple admin check"""
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except:
         return False
 
-# Optimized FakerInput Implementation
 FAKERINPUT_AVAILABLE = False
 _faker_input = None
 _mouse_report = None
@@ -71,23 +78,20 @@ _FakerInputType = None
 _RelativeMouseReportType = None
 _MouseButtonType = None
 
-# Cache method references for performance
 _update_method = None
 _reset_method = None
 _mouseX_property = None
 _mouseY_property = None
 
-# Pre-allocated .NET objects for performance
 _net_int16_cache = {}
 
 def get_cached_int16(value):
-    """Get cached .NET Int16 to avoid repeated allocations"""
     if value not in _net_int16_cache:
         _net_int16_cache[value] = _System.Int16(value)
     return _net_int16_cache[value]
 
 try:
-    print("[INFO] Loading FakerInput components...")
+    print("[INFO] Loading FakerInput...")
     import pythonnet
     from pythonnet import set_runtime
     set_runtime("coreclr")
@@ -113,7 +117,7 @@ try:
             
             if _FakerInputType and _RelativeMouseReportType and _MouseButtonType:
                 FAKERINPUT_AVAILABLE = True
-                print("[INFO] FakerInput loaded successfully")
+                print("[INFO] FakerInput loaded")
             else:
                 print("[ERROR] Failed to get FakerInput types")
         except Exception as e:
@@ -126,90 +130,75 @@ except ImportError:
 except Exception as e:
     print(f"[ERROR] FakerInput setup error: {e}")
 
-def initialize_fakerinput():
+def initialize_fakerinput(cache_range):
     global _faker_input, _mouse_report, _initialized, _System, FAKERINPUT_AVAILABLE
     global _FakerInputType, _RelativeMouseReportType, _update_method, _reset_method
     global _mouseX_property, _mouseY_property
 
     if not FAKERINPUT_AVAILABLE or not _System or _FakerInputType is None:
-        print("[ERROR] FakerInput not available")
         return False
     
     if _initialized:
         return True
     
     try:
-        # Create instances
         _faker_input = _System.Activator.CreateInstance(_FakerInputType)
         _mouse_report = _System.Activator.CreateInstance(_RelativeMouseReportType)
 
         if _faker_input is None or _mouse_report is None:
-            print("[ERROR] Failed to create FakerInput instances")
             return False
         
-        # Cache method references for performance
         _update_method = _FakerInputType.GetMethod("UpdateRelativeMouse")
         _reset_method = _RelativeMouseReportType.GetMethod("ResetMousePos")
         _mouseX_property = _RelativeMouseReportType.GetProperty("MouseX")
         _mouseY_property = _RelativeMouseReportType.GetProperty("MouseY")
         
-        # Connect FakerInput
         connect_method = _FakerInputType.GetMethod("Connect")
         connect_result = connect_method.Invoke(_faker_input, None)
         
         if connect_result:
             _initialized = True
-            print("[INFO] FakerInput connected and optimized")
+            print("[INFO] FakerInput connected")
             
-            # Pre-cache common values
-            for i in range(-100, 101):
+            for i in range(-cache_range, cache_range + 1):
                 get_cached_int16(i)
             
             return True
         else:
-            print("[ERROR] FakerInput connection failed")
             return False
             
     except Exception as e:
-        print(f"[ERROR] FakerInput initialization error: {e}")
+        print(f"[ERROR] FakerInput initialization: {e}")
         return False
 
-def send_faker_mouse_move_optimized(dx, dy):
-    """Optimized FakerInput mouse move with minimal allocations"""
+def send_mouse_move(dx, dy, cache_range):
     global _faker_input, _mouse_report, _initialized, _update_method, _reset_method
     global _mouseX_property, _mouseY_property, _System
     
     if not _initialized:
-        if not initialize_fakerinput():
+        if not initialize_fakerinput(cache_range):
             return False
     
     try:
-        # Fast clamping
         MOUSE_MIN, MOUSE_MAX = -32767, 32767
         clamped_x = max(MOUSE_MIN, min(MOUSE_MAX, dx))
         clamped_y = max(MOUSE_MIN, min(MOUSE_MAX, dy))
         
-        # Use cached .NET Int16 objects
-        net_x = get_cached_int16(clamped_x) if abs(clamped_x) <= 100 else _System.Int16(clamped_x)
-        net_y = get_cached_int16(clamped_y) if abs(clamped_y) <= 100 else _System.Int16(clamped_y)
+        net_x = get_cached_int16(clamped_x) if abs(clamped_x) <= cache_range else _System.Int16(clamped_x)
+        net_y = get_cached_int16(clamped_y) if abs(clamped_y) <= cache_range else _System.Int16(clamped_y)
         
-        # Fast property setting
         _mouseX_property.SetValue(_mouse_report, net_x)
         _mouseY_property.SetValue(_mouse_report, net_y)
         
-        # Pre-allocated args array
         args = _System.Array[_System.Object]([_mouse_report])
         _update_method.Invoke(_faker_input, args)
         
-        # Reset for next use
         _reset_method.Invoke(_mouse_report, None)
         
         return True
-    except Exception as e:
-        print(f"[ERROR] Optimized mouse move error: {e}")
+    except Exception:
         return False
 
-# Windows structures
 class POINT(Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
@@ -279,9 +268,6 @@ class WNDCLASSW(Structure):
         ('lpszClassName', wintypes.LPCWSTR)
     ]
 
-# --- FIX START: Define WinAPI function prototypes for ctypes ---
-# This prevents OverflowError on 64-bit systems by explicitly telling ctypes
-# the expected argument and return types for each function.
 user32 = windll.user32
 kernel32 = windll.kernel32
 
@@ -333,34 +319,31 @@ kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
 
 kernel32.GetLastError.restype = wintypes.DWORD
 kernel32.GetLastError.argtypes = []
-# --- FIX END ---
-
 
 @dataclass
 class MouseDevice:
-    handle_value: int
+    vendor_id: str
+    product_id: str
     friendly_name: str
-    vendor_id: str = "0000"
-    product_id: str = "0000" 
     device_path: str = ""
+    handle_value: int = 0
     dpi: int = 1600
-    _dpi_scale: float = 1.0  # Cached DPI scale
 
     def __post_init__(self):
         self.update_dpi_scale()
 
     def update_dpi_scale(self):
-        """Pre-calculate DPI scaling factor"""
         self._dpi_scale = self.dpi / 800.0
 
     @property
     def handle(self) -> wintypes.HANDLE:
         return ctypes.c_void_p(self.handle_value)
-
-class OptimizedRawInputCapture:
-    """High-performance Raw Input capture optimized for 1000Hz"""
     
-    def __init__(self, target_device, movement_callback):
+    def matches(self, vid: str, pid: str) -> bool:
+        return self.vendor_id == vid and self.product_id == pid
+
+class RawInputCapture:
+    def __init__(self, target_device, movement_callback, buffer_size):
         self.target_device = target_device
         self.movement_callback = movement_callback
         self.running = False
@@ -368,16 +351,13 @@ class OptimizedRawInputCapture:
         self.capture_thread = None
         self._wndproc = None
         
-        # Pre-allocate buffer for raw input
-        self.buffer_size = 256
+        self.buffer_size = buffer_size
         self.raw_buffer = ctypes.create_string_buffer(self.buffer_size)
         self.size_holder = wintypes.UINT(self.buffer_size)
         
     def window_proc(self, hwnd, msg, wparam, lparam):
-        """Optimized window procedure"""
         try:
             if msg == WM_INPUT and self.running:
-                # Fast path - reuse pre-allocated buffer
                 self.size_holder.value = self.buffer_size
                 hraw = wintypes.HANDLE(lparam)
                 
@@ -389,57 +369,49 @@ class OptimizedRawInputCapture:
                 if result > 0:
                     raw_input = ctypes.cast(self.raw_buffer, POINTER(RAWINPUT)).contents
                     if raw_input.header.dwType == RIM_TYPEMOUSE:
-                        # Fast handle comparison
                         current_handle = int(ctypes.cast(raw_input.header.hDevice, ctypes.c_void_p).value or 0)
                         if current_handle == self.target_device.handle_value:
-                            # Process relative movement immediately
                             if raw_input.mouse.usFlags == MOUSE_MOVE_RELATIVE:
                                 raw_dx = raw_input.mouse.lLastX
                                 raw_dy = raw_input.mouse.lLastY
                                 
                                 if raw_dx != 0 or raw_dy != 0:
-                                    # Immediate processing for lowest latency
                                     self.movement_callback(raw_dx, raw_dy)
         except:
-            pass  # Minimize exception handling overhead in hot path
+            pass
         
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
     
     def start_capture(self):
-        """Start high-performance capture"""
         if self.running:
             return True
             
         self.running = True
         self.capture_thread = threading.Thread(target=self._capture_worker, daemon=True)
         self.capture_thread.start()
-        time.sleep(0.05)  # Reduced wait time
+        time.sleep(0.05)
         return self.window_handle is not None
     
     def _capture_worker(self):
-        """Optimized capture worker"""
         try:
-            # Create window class
             wndclass = WNDCLASSW()
             self._wndproc = WNDPROC(self.window_proc)
             wndclass.lpfnWndProc = self._wndproc
-            wndclass.lpszClassName = "FastRawInput"
+            wndclass.lpszClassName = "RawInputCapture"
             wndclass.hInstance = kernel32.GetModuleHandleW(None)
 
             if not user32.RegisterClassW(byref(wndclass)):
-                if kernel32.GetLastError() != 1410: # ERROR_CLASS_ALREADY_EXISTS
+                if kernel32.GetLastError() != 1410:
                     return
 
-            # Create window
             self.window_handle = user32.CreateWindowExW(
-                0, "FastRawInput", "FastRaw", 0, 0, 0, 0, 0,
+                0, "RawInputCapture", "Capture", 0, 0, 0, 0, 0,
                 None, None, wndclass.hInstance, None
             )
             
             if not self.window_handle:
                 return
 
-            # Register for raw input
             rid = RAWINPUTDEVICE()
             rid.usUsagePage = 0x01
             rid.usUsage = 0x02
@@ -449,9 +421,8 @@ class OptimizedRawInputCapture:
             if not user32.RegisterRawInputDevices(byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE)):
                 return
 
-            print("[INFO] High-performance raw input capture active")
+            print("[INFO] Raw input capture active")
 
-            # Ultra-fast message loop - no sleep, minimal overhead
             msg = MSG()
             while self.running:
                 bRet = user32.GetMessageW(byref(msg), self.window_handle, 0, 0)
@@ -461,12 +432,11 @@ class OptimizedRawInputCapture:
                 user32.DispatchMessageW(byref(msg))
 
         except Exception as e:
-            print(f"[ERROR] Capture worker error: {e}")
+            print(f"[ERROR] Capture worker: {e}")
         finally:
             self._cleanup()
 
     def _cleanup(self):
-        """Fast cleanup"""
         try:
             if self.window_handle:
                 rid = RAWINPUTDEVICE()
@@ -477,12 +447,11 @@ class OptimizedRawInputCapture:
                 user32.RegisterRawInputDevices(byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE))
                 user32.DestroyWindow(self.window_handle)
                 self.window_handle = None
-            user32.UnregisterClassW("FastRawInput", kernel32.GetModuleHandleW(None))
+            user32.UnregisterClassW("RawInputCapture", kernel32.GetModuleHandleW(None))
         except:
             pass
 
     def stop_capture(self):
-        """Stop capture"""
         if not self.running:
             return
             
@@ -493,111 +462,141 @@ class OptimizedRawInputCapture:
         if self.capture_thread:
             self.capture_thread.join(timeout=1.0)
 
-class HighPerformanceMouseHook:
-    """Ultra-optimized mouse hook for 1000Hz performance"""
-    
-    def __init__(self):
+class MouseHook:
+    def __init__(self, config):
+        self.config = config
         self.target_device: Optional[MouseDevice] = None
         self.raw_input_capture = None
         
-        # High-performance counters
         self.total_movements = 0
-        self.total_clicks = 0
-        self.total_scrolls = 0
+        self.recent_movements = deque(maxlen=config["MAX_RECENT_MOVEMENTS"])
+        self.recent_outputs = deque(maxlen=config["MAX_RECENT_OUTPUTS"])
         
-        # Use deque for O(1) operations
-        self.recent_movements: Deque = deque(maxlen=100)
-        self.recent_outputs: Deque = deque(maxlen=50)
-        
-        # Performance tracking
         self.last_perf_time = time.perf_counter()
         self.movements_since_last = 0
         
-        # Initialize optimized FakerInput
-        initialize_fakerinput()
+        initialize_fakerinput(config["CACHE_INT16_RANGE"])
         
-    def process_raw_mouse_movement(self, raw_dx, raw_dy):
-        """Ultra-fast movement processing"""
+    def process_movement(self, raw_dx, raw_dy):
         if not self.target_device:
             return
             
-        # Pre-calculated DPI scaling (no division in hot path)
         scaled_dx = int(raw_dx * self.target_device._dpi_scale)
         scaled_dy = int(raw_dy * self.target_device._dpi_scale)
         
         if scaled_dx != 0 or scaled_dy != 0:
-            # Optimized FakerInput call
-            if send_faker_mouse_move_optimized(scaled_dx, scaled_dy):
-                # Fast counter updates
+            if send_mouse_move(scaled_dx, scaled_dy, self.config["CACHE_INT16_RANGE"]):
                 self.total_movements += 1
                 self.movements_since_last += 1
                 
-                # Minimal logging data (only store essentials)
-                if len(self.recent_movements) < 50:  # Limit to reduce overhead
+                if len(self.recent_movements) < self.config["MAX_RECENT_MOVEMENTS"] // 2:
                     self.recent_movements.append((raw_dx, raw_dy, scaled_dx, scaled_dy))
                 
-                if len(self.recent_outputs) < 25:
+                if len(self.recent_outputs) < self.config["MAX_RECENT_OUTPUTS"] // 2:
                     self.recent_outputs.append(f"M({scaled_dx},{scaled_dy})")
     
     def start_hook(self):
-        """Start optimized hook"""
         if not self.target_device:
-            print("[ERROR] No target device")
             return False
         
-        print("[INFO] Starting high-performance capture...")
+        print("[INFO] Starting capture...")
         
-        # Create optimized raw input capture
-        self.raw_input_capture = OptimizedRawInputCapture(
+        self.raw_input_capture = RawInputCapture(
             self.target_device, 
-            self.process_raw_mouse_movement
+            self.process_movement,
+            self.config["BUFFER_SIZE"]
         )
         
         if self.raw_input_capture.start_capture():
-            print("[SUCCESS] High-performance mode active")
+            print("[INFO] Capture started")
             return True
         else:
-            print("[ERROR] Failed to start capture")
             return False
     
     def stop_hook(self):
-        """Stop hook"""
         if self.raw_input_capture:
             self.raw_input_capture.stop_capture()
             self.raw_input_capture = None
     
     def get_performance_stats(self):
-        """Get performance statistics"""
         current_time = time.perf_counter()
         elapsed = current_time - self.last_perf_time
         
-        if elapsed >= 1.0:
+        if elapsed >= self.config["PERFORMANCE_LOG_INTERVAL"]:
             movements_per_sec = self.movements_since_last / elapsed
             self.movements_since_last = 0
             self.last_perf_time = current_time
             return movements_per_sec
         return 0
 
-class OptimizedMousePassthrough:
+class MousePassthrough:
     def __init__(self):
+        config_manager.register(
+            'mouse_passthrough',
+            'config/mouse_passthrough.json',
+            format='json',
+            default=DEFAULT_CONFIG.copy()
+        )
+        
+        self.config = config_manager.get('mouse_passthrough')
+        
+        final_config = DEFAULT_CONFIG.copy()
+        for key in DEFAULT_CONFIG:
+            if key in self.config:
+                final_config[key] = self.config[key]
+        self.config = final_config
+        
         self.target_device: Optional[MouseDevice] = None
         self.running = False
-        self.mouse_hook = HighPerformanceMouseHook()
+        self.mouse_hook = MouseHook(self.config)
         self.log_thread = None
         self.heartbeat_thread = None
         self.last_log_time = time.perf_counter()
         
-        # Check admin privileges
         if is_admin():
             print("[INFO] Running with Administrator privileges")
         else:
-            print("[WARNING] NOT running as Administrator")
+            print("[INFO] NOT running as Administrator - may have issues")
         
-        # Load config
-        self.load_config()
-        
+        self.load_device_from_config()
+
+    def load_device_from_config(self):
+        try:
+            device_data = config_manager.get('mouse_passthrough', 'device')
+            
+            if device_data and isinstance(device_data, dict):
+                if device_data.get("vendor_id") and device_data.get("product_id"):
+                    if "dpi" not in device_data:
+                        device_data["dpi"] = self.config["DPI"]
+                    
+                    self.target_device = MouseDevice(**device_data)
+                    self.mouse_hook.target_device = self.target_device
+                    print(f"[INFO] Loaded: {self.target_device.friendly_name} @ {self.target_device.dpi} DPI")
+                    
+                    self.config["DPI"] = self.target_device.dpi
+        except Exception:
+            pass
+
+    def save_device_to_config(self):
+        if not self.target_device:
+            return
+            
+        try:
+            device_dict = asdict(self.target_device)
+            if '_dpi_scale' in device_dict:
+                del device_dict['_dpi_scale']
+            
+            config_manager.set('mouse_passthrough', 'device', device_dict)
+        except Exception as e:
+            print(f"[ERROR] Failed to save device: {e}")
+    
+    def save_config(self):
+        try:
+            config_manager.set('mouse_passthrough', data=self.config)
+        except Exception as e:
+            print(f"[ERROR] Failed to save config: {e}")
+
     def get_device_name(self, device_handle) -> Optional[str]:
-        """Get device name from handle"""
         try:
             size = wintypes.UINT(0)
             user32.GetRawInputDeviceInfoW(device_handle, RIDI_DEVICENAME, None, byref(size))
@@ -611,8 +610,7 @@ class OptimizedMousePassthrough:
             pass
         return None
 
-    def parse_device_path(self, device_path: str) -> tuple[str, str]:
-        """Parse VID/PID from device path"""
+    def parse_device_path(self, device_path: str) -> tuple:
         vid, pid = "0000", "0000"
         try:
             path_upper = device_path.upper()
@@ -627,15 +625,20 @@ class OptimizedMousePassthrough:
         return vid, pid
 
     def get_friendly_name(self, device_path: str) -> str:
-        """Generate friendly name"""
         vid, pid = self.parse_device_path(device_path)
-        brands = {"1532": "Razer", "046D": "Logitech", "1B1C": "Corsair", "1038": "SteelSeries"}
+        brands = {
+            "1532": "Razer",
+            "046D": "Logitech",
+            "1B1C": "Corsair",
+            "1038": "SteelSeries",
+            "3938": "ZOWIE",
+            "24AE": "Glorious"
+        }
         brand = brands.get(vid, "Gaming" if vid != "0000" else "Generic")
         return f"{brand} Mouse ({vid}:{pid})"
 
-    def detect_active_mouse(self) -> Optional[MouseDevice]:
-        """Fast and robust mouse detection."""
-        print("Move your mouse to detect... (10 sec timeout)")
+    def detect_mouse(self) -> Optional[MouseDevice]:
+        print(f"[INFO] Move your mouse to detect (timeout: {self.config['DETECTION_TIMEOUT']}s)")
 
         detected_device = None
         detection_complete = threading.Event()
@@ -644,7 +647,7 @@ class OptimizedMousePassthrough:
             nonlocal detected_device
             try:
                 if msg == WM_INPUT:
-                    size = wintypes.UINT(48) # Size of RAWINPUT struct
+                    size = wintypes.UINT(48)
                     buffer = ctypes.create_string_buffer(size.value)
                     hraw = wintypes.HANDLE(lparam)
                     
@@ -658,22 +661,22 @@ class OptimizedMousePassthrough:
                                 vid, pid = self.parse_device_path(device_path)
                                 friendly_name = self.get_friendly_name(device_path)
                                 handle_value = int(ctypes.cast(device_handle, ctypes.c_void_p).value or 0)
+                                
                                 detected_device = MouseDevice(
-                                    handle_value=handle_value,
-                                    friendly_name=friendly_name,
                                     vendor_id=vid,
                                     product_id=pid,
+                                    friendly_name=friendly_name,
                                     device_path=device_path,
-                                    dpi=1600
+                                    handle_value=handle_value,
+                                    dpi=self.config["DPI"]
                                 )
-                                print(f"Detected: {friendly_name}")
+                                print(f"[INFO] Detected: {friendly_name}")
                                 detection_complete.set()
             except Exception:
                 pass
             
             return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
-        # Keep a reference to WNDPROC to prevent garbage collection
         det_wndproc = WNDPROC(window_proc)
         
         wndclass = WNDCLASSW()
@@ -684,8 +687,7 @@ class OptimizedMousePassthrough:
         hwnd = None
         try:
             if not user32.RegisterClassW(byref(wndclass)):
-                if kernel32.GetLastError() != 1410: # ERROR_CLASS_ALREADY_EXISTS
-                    print("[ERROR] Could not register window class for detection.")
+                if kernel32.GetLastError() != 1410:
                     return None
 
             hwnd = user32.CreateWindowExW(
@@ -693,7 +695,6 @@ class OptimizedMousePassthrough:
                 None, None, wndclass.hInstance, None
             )
             if not hwnd:
-                print("[ERROR] Could not create window for detection.")
                 return None
 
             rid = RAWINPUTDEVICE()
@@ -703,18 +704,15 @@ class OptimizedMousePassthrough:
             rid.hwndTarget = hwnd
 
             if not user32.RegisterRawInputDevices(byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE)):
-                print("[ERROR] Could not register for raw mouse input.")
                 return None
 
-            # --- FIX: Flush any pending mouse input messages before starting ---
             msg = MSG()
             while user32.PeekMessageW(byref(msg), hwnd, WM_INPUT, WM_INPUT, PM_REMOVE):
-                pass # Discard old messages
+                pass
 
             start_time = time.perf_counter()
-            timeout = 10.0
             while not detection_complete.is_set():
-                if time.perf_counter() - start_time >= timeout:
+                if time.perf_counter() - start_time >= self.config["DETECTION_TIMEOUT"]:
                     break
                 
                 if user32.PeekMessageW(byref(msg), hwnd, 0, 0, PM_REMOVE):
@@ -726,10 +724,9 @@ class OptimizedMousePassthrough:
             return detected_device
 
         except Exception as e:
-            print(f"Detection error: {e}")
+            print(f"[ERROR] Detection failed: {e}")
             return None
         finally:
-            # --- FIX: Guaranteed cleanup to allow repeated calls ---
             if hwnd:
                 rid = RAWINPUTDEVICE()
                 rid.usUsagePage = 0x01
@@ -739,37 +736,136 @@ class OptimizedMousePassthrough:
                 user32.RegisterRawInputDevices(byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE))
                 user32.DestroyWindow(hwnd)
             
-            user32.UnregisterClassW(wndclass.lpszClassName, wndclass.hInstance)
+            try:
+                user32.UnregisterClassW(wndclass.lpszClassName, wndclass.hInstance)
+            except:
+                pass
 
     def configure_dpi(self):
-        """Configure DPI"""
         if not self.target_device:
-            print("No mouse configured")
+            print("[ERROR] No mouse configured")
             return
-        print(f"Current DPI: {self.target_device.dpi}")
+        
+        print(f"\n[INFO] Current DPI: {self.target_device.dpi}")
         try:
-            new_dpi = int(input("Enter DPI (100-20000): "))
-            if 100 <= new_dpi <= 20000:
+            dpi_input = input("Enter new DPI (50-50000): ").strip()
+            if not dpi_input:
+                return
+                
+            new_dpi = int(dpi_input)
+            if 50 <= new_dpi <= 50000:
                 self.target_device.dpi = new_dpi
-                self.target_device.update_dpi_scale()  # Update cached scale
+                self.target_device.update_dpi_scale()
                 self.mouse_hook.target_device = self.target_device
-                self.save_config()
-                print(f"DPI set to {new_dpi}")
+                
+                self.config["DPI"] = new_dpi
+                config_manager.set('mouse_passthrough', 'DPI', new_dpi)
+                self.save_device_to_config()
+                
+                print(f"[INFO] DPI set to {new_dpi}")
             else:
-                print("DPI must be 100-20000")
-        except (ValueError, KeyboardInterrupt):
-            print("Invalid input")
+                print("[ERROR] DPI must be between 50 and 50000")
+        except ValueError:
+            print("[ERROR] Invalid DPI value")
+        except KeyboardInterrupt:
+            pass
+
+    def configure_advanced(self):
+        while True:
+            print("\n=== Advanced Configuration ===")
+            print(f"[1] Heartbeat: {'Enabled' if self.config['HEARTBEAT_ENABLED'] else 'Disabled'}")
+            print(f"[2] Heartbeat Interval: {self.config['HEARTBEAT_INTERVAL']}s")
+            print(f"[3] Heartbeat Distance: {self.config['HEARTBEAT_DISTANCE']} pixels")
+            print(f"[4] Performance Display: {'Enabled' if self.config['PERFORMANCE_DISPLAY_ENABLED'] else 'Disabled'}")
+            print(f"[5] Performance Log Interval: {self.config['PERFORMANCE_LOG_INTERVAL']}s")
+            print(f"[6] Buffer Size: {self.config['BUFFER_SIZE']} bytes")
+            print(f"[7] Detection Timeout: {self.config['DETECTION_TIMEOUT']}s")
+            print("[8] Back to main menu")
+            
+            try:
+                choice = input("\nChoice: ").strip()
+            except (KeyboardInterrupt, EOFError):
+                break
+            
+            if choice == "1":
+                self.config["HEARTBEAT_ENABLED"] = not self.config["HEARTBEAT_ENABLED"]
+                config_manager.set('mouse_passthrough', 'HEARTBEAT_ENABLED', self.config["HEARTBEAT_ENABLED"])
+                print(f"[INFO] Heartbeat {'enabled' if self.config['HEARTBEAT_ENABLED'] else 'disabled'}")
+            
+            elif choice == "2":
+                try:
+                    val = float(input("Interval (0.1-10.0s): "))
+                    if 0.1 <= val <= 10.0:
+                        self.config["HEARTBEAT_INTERVAL"] = val
+                        config_manager.set('mouse_passthrough', 'HEARTBEAT_INTERVAL', val)
+                    else:
+                        print("[ERROR] Value out of range")
+                except ValueError:
+                    print("[ERROR] Invalid value")
+            
+            elif choice == "3":
+                try:
+                    val = int(input("Distance (1-20 pixels): "))
+                    if 1 <= val <= 20:
+                        self.config["HEARTBEAT_DISTANCE"] = val
+                        config_manager.set('mouse_passthrough', 'HEARTBEAT_DISTANCE', val)
+                    else:
+                        print("[ERROR] Value out of range")
+                except ValueError:
+                    print("[ERROR] Invalid value")
+            
+            elif choice == "4":
+                self.config["PERFORMANCE_DISPLAY_ENABLED"] = not self.config["PERFORMANCE_DISPLAY_ENABLED"]
+                config_manager.set('mouse_passthrough', 'PERFORMANCE_DISPLAY_ENABLED', self.config["PERFORMANCE_DISPLAY_ENABLED"])
+                print(f"[INFO] Performance display {'enabled' if self.config['PERFORMANCE_DISPLAY_ENABLED'] else 'disabled'}")
+            
+            elif choice == "5":
+                try:
+                    val = float(input("Interval (0.5-10.0s): "))
+                    if 0.5 <= val <= 10.0:
+                        self.config["PERFORMANCE_LOG_INTERVAL"] = val
+                        config_manager.set('mouse_passthrough', 'PERFORMANCE_LOG_INTERVAL', val)
+                    else:
+                        print("[ERROR] Value out of range")
+                except ValueError:
+                    print("[ERROR] Invalid value")
+            
+            elif choice == "6":
+                try:
+                    val = int(input("Size (128-2048 bytes): "))
+                    if 128 <= val <= 2048:
+                        self.config["BUFFER_SIZE"] = val
+                        config_manager.set('mouse_passthrough', 'BUFFER_SIZE', val)
+                        print("[INFO] Restart passthrough for change to take effect")
+                    else:
+                        print("[ERROR] Value out of range")
+                except ValueError:
+                    print("[ERROR] Invalid value")
+            
+            elif choice == "7":
+                try:
+                    val = float(input("Timeout (1-60s): "))
+                    if 1 <= val <= 60:
+                        self.config["DETECTION_TIMEOUT"] = val
+                        config_manager.set('mouse_passthrough', 'DETECTION_TIMEOUT', val)
+                    else:
+                        print("[ERROR] Value out of range")
+                except ValueError:
+                    print("[ERROR] Invalid value")
+            
+            elif choice == "8":
+                break
 
     def log_worker(self):
-        """Optimized logging thread"""
         while self.running:
             try:
-                time.sleep(1.0)  # Faster logging for 1000Hz monitoring
-                if self.running:
+                time.sleep(self.config["PERFORMANCE_LOG_INTERVAL"])
+                
+                if self.running and self.config["PERFORMANCE_DISPLAY_ENABLED"]:
                     current_time = time.perf_counter()
                     elapsed = current_time - self.last_log_time
                     
-                    if elapsed >= 1.0:
+                    if elapsed >= self.config["PERFORMANCE_LOG_INTERVAL"]:
                         movements = self.mouse_hook.total_movements
                         performance = self.mouse_hook.get_performance_stats()
                         
@@ -787,203 +883,167 @@ class OptimizedMousePassthrough:
                 pass
 
     def heartbeat_worker(self):
-        """Heartbeat thread to move the mouse and return it periodically."""
         while self.running:
-            # Wait for 0.3 seconds before the next heartbeat cycle.
-            time.sleep(0.3)
+            time.sleep(self.config["HEARTBEAT_INTERVAL"])
             if not self.running:
                 break
 
-            try:
-                # Define movement parameters
-                steps = 2
-                pixels_per_step = 1
-                duration_s = 0.001
-                sleep_between_steps = duration_s / steps  # 0.002s
+            if not self.config["HEARTBEAT_ENABLED"]:
+                continue
 
-                # --- Move forward ---
+            try:
+                steps = self.config["HEARTBEAT_DISTANCE"]
+                pixels_per_step = 1
+                duration_s = 0.002
+                sleep_between_steps = duration_s / steps
+
                 for _ in range(steps):
                     if not self.running:
                         break
-                    send_faker_mouse_move_optimized(pixels_per_step, 0) # Move right
+                    send_mouse_move(pixels_per_step, 0, self.config["CACHE_INT16_RANGE"])
                     time.sleep(sleep_between_steps)
 
-                if not self.running: # Check again before moving back
+                if not self.running:
                     break
 
-                # --- Move back ---
                 for _ in range(steps):
                     if not self.running:
                         break
-                    send_faker_mouse_move_optimized(-pixels_per_step, 0) # Move left
+                    send_mouse_move(-pixels_per_step, 0, self.config["CACHE_INT16_RANGE"])
                     time.sleep(sleep_between_steps)
 
             except Exception as e:
-                # Log error but don't crash the service
-                print(f"[ERROR] Heartbeat movement failed: {e}")
+                print(f"[ERROR] Heartbeat failed: {e}")
 
     def start_passthrough(self):
-        """Start optimized passthrough"""
         if not self.target_device:
-            print("No mouse configured")
+            print("[ERROR] No mouse configured - detect mouse first")
             return False
 
         try:
-            # Set target device
             self.mouse_hook.target_device = self.target_device
             
-            # Start optimized capture
             if not self.mouse_hook.start_hook():
-                print("Failed to start capture")
+                print("[ERROR] Failed to start capture")
                 return False
 
-            print("=== HIGH-PERFORMANCE MOUSE PASSTHROUGH ACTIVE ===")
-            print(f"Mouse: {self.target_device.friendly_name}")
-            print(f"DPI: {self.target_device.dpi} (Scale: {self.target_device._dpi_scale:.3f})")
-            print("Mode: Optimized Raw Input (Ultra-low latency)")
-            print("Performance: 1000Hz optimized")
-            print("Press Ctrl+C to stop")
+            border = "=" * 50
+            print(f"\n{border}")
+            print("          Mouse Passthrough Active")
+            print(border)
+            print(f"[CONFIG] Mouse: {self.target_device.friendly_name}")
+            print(f"[CONFIG] DPI: {self.target_device.dpi} (Scale: {self.target_device._dpi_scale:.3f})")
+            print(f"[CONFIG] Heartbeat: {'Enabled' if self.config['HEARTBEAT_ENABLED'] else 'Disabled'}")
+            print(f"[CONFIG] Performance Display: {'Enabled' if self.config['PERFORMANCE_DISPLAY_ENABLED'] else 'Disabled'}")
+            print(border)
+            print("[INFO] Press Ctrl+C to stop")
+            print(border)
 
             self.running = True
 
-            # Reset counters
             self.mouse_hook.total_movements = 0
             self.mouse_hook.movements_since_last = 0
             self.last_log_time = time.perf_counter()
             self.mouse_hook.recent_movements.clear()
             self.mouse_hook.recent_outputs.clear()
 
-            # Start optimized logging
-            self.log_thread = threading.Thread(target=self.log_worker, daemon=True)
-            self.log_thread.start()
+            if self.config["PERFORMANCE_DISPLAY_ENABLED"]:
+                self.log_thread = threading.Thread(target=self.log_worker, daemon=True)
+                self.log_thread.start()
 
-            # Start heartbeat thread
-            self.heartbeat_thread = threading.Thread(target=self.heartbeat_worker, daemon=True)
-            self.heartbeat_thread.start()
+            if self.config["HEARTBEAT_ENABLED"]:
+                self.heartbeat_thread = threading.Thread(target=self.heartbeat_worker, daemon=True)
+                self.heartbeat_thread.start()
 
-            # Minimal main loop overhead
             try:
                 while self.running:
-                    time.sleep(0.01)  # Reduced sleep for responsiveness
+                    time.sleep(0.01)
             except KeyboardInterrupt:
-                print("\nStopping...")
+                print("\n[INFO] Stopping...")
 
             self.stop()
             return True
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"[ERROR] Passthrough failed: {e}")
             return False
 
     def stop(self):
-        """Stop passthrough"""
         self.running = False
         self.mouse_hook.stop_hook()
 
-    def save_config(self):
-        """Save configuration"""
-        from lib.config.config_manager import config_manager
-
-        # Register mouse config if not already registered
-        config_manager.register('mouse', 'config/mouse_config.json',
-                               format='json', default={})
-
-        config = {}
-        if self.target_device:
-            config['target_device'] = asdict(self.target_device)
-            # Don't save the cached _dpi_scale
-            if '_dpi_scale' in config['target_device']:
-                del config['target_device']['_dpi_scale']
-
-        try:
-            config_manager.set('mouse', data=config)
-        except:
-            pass
-
-    def load_config(self):
-        """Load configuration"""
-        from lib.config.config_manager import config_manager
-
-        # Register mouse config if not already registered
-        config_manager.register('mouse', 'config/mouse_config.json',
-                               format='json', default={})
-
-        try:
-            config = config_manager.get('mouse')
-            if not config:
-                return
-
-            td = config.get('target_device')
-            if td:
-                self.target_device = MouseDevice(**td)
-                self.target_device.update_dpi_scale()  # Recalculate cached scale
-                self.mouse_hook.target_device = self.target_device
-                print(f"Loaded: {self.target_device.friendly_name} (DPI: {self.target_device.dpi})")
-
-        except:
-            pass
-
     def show_config(self):
-        """Display configuration"""
         if self.target_device:
-            print(f"\nMouse: {self.target_device.friendly_name}")
-            print(f"VID/PID: {self.target_device.vendor_id}:{self.target_device.product_id}")
+            print(f"\n=== Current Configuration ===")
+            print(f"Mouse: {self.target_device.friendly_name}")
+            print(f"VID:PID: {self.target_device.vendor_id}:{self.target_device.product_id}")
             print(f"DPI: {self.target_device.dpi} (Scale: {self.target_device._dpi_scale:.3f})")
-            print(f"Handle: {self.target_device.handle_value}")
+            print(f"Heartbeat: {'Enabled' if self.config['HEARTBEAT_ENABLED'] else 'Disabled'}")
+            print(f"Performance Display: {'Enabled' if self.config['PERFORMANCE_DISPLAY_ENABLED'] else 'Disabled'}")
         else:
-            print("\nNo mouse configured")
+            print("\n[INFO] No mouse configured")
 
     def run(self):
-        """Main UI loop"""
         while True:
-            print("\n=== OPTIMIZED MOUSE PASSTHROUGH (1000Hz) ===")
+            print("\n" + "=" * 50)
+            print("          Mouse Passthrough Service")
+            print("=" * 50)
+            
             if self.target_device:
-                print(f"Ready: {self.target_device.friendly_name} @ {self.target_device.dpi} DPI")
+                print(f"[READY] {self.target_device.friendly_name} @ {self.target_device.dpi} DPI")
             else:
-                print("No mouse configured")
+                print("[INFO] No mouse configured")
 
-            print("1. Detect mouse")
-            print("2. Start passthrough")
-            print("3. Set DPI")
-            print("4. Show config")
-            print("5. Exit")
+            print("\n[1] Detect mouse")
+            print("[2] Start passthrough")
+            print("[3] Configure DPI")
+            print("[4] Advanced settings")
+            print("[5] Show configuration")
+            print("[6] Exit")
 
             try:
                 choice = input("\nChoice: ").strip()
             except (KeyboardInterrupt, EOFError):
-                return
+                break
 
             if choice == "1":
-                device = self.detect_active_mouse()
+                device = self.detect_mouse()
                 if device:
+                    if self.target_device and self.target_device.matches(device.vendor_id, device.product_id):
+                        device.dpi = self.target_device.dpi
+                        device.update_dpi_scale()
+                    
                     self.target_device = device
                     self.mouse_hook.target_device = device
-                    self.save_config()
-                    print(f"Mouse ready: {device.friendly_name}")
+                    self.save_device_to_config()
+                    print(f"[INFO] Mouse ready: {device.friendly_name}")
                 else:
-                    print("No mouse detected")
+                    print("[ERROR] No mouse detected")
 
             elif choice == "2":
                 if self.target_device:
                     self.start_passthrough()
                 else:
-                    print("Detect mouse first")
+                    print("[ERROR] Detect mouse first")
 
             elif choice == "3":
                 self.configure_dpi()
 
             elif choice == "4":
-                self.show_config()
+                self.configure_advanced()
 
             elif choice == "5":
+                self.show_config()
+
+            elif choice == "6":
                 break
 
 def main():
     if sys.platform != "win32":
-        print("Windows required")
+        print("[ERROR] Windows required")
         return 1
 
-    service = OptimizedMousePassthrough()
+    service = MousePassthrough()
 
     def signal_handler(signum, frame):
         service.stop()
@@ -996,7 +1056,7 @@ def main():
         service.run()
         return 0
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"[ERROR] Fatal error: {e}")
         traceback.print_exc()
         return 1
 
