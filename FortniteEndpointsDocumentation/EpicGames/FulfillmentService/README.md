@@ -1,3 +1,0 @@
-# Fulfillment Service
-
-Language: `Java`

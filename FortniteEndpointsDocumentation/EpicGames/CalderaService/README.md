@@ -1,3 +1,0 @@
-# Caldera Service
-
-Language: `Go`
