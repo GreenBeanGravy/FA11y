@@ -1,9 +1,0 @@
-Lone Lodge,939,397
-Pleasant Park,758,527
-Snobby Shoals,1173,491
-Lil Loot Lake,841,679
-Tilted Towers,1009,652
-Sandy Sheets,1210,625
-Retail Row,1254,814
-Lazy Laps,1072,832
-Dusty Docks,883,847
