@@ -1146,53 +1146,22 @@ class DiscoveryDialog(AccessibleDialog):
                 time.sleep(1.0)  # Wait an extra second before pressing enter
                 pyautogui.press('enter')
 
-                # Wait for search results - check if pixel 84,335 is white (255,255,255)
+                # Wait for search results - check if pixel 84,353 is white (255,255,255)
                 # Using FA11y's built-in screen capture instead of pyautogui
                 def check_pixel_white(x, y):
                     """Check if pixel at (x, y) is white using FA11y screen capture"""
-                    import time as time_module
-
-                    # Force a fresh capture by getting a full screen shot and indexing into it
-                    # This bypasses any potential caching in capture_coordinates
                     from lib.managers.screenshot_manager import screenshot_manager
                     full_screen = screenshot_manager.capture_full_screen('rgb')
-
-                    # Also get pyautogui's version for comparison
-                    try:
-                        pyautogui_color = pyautogui.pixel(x, y)
-                    except:
-                        pyautogui_color = "error"
-
                     if full_screen is not None:
                         # numpy arrays are indexed [y, x] not [x, y]
                         fa11y_color = tuple(full_screen[y, x])
-                        timestamp = time_module.time()
-                        print(f"[{timestamp:.3f}] Position ({x}, {y}) - FA11y: {fa11y_color}, PyAutoGUI: {pyautogui_color}")
                         return fa11y_color == (255, 255, 255)
-                    print(f"Position ({x}, {y}) - FA11y: None (capture failed), PyAutoGUI: {pyautogui_color}")
                     return False
 
                 start_time = time.time()
-                check_count = 0
-                while not check_pixel_white(84, 335):
+                while not check_pixel_white(84, 353):
                     if time.time() - start_time > 5:
                         logger.error("Timeout waiting for search results")
-                        # Save a debug screenshot on timeout
-                        try:
-                            from lib.managers.screenshot_manager import screenshot_manager
-                            import cv2
-                            debug_shot = screenshot_manager.capture_full_screen('rgb')
-                            if debug_shot is not None:
-                                # Draw a marker at the pixel we were checking
-                                debug_shot_bgr = cv2.cvtColor(debug_shot, cv2.COLOR_RGB2BGR)
-                                cv2.circle(debug_shot_bgr, (84, 335), 10, (0, 0, 255), 2)
-                                cv2.putText(debug_shot_bgr, f"(84,335)", (94, 335),
-                                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
-                                cv2.imwrite('discovery_gui_timeout_debug.png', debug_shot_bgr)
-                                print(f"[DEBUG] Saved timeout screenshot to discovery_gui_timeout_debug.png")
-                        except Exception as e:
-                            print(f"[DEBUG] Failed to save debug screenshot: {e}")
-
                         speaker.speak("Failed to select gamemode: Search results not found - gamemode may not exist or something else broke")
                         pyautogui.scroll(3)
                         time.sleep(0.2)
@@ -1202,7 +1171,6 @@ class DiscoveryDialog(AccessibleDialog):
                         time.sleep(0.2)
                         pyautogui.scroll(3)
                         return
-                    check_count += 1
                     time.sleep(0.1)
                 time.sleep(0.1)
 
