@@ -16,6 +16,7 @@ from lib.guis.gui_utilities import (
     messageBox, BORDER_FOR_DIALOGS
 )
 from lib.utilities.window_utils import focus_fortnite
+from lib.managers.screenshot_manager import capture_coordinates
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -1146,8 +1147,17 @@ class DiscoveryDialog(AccessibleDialog):
                 pyautogui.press('enter')
 
                 # Wait for search results - check if pixel 84,335 is white (255,255,255)
+                # Using FA11y's built-in screen capture instead of pyautogui
+                def check_pixel_white(x, y):
+                    """Check if pixel at (x, y) is white using FA11y screen capture"""
+                    pixel = capture_coordinates(x, y, 1, 1, 'rgb')
+                    if pixel is not None and pixel.shape[0] > 0 and pixel.shape[1] > 0:
+                        color = tuple(pixel[0, 0])
+                        return color == (255, 255, 255)
+                    return False
+
                 start_time = time.time()
-                while not pyautogui.pixelMatchesColor(84, 335, (255, 255, 255)):
+                while not check_pixel_white(84, 335):
                     if time.time() - start_time > 5:
                         logger.error("Timeout waiting for search results")
                         speaker.speak("Failed to select gamemode: Search results not found - gamemode may not exist or something else broke")
