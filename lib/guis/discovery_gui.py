@@ -1153,7 +1153,9 @@ class DiscoveryDialog(AccessibleDialog):
                     pixel = capture_coordinates(x, y, 1, 1, 'rgb')
                     if pixel is not None and pixel.shape[0] > 0 and pixel.shape[1] > 0:
                         color = tuple(pixel[0, 0])
+                        print(f"Pixel at ({x}, {y}): {color}")
                         return color == (255, 255, 255)
+                    print(f"Pixel at ({x}, {y}): None (capture failed)")
                     return False
 
                 start_time = time.time()
