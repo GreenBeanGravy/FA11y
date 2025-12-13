@@ -206,13 +206,18 @@ class GamemodeGUI(AccessibleDialog):
             pyautogui.hotkey('ctrl', 'a')
             time.sleep(0.1)
             pyautogui.typewrite(code)
+            time.sleep(1.0)  # Wait an extra second before pressing enter
             pyautogui.press('enter')
 
-            # Wait for search results - check if pixel 85,371 is white (255,255,255)
+            # Wait for search results - check if pixel 84,335 is white (255,255,255)
             start_time = time.time()
-            while not pyautogui.pixelMatchesColor(85, 371, (255, 255, 255)):
+            while not pyautogui.pixelMatchesColor(84, 335, (255, 255, 255)):
                 if time.time() - start_time > 5:
                     logger.error("Timeout waiting for search results")
+                    pyautogui.scroll(3)
+                    time.sleep(0.2)
+                    pyautogui.scroll(3)
+                    time.sleep(0.2)
                     pyautogui.scroll(3)
                     time.sleep(0.2)
                     pyautogui.scroll(3)
@@ -226,7 +231,7 @@ class GamemodeGUI(AccessibleDialog):
             time.sleep(0.7)
 
             # Click to confirm/select
-            pyautogui.moveTo(250, 910, duration=0.04)
+            pyautogui.moveTo(235, 923, duration=0.04)
             pyautogui.click()
             time.sleep(0.5)
 
