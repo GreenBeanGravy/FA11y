@@ -1,0 +1,5 @@
+Snobby Shoals,1006,413
+Sandy Sheets,1038,555
+Pleasant Park,874,613
+Blitz Mega City,1082,713
+Oathbound Citadel,898,768
