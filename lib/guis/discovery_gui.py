@@ -1167,9 +1167,26 @@ class DiscoveryDialog(AccessibleDialog):
                     return False
 
                 start_time = time.time()
+                check_count = 0
                 while not check_pixel_white(84, 335):
                     if time.time() - start_time > 5:
                         logger.error("Timeout waiting for search results")
+                        # Save a debug screenshot on timeout
+                        try:
+                            from lib.managers.screenshot_manager import screenshot_manager
+                            import cv2
+                            debug_shot = screenshot_manager.capture_full_screen('rgb')
+                            if debug_shot is not None:
+                                # Draw a marker at the pixel we were checking
+                                debug_shot_bgr = cv2.cvtColor(debug_shot, cv2.COLOR_RGB2BGR)
+                                cv2.circle(debug_shot_bgr, (84, 335), 10, (0, 0, 255), 2)
+                                cv2.putText(debug_shot_bgr, f"(84,335)", (94, 335),
+                                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+                                cv2.imwrite('discovery_gui_timeout_debug.png', debug_shot_bgr)
+                                print(f"[DEBUG] Saved timeout screenshot to discovery_gui_timeout_debug.png")
+                        except Exception as e:
+                            print(f"[DEBUG] Failed to save debug screenshot: {e}")
+
                         speaker.speak("Failed to select gamemode: Search results not found - gamemode may not exist or something else broke")
                         pyautogui.scroll(3)
                         time.sleep(0.2)
@@ -1179,6 +1196,7 @@ class DiscoveryDialog(AccessibleDialog):
                         time.sleep(0.2)
                         pyautogui.scroll(3)
                         return
+                    check_count += 1
                     time.sleep(0.1)
                 time.sleep(0.1)
 
