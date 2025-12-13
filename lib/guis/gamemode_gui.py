@@ -214,8 +214,12 @@ class GamemodeGUI(AccessibleDialog):
             # Using FA11y's built-in screen capture instead of pyautogui
             def check_pixel_white(x, y):
                 """Check if pixel at (x, y) is white using FA11y screen capture"""
-                # Capture using FA11y
-                pixel = capture_coordinates(x, y, 1, 1, 'rgb')
+                import time as time_module
+
+                # Force a fresh capture by getting a full screen shot and indexing into it
+                # This bypasses any potential caching in capture_coordinates
+                from lib.managers.screenshot_manager import screenshot_manager
+                full_screen = screenshot_manager.capture_full_screen('rgb')
 
                 # Also get pyautogui's version for comparison
                 try:
@@ -223,9 +227,11 @@ class GamemodeGUI(AccessibleDialog):
                 except:
                     pyautogui_color = "error"
 
-                if pixel is not None and pixel.shape[0] > 0 and pixel.shape[1] > 0:
-                    fa11y_color = tuple(pixel[0, 0])
-                    print(f"Position ({x}, {y}) - FA11y: {fa11y_color}, PyAutoGUI: {pyautogui_color}")
+                if full_screen is not None:
+                    # numpy arrays are indexed [y, x] not [x, y]
+                    fa11y_color = tuple(full_screen[y, x])
+                    timestamp = time_module.time()
+                    print(f"[{timestamp:.3f}] Position ({x}, {y}) - FA11y: {fa11y_color}, PyAutoGUI: {pyautogui_color}")
                     return fa11y_color == (255, 255, 255)
                 print(f"Position ({x}, {y}) - FA11y: None (capture failed), PyAutoGUI: {pyautogui_color}")
                 return False
