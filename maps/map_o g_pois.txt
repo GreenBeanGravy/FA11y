@@ -1,27 +1,29 @@
-Junk Junction, 637, 179
-Haunted Hills, 600, 262
-Pleasant Park, 723, 349
-Anarchy Acres, 971, 286
-Wailing Woods, 1266, 355
-Snobby Shores, 531, 507
-Soccer Stadium, 681, 539
-Tilted Towers, 812, 554
-Tomato Town, 1100, 372
-Loot Lake, 878, 426
-Lonely Lodge, 1321, 476
-Scrap Yard, 1170, 458
-The Factory, 1059, 590
-Retail Row, 1182, 589
-Farmers Market, 1278, 552
-Gus, 1339, 653
-Greasy Grove, 668, 671
-Salty Springs, 1005, 669
-Fatal Fields, 1041, 825
-The Prison, 1200, 789
-Moisty Mire, 1266, 840
-Flush Factory, 793, 923
-Dusty Divot, 1039, 568
-Risky Reels, 1175, 259
-Lucky Landing, 1003, 973
-Viking Village, 585, 582
-Paradise Palms, 1255, 795
+Junk Junction,638,188
+Lazy Links,969,276
+Risky Reels,1181,259
+Haunted Hills,594,269
+Pleasant Park,725,354
+Loot Late,877,436
+Tomato Temple,1102,379
+Wailing Woods,1267,351
+Snobby Shores,528,506
+Tilted Towers,814,560
+Dusty Buildings,1027,503
+Dusty Divot,1042,552
+The Junkyard,1166,466
+The Farm,1277,556
+The Mansion,1386,565
+The Racetrack (Gus),1307,632
+The Soccer Field,685,548
+The Viking Village,585,585
+Frozen Lake,672,688
+Shifty Shafts,804,677
+Salty Springs,1006,671
+Retail Row,1186,592
+Polar Peak,699,764
+Frosty Flights,553,800
+Happy Hamlet,766,920
+Fatal Fields,1053,820
+Paradise Palms,1255,795
+Lucky Landing,1008,978
+
