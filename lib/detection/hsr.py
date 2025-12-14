@@ -7,8 +7,9 @@ import requests
 speaker = Auto()
 
 # API Configuration
-API_BASE_URL = "http://localhost:6767/api"
-API_TIMEOUT = 0.5  # 500ms timeout - fast fail if FA11y-OW isn't running
+API_BASE_URL = "http://127.0.0.1:6767/api"
+# If it takes longer than 10ms, it's likely down.
+API_TIMEOUT = 0.01 
 
 # Visual detection fallback settings
 health_color, shield_color = (247, 255, 26), (213, 255, 232)
