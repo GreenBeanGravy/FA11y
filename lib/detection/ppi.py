@@ -18,15 +18,32 @@ if use_gpu:
 # else:
     # print("No OpenCL-compatible GPU found. Using CPU for PPI.")
 
-# PPI constants
+# PPI constants - Current/Default
 PPI_CAPTURE_REGION = {"top": 33, "left": 1637, "width": 250, "height": 250}
 
 # Core constants for screen regions (imported from player_position for consistency)
 ROI_START_ORIG = (524, 84)
 ROI_END_ORIG = (1390, 1010)
 
+# Legacy PPI constants (for "o g" map)
+PPI_CAPTURE_REGION_LEGACY = {"top": 20, "left": 1600, "width": 300, "height": 300}
+ROI_START_ORIG_LEGACY = (524, 84)
+ROI_END_ORIG_LEGACY = (1390, 1010)
+
 # Detection region dimensions
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
+
+def get_ppi_coordinates(map_name: str) -> dict:
+    """Get appropriate PPI capture region based on map name"""
+    if map_name == "o g":
+        return PPI_CAPTURE_REGION_LEGACY
+    return PPI_CAPTURE_REGION
+
+def get_roi_coordinates(map_name: str) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+    """Get appropriate ROI start/end coordinates based on map name"""
+    if map_name == "o g":
+        return ROI_START_ORIG_LEGACY, ROI_END_ORIG_LEGACY
+    return ROI_START_ORIG, ROI_END_ORIG
 
 class MapManager:
     """Manages map data and matching for position detection - optimized for per-map loading"""
@@ -89,10 +106,11 @@ class MapManager:
 # Global map manager instance
 map_manager = MapManager()
 
-def capture_map_screen():
-    """Capture the map area of the screen"""
+def capture_map_screen(map_name: str = "main"):
+    """Capture the map area of the screen using appropriate coordinates for the map"""
+    capture_region = get_ppi_coordinates(map_name)
     with mss() as sct:
-        screenshot_rgba = np.array(sct.grab(PPI_CAPTURE_REGION))
+        screenshot_rgba = np.array(sct.grab(capture_region))
     return cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2GRAY)
 
 def find_best_match(captured_area):
@@ -144,7 +162,7 @@ def find_player_position() -> Optional[Tuple[int, int]]:
     """Find player position using the map"""
     config = read_config()
     current_map_id = config.get('POI', 'current_map', fallback='main')
-    
+
     # Extract actual map name for file loading
     if current_map_id == 'main':
         map_filename_to_load = 'main'
@@ -157,20 +175,25 @@ def find_player_position() -> Optional[Tuple[int, int]]:
             map_filename_to_load = base_name
         else:
             map_filename_to_load = current_map_id
-    
+
     if not map_manager.switch_map(map_filename_to_load):
         return None
-    
-    captured_area = capture_map_screen()
+
+    # Get appropriate coordinates based on map name
+    roi_start, roi_end = get_roi_coordinates(map_filename_to_load)
+    roi_width = roi_end[0] - roi_start[0]
+    roi_height = roi_end[1] - roi_start[1]
+
+    captured_area = capture_map_screen(map_filename_to_load)
     matched_region = find_best_match(captured_area)
-    
+
     if matched_region is not None:
         center = np.mean(matched_region, axis=0).reshape(-1)
-        
+
         map_h, map_w = map_manager.current_image_dims
-        x = int(center[0] * (WIDTH / map_w) + ROI_START_ORIG[0])
-        y = int(center[1] * (HEIGHT / map_h) + ROI_START_ORIG[1])
-        
+        x = int(center[0] * (roi_width / map_w) + roi_start[0])
+        y = int(center[1] * (roi_height / map_h) + roi_start[1])
+
         return (x, y)
     return None
 
