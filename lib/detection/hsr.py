@@ -2,6 +2,7 @@ from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean
 from lib.managers.hotbar_manager import get_last_detected_rarity
+from lib.detection.coordinate_config import get_health_shield_coords
 import requests
 
 speaker = Auto()
@@ -90,10 +91,23 @@ def check_health_shields():
             return
         
         # API failed or unavailable, fall back to visual detection
+        # Get map-specific coordinates and settings
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        coords = get_health_shield_coords(current_map)
+        
         screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
         pixels = screenshot.load()
-        check_value_visual(pixels, 408, 1000, health_decreases, health_color, tolerance, 'Health', 'Cannot find Health Value!')
-        check_value_visual(pixels, 408, 970, shield_decreases, shield_color, tolerance, 'Shield', 'No Shield')
+        
+        # Use map-specific coordinates, colors, tolerance, and decrease patterns
+        check_value_visual(
+            pixels, coords.health_x, coords.health_y, coords.health_decreases,
+            coords.health_color, coords.tolerance, 'Health', 'Cannot find Health Value!'
+        )
+        check_value_visual(
+            pixels, coords.shield_x, coords.shield_y, coords.shield_decreases,
+            coords.shield_color, coords.tolerance, 'Shield', 'No Shield'
+        )
         
     except Exception as e:
         print(f"Error in check_health_shields: {e}")

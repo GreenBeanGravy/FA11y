@@ -13,21 +13,67 @@ from pathlib import Path
 from threading import Thread, Event, Lock
 from queue import Queue
 from lib.managers.ocr_manager import get_ocr_manager
+from lib.detection.coordinate_config import get_hotbar_coords
 
-# Screen coordinates for weapon slots (left, top, right, bottom)
-SLOT_COORDS = [
-    (1502, 931, 1565, 975),  # Slot 1
-    (1583, 931, 1646, 975),  # Slot 2
-    (1665, 931, 1728, 975),  # Slot 3
-    (1747, 931, 1810, 975),  # Slot 4
-    (1828, 931, 1891, 975)   # Slot 5
-]
+# Screen coordinates for weapon slots - now loaded dynamically based on current map
+def get_slot_coords():
+    """Get slot coordinates based on current map."""
+    try:
+        from lib.utilities.utilities import read_config
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        coords = get_hotbar_coords(current_map)
+        return coords.primary_slots
+    except:
+        # Fallback to current season defaults
+        return [
+            (1502, 931, 1565, 975),  # Slot 1
+            (1583, 931, 1646, 975),  # Slot 2
+            (1665, 931, 1728, 975),  # Slot 3
+            (1747, 931, 1810, 975),  # Slot 4
+            (1828, 931, 1891, 975)   # Slot 5
+        ]
 
-# Secondary slots are slightly above primary slots
-SECONDARY_SLOT_COORDS = [(x, y-11, x2, y2-11) for x, y, x2, y2 in SLOT_COORDS]
+def get_secondary_slot_coords():
+    """Get secondary slot coordinates based on current map."""
+    try:
+        from lib.utilities.utilities import read_config
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        coords = get_hotbar_coords(current_map)
+        return coords.secondary_slots
+    except:
+        # Fallback to current season defaults (11px above primary)
+        primary = get_slot_coords()
+        return [(x, y-11, x2, y2-11) for x, y, x2, y2 in primary]
 
-# Area we use to check the uses/ammo a consumable item has remaining
-CONSUMABLE_COUNT_AREA = (1314, 927, 1392, 971)
+def get_consumable_count_area():
+    """Get consumable count area based on current map."""
+    try:
+        from lib.utilities.utilities import read_config
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        coords = get_hotbar_coords(current_map)
+        return coords.consumable_count_area
+    except:
+        return (1314, 927, 1392, 971)
+
+def get_ammo_y_coords():
+    """Get ammo Y coordinates based on current map."""
+    try:
+        from lib.utilities.utilities import read_config
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        coords = get_hotbar_coords(current_map)
+        return coords.ammo_y_coords
+    except:
+        return {'current': (929, 962), 'reserve': (936, 962)}
+
+# Initialize with default values (will be updated when functions are called)
+SLOT_COORDS = get_slot_coords()
+SECONDARY_SLOT_COORDS = get_secondary_slot_coords()
+CONSUMABLE_COUNT_AREA = get_consumable_count_area()
+AMMO_Y_COORDS = get_ammo_y_coords()
 
 # Directory configuration
 IMAGES_FOLDER = "images"
@@ -36,10 +82,7 @@ ATTACHMENTS_FOLDER = "attachments"
 # Detection settings
 CONFIDENCE_THRESHOLD = 0.82  # Minimum confidence for positive detection
 ATTACHMENT_DETECTION_AREA = (1240, 1000, 1410, 1070)  # Area to scan for attachments
-AMMO_Y_COORDS = {
-    'current': (929, 962),  # Current magazine ammo count position
-    'reserve': (936, 962)   # Reserve ammo count position
-}
+# AMMO_Y_COORDS now loaded dynamically via get_ammo_y_coords()
 
 # Pattern for detecting the ammo count divider
 DIVIDER_PATTERN = [
@@ -686,14 +729,18 @@ def detect_ammo(sct):
 
     divider_pos = detect_divider(screenshot)
     
+    # Get dynamic coordinates
+    ammo_coords = get_ammo_y_coords()
+    consumable_area_coords = get_consumable_count_area()
+    
     if divider_pos:
         # Regular ammo detection logic
         divider_x, _ = divider_pos
         
-        current_ammo_area = {'left': divider_x + 1200 - 75, 'top': AMMO_Y_COORDS['current'][0], 
-                             'width': 75, 'height': AMMO_Y_COORDS['current'][1] - AMMO_Y_COORDS['current'][0]}
-        reserve_ammo_area = {'left': divider_x + 1200 + 7, 'top': AMMO_Y_COORDS['reserve'][0], 
-                             'width': 40, 'height': AMMO_Y_COORDS['reserve'][1] - AMMO_Y_COORDS['reserve'][0]}
+        current_ammo_area = {'left': divider_x + 1200 - 75, 'top': ammo_coords['current'][0], 
+                             'width': 75, 'height': ammo_coords['current'][1] - ammo_coords['current'][0]}
+        reserve_ammo_area = {'left': divider_x + 1200 + 7, 'top': ammo_coords['reserve'][0], 
+                             'width': 40, 'height': ammo_coords['reserve'][1] - ammo_coords['reserve'][0]}
         
         try:
             current_ammo_screenshot_rgba = np.array(sct.grab(current_ammo_area))
@@ -719,9 +766,9 @@ def detect_ammo(sct):
         return current_ammo, reserve_ammo, None
     else:
         # Try to detect consumable count
-        consumable_area = {'left': CONSUMABLE_COUNT_AREA[0], 'top': CONSUMABLE_COUNT_AREA[1],
-                          'width': CONSUMABLE_COUNT_AREA[2] - CONSUMABLE_COUNT_AREA[0],
-                          'height': CONSUMABLE_COUNT_AREA[3] - CONSUMABLE_COUNT_AREA[1]}
+        consumable_area = {'left': consumable_area_coords[0], 'top': consumable_area_coords[1],
+                          'width': consumable_area_coords[2] - consumable_area_coords[0],
+                          'height': consumable_area_coords[3] - consumable_area_coords[1]}
         
         try:
             consumable_screenshot_rgba = np.array(sct.grab(consumable_area))

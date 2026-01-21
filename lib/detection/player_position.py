@@ -13,6 +13,7 @@ from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int
 from lib.detection.dynamic_object_finder import optimized_finder, DYNAMIC_OBJECT_CONFIGS
 from lib.detection.ppi import find_player_position as ppi_find_player_position
+from lib.detection.coordinate_config import get_minimap_coords
 
 
 def _ensure_dynamic_icon_paths():
@@ -54,11 +55,22 @@ SCALE_FACTOR = 4
 MIN_AREA = 1008
 MAX_AREA = 1386
 
-# Minimap constants
-MINIMAP_START = (1745, 144)
-MINIMAP_END = (1776, 174)
-MINIMAP_MIN_AREA = 650
-MINIMAP_MAX_AREA = 1130
+# Minimap constants - now loaded dynamically based on current map
+# These are set to default (current season) values and updated when needed
+def _get_minimap_constants():
+    """Get minimap constants based on current map from config."""
+    try:
+        from lib.utilities.utilities import read_config
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        coords = get_minimap_coords(current_map)
+        return coords.start, coords.end, coords.min_area, coords.max_area
+    except:
+        # Fallback to current season defaults if config unavailable
+        return (1745, 144), (1776, 174), 650, 1130
+
+# Default values (will be updated when functions are called)
+MINIMAP_START, MINIMAP_END, MINIMAP_MIN_AREA, MINIMAP_MAX_AREA = _get_minimap_constants()
 
 # Detection region dimensions
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
@@ -263,11 +275,16 @@ def find_player_icon_location_with_direction():
 def find_minimap_icon_direction():
     """Find the player's facing direction from the minimap icon"""
     try:
+        # Get current map coordinates
+        config = read_config()
+        current_map = config.get('POI', 'current_map', fallback='main')
+        coords = get_minimap_coords(current_map)
+        
         screenshot_rgba = np.array(pyautogui.screenshot(region=(
-            MINIMAP_START[0],
-            MINIMAP_START[1],
-            MINIMAP_END[0] - MINIMAP_START[0],
-            MINIMAP_END[1] - MINIMAP_START[1]
+            coords.start[0],
+            coords.start[1],
+            coords.end[0] - coords.start[0],
+            coords.end[1] - coords.start[1]
         )))
         if screenshot_rgba.shape[2] == 4:
              screenshot = cv2.cvtColor(screenshot_rgba, cv2.COLOR_RGBA2RGB)
@@ -285,7 +302,7 @@ def find_minimap_icon_direction():
     
     for contour in contours:
         area = cv2.contourArea(contour)
-        if MINIMAP_MIN_AREA < area < MINIMAP_MAX_AREA:
+        if coords.min_area < area < coords.max_area:
             M = cv2.moments(contour)
             if M["m00"] != 0:
                 cx = int(M["m10"] / M["m00"])

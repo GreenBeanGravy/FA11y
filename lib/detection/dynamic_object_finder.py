@@ -6,14 +6,12 @@ from typing import Tuple, Optional, Dict, List, NamedTuple
 from functools import lru_cache
 from mss import mss
 
-# Centralized minimap region and scale (should match utilities.py)
-MINIMAP_REGION = {
-    'left': 1637,
-    'top': 33,
-    'width': 250,
-    'height': 250
-}
-MINIMAP_SCALE_FACTOR = 0.5
+# Centralized minimap region and scale (loaded dynamically from utilities)
+from lib.utilities.utilities import get_minimap_region
+
+# Default scale factor
+MINIMAP_SCALE = 0.5
+_FACTOR = 0.5
 
 # For legacy/compat
 class DetectionResult(NamedTuple):
@@ -160,15 +158,19 @@ class FastDynamicObjectFinder:
             return None
 
     def convert_minimap_to_fullmap_coords(self, minimap_coords: Tuple[int, int],
-                                          player_fullmap_pos: Tuple[int, int]) -> Tuple[int, int]:
+                                          player_fullmap_coords: Tuple[float, float]) -> Tuple[int, int]:
+        """Convert minimap coordinates to full map coordinates"""
         minimap_x, minimap_y = minimap_coords
-        player_fullmap_x, player_fullmap_y = player_fullmap_pos
-        minimap_center_x = MINIMAP_REGION['left'] + MINIMAP_REGION['width'] // 2
-        minimap_center_y = MINIMAP_REGION['top'] + MINIMAP_REGION['height'] // 2
+        player_fullmap_x, player_fullmap_y = player_fullmap_coords
+        
+        # Get dynamic minimap region
+        minimap_region = get_minimap_region()
+        minimap_center_x = minimap_region['left'] + minimap_region['width'] // 2
+        minimap_center_y = minimap_region['top'] + minimap_region['height'] // 2
         offset_x = minimap_x - minimap_center_x
         offset_y = minimap_y - minimap_center_y
-        fullmap_x = int(player_fullmap_x + (offset_x * MINIMAP_SCALE_FACTOR))
-        fullmap_y = int(player_fullmap_y + (offset_y * MINIMAP_SCALE_FACTOR))
+        fullmap_x = int(player_fullmap_x + (offset_x * MINIMAP_SCALE))
+        fullmap_y = int(player_fullmap_y + (offset_y * MINIMAP_SCALE))
         return (fullmap_x, fullmap_y)
 
     def find_all_dynamic_objects(self, dynamic_object_names: List[str], use_ppi: bool = False) -> Dict[str, Tuple[int, int]]:
@@ -180,14 +182,15 @@ class FastDynamicObjectFinder:
                 player_fullmap_pos = find_player_position()
                 if player_fullmap_pos is None:
                     return {}
-                screen = self.capture_region(MINIMAP_REGION)
+                screen = self.capture_region(get_minimap_region())
                 if screen is None:
                     return {}
                 batch_results = self.batch_detect_dynamic_objects(screen, dynamic_object_names)
                 found_dynamic_objects = {}
                 for result in batch_results:
-                    minimap_screen_x = result.center_x + MINIMAP_REGION['left']
-                    minimap_screen_y = result.center_y + MINIMAP_REGION['top']
+                    minimap_region = get_minimap_region()
+                    minimap_screen_x = result.center_x + minimap_region['left']
+                    minimap_screen_y = result.center_y + minimap_region['top']
                     fullmap_coords = self.convert_minimap_to_fullmap_coords(
                         (minimap_screen_x, minimap_screen_y),
                         player_fullmap_pos
@@ -216,14 +219,15 @@ class FastDynamicObjectFinder:
         if not dynamic_object_names or not self.icons_loaded:
             return {}
         try:
-            screen = self.capture_region(MINIMAP_REGION)
+            screen = self.capture_region(get_minimap_region())
             if screen is None:
                 return {}
             batch_results = self.batch_detect_dynamic_objects(screen, dynamic_object_names)
             found_dynamic_objects = {}
             for result in batch_results:
-                minimap_screen_x = result.center_x + MINIMAP_REGION['left']
-                minimap_screen_y = result.center_y + MINIMAP_REGION['top']
+                minimap_region = get_minimap_region()
+                minimap_screen_x = result.center_x + minimap_region['left']
+                minimap_screen_y = result.center_y + minimap_region['top']
                 found_dynamic_objects[result.dynamic_object_name] = (minimap_screen_x, minimap_screen_y)
             return found_dynamic_objects
         except Exception:

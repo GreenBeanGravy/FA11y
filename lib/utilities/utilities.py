@@ -951,12 +951,33 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
     except Exception as e:
         print(f"Failed to move cursor to window center: {e}")
 
-MINIMAP_REGION = {
-    'left': 1600,
-    'top': 20,
-    'width': 300,
-    'height': 300
-}
+def get_minimap_region(map_name: str = None) -> dict:
+    """
+    Get the minimap region coordinates for the specified map.
+    
+    Args:
+        map_name: Name of the map from config. If None, reads from config.
+        
+    Returns:
+        Dictionary with 'left', 'top', 'width', 'height' keys
+    """
+    try:
+        from lib.detection.coordinate_config import get_minimap_region as get_coords_minimap_region
+        if map_name is None:
+            config = read_config()
+            map_name = config.get('POI', 'current_map', fallback='main')
+        return get_coords_minimap_region(map_name)
+    except:
+        # Fallback to current season defaults
+        return {
+            'left': 1600,
+            'top': 20,
+            'width': 300,
+            'height': 300
+        }
+
+# For backward compatibility, keep a constant that uses current map
+MINIMAP_REGION = get_minimap_region()
 
 def process_minimap(capture_func=None) -> np.ndarray:
     """
@@ -968,13 +989,14 @@ def process_minimap(capture_func=None) -> np.ndarray:
         from lib.managers.screenshot_manager import capture_coordinates
         capture_func = capture_coordinates
 
-    region = MINIMAP_REGION
+    # Get dynamic minimap region
+    region = get_minimap_region()
     arr = capture_func(
         region['left'],
         region['top'],
         region['width'],
         region['height'],
-        'rgb'
+    'rgb'
     )
     return arr  # Returns np.ndarray or None if capture failed
 

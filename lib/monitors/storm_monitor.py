@@ -10,15 +10,9 @@ import numpy as np
 import cv2
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, MINIMAP_REGION
+from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, get_minimap_region
 
-# Override or define local region to match new settings
-MINIMAP_REGION = {
-    'left': 1637,
-    'top': 33,
-    'width': 250,
-    'height': 250
-}
+# Minimap region is now loaded dynamically via get_minimap_region()
 
 from lib.monitors.background_monitor import monitor
 from lib.detection.player_position import find_player_position, find_minimap_icon_direction
@@ -241,8 +235,9 @@ class StormMonitor:
             dists = np.linalg.norm(safe_edge_points - np.array(player_minimap_point), axis=1)
             closest_point_on_minimap = safe_edge_points[np.argmin(dists)]
 
-            screen_x = int(closest_point_on_minimap[0] + MINIMAP_REGION['left'])
-            screen_y = int(closest_point_on_minimap[1] + MINIMAP_REGION['top'])
+            minimap_region = get_minimap_region()
+            screen_x = int(closest_point_on_minimap[0] + minimap_region['left'])
+            screen_y = int(closest_point_on_minimap[1] + minimap_region['top'])
             
             return (screen_x, screen_y)
         except Exception:
@@ -253,8 +248,9 @@ class StormMonitor:
         """Convert minimap coordinates to full map coordinates"""
         minimap_x, minimap_y = minimap_coords
         player_fullmap_x, player_fullmap_y = player_fullmap_pos
-        minimap_center_x = MINIMAP_REGION['left'] + MINIMAP_REGION['width'] // 2
-        minimap_center_y = MINIMAP_REGION['top'] + MINIMAP_REGION['height'] // 2
+        minimap_region = get_minimap_region()
+        minimap_center_x = minimap_region['left'] + minimap_region['width'] // 2
+        minimap_center_y = minimap_region['top'] + minimap_region['height'] // 2
         offset_x = minimap_x - minimap_center_x
         offset_y = minimap_y - minimap_center_y
         fullmap_x = int(player_fullmap_x + (offset_x * self.minimap_scale_factor))
