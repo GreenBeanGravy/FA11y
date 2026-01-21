@@ -358,8 +358,12 @@ def load_reference_images():
     Load weapon images from the cache file and resize them to slot dimensions.
     """
     global reference_images
-    slot_width = SLOT_COORDS[0][2] - SLOT_COORDS[0][0]
-    slot_height = SLOT_COORDS[0][3] - SLOT_COORDS[0][1]
+    
+    # Get slot dimensions from dynamic coords (using first slot)
+    # Note: Assumes slot size is consistent across maps or re-calls this on map change
+    coords = get_slot_coords()
+    slot_width = coords[0][2] - coords[0][0]
+    slot_height = coords[0][3] - coords[0][1]
     
     cache_file = os.path.join(IMAGES_FOLDER, "image_cache.pkl")
     if not os.path.exists(cache_file):
@@ -509,8 +513,11 @@ def detect_hotbar_item_thread(slot_index):
     announce_attachments_enabled = get_config_boolean(config, 'AnnounceWeaponAttachments', True)
     announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
 
+    # Get dynamic coordinates
+    current_slot_coords = get_slot_coords()
+
     # Check primary slot
-    best_match_name, best_score = check_slot(SLOT_COORDS[slot_index])
+    best_match_name, best_score = check_slot(current_slot_coords[slot_index])
     
     if best_score > CONFIDENCE_THRESHOLD and not stop_event.is_set():
         # Found a match, announce weapon name
@@ -550,7 +557,8 @@ def check_secondary_slot(slot_index):
     if stop_event.is_set():
         return
         
-    best_match_name, best_score = check_slot(SECONDARY_SLOT_COORDS[slot_index])
+    current_secondary_coords = get_secondary_slot_coords()
+    best_match_name, best_score = check_slot(current_secondary_coords[slot_index])
     
     if best_score > CONFIDENCE_THRESHOLD:
         speaker.speak(best_match_name)
@@ -585,8 +593,11 @@ def check_unknown_item_rarity(slot_index):
     if stop_event.is_set():
         return
     
+    # Get dynamic coordinates
+    current_slot_coords = get_slot_coords()
+
     # Detect rarity from primary slot
-    detected_rarity_value = detect_rarity_for_slot(SLOT_COORDS[slot_index])
+    detected_rarity_value = detect_rarity_for_slot(current_slot_coords[slot_index])
     
     if detected_rarity_value:
         last_detected_rarity = detected_rarity_value

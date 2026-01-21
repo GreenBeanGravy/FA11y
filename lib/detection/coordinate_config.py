@@ -60,8 +60,8 @@ OG_COORDINATES = CoordinateSet(
     minimap=MinimapCoords(
         start=(1735, 154),
         end=(1766, 184),
-        min_area=800,
-        max_area=1100,
+        min_area=600,
+        max_area=3000,
         region={
             'left': 1600,  # These may need adjustment based on OG map
             'top': 20,
@@ -74,9 +74,9 @@ OG_COORDINATES = CoordinateSet(
         health_y=1024,
         shield_x=423,
         shield_y=984,
-        health_color=(158, 255, 99),
-        shield_color=(110, 235, 255),
-        tolerance=70,
+        health_color=(131, 237, 82),
+        shield_color=(83, 202, 239),
+        tolerance=30,
         health_decreases=[4, 3, 3],
         shield_decreases=[4, 3, 3]
     ),
@@ -166,7 +166,7 @@ CURRENT_COORDINATES = CoordinateSet(
 # ==============================================================================
 
 # Map identifiers that should use OG coordinates
-OG_MAP_IDENTIFIERS = {'og', 'reload', 'season_og', 'fortnite_og'}
+OG_MAP_IDENTIFIERS = {'og', 'reload', 'season_og', 'fortnite_og', 'o g'}
 
 # Coordinate registry
 COORDINATE_REGISTRY: Dict[str, CoordinateSet] = {

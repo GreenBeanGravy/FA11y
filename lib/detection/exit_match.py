@@ -13,11 +13,11 @@ def smooth_move_and_click(x, y, duration=0.05):
     pyautogui.click()
 
 def exit_match():
-    if check_pixel_color(1315, 640, (14, 24, 52)):
-        time.sleep(0.1)  # Wait 100ms
-        smooth_move_and_click(1320, 1010)
-        smooth_move_and_click(1500, 1025)
-        time.sleep(0.25)  # Wait 250ms
-        pyautogui.click()  # Click again at the same position
+    if check_pixel_color(1847, 74, (255, 255, 255)) or check_pixel_color(1847, 74, (0, 0, 0)):
+        pyautogui.click(1834, 76)
+        time.sleep(0.1)
+        pyautogui.click(1573, 255)
+        time.sleep(0.1)
+        pyautogui.click(1579, 924)
     else:
         speaker.speak("Open your quick menu before attempting to leave a match. Press Escape to open your quick menu, and try again.")
