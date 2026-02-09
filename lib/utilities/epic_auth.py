@@ -9,6 +9,7 @@ import requests
 import webbrowser
 import base64
 import urllib.parse
+import threading
 from typing import Optional, Dict, List
 from datetime import datetime, timedelta
 
@@ -33,6 +34,9 @@ class EpicAuth:
         self.account_id = None
         self.display_name = None
         self.is_valid = False  # Track if auth is currently valid
+        self.refresh_token = None
+        self.refresh_token_expires_at = None
+        self._reauth_lock = threading.Lock()
 
         # Epic Games Fortnite client credentials (public)
         self.CLIENT_ID = "ec684b8c687f479fadea3cb2ad83f5c6"
@@ -60,7 +64,12 @@ class EpicAuth:
             self.access_token = data.get('access_token')
             self.account_id = data.get('account_id')
             self.display_name = data.get('display_name')
+            self.refresh_token = data.get('refresh_token')
             expiry = data.get('expires_at')
+
+            refresh_expiry = data.get('refresh_token_expires_at')
+            if refresh_expiry:
+                self.refresh_token_expires_at = datetime.fromisoformat(refresh_expiry)
 
             # Check if token is still valid
             if expiry and datetime.fromisoformat(expiry) > datetime.now():
@@ -74,7 +83,8 @@ class EpicAuth:
             logger.error(f"Error loading cached auth: {e}")
             return False
 
-    def save_auth(self, access_token: str, account_id: str, display_name: str, expires_in: int):
+    def save_auth(self, access_token: str, account_id: str, display_name: str, expires_in: int,
+                  refresh_token: str = None, refresh_token_expires_in: int = None):
         """Save authentication data to cache"""
         try:
             expires_at = datetime.now() + timedelta(seconds=expires_in)
@@ -84,6 +94,13 @@ class EpicAuth:
                 'display_name': display_name,
                 'expires_at': expires_at.isoformat()
             }
+            if refresh_token:
+                data['refresh_token'] = refresh_token
+                self.refresh_token = refresh_token
+                if refresh_token_expires_in:
+                    refresh_expires_at = datetime.now() + timedelta(seconds=refresh_token_expires_in)
+                    data['refresh_token_expires_at'] = refresh_expires_at.isoformat()
+                    self.refresh_token_expires_at = refresh_expires_at
             config_manager.set('epic_auth', data=data)
             self.is_valid = True  # Mark auth as valid when saving
         except Exception as e:
@@ -96,24 +113,44 @@ class EpicAuth:
             self.access_token = None
             self.account_id = None
             self.display_name = None
+            self.refresh_token = None
+            self.refresh_token_expires_at = None
             self.is_valid = False  # Mark auth as invalid when clearing
         except Exception as e:
             logger.error(f"Error clearing auth: {e}")
 
     def invalidate_auth(self):
-        """Mark authentication as invalid without clearing tokens (for 401 errors)"""
+        """Mark authentication as invalid and attempt automatic re-authentication"""
         was_valid = self.is_valid
         self.is_valid = False
         logger.warning(f"Authentication marked as invalid for {self.display_name or 'unknown user'}")
 
-        # Notify about auth expiration if it was previously valid
-        if was_valid:
-            logger.error("Epic Games authentication expired; prompting user to re-authenticate")
+        if not was_valid:
+            return  # Already invalid, don't re-trigger
+
+        # Attempt automatic re-authentication in a background thread
+        def _auto_reauth():
+            if not self._reauth_lock.acquire(blocking=False):
+                logger.debug("Auto re-auth already in progress, skipping")
+                return
             try:
-                import FA11y
-                FA11y.handle_auth_expiration()
-            except:
-                pass  # FA11y might not be available in all contexts
+                if self.attempt_auto_reauth():
+                    try:
+                        import FA11y
+                        FA11y._on_auth_success(self)
+                    except Exception:
+                        pass
+                else:
+                    logger.error("Epic Games authentication expired; prompting user to re-authenticate")
+                    try:
+                        import FA11y
+                        FA11y.handle_auth_expiration()
+                    except Exception:
+                        pass
+            finally:
+                self._reauth_lock.release()
+
+        threading.Thread(target=_auto_reauth, daemon=True, name="auto-reauth").start()
 
     def try_silent_webview_auth(self, timeout: float = 10.0) -> bool:
         """
@@ -179,6 +216,10 @@ class EpicAuth:
                 self.access_token = token_data["access_token"]
                 self.account_id = token_data["account_id"]
 
+                # Capture refresh token if provided
+                refresh_token = token_data.get("refresh_token")
+                refresh_expires_in = token_data.get("refresh_expires", token_data.get("refresh_expires_in"))
+
                 # Get display name
                 account_info = self.get_account_info()
                 if account_info:
@@ -189,7 +230,9 @@ class EpicAuth:
                     self.access_token,
                     self.account_id,
                     self.display_name,
-                    token_data["expires_in"]
+                    token_data["expires_in"],
+                    refresh_token=refresh_token,
+                    refresh_token_expires_in=refresh_expires_in
                 )
 
                 return True
@@ -200,6 +243,81 @@ class EpicAuth:
         except Exception as e:
             logger.error(f"Error exchanging code for token: {e}")
             return False
+
+    def refresh_access_token(self) -> bool:
+        """Use refresh_token to obtain a new access_token without user interaction."""
+        if not self.refresh_token:
+            logger.debug("No refresh token available")
+            return False
+
+        # Check if refresh token has expired
+        if self.refresh_token_expires_at and datetime.now() >= self.refresh_token_expires_at:
+            logger.warning("Refresh token has expired")
+            self.refresh_token = None
+            return False
+
+        try:
+            auth = base64.b64encode(f"{self.CLIENT_ID}:{self.CLIENT_SECRET}".encode()).decode()
+
+            headers = {
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+
+            data = {
+                "grant_type": "refresh_token",
+                "refresh_token": self.refresh_token
+            }
+
+            response = requests.post(
+                self.OAUTH_TOKEN_URL,
+                headers=headers,
+                data=data,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                token_data = response.json()
+                self.access_token = token_data["access_token"]
+                self.account_id = token_data["account_id"]
+
+                new_refresh_token = token_data.get("refresh_token")
+                refresh_expires_in = token_data.get("refresh_expires", token_data.get("refresh_expires_in"))
+
+                if not self.display_name:
+                    account_info = self.get_account_info()
+                    if account_info:
+                        self.display_name = account_info.get("displayName", "Unknown")
+
+                self.save_auth(
+                    self.access_token,
+                    self.account_id,
+                    self.display_name,
+                    token_data["expires_in"],
+                    refresh_token=new_refresh_token,
+                    refresh_token_expires_in=refresh_expires_in
+                )
+
+                logger.info(f"Successfully refreshed access token for {self.display_name}")
+                return True
+            else:
+                logger.error(f"Token refresh failed: {response.status_code} - {response.text}")
+                self.refresh_token = None
+                return False
+
+        except Exception as e:
+            logger.error(f"Error refreshing access token: {e}")
+            return False
+
+    def attempt_auto_reauth(self) -> bool:
+        """Attempt automatic re-authentication without user interaction."""
+        logger.info("Attempting automatic re-authentication via refresh token...")
+        if self.refresh_access_token():
+            logger.info("Auto re-auth succeeded via refresh token")
+            return True
+
+        logger.warning("Automatic re-authentication failed (no valid refresh token)")
+        return False
 
     def get_account_info(self) -> Optional[Dict]:
         """Get account information"""

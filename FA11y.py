@@ -2059,9 +2059,9 @@ def run_updater() -> bool:
     return update_performed
 
 def get_version() -> str:
-    """Get version from GitHub repository."""
+    """Get version from GitHub repository with cache-busting."""
     try:
-        response = requests.get(VERSION_URL, timeout=10)
+        response = requests.get(VERSION_URL, timeout=10, params={"t": int(time.time())})
         response.raise_for_status()
         return response.text.strip()
     except requests.RequestException as e:
@@ -2074,16 +2074,15 @@ def parse_version(version: str) -> tuple:
 
 def check_for_updates() -> None:
     """Periodically check for updates with shutdown awareness."""
-    update_notified = False
+    last_announced_remote_version = None
 
     while not _shutdown_requested.is_set():
-        # Check for shutdown request every second during the 6-second wait
-        for _ in range(60):  # 6 seconds = 60 * 0.1 second checks
+        # Check for shutdown request every 0.1 seconds during the 15-second wait
+        for _ in range(150):  # 15 seconds = 150 * 0.1 second checks
             if _shutdown_requested.is_set():
                 return
             time.sleep(0.1)
-        
-        # Only check for updates if not shutting down
+
         if _shutdown_requested.is_set():
             return
 
@@ -2102,16 +2101,61 @@ def check_for_updates() -> None:
             try:
                 local_v = parse_version(local_version)
                 remote_v = parse_version(remote_version)
-                if local_v != remote_v:
-                    if not update_notified and not _shutdown_requested.is_set():
+                if local_v < remote_v:
+                    if remote_version != last_announced_remote_version and not _shutdown_requested.is_set():
                         update_sound.play()
                         speaker.speak("An update is available for FA11y! Restart FA11y to update!")
                         print("An update is available for FA11y! Restart FA11y to update!")
-                        update_notified = True
-                else:
-                    update_notified = False
+                        last_announced_remote_version = remote_version
+                elif local_v >= remote_v:
+                    last_announced_remote_version = None
             except ValueError:
                 pass  # Reduce spam
+
+def check_auth_expiration() -> None:
+    """Proactively check if Epic auth token is about to expire and refresh it."""
+    # Wait for initial auth to complete before starting checks
+    time.sleep(30)
+
+    while not _shutdown_requested.is_set():
+        # Check every 60 seconds
+        for _ in range(600):  # 60 seconds = 600 * 0.1 second checks
+            if _shutdown_requested.is_set():
+                return
+            time.sleep(0.1)
+
+        if _shutdown_requested.is_set():
+            return
+
+        try:
+            from lib.utilities.epic_auth import get_epic_auth_instance
+            from lib.config.config_manager import config_manager
+            epic_auth = get_epic_auth_instance()
+
+            if not epic_auth.access_token or not epic_auth.is_valid:
+                continue
+
+            auth_data = config_manager.get('epic_auth')
+            if not auth_data:
+                continue
+
+            expiry_str = auth_data.get('expires_at')
+            if not expiry_str:
+                continue
+
+            from datetime import datetime as dt, timedelta as td
+            expiry = dt.fromisoformat(expiry_str)
+            time_until_expiry = expiry - dt.now()
+
+            if time_until_expiry <= td(minutes=5):
+                logger.info(f"Token expires in {time_until_expiry}. Attempting proactive refresh...")
+                if epic_auth.refresh_access_token():
+                    logger.info("Proactive token refresh succeeded")
+                    _on_auth_success(epic_auth)
+                else:
+                    logger.warning("Proactive token refresh failed; will fall back on 401 handling")
+        except Exception as e:
+            logger.error(f"Error in auth expiration check: {e}")
 
 def get_legendary_username() -> str:
     """Get username from Legendary launcher."""
@@ -2223,6 +2267,10 @@ def main() -> None:
         # Start update checker thread as daemon
         update_thread = threading.Thread(target=check_for_updates, daemon=True)
         update_thread.start()
+
+        # Start auth expiration checker thread as daemon
+        auth_check_thread = threading.Thread(target=check_auth_expiration, daemon=True)
+        auth_check_thread.start()
 
         # Start auxiliary systems - all as daemon threads
         threading.Thread(target=start_height_monitor, daemon=True).start()

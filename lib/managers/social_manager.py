@@ -1582,6 +1582,13 @@ def get_social_manager(epic_auth_instance=None) -> SocialManager:
 
     if _social_manager is None:
         _social_manager = SocialManager(epic_auth_instance)
+    elif epic_auth_instance is not None:
+        # Update auth on existing instance when new auth is provided
+        _social_manager.auth = epic_auth_instance
+        if _social_manager.social_api:
+            _social_manager.social_api.auth = epic_auth_instance
+        else:
+            _social_manager.social_api = EpicSocial(epic_auth_instance)
 
     return _social_manager
 
