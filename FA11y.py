@@ -222,13 +222,20 @@ def signal_handler(signum, frame):
         # Clean up pygame mixer
         if pygame.mixer.get_init():
             pygame.mixer.quit()
-            
+
+        # Shutdown audio engine
+        try:
+            from lib.audio import shutdown_engine
+            shutdown_engine()
+        except Exception:
+            pass
+
         # Set stop event for threads
         stop_key_listener.set()
-        
+
     except:
         pass  # Ignore cleanup errors during shutdown
-    
+
     print("FA11y is closing...")
     # Force immediate exit
     os._exit(0)
@@ -246,6 +253,12 @@ def cleanup_on_exit():
     try:
         if pygame.mixer.get_init():
             pygame.mixer.quit()
+        # Shutdown audio engine
+        try:
+            from lib.audio import shutdown_engine
+            shutdown_engine()
+        except Exception:
+            pass
         # Cleanup logging system
         cleanup_logging()
     except:
@@ -2390,6 +2403,13 @@ def main() -> None:
             # Clean up pygame mixer
             if pygame.mixer.get_init():
                 pygame.mixer.quit()
+
+            # Shutdown audio engine
+            try:
+                from lib.audio import shutdown_engine
+                shutdown_engine()
+            except Exception:
+                pass
         except:
             pass  # Ignore cleanup errors during shutdown
 

@@ -116,7 +116,7 @@ CURRENT_COORDINATES = CoordinateSet(
         start=(1745, 144),
         end=(1776, 174),
         min_area=650,
-        max_area=1130,
+        max_area=3000,
         region={
             'left': 1600,
             'top': 20,
