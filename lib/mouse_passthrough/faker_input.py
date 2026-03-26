@@ -160,6 +160,75 @@ def send_mouse_move(dx, dy, cache_range):
         return False
 
 
+def send_mouse_button(button_name, is_down, cache_range=100):
+    """Send a mouse button press/release through FakerInput.
+
+    Args:
+        button_name: Button name (e.g. "LeftButton", "RightButton", "MiddleButton")
+        is_down: True for press, False for release
+        cache_range: Cache range for initialization if needed
+    """
+    global _faker_input, _mouse_report, _initialized, _System
+
+    if not _initialized:
+        if not initialize_fakerinput(cache_range):
+            return False
+
+    try:
+        method_name = "ButtonDown" if is_down else "ButtonUp"
+        button_method = _RelativeMouseReportType.GetMethod(method_name)
+
+        if button_method:
+            button_enum = _System.Enum.Parse(_MouseButtonType, button_name)
+            args_array = _System.Array[_System.Object]([button_enum])
+            button_method.Invoke(_mouse_report, args_array)
+
+            args = _System.Array[_System.Object]([_mouse_report])
+            _update_method.Invoke(_faker_input, args)
+            return True
+    except Exception as e:
+        print(f"[ERROR] Mouse button {button_name} {'down' if is_down else 'up'}: {e}")
+
+    return False
+
+
+def send_mouse_scroll(amount, cache_range=100):
+    """Send a mouse scroll event through FakerInput.
+
+    Args:
+        amount: Scroll amount (-127 to 127, negative = scroll down)
+        cache_range: Cache range for initialization if needed
+    """
+    global _faker_input, _mouse_report, _initialized, _System
+
+    if not _initialized:
+        if not initialize_fakerinput(cache_range):
+            return False
+
+    try:
+        wheel_property = _RelativeMouseReportType.GetProperty("WheelPosition")
+
+        wheel_value = max(-127, min(127, amount))
+        if wheel_value < 0:
+            wheel_value += 256
+
+        wheel_property.SetValue(_mouse_report, _System.Byte(wheel_value))
+
+        args = _System.Array[_System.Object]([_mouse_report])
+        _update_method.Invoke(_faker_input, args)
+
+        wheel_property.SetValue(_mouse_report, _System.Byte(0))
+        return True
+    except Exception as e:
+        print(f"[ERROR] Mouse scroll: {e}")
+        return False
+
+
 def is_available():
     """Check if FakerInput is available and loaded."""
     return FAKERINPUT_AVAILABLE
+
+
+def is_initialized():
+    """Check if FakerInput is initialized and connected."""
+    return _initialized
