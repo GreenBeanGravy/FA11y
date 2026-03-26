@@ -772,43 +772,153 @@ class EpicAuth:
             logger.error(f"Error fetching owned cosmetics: {e}")
             return None
 
+    def _format_br_cosmetic(self, item: Dict) -> Dict:
+        """Format a BR cosmetic item from fortnite-api.com to our standard format"""
+        return {
+            'name': item.get('name', 'Unknown'),
+            'id': item.get('id', ''),
+            'type': item.get('type', {}).get('backendValue', 'Unknown'),
+            'rarity': item.get('rarity', {}).get('value', 'common').lower(),
+            'rarity_value': self.get_rarity_value(item.get('rarity', {}).get('value', 'common')),
+            'introduction_chapter': item.get('introduction', {}).get('chapter', '?'),
+            'introduction_season': item.get('introduction', {}).get('season', '?'),
+            'description': item.get('description', ''),
+            'favorite': False,
+            'owned_variants': []
+        }
+
+    def _fetch_endpoint(self, endpoint: str, timeout: int = 30) -> Optional[List[Dict]]:
+        """Fetch data from a fortnite-api.com endpoint, returning the 'data' list or None"""
+        try:
+            response = requests.get(f"{self.FORTNITE_API_BASE}/{endpoint}", timeout=timeout)
+            if response.status_code == 200:
+                return response.json().get('data', [])
+            else:
+                logger.warning(f"Failed to fetch {endpoint}: {response.status_code}")
+                return None
+        except Exception as e:
+            logger.warning(f"Error fetching {endpoint}: {e}")
+            return None
+
     def fetch_cosmetics_from_api(self) -> Optional[List[Dict]]:
         """
         Fetch cosmetics data from Fortnite-API.com
-        This gets all cosmetics available in Fortnite, not user-specific data
+        Pulls from all available endpoints: BR, tracks, instruments, cars, and LEGO kits
         """
         try:
-            # Fetch all cosmetics from Fortnite-API
-            response = requests.get(
-                f"{self.FORTNITE_API_BASE}/cosmetics/br",
-                timeout=30
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                cosmetics = data.get('data', [])
-
-                # Transform to our format
-                formatted_cosmetics = []
-                for item in cosmetics:
-                    formatted_item = {
-                        'name': item.get('name', 'Unknown'),
-                        'id': item.get('id', ''),
-                        'type': item.get('type', {}).get('backendValue', 'Unknown'),
-                        'rarity': item.get('rarity', {}).get('value', 'common').lower(),
-                        'rarity_value': self.get_rarity_value(item.get('rarity', {}).get('value', 'common')),
-                        'introduction_chapter': item.get('introduction', {}).get('chapter', '?'),
-                        'introduction_season': item.get('introduction', {}).get('season', '?'),
-                        'description': item.get('description', ''),
-                        'favorite': False,
-                        'owned_variants': []
-                    }
-                    formatted_cosmetics.append(formatted_item)
-
-                return formatted_cosmetics
-            else:
-                logger.error(f"Failed to fetch cosmetics: {response.status_code}")
+            # Fetch BR cosmetics (main catalog)
+            br_data = self._fetch_endpoint("cosmetics/br")
+            if br_data is None:
+                logger.error("Failed to fetch BR cosmetics - aborting")
                 return None
+
+            formatted_cosmetics = [self._format_br_cosmetic(item) for item in br_data]
+            logger.info(f"Fetched {len(formatted_cosmetics)} BR cosmetics")
+
+            # Track existing IDs to avoid duplicates
+            seen_ids = {c['id'].lower() for c in formatted_cosmetics}
+
+            # Fetch Jam Tracks
+            tracks_data = self._fetch_endpoint("cosmetics/tracks")
+            if tracks_data:
+                tracks_added = 0
+                for track in tracks_data:
+                    track_id = track.get('id', '')
+                    if track_id.lower() not in seen_ids:
+                        seen_ids.add(track_id.lower())
+                        formatted_cosmetics.append({
+                            'name': track.get('title', track.get('devName', 'Unknown Track')),
+                            'id': track_id,
+                            'type': 'SparksSong',
+                            'rarity': 'common',
+                            'rarity_value': 1,
+                            'introduction_chapter': '?',
+                            'introduction_season': '?',
+                            'description': f"{track.get('artist', '')} ({track.get('releaseYear', '')})".strip(),
+                            'favorite': False,
+                            'owned_variants': []
+                        })
+                        tracks_added += 1
+                logger.info(f"Fetched {tracks_added} Jam Tracks")
+
+            # Fetch Festival Instruments
+            instruments_data = self._fetch_endpoint("cosmetics/instruments")
+            if instruments_data:
+                # Map API backend types to profile types
+                instrument_type_map = {
+                    'SparksMic': 'SparksMicrophone',
+                    'SparksDrum': 'SparksDrums',
+                }
+                instruments_added = 0
+                for inst in instruments_data:
+                    inst_id = inst.get('id', '')
+                    if inst_id.lower() not in seen_ids:
+                        seen_ids.add(inst_id.lower())
+                        api_type = inst.get('type', {}).get('backendValue', 'SparksGuitar')
+                        profile_type = instrument_type_map.get(api_type, api_type)
+                        formatted_cosmetics.append({
+                            'name': inst.get('name', 'Unknown Instrument'),
+                            'id': inst_id,
+                            'type': profile_type,
+                            'rarity': inst.get('rarity', {}).get('value', 'common').lower(),
+                            'rarity_value': self.get_rarity_value(inst.get('rarity', {}).get('value', 'common')),
+                            'introduction_chapter': '?',
+                            'introduction_season': '?',
+                            'description': inst.get('description', ''),
+                            'favorite': False,
+                            'owned_variants': []
+                        })
+                        instruments_added += 1
+                logger.info(f"Fetched {instruments_added} Festival Instruments")
+
+            # Fetch Vehicle/Car Cosmetics
+            cars_data = self._fetch_endpoint("cosmetics/cars")
+            if cars_data:
+                cars_added = 0
+                for car in cars_data:
+                    car_id = car.get('id', '')
+                    if car_id.lower() not in seen_ids:
+                        seen_ids.add(car_id.lower())
+                        formatted_cosmetics.append({
+                            'name': car.get('name', 'Unknown Vehicle Cosmetic'),
+                            'id': car_id,
+                            'type': car.get('type', {}).get('backendValue', 'VehicleCosmetics_Body'),
+                            'rarity': car.get('rarity', {}).get('value', 'common').lower(),
+                            'rarity_value': self.get_rarity_value(car.get('rarity', {}).get('value', 'common')),
+                            'introduction_chapter': '?',
+                            'introduction_season': '?',
+                            'description': car.get('description', ''),
+                            'favorite': False,
+                            'owned_variants': []
+                        })
+                        cars_added += 1
+                logger.info(f"Fetched {cars_added} Vehicle Cosmetics")
+
+            # Fetch LEGO Kits (Building Props & Sets)
+            lego_data = self._fetch_endpoint("cosmetics/lego/kits")
+            if lego_data:
+                lego_added = 0
+                for kit in lego_data:
+                    kit_id = kit.get('id', '')
+                    if kit_id.lower() not in seen_ids:
+                        seen_ids.add(kit_id.lower())
+                        formatted_cosmetics.append({
+                            'name': kit.get('name', 'Unknown LEGO Kit'),
+                            'id': kit_id,
+                            'type': kit.get('type', {}).get('backendValue', 'JunoBuildingProp'),
+                            'rarity': 'common',
+                            'rarity_value': 1,
+                            'introduction_chapter': '?',
+                            'introduction_season': '?',
+                            'description': '',
+                            'favorite': False,
+                            'owned_variants': []
+                        })
+                        lego_added += 1
+                logger.info(f"Fetched {lego_added} LEGO Kits")
+
+            logger.info(f"Total cosmetics fetched: {len(formatted_cosmetics)}")
+            return formatted_cosmetics
 
         except Exception as e:
             logger.error(f"Error fetching cosmetics: {e}")

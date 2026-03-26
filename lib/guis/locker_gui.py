@@ -47,18 +47,35 @@ COSMETIC_TYPE_MAP = {
     # Sidekicks/Pets (all consolidated into "Pet" category)
     "AthenaPetCarrier": {"name": "Pet", "category": "Sidekicks", "slot": 1},
     "AthenaPet": {"name": "Pet", "category": "Sidekicks", "slot": None},
-    "CosmeticCompanion": {"name": "Pet", "category": "Sidekicks", "slot": None},
+    "CosmeticCompanion": {"name": "Companion", "category": "Sidekicks", "slot": None},
+    "CosmeticMimosa": {"name": "Sidekick", "category": "Sidekicks", "slot": None},
 
     # Wraps
     "AthenaItemWrap": {"name": "Wrap", "category": "Wraps", "slot": None},  # Multiple slots
 
     # Lobby
     "AthenaLoadingScreen": {"name": "Loading Screen", "category": "Lobby", "slot": 3},
-    "AthenaMusicPack": {"name": "Music & Jam Tracks", "category": "Lobby", "slot": 2},  # Updated name
-    "BannerToken": {"name": "Banner", "category": "Lobby", "slot": None},  # New
+    "AthenaMusicPack": {"name": "Music Pack", "category": "Lobby", "slot": 2},
+    "SparksSong": {"name": "Jam Track", "category": "Lobby", "slot": None},
+    "BannerToken": {"name": "Banner", "category": "Lobby", "slot": None},
 
     # Vehicles
-    "VehicleCosmetics_Body": {"name": "Car Body", "category": "Cars", "slot": 1}
+    "VehicleCosmetics_Body": {"name": "Car Body", "category": "Cars", "slot": 1},
+    "VehicleCosmetics_Skin": {"name": "Car Skin", "category": "Cars", "slot": None},
+    "VehicleCosmetics_Wheel": {"name": "Wheels", "category": "Cars", "slot": None},
+    "VehicleCosmetics_Booster": {"name": "Booster", "category": "Cars", "slot": None},
+    "VehicleCosmetics_DriftTrail": {"name": "Drift Trail", "category": "Cars", "slot": None},
+
+    # Instruments (Festival)
+    "SparksGuitar": {"name": "Guitar", "category": "Instruments", "slot": None},
+    "SparksBass": {"name": "Bass", "category": "Instruments", "slot": None},
+    "SparksDrums": {"name": "Drums", "category": "Instruments", "slot": None},
+    "SparksKeyboard": {"name": "Keytar", "category": "Instruments", "slot": None},
+    "SparksMicrophone": {"name": "Microphone", "category": "Instruments", "slot": None},
+
+    # LEGO
+    "JunoBuildingProp": {"name": "Decor Bundle", "category": "LEGO", "slot": None},
+    "JunoBuildingSet": {"name": "Build Set", "category": "LEGO", "slot": None}
 }
 
 SORT_OPTIONS = [
@@ -82,6 +99,18 @@ SLOT_COORDS = {
     6: (420, 560),
     7: (560, 550),
     8: (720, 550)
+}
+
+# Emote wheel slot coordinates (circular layout)
+EMOTE_SLOT_COORDS = {
+    1: (450, 390),
+    2: (600, 450),
+    3: (650, 590),
+    4: (600, 740),
+    5: (450, 800),
+    6: (300, 740),
+    7: (250, 600),
+    8: (300, 450)
 }
 
 # Category positions in Fortnite UI
@@ -791,7 +820,11 @@ class CategoryView(AccessibleDialog):
     def perform_equip_automation(self, category: str, slot: int, item_name: str) -> bool:
         """Perform UI automation to equip"""
         try:
-            slot_coords = SLOT_COORDS.get(slot)
+            # Use emote wheel coords for emote-category items
+            if category == "Emotes":
+                slot_coords = EMOTE_SLOT_COORDS.get(slot)
+            else:
+                slot_coords = SLOT_COORDS.get(slot)
             if not slot_coords:
                 logger.error(f"Unknown slot number: {slot}")
                 return False
@@ -863,7 +896,7 @@ class CategoryView(AccessibleDialog):
                 self,
                 f"Select which emote slot to equip '{name}' to:",
                 "Select Emote Slot",
-                ["Emote 1", "Emote 2", "Emote 3", "Emote 4", "Emote 5", "Emote 6"]
+                ["Emote 1", "Emote 2", "Emote 3", "Emote 4", "Emote 5", "Emote 6", "Emote 7", "Emote 8"]
             )
         elif cosmetic_type == "AthenaItemWrap":
             dlg = wx.SingleChoiceDialog(
@@ -873,7 +906,8 @@ class CategoryView(AccessibleDialog):
                 ["Rifles", "Shotguns", "Submachine Guns", "Snipers", "Pistols", "Utility", "Vehicles"]
             )
         else:
-            return None
+            # For types without multiple slots, default to slot 1
+            return 1
 
         if dlg.ShowModal() == wx.ID_OK:
             slot = dlg.GetSelection() + 1
@@ -1028,14 +1062,18 @@ class LockerGUI(AccessibleDialog):
             "Outfit", "Back Bling", "Pickaxe", "Glider", "Kicks", "Contrail", "Aura",
             # Emotes & Expressions
             "Emote", "Spray", "Emoji", "Toy",
-            # Pets (consolidated)
-            "Pet",
+            # Sidekicks/Pets
+            "Pet", "Companion", "Sidekick",
             # Wraps
             "Wrap",
             # Lobby
-            "Loading Screen", "Music & Jam Tracks", "Banner",
+            "Loading Screen", "Music Pack", "Jam Track", "Banner",
             # Vehicles
-            "Car Body"
+            "Car Body", "Car Skin", "Wheels", "Booster", "Drift Trail",
+            # Instruments (Festival)
+            "Guitar", "Bass", "Drums", "Keytar", "Microphone",
+            # LEGO
+            "Decor Bundle", "Build Set"
         ]
 
         for category in categories:
