@@ -1,0 +1,158 @@
+CHANGELOG - Mouse Passthrough Integration + Performance Optimizations
+=====================================================================
+Date: 2026-03-23
+
+## Mouse Passthrough Integration
+
+### New Files Created
+- lib/mouse_passthrough/__init__.py    — Module entry point, singleton accessor
+- lib/mouse_passthrough/raw_input.py   — Win32 Raw Input API structs, RawInputCapture, MouseDevice, detect_mouse_device()
+- lib/mouse_passthrough/faker_input.py — FakerInput DLL bridge with bounded Int16 cache
+- lib/mouse_passthrough/hook.py        — MouseHook class (movement processing, no debug deques)
+- lib/mouse_passthrough/service.py     — MousePassthroughService orchestrator with TTS integration
+
+### Files Modified
+- FA11y.py
+  - Added import for get_mouse_passthrough and config_manager
+  - Added 'recapture mouse' action handler in reload_config()
+  - Added DPI sync check in reload_config() (auto-updates when config changes)
+  - Added mouse passthrough initialization in main() after reload_config()
+  - Added mouse passthrough cleanup in signal_handler()
+  - Consolidated two startup read_config() calls into one (perf optimization)
+
+- lib/utilities/utilities.py
+  - Added "Recapture Mouse = lctrl+lshift+m" keybind to default [Keybinds] section
+
+### Files Deleted
+- mouse_passthrough.py (standalone script at project root — all logic moved to lib/mouse_passthrough/)
+
+### Behavior Changes
+- Mouse passthrough now starts automatically on FA11y launch (if mouse was previously configured)
+- First-time users are prompted to move their mouse for detection + enter DPI (skippable)
+- CTRL+SHIFT+M keybind recaptures the mouse device at any time
+- CTRL+SHIFT+P keybind toggles mouse passthrough on/off (announces state via TTS)
+- MousePassthrough toggle added to [Toggles] section in config (default: true)
+- Initialize respects the toggle — if disabled in config, passthrough won't auto-start
+- DPI changes in config/mouse_passthrough.json take effect on next config reload
+- Removed standalone CLI menu (run(), configure_dpi(), configure_advanced(), show_config(), log_worker())
+- config/mouse_passthrough.json remains backward compatible
+
+---
+
+## Performance Optimizations
+
+### OCR Manager (lib/managers/ocr_manager.py)
+- Lazy-load the EasyOCR number reader instead of loading both readers at startup
+- Number reader now only initializes on first read_numbers() call (saves startup time + memory)
+
+### Screenshot Manager (lib/managers/screenshot_manager.py)
+- Replaced dict cache with OrderedDict for O(1) cache eviction (was O(n) via min())
+- Added move_to_end() on cache hits for proper LRU behavior
+
+### Inventory Manager (lib/managers/inventory_manager.py)
+- Reduced OCR image upscale from 3x to 2x (56% fewer pixels, still sufficient for digit recognition)
+
+### Background Monitor (lib/monitors/background_monitor.py)
+- Added threading.Lock() for map_open and inventory_open status flags
+- Converted to property accessors with lock guards for thread safety
+
+### FakerInput Int16 Cache (lib/mouse_passthrough/faker_input.py)
+- Cache is now bounded to the configured range only
+- Values outside range create temporary Int16 objects without being stored
+- Prevents unbounded dict growth during gameplay
+
+### Startup Config Reads (FA11y.py)
+- Consolidated two separate read_config() calls into one for AutoUpdates + CreateDesktopShortcut checks
+
+### MouseHook Debug Deques (lib/mouse_passthrough/hook.py)
+- Removed recent_movements and recent_outputs deques (only used by removed CLI performance display)
+- Eliminates per-movement deque append overhead
+
+### pyautogui Replacement — Player Position (lib/detection/player_position.py)
+- Replaced pyautogui.pixel() with ScreenshotManager.get_pixel() in check_for_minimap(), check_for_full_map(), check_for_pixel()
+- Replaced pyautogui.screenshot() with ScreenshotManager.capture_coordinates() in find_player_icon_location_with_direction(), find_minimap_icon_direction()
+- Added get_pixel() method + convenience function to ScreenshotManager
+- Impact: mss is 3-10x faster than pyautogui for screen capture; these run every 0.5s
+
+### pyautogui Replacement — Background Monitor (lib/monitors/background_monitor.py)
+- Replaced pyautogui.pixel() with mss-based _get_pixel() using existing thread-local mss instance
+- Runs every 100ms — significant cumulative savings
+
+### Key Listener Config Caching (FA11y.py)
+- Cached mouse_keys_enabled and ignore_numlock booleans outside the inner keybind loop
+- Config booleans only re-read when the config object reference changes (not every 5ms iteration)
+- Moved gui_titles tuple outside the loop (allocated once, not every cycle)
+- Eliminates ~400 redundant get_config_boolean() calls/sec
+
+### Persistent MSS in Material Monitor (lib/monitors/material_monitor.py)
+- Replaced `with mss() as sct:` context manager with persistent instance via _get_mss()
+- Eliminates mss() create/destroy overhead every 0.3s (~3.3 instances/sec)
+- Added proper cleanup on thread exit
+
+### Persistent MSS in Resource Monitor (lib/monitors/resource_monitor.py)
+- Same pattern as material monitor: persistent mss instance via _get_mss()
+- Eliminates ~3.3 mss() creates/sec
+- Added proper cleanup on thread exit
+
+### Storm Monitor Config Caching (lib/monitors/storm_monitor.py)
+- Cached is_enabled(), get_storm_volume(), get_storm_ping_interval() results
+- Config values refresh every 2 seconds instead of every getter call
+- Eliminates read_config() file I/O from the 1.7s detection loop
+
+### Image Resize Interpolation Improvements
+- material_monitor.py: Changed INTER_LINEAR → INTER_NEAREST for 2.5x OCR upscale (2-3x faster)
+- inventory_manager.py: Changed INTER_CUBIC → INTER_NEAREST for 2x OCR upscale (much faster)
+
+---
+
+## Test Suite
+
+### New Files Created
+- pytest.ini                         — pytest configuration
+- tests/__init__.py                  — package marker
+- tests/conftest.py                  — shared fixtures (tmp dirs, synthetic images, mock speaker)
+- tests/test_config_manager.py       — 12 tests (registration, get/set, cache, threads, edge cases)
+- tests/test_utilities.py            — 12 tests (key parsing, validation, config booleans, default config)
+- tests/test_screenshot_manager.py   — 7 tests (format conversion, OrderedDict cache, stats)
+- tests/test_mouse_passthrough.py    — 14 tests (MouseDevice, path parsing, friendly names, service, scaling)
+- tests/test_performance.py          — 7 tests (benchmarks for config, screenshots, key parsing, DPI math)
+
+### Results
+- Before optimizations: 57/57 passed (1.75s)
+- After optimizations:  57/57 passed (1.74s)
+- No regressions detected
+
+---
+
+## Cosmetics Expansion (v18.6.0)
+Date: 2026-03-25
+
+### Cosmetics API (lib/utilities/epic_auth.py)
+- Now fetches from all fortnite-api.com endpoints instead of just /v2/cosmetics/br:
+  - /v2/cosmetics/tracks — Jam Tracks (629 items)
+  - /v2/cosmetics/instruments — Festival instruments (260 items)
+  - /v2/cosmetics/cars — Vehicle cosmetics (1,392 items)
+  - /v2/cosmetics/lego/kits — LEGO building kits (387 items)
+- Extracted _format_br_cosmetic() and _fetch_endpoint() helpers
+- Deduplicates by ID across all endpoints
+- Maps API backend types to match Epic profile types (e.g. SparksMic → SparksMicrophone)
+- Total cosmetics in cache: 14,968 → 17,646
+- Owned cosmetic match rate: 70.1% → 99.8%
+
+### Locker GUI (lib/guis/locker_gui.py)
+- Added 16 new cosmetic types to COSMETIC_TYPE_MAP:
+  - CosmeticMimosa (Sidekick) — new companion type
+  - SparksSong (Jam Track)
+  - VehicleCosmetics_Skin (Car Skin), VehicleCosmetics_Wheel (Wheels),
+    VehicleCosmetics_Booster (Booster), VehicleCosmetics_DriftTrail (Drift Trail)
+  - SparksGuitar (Guitar), SparksBass (Bass), SparksDrums (Drums),
+    SparksKeyboard (Keytar), SparksMicrophone (Microphone)
+  - JunoBuildingProp (Decor Bundle), JunoBuildingSet (Build Set)
+- Renamed "Music & Jam Tracks" to "Music Pack" and added separate "Jam Track" category
+- Renamed "Pet" to "Companion" for CosmeticCompanion type
+- Added EMOTE_SLOT_COORDS for new 8-slot circular emote wheel layout
+- Expanded emote slot picker from 6 to 8 slots
+- Fixed equip silently failing for cosmetic types without explicit slot mappings
+  (ask_for_slot now defaults to slot 1 instead of returning None)
+- Added new category buttons: Jam Track, Car Skin, Wheels, Booster, Drift Trail,
+  Guitar, Bass, Drums, Keytar, Microphone, Decor Bundle, Build Set, Companion, Sidekick
