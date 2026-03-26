@@ -227,6 +227,7 @@ CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA1
 AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
+MousePassthrough = true "Toggles the mouse passthrough feature. When enabled, your configured mouse is captured and relayed through the FakerInput driver."
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
@@ -312,6 +313,8 @@ Open Discovery GUI = lalt+apostrophe "Open the discovery GUI for browsing Creati
 Open Authentication = lalt+lshift+l "Open Epic Games authentication dialog for re-authentication."
 Accept Notification = lalt+y "Accept pending notification (friend request, party invite)."
 Decline Notification = lalt+n "Decline pending notification (friend request, party invite)."
+Recapture Mouse = lalt+lshift+m "Recapture the mouse device for passthrough. Use when changing mice."
+Toggle Mouse Passthrough = lalt+lshift+p "Toggles mouse passthrough on or off."
 
 [POI]
 selected_poi = closest, 0, 0

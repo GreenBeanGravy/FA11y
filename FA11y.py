@@ -18,6 +18,8 @@ import ctypes.wintypes
 import logging
 import wx
 from typing import List, Tuple, Optional, Dict, Any, Union
+from lib.mouse_passthrough import get_mouse_passthrough
+from lib.config.config_manager import config_manager
 
 # Suppress pkg_resources deprecation warnings from external libraries
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", category=UserWarning)
@@ -218,6 +220,12 @@ def signal_handler(signum, frame):
         # Stop social manager
         if social_manager:
             social_manager.stop_monitoring()
+
+        # Stop mouse passthrough
+        try:
+            get_mouse_passthrough().stop()
+        except Exception:
+            pass
 
         # Clean up pygame mixer
         if pygame.mixer.get_init():
@@ -440,11 +448,22 @@ def reload_config() -> None:
             'open browser login': open_browser_login,
             'accept notification': accept_notification,
             'decline notification': decline_notification,
+            'recapture mouse': lambda: get_mouse_passthrough().recapture_mouse(),
+            'toggle mouse passthrough': lambda: get_mouse_passthrough().toggle(),
         })
 
         for i in range(1, 6):
             action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
-            
+
+        # Sync mouse passthrough DPI if changed in config
+        try:
+            mp = get_mouse_passthrough()
+            mp_config = config_manager.get('mouse_passthrough')
+            if mp.target_device and mp_config.get('DPI') != mp.target_device.dpi:
+                mp.update_dpi(mp_config['DPI'])
+        except Exception:
+            pass
+
     except Exception as e:
         print(f"Error reloading config: {e}")
         speaker.speak("Error reloading configuration")
@@ -1101,6 +1120,13 @@ def key_listener() -> None:
         'toggle keybinds' # Always allowed
     }
 
+    # Cache config booleans outside the inner loop — refresh once per cycle, not per keybind
+    _cached_config_ref = None
+    _cached_mouse_keys = True
+    _cached_ignore_numlock = False
+    # Cache GUI titles tuple (immutable, allocated once)
+    gui_titles = ("Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login")
+
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
@@ -1108,11 +1134,6 @@ def key_listener() -> None:
 
         # Check active window for GUI focus management
         active_title = get_active_window_title()
-        
-        # List of our GUI titles (or partial matches)
-        # List of our GUI titles (or partial matches)
-        gui_titles = ["Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login"]
-        
         is_gui_focused = any(title in active_title for title in gui_titles)
 
         numlock_on = is_numlock_on()
@@ -1120,7 +1141,11 @@ def key_listener() -> None:
             time.sleep(0.01) # Reduced sleep for faster response
             continue
 
-        mouse_keys_enabled = get_config_boolean(config, 'MouseKeys', True)
+        # Refresh cached config booleans only when config object changes
+        if config is not _cached_config_ref:
+            _cached_config_ref = config
+            _cached_mouse_keys = get_config_boolean(config, 'MouseKeys', True)
+            _cached_ignore_numlock = get_config_boolean(config, 'IgnoreNumlock', False)
 
         for action, key_combo in key_bindings.items():
             if not key_combo:
@@ -1138,11 +1163,10 @@ def key_listener() -> None:
             if not keybinds_enabled and action_lower != 'toggle keybinds':
                 continue
 
-            if not mouse_keys_enabled and action_lower in mouse_key_actions:
+            if not _cached_mouse_keys and action_lower in mouse_key_actions:
                 continue
 
-            ignore_numlock = get_config_boolean(config, 'IgnoreNumlock', False)
-            if action_lower in ['fire', 'target'] and not (ignore_numlock or numlock_on):
+            if action_lower in ['fire', 'target'] and not (_cached_ignore_numlock or numlock_on):
                 continue
 
             # Check if we should block this action due to GUI focus
@@ -2245,19 +2269,24 @@ def main() -> None:
             print("You are not logged into Legendary.")
             speaker.speak("You are not logged into Legendary.")
 
-        # Check for updates if enabled
-        temp_config_for_update_check = read_config()
-        if get_config_boolean(temp_config_for_update_check, 'AutoUpdates', True):
+        # Check startup settings
+        temp_config = read_config()
+        if get_config_boolean(temp_config, 'AutoUpdates', True):
             if run_updater():
                 sys.exit(0)
-
-        # Create desktop shortcut if enabled
-        temp_config_for_shortcut_check = read_config()
-        if get_config_boolean(temp_config_for_shortcut_check, 'CreateDesktopShortcut', True):
+        if get_config_boolean(temp_config, 'CreateDesktopShortcut', True):
             create_desktop_shortcut()
 
         # Initialize core systems
         reload_config()
+
+        # Initialize mouse passthrough
+        try:
+            mouse_passthrough_service = get_mouse_passthrough()
+            mouse_passthrough_service.initialize(speaker)
+        except Exception as e:
+            print(f"Mouse passthrough initialization failed: {e}")
+            speaker.speak("Mouse passthrough initialization failed")
 
         # Start key listener thread as daemon
         stop_key_listener.clear()
