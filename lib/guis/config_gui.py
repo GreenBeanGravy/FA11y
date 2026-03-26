@@ -26,10 +26,9 @@ from lib.utilities.utilities import (
     get_game_objects_config_order
 )
 from lib.utilities.input import (
-    VK_KEYS, is_mouse_button, get_pressed_key_combination, parse_key_combination,
+    VK_KEYS, is_mouse_button, get_pressed_key_combination, parse_key_combination, 
     validate_key_combination, get_supported_modifiers, is_modifier_key
 )
-from lib.config.config_manager import config_manager
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -76,7 +75,16 @@ class ConfigGUI(AccessibleDialog):
         
         # Show dialog immediately
         self.setupDialog()
-        
+
+        # Set a proper size so the dialog isn't tiny before deferred widgets load
+        display = wx.Display(wx.Display.GetFromWindow(self) if self.GetParent() else 0)
+        screen_rect = display.GetClientArea()
+        width = min(700, int(screen_rect.GetWidth() * 0.6))
+        height = min(600, int(screen_rect.GetHeight() * 0.7))
+        self.SetSize(width, height)
+        self.SetMinSize((400, 350))
+        self.CentreOnScreen()
+
     def makeSettings(self, settingsSizer: BoxSizerHelper):
         """Create dialog structure with minimal content"""
         self.notebook = wx.Notebook(self)
@@ -97,6 +105,8 @@ class ConfigGUI(AccessibleDialog):
             self.analyze_config()
             self.create_widgets()
             self.build_tab_control_lists()
+            # Force layout refresh so panels fill the available space
+            self.Layout()
         except Exception as e:
             logger.error(f"Error populating widgets: {e}")
             speaker.speak("Error loading configuration")
@@ -358,52 +368,15 @@ class ConfigGUI(AccessibleDialog):
                 elif section == "SCRIPT KEYBINDS":
                     self.create_keybind_entry("Keybinds", key, value_string)
         
-        # Add Mouse Passthrough DPI to Values tab
-        self._create_dpi_widget()
-
         # Refresh all panels
         for panel in self.tabs.values():
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
     
-    def _create_dpi_widget(self):
-        """Create a DPI spin control in the Values tab, backed by mouse_passthrough config."""
-        tab_name = "Values"
-        if tab_name not in self.tabs:
-            return
-
-        try:
-            mp_config = config_manager.get('mouse_passthrough')
-            current_dpi = int(mp_config.get('DPI', 1600))
-        except Exception:
-            current_dpi = 1600
-
-        panel = self.tabs[tab_name]
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        label = wx.StaticText(panel, label="MousePassthroughDPI")
-        entry = wx.SpinCtrl(panel, value=str(current_dpi), min=50, max=50000)
-        entry.SetValue(current_dpi)
-        entry.description = "The DPI value for your mouse used by mouse passthrough. Must match your actual mouse DPI for correct sensitivity."
-
-        entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
-
-        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
-        sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
-
-        self.tab_widgets[tab_name].extend([label, entry])
-        self.tab_variables[tab_name]["MousePassthroughDPI"] = entry
-
-        if not hasattr(panel, 'sizer'):
-            panel.sizer = wx.BoxSizer(wx.VERTICAL)
-            panel.SetSizer(panel.sizer)
-
-        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
-
     def create_checkbox(self, tab_name: str, key: str, value_string: str):
         """Create a checkbox for a boolean setting"""
         if tab_name not in self.tabs:
             return
-
+            
         value, description = self.extract_value_and_description(value_string)
         bool_value = value.lower() == 'true'
         
@@ -808,12 +781,6 @@ class ConfigGUI(AccessibleDialog):
         for tab_name in self.tab_variables:
             for key, stored_widget in self.tab_variables[tab_name].items():
                 if stored_widget == widget:
-                    # Special case for MousePassthroughDPI
-                    if key == "MousePassthroughDPI":
-                        widget.SetValue(1600)
-                        speaker.speak("MousePassthroughDPI reset to default: 1600")
-                        return
-
                     lookup_section = tab_name
                     if tab_name.endswith("GameObjects"):
                         lookup_section = tab_name
@@ -821,7 +788,7 @@ class ConfigGUI(AccessibleDialog):
                         lookup_section = "Audio"
                     elif tab_name == "GameObjects":
                         lookup_section = "GameObjects"
-
+                    
                     default_full_value = get_default_config_value_string(lookup_section, key)
                     
                     if not default_full_value:
@@ -915,12 +882,8 @@ class ConfigGUI(AccessibleDialog):
 
             for tab_name in self.tab_variables:
                 for setting_key, widget in self.tab_variables[tab_name].items():
-                    # MousePassthroughDPI is saved separately to the mouse passthrough config
-                    if setting_key == "MousePassthroughDPI":
-                        continue
-
                     description = getattr(widget, 'description', '')
-
+                    
                     if isinstance(widget, wx.CheckBox):
                         value_to_save = 'true' if widget.GetValue() else 'false'
                     elif isinstance(widget, wx.SpinCtrl):
@@ -936,32 +899,20 @@ class ConfigGUI(AccessibleDialog):
                                 value_to_save = ""
                         else:
                             value_to_save = ""
-
+                            
                         if value_to_save.strip() and not validate_key_combination(value_to_save):
                             value_to_save = ""
                     else:
                         value_to_save = widget.GetValue()
-
+                    
                     value_string_to_save = f"{value_to_save} \"{description}\"" if description else str(value_to_save)
-
+                    
                     if tab_name.endswith("GameObjects"):
                         target_section = tab_name
                     else:
                         target_section = tab_name
-
+                    
                     config_parser_instance.set(target_section, setting_key, value_string_to_save)
-
-            # Save MousePassthroughDPI to the mouse passthrough config
-            dpi_widget = self.tab_variables.get("Values", {}).get("MousePassthroughDPI")
-            if dpi_widget:
-                try:
-                    new_dpi = dpi_widget.GetValue()
-                    from lib.mouse_passthrough import get_mouse_passthrough
-                    mp = get_mouse_passthrough()
-                    mp.update_dpi(new_dpi)
-                    mp._save_device_to_config()
-                except Exception as e:
-                    logger.error(f"Error saving mouse passthrough DPI: {e}")
 
             self.update_callback(config_parser_instance)
             speaker.speak("Configuration saved and applied.")

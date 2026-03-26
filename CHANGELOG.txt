@@ -1,5 +1,6 @@
 3/26/2026 #1:
-- Added mouse passthrough DPI as a configurable setting in the configuration GUI (Values tab)
+- Added mouse passthrough DPI as a configurable setting in the configuration GUI (Values tab). Removed the console DPI prompt during first-time setup.
+- Fixed configuration GUI window being too small and not properly filling out. Added minimum size and proper scrollbar support.
 
 3/25/2026 #1:
 - Added 16 new cosmetic types to the locker: Jam Tracks, instruments, car skins, wheels, LEGO kits, sidekicks, and more. Cosmetic match rate improved from 70% to 99.8%

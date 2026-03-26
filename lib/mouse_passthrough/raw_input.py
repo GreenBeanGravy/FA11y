@@ -154,7 +154,7 @@ class MouseDevice:
     friendly_name: str
     device_path: str = ""
     handle_value: int = 0
-    dpi: int = 1600
+    dpi: int = 800
 
     def __post_init__(self):
         self.update_dpi_scale()
@@ -339,7 +339,7 @@ def _get_friendly_name(device_path: str) -> str:
     return f"{brand} Mouse ({vid}:{pid})"
 
 
-def detect_mouse_device(dpi: int = 1600, timeout: float = 10.0) -> Optional[MouseDevice]:
+def detect_mouse_device(dpi: int = 800, timeout: float = 10.0) -> Optional[MouseDevice]:
     """Detect a mouse device by waiting for raw input movement.
 
     Args:

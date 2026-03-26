@@ -455,12 +455,14 @@ def reload_config() -> None:
         for i in range(1, 6):
             action_handlers[f'detect hotbar {i}'] = lambda slot=i-1: detect_hotbar_item(slot)
 
-        # Sync mouse passthrough DPI if changed in config
+        # Sync mouse passthrough DPI from main config
         try:
             mp = get_mouse_passthrough()
-            mp_config = config_manager.get('mouse_passthrough')
-            if mp.target_device and mp_config.get('DPI') != mp.target_device.dpi:
-                mp.update_dpi(mp_config['DPI'])
+            dpi_str, _ = get_config_value(config, 'MousePassthroughDPI', '800')
+            new_dpi = int(float(dpi_str))
+            if mp.target_device and new_dpi != mp.target_device.dpi:
+                mp.update_dpi(new_dpi)
+                mp._save_device_to_config()
         except Exception:
             pass
 
