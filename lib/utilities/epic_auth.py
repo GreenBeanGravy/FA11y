@@ -5,6 +5,7 @@ Handles authentication with Epic Games and fetching cosmetic locker data
 import os
 import json
 import logging
+import time
 import requests
 import webbrowser
 import base64
@@ -1031,11 +1032,26 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
         return auth.get_owned_cosmetics_data()
 
     # Otherwise, return all cosmetics
-    # If force refresh or no cache exists, fetch new data
-    if force_refresh or not os.path.exists(auth.cache_file):
+    # Auto-refresh if cache is missing or stale (older than 7 days)
+    cache_stale = False
+    if os.path.exists(auth.cache_file):
+        try:
+            cache_age_seconds = time.time() - os.path.getmtime(auth.cache_file)
+            cache_age_days = cache_age_seconds / 86400
+            if cache_age_days > 7:
+                logger.info(f"Cosmetics cache is {cache_age_days:.1f} days old, auto-refreshing")
+                cache_stale = True
+        except Exception as e:
+            logger.warning(f"Could not check cache age: {e}")
+
+    if force_refresh or cache_stale or not os.path.exists(auth.cache_file):
         if not auth.refresh_cosmetics():
             logger.error("Failed to fetch cosmetics data")
-            return None
+            # If stale refresh failed but cache exists, fall back to stale data
+            if cache_stale:
+                logger.info("Using stale cache as fallback")
+            else:
+                return None
 
     # Load and return cached data
     return auth.load_cosmetics_cache()

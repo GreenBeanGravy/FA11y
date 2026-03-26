@@ -56,7 +56,8 @@ COSMETIC_TYPE_MAP = {
     # Lobby
     "AthenaLoadingScreen": {"name": "Loading Screen", "category": "Lobby", "slot": 3},
     "AthenaMusicPack": {"name": "Music Pack", "category": "Lobby", "slot": 2},
-    "SparksSong": {"name": "Jam Track", "category": "Lobby", "slot": None},
+    "SparksSong": {"name": "Jam Track", "category": "Lobby", "slot": None},  # Multiple slots
+    "SparksSong_Lobby": {"name": "Lobby Track", "category": "Lobby", "slot": 2},  # Virtual type: jam track in lobby music slot
     "BannerToken": {"name": "Banner", "category": "Lobby", "slot": None},
 
     # Vehicles
@@ -259,6 +260,10 @@ class CategoryView(AccessibleDialog):
             # Category filter - "All Cosmetics" shows everything
             if self.category_name == "All Cosmetics":
                 filtered.append(cosmetic)
+            elif self.category_name == "Lobby Track":
+                # Lobby Track shows Jam Track items (SparksSong) but equips to lobby music slot
+                if cosmetic.get("type", "") == "SparksSong":
+                    filtered.append(cosmetic)
             else:
                 cosmetic_type = cosmetic.get("type", "")
                 type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
@@ -768,7 +773,11 @@ class CategoryView(AccessibleDialog):
             category = type_info.get("category")
             slot = type_info.get("slot")
 
-            if not category:
+            # Lobby Track: jam tracks equipped to the lobby music slot
+            if self.category_name == "Lobby Track":
+                category = "Lobby"
+                slot = 2
+            elif not category:
                 speaker.speak(f"Cannot equip {name}. Unknown category.")
                 messageBox(f"Cannot equip {name}.\nUnknown cosmetic category.", "Cannot Equip", wx.OK | wx.ICON_WARNING, self)
                 return
@@ -904,6 +913,13 @@ class CategoryView(AccessibleDialog):
                 f"Select which wrap slot to equip '{name}' to:",
                 "Select Wrap Slot",
                 ["Rifles", "Shotguns", "Submachine Guns", "Snipers", "Pistols", "Utility", "Vehicles"]
+            )
+        elif cosmetic_type == "SparksSong":
+            dlg = wx.SingleChoiceDialog(
+                self,
+                f"Select which jam track slot to equip '{name}' to:",
+                "Select Jam Track Slot",
+                ["Jam Track 1", "Jam Track 2", "Jam Track 3", "Jam Track 4"]
             )
         else:
             # For types without multiple slots, default to slot 1
@@ -1063,11 +1079,11 @@ class LockerGUI(AccessibleDialog):
             # Emotes & Expressions
             "Emote", "Spray", "Emoji", "Toy",
             # Sidekicks/Pets
-            "Pet", "Companion", "Sidekick",
+            "Pet", "Companion",
             # Wraps
             "Wrap",
             # Lobby
-            "Loading Screen", "Music Pack", "Jam Track", "Banner",
+            "Loading Screen", "Music Pack", "Jam Track", "Lobby Track", "Banner",
             # Vehicles
             "Car Body", "Car Skin", "Wheels", "Booster", "Drift Trail",
             # Instruments (Festival)
