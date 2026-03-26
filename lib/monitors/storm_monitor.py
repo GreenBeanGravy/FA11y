@@ -119,6 +119,12 @@ class StormMonitor:
         self.active_audio_thread = None
         self.detection_interval = 1.7
 
+        # Cached config values to avoid read_config() in hot path
+        self._cached_enabled = True
+        self._cached_storm_volume = 0.5
+        self._cached_ping_interval = 1.5
+        self._config_cache_time = 0
+
         self.initialize_audio()
 
     def initialize_audio(self):
@@ -136,10 +142,19 @@ class StormMonitor:
             except Exception:
                 self.storm_audio = None
 
+    def _refresh_config_cache(self):
+        """Refresh cached config values (called periodically, not every getter)."""
+        config = read_config()
+        self._cached_enabled = get_config_boolean(config, 'MonitorStorm', True)
+        self._cached_storm_volume = get_config_float(config, 'StormVolume', 0.5)
+        self._cached_ping_interval = get_config_float(config, 'StormPingInterval', 1.5)
+        self._config_cache_time = time.time()
+
     def is_enabled(self) -> bool:
         """Check if storm monitoring is enabled in config"""
-        config = read_config()
-        return get_config_boolean(config, 'MonitorStorm', True)
+        if time.time() - self._config_cache_time > 2.0:
+            self._refresh_config_cache()
+        return self._cached_enabled
 
     def should_monitor(self) -> bool:
         """Check if monitoring should be active"""
@@ -147,13 +162,15 @@ class StormMonitor:
 
     def get_storm_volume(self) -> float:
         """Get storm volume from config"""
-        config = read_config()
-        return get_config_float(config, 'StormVolume', 0.5)
+        if time.time() - self._config_cache_time > 2.0:
+            self._refresh_config_cache()
+        return self._cached_storm_volume
 
     def get_storm_ping_interval(self) -> float:
         """Get storm ping interval from config"""
-        config = read_config()
-        return get_config_float(config, 'StormPingInterval', 1.5)
+        if time.time() - self._config_cache_time > 2.0:
+            self._refresh_config_cache()
+        return self._cached_ping_interval
 
     def detect_purple_tint(self, screenshot: np.ndarray) -> np.ndarray:
         """

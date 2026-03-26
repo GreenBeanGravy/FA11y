@@ -29,7 +29,8 @@ class MaterialMonitor:
         self.running = False
         self.stop_event = Event()
         self.thread = None
-        
+        self._mss_instance = None
+
         # Get OCR manager instance
         self.ocr_manager = get_ocr_manager()
         
@@ -118,7 +119,7 @@ class MaterialMonitor:
             _, gray = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
             
             # Resize
-            gray = cv2.resize(gray, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_LINEAR)
+            gray = cv2.resize(gray, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_NEAREST)
             
             results = self.ocr_manager.read_numbers(gray,
                                         allowlist='0123456789',
@@ -135,9 +136,16 @@ class MaterialMonitor:
             print(f"Error in count detection: {e}")
         return None
 
+    def _get_mss(self):
+        """Get persistent mss instance (avoids recreation every loop)."""
+        if self._mss_instance is None:
+            self._mss_instance = mss()
+        return self._mss_instance
+
     def monitor_loop(self):
         """Main monitoring loop."""
-        with mss() as sct:
+        sct = self._get_mss()
+        try:
             last_material_time = 0
             
             while not self.stop_event.is_set():
@@ -185,6 +193,13 @@ class MaterialMonitor:
                 except Exception as e:
                     print(f"Error in material monitor loop: {e}")
                     time.sleep(0.5)
+        finally:
+            if self._mss_instance:
+                try:
+                    self._mss_instance.close()
+                except Exception:
+                    pass
+                self._mss_instance = None
 
     def start_monitoring(self):
         """Start the material monitoring."""

@@ -65,6 +65,7 @@ class ResourceMonitor:
         self.stop_event = Event()
         self.thread = None
         self.lock = Lock()
+        self._mss_instance = None
         self.active_resources: Dict[str, ResourceState] = {}
         self.resource_templates = {}
         
@@ -215,8 +216,15 @@ class ResourceMonitor:
             print(f"Error in count detection: {e}")
         return None
 
+    def _get_mss(self):
+        """Get persistent mss instance."""
+        if self._mss_instance is None:
+            self._mss_instance = mss()
+        return self._mss_instance
+
     def monitor_loop(self):
-        with mss() as sct:
+        sct = self._get_mss()
+        try:
             while not self.stop_event.is_set():
                 try:
                     screenshot = np.array(sct.grab(SCAN_REGION))
@@ -307,6 +315,13 @@ class ResourceMonitor:
                 except Exception as e:
                     print(f"Error in monitor loop: {str(e)}")
                     time.sleep(1.0)
+        finally:
+            if self._mss_instance:
+                try:
+                    self._mss_instance.close()
+                except Exception:
+                    pass
+                self._mss_instance = None
 
     def start_monitoring(self):
         if not self.running:
