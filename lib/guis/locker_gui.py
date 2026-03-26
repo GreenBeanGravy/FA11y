@@ -126,6 +126,72 @@ CATEGORY_COORDS = {
     'Music': (110, 665)
 }
 
+# Mapping from Locker Service slot templates to UI automation (category, slot)
+SLOT_TEMPLATE_TO_AUTOMATION = {
+    # Character
+    "LoadoutSlot_Character": ("Character", 1),
+    "LoadoutSlot_Backpack": ("Character", 2),
+    "LoadoutSlot_Pickaxe": ("Character", 3),
+    "LoadoutSlot_Glider": ("Character", 4),
+    "LoadoutSlot_Shoes": ("Character", 5),
+    "LoadoutSlot_Contrails": ("Character", 6),
+    # Emotes
+    "LoadoutSlot_Emote_0": ("Emotes", 1),
+    "LoadoutSlot_Emote_1": ("Emotes", 2),
+    "LoadoutSlot_Emote_2": ("Emotes", 3),
+    "LoadoutSlot_Emote_3": ("Emotes", 4),
+    "LoadoutSlot_Emote_4": ("Emotes", 5),
+    "LoadoutSlot_Emote_5": ("Emotes", 6),
+    "LoadoutSlot_Emote_6": ("Emotes", 7),
+    "LoadoutSlot_Emote_7": ("Emotes", 8),
+    # Wraps
+    "LoadoutSlot_Wrap_0": ("Wraps", 1),
+    "LoadoutSlot_Wrap_1": ("Wraps", 2),
+    "LoadoutSlot_Wrap_2": ("Wraps", 3),
+    "LoadoutSlot_Wrap_3": ("Wraps", 4),
+    "LoadoutSlot_Wrap_4": ("Wraps", 5),
+    "LoadoutSlot_Wrap_5": ("Wraps", 6),
+    "LoadoutSlot_Wrap_6": ("Wraps", 7),
+    # Lobby / Platform
+    "LoadoutSlot_LobbyMusic": ("Lobby", 2),
+    "LoadoutSlot_LoadingScreen": ("Lobby", 3),
+    # Vehicles
+    "LoadoutSlot_Vehicle_Body": ("Cars", 1),
+    "LoadoutSlot_Vehicle_Skin": ("Cars", 2),
+    "LoadoutSlot_Vehicle_Wheel": ("Cars", 3),
+    "LoadoutSlot_Vehicle_DriftSmoke": ("Cars", 4),
+    "LoadoutSlot_Vehicle_Booster": ("Cars", 5),
+    # Instruments
+    "LoadoutSlot_Guitar": ("Instruments", 1),
+    "LoadoutSlot_Bass": ("Instruments", 2),
+    "LoadoutSlot_Drum": ("Instruments", 3),
+    "LoadoutSlot_Keyboard": ("Instruments", 4),
+    "LoadoutSlot_Microphone": ("Instruments", 5),
+    # Jam Tracks
+    "LoadoutSlot_JamSong0": ("Lobby", None),
+    "LoadoutSlot_JamSong1": ("Lobby", None),
+    "LoadoutSlot_JamSong2": ("Lobby", None),
+    "LoadoutSlot_JamSong3": ("Lobby", None),
+    "LoadoutSlot_JamSong4": ("Lobby", None),
+    "LoadoutSlot_JamSong5": ("Lobby", None),
+    "LoadoutSlot_JamSong6": ("Lobby", None),
+    "LoadoutSlot_JamSong7": ("Lobby", None),
+}
+
+# Friendly names for loadout schema types
+LOADOUT_SCHEMA_NAMES = {
+    "CosmeticLoadout:LoadoutSchema_Character": "Character",
+    "CosmeticLoadout:LoadoutSchema_Emotes": "Emotes",
+    "CosmeticLoadout:LoadoutSchema_Platform": "Lobby",
+    "CosmeticLoadout:LoadoutSchema_Sparks": "Instruments",
+    "CosmeticLoadout:LoadoutSchema_Wraps": "Wraps",
+    "CosmeticLoadout:LoadoutSchema_Jam": "Jam Tracks",
+    "CosmeticLoadout:LoadoutSchema_Vehicle": "Vehicle (Sedan)",
+    "CosmeticLoadout:LoadoutSchema_Vehicle_SUV": "Vehicle (SUV)",
+    "CosmeticLoadout:LoadoutSchema_Mimosa": "Companion",
+    "CosmeticLoadout:LoadoutSchema_Moments": "Moments",
+}
+
 
 def focus_fortnite_window() -> bool:
     """Focus the Fortnite window before automation"""
@@ -484,6 +550,15 @@ class CategoryView(AccessibleDialog):
                 self.cosmetics_list.SetItemTextColour(idx, wx.Colour(0, 217, 217))
                 list_offset += 1
 
+            # Add Randomize Track option (picks a random cosmetic from the list)
+            if self.show_random and self.category_name in ["Jam Track", "Lobby Track"]:
+                idx = self.cosmetics_list.InsertItem(list_offset, "🎲 Randomize Track")
+                self.cosmetics_list.SetItem(idx, 1, "Special")
+                self.cosmetics_list.SetItem(idx, 2, "-")
+                self.cosmetics_list.SetItemData(idx, -3)  # Special marker
+                self.cosmetics_list.SetItemTextColour(idx, wx.Colour(0, 200, 100))
+                list_offset += 1
+
             # Add Unequip option (with category-specific label, if applicable)
             if self.unequip_search_term:
                 unequip_label = f"❌ Unequip ({self.unequip_search_term})"
@@ -567,7 +642,9 @@ class CategoryView(AccessibleDialog):
         cosmetic_idx = self.cosmetics_list.GetItemData(index)
 
         if cosmetic_idx == -1:  # Random
-            self.details_text.SetValue("Random\n\nEquip a random cosmetic for this category.")
+            self.details_text.SetValue("Random\n\nEquip the Random (shuffle) option for this slot.")
+        elif cosmetic_idx == -3:  # Randomize Track
+            self.details_text.SetValue("Randomize Track\n\nPick a random cosmetic from this list and equip it.")
         elif cosmetic_idx == -2:  # Unequip
             self.details_text.SetValue(f"Unequip\n\nSearches for '{self.unequip_search_term}' to remove the cosmetic from this slot.")
         elif 0 <= cosmetic_idx < len(self.filtered_cosmetics):
@@ -708,54 +785,189 @@ class CategoryView(AccessibleDialog):
         cosmetic_idx = self.cosmetics_list.GetItemData(index)
 
         if cosmetic_idx == -1:  # Random
-            self.equip_special("Rando")
+            self.equip_special("Random")
+        elif cosmetic_idx == -3:  # Randomize Track
+            self.equip_random_from_list()
         elif cosmetic_idx == -2:  # Unequip
             self.equip_special(self.unequip_search_term)
         elif 0 <= cosmetic_idx < len(self.filtered_cosmetics):
             cosmetic = self.filtered_cosmetics[cosmetic_idx]
             self.equip_cosmetic(cosmetic)
 
-    def equip_special(self, search_term: str):
-        """Equip Random or Unequip"""
-        if search_term == "Rando":
-            # Random: Pick a random cosmetic from filtered list
-            if not self.filtered_cosmetics:
-                speaker.speak("No cosmetics available to randomize")
-                messageBox("No cosmetics available to randomize.", "Cannot Randomize", wx.OK | wx.ICON_WARNING, self)
-                return
+    def equip_random_from_list(self):
+        """Pick a random cosmetic from filtered list and equip it"""
+        if not self.filtered_cosmetics:
+            speaker.speak("No cosmetics available to randomize")
+            messageBox("No cosmetics available to randomize.", "Cannot Randomize", wx.OK | wx.ICON_WARNING, self)
+            return
 
-            import random
-            random_cosmetic = random.choice(self.filtered_cosmetics)
-            speaker.speak(f"Randomly selected {random_cosmetic.get('name', 'Unknown')}")
-            self.equip_cosmetic(random_cosmetic)
-        else:
-            # Unequip: Search for default/empty item
-            # For now, we'll search in all cosmetics for the search term
-            unequip_cosmetic = None
+        import random
+        random_cosmetic = random.choice(self.filtered_cosmetics)
+        speaker.speak(f"Randomly selected {random_cosmetic.get('name', 'Unknown')}")
+        self.equip_cosmetic(random_cosmetic)
 
-            for cosmetic in self.cosmetics_data:
-                name = cosmetic.get("name", "").lower()
-                if search_term.lower() in name:
-                    # Check if it's the right type
-                    cosmetic_type = cosmetic.get("type", "")
-                    type_info = COSMETIC_TYPE_MAP.get(cosmetic_type, {})
-                    friendly_type = type_info.get("name", "")
-
-                    if friendly_type == self.category_name:
-                        unequip_cosmetic = cosmetic
-                        break
-
-            if unequip_cosmetic:
-                self.equip_cosmetic(unequip_cosmetic)
+    def _equip_random_option(self):
+        """Equip the Random (shuffle) option via UI automation by scrolling to top and clicking it"""
+        try:
+            # Determine category and slot from current view
+            if self.category_name == "Lobby Track":
+                category = "Lobby"
+                slot = 2
             else:
-                speaker.speak(f"Could not find {search_term} item to unequip")
-                messageBox(
-                    f"Could not find a '{search_term}' item to unequip with.\n\n"
-                    f"This category may not have an unequip option available.",
-                    "Cannot Unequip",
-                    wx.OK | wx.ICON_WARNING,
-                    self
-                )
+                backend_type = self._get_type_from_category()
+                type_info = COSMETIC_TYPE_MAP.get(backend_type, {})
+                category = type_info.get("category")
+                slot = type_info.get("slot")
+
+                if not category:
+                    speaker.speak("Cannot equip Random. Unknown category.")
+                    return
+
+                if slot is None:
+                    slot = self.ask_for_slot(backend_type, "Random")
+                    if slot is None:
+                        return
+
+            speaker.speak("Equipping Random")
+            logger.info(f"Equipping Random to {category} slot {slot}")
+
+            self.Iconize(True)
+            time.sleep(0.1)
+
+            try:
+                success = self._perform_scroll_and_click_automation(category, slot, 1175, 385)
+                wx.CallLater(100, self._show_after_equip, success, "Random")
+            except Exception as automation_error:
+                logger.error(f"Error during random automation: {automation_error}")
+                wx.CallAfter(self._show_after_equip, False, "Random")
+                raise
+
+        except Exception as e:
+            logger.error(f"Error equipping random: {e}")
+            speaker.speak("Error equipping cosmetic")
+            if not self.IsShown():
+                wx.CallAfter(self.Show)
+            wx.CallAfter(lambda: messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self))
+
+    def _equip_unequip_option(self):
+        """Unequip by scrolling to top and clicking the first item (default/none)"""
+        try:
+            # Determine category and slot from current view
+            if self.category_name == "Lobby Track":
+                category = "Lobby"
+                slot = 2
+            else:
+                backend_type = self._get_type_from_category()
+                type_info = COSMETIC_TYPE_MAP.get(backend_type, {})
+                category = type_info.get("category")
+                slot = type_info.get("slot")
+
+                if not category:
+                    speaker.speak("Cannot unequip. Unknown category.")
+                    return
+
+                if slot is None:
+                    slot = self.ask_for_slot(backend_type, "Unequip")
+                    if slot is None:
+                        return
+
+            speaker.speak("Unequipping")
+            logger.info(f"Unequipping {category} slot {slot}")
+
+            self.Iconize(True)
+            time.sleep(0.1)
+
+            try:
+                success = self._perform_scroll_and_click_automation(category, slot, 1020, 350)
+                wx.CallLater(100, self._show_after_equip, success, "Unequip")
+            except Exception as automation_error:
+                logger.error(f"Error during unequip automation: {automation_error}")
+                wx.CallAfter(self._show_after_equip, False, "Unequip")
+                raise
+
+        except Exception as e:
+            logger.error(f"Error unequipping: {e}")
+            speaker.speak("Error unequipping cosmetic")
+            if not self.IsShown():
+                wx.CallAfter(self.Show)
+            wx.CallAfter(lambda: messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self))
+
+    def _perform_scroll_and_click_automation(self, category: str, slot: int, click_x: int, click_y: int) -> bool:
+        """Perform UI automation by scrolling to top of the list and clicking a target position"""
+        try:
+            if category == "Emotes":
+                slot_coords = EMOTE_SLOT_COORDS.get(slot)
+            else:
+                slot_coords = SLOT_COORDS.get(slot)
+            if not slot_coords:
+                logger.error(f"Unknown slot number: {slot}")
+                return False
+
+            if not focus_fortnite_window():
+                speaker.speak("Cannot find Fortnite window. Make sure the game is running.")
+                return False
+
+            time.sleep(0.5)
+
+            # Click locker button
+            pyautogui.moveTo(350, 69, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.3)
+
+            # Click category
+            category_coords = CATEGORY_COORDS.get(category)
+            if category_coords:
+                pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
+                pyautogui.click()
+                time.sleep(0.3)
+
+                current_x, current_y = pyautogui.position()
+                pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                time.sleep(1.0)
+
+            # Click slot
+            pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
+            pyautogui.click()
+            time.sleep(1.0)
+
+            # Hover over the options area and scroll up to reach the top
+            pyautogui.moveTo(click_x, click_y, duration=0.05)
+            scroll_end = time.time() + 0.5
+            while time.time() < scroll_end:
+                pyautogui.scroll(5000)  # Scroll up aggressively
+                time.sleep(0.05)
+
+            time.sleep(0.3)
+
+            # Click the target option
+            pyautogui.moveTo(click_x, click_y, duration=0.05)
+            pyautogui.click()
+            time.sleep(0.05)
+            pyautogui.click()
+            time.sleep(0.1)
+
+            # Press escape to exit
+            pyautogui.press('escape')
+            time.sleep(1)
+
+            # Click PLAY tab
+            pyautogui.moveTo(130, 69, duration=0.05)
+            pyautogui.click()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error in scroll-and-click automation: {e}")
+            return False
+
+    def equip_special(self, search_term: str):
+        """Equip Random or Unequip by scrolling to top and clicking"""
+        if search_term == "Random":
+            self._equip_random_option()
+            return
+        else:
+            # Unequip: scroll to top and click the first item (default/none)
+            self._equip_unequip_option()
 
     def _get_type_from_category(self) -> str:
         """Get backend type from category name"""
@@ -1103,12 +1315,29 @@ class LockerGUI(AccessibleDialog):
 
         sizer.addItem(self.categories_panel, flag=wx.EXPAND, proportion=1)
 
+        # Loadout buttons (only show if logged in)
+        if self.auth and self.auth.display_name:
+            loadout_label = wx.StaticText(self, label="Loadouts:")
+            sizer.addItem(loadout_label)
+
+            loadout_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+            self.view_equipped_btn = wx.Button(self, label="&View Equipped")
+            self.view_equipped_btn.Bind(wx.EVT_BUTTON, self.on_view_equipped)
+            loadout_sizer.Add(self.view_equipped_btn, flag=wx.RIGHT, border=5)
+
+            self.view_loadouts_btn = wx.Button(self, label="Saved &Loadouts")
+            self.view_loadouts_btn.Bind(wx.EVT_BUTTON, self.on_view_loadouts)
+            loadout_sizer.Add(self.view_loadouts_btn, flag=wx.RIGHT, border=5)
+
+            self.save_loadout_btn = wx.Button(self, label="&Save Current as Loadout")
+            self.save_loadout_btn.Bind(wx.EVT_BUTTON, self.on_save_loadout)
+            loadout_sizer.Add(self.save_loadout_btn, flag=wx.RIGHT, border=5)
+
+            sizer.addItem(loadout_sizer)
+
         # Bottom buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        self.refresh_btn = wx.Button(self, label="&Refresh Data")
-        self.refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh)
-        button_sizer.Add(self.refresh_btn)
 
         button_sizer.AddStretchSpacer()
 
@@ -1211,6 +1440,752 @@ class LockerGUI(AccessibleDialog):
                     wx.OK | wx.ICON_ERROR,
                     self
                 )
+
+    def on_view_equipped(self, event):
+        """Show currently equipped cosmetics from the Locker Service"""
+        try:
+            if not self.auth or not self.auth.is_valid:
+                speaker.speak("Please log in first")
+                return
+
+            speaker.speak("Fetching equipped cosmetics")
+            equipped = self.auth.get_equipped_cosmetics()
+            if not equipped:
+                speaker.speak("Failed to fetch equipped cosmetics")
+                messageBox("Could not retrieve equipped cosmetics from Epic Games.", "Error",
+                           wx.OK | wx.ICON_ERROR, self)
+                return
+
+            # Build readable text
+            lines = []
+            # Map schema names to friendly names
+            schema_names = {
+                "Character": "Character",
+                "Emotes": "Emotes",
+                "Platform": "Lobby",
+                "Sparks": "Instruments",
+                "Wraps": "Wraps",
+                "Jam": "Jam Tracks",
+                "Vehicle": "Vehicle (Sedan)",
+                "Vehicle_SUV": "Vehicle (SUV)",
+                "Mimosa": "Companion",
+                "Moments": "Moments",
+            }
+
+            for schema, data in equipped.items():
+                friendly = schema_names.get(schema, schema)
+                lines.append(f"--- {friendly} ---")
+                slots = data.get("slots", {})
+                for slot_name, slot_data in slots.items():
+                    # Clean up slot name
+                    display_name = slot_name.replace("LoadoutSlot_", "").replace("_", " ")
+                    equipped_id = slot_data.get("equipped_id", "")
+                    if equipped_id:
+                        # Try to find friendly name from cosmetics data
+                        item_id = equipped_id.split(":")[-1] if ":" in equipped_id else equipped_id
+                        friendly_item = None
+                        for c in self.cosmetics_data:
+                            if c.get("id", "").lower() == item_id.lower():
+                                friendly_item = c.get("name", item_id)
+                                break
+                        display_item = friendly_item or item_id
+                        lines.append(f"  {display_name}: {display_item}")
+                    else:
+                        lines.append(f"  {display_name}: (empty)")
+                lines.append("")
+
+            text = "\n".join(lines)
+            speaker.speak("Equipped cosmetics loaded")
+
+            # Show in a dialog
+            dlg = wx.Dialog(self, title="Currently Equipped Cosmetics", size=(500, 600))
+            dlg_sizer = wx.BoxSizer(wx.VERTICAL)
+
+            text_ctrl = wx.TextCtrl(dlg, value=text,
+                                    style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP)
+            dlg_sizer.Add(text_ctrl, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
+
+            close_btn = wx.Button(dlg, wx.ID_CLOSE, "&Close")
+            close_btn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_CLOSE))
+            dlg_sizer.Add(close_btn, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
+
+            dlg.SetSizer(dlg_sizer)
+            dlg.CentreOnScreen()
+
+            # Allow Escape to close
+            def on_dlg_key(evt):
+                if evt.GetKeyCode() == wx.WXK_ESCAPE:
+                    dlg.EndModal(wx.ID_CLOSE)
+                else:
+                    evt.Skip()
+            dlg.Bind(wx.EVT_CHAR_HOOK, on_dlg_key)
+
+            dlg.ShowModal()
+            dlg.Destroy()
+
+        except Exception as e:
+            logger.error(f"Error viewing equipped cosmetics: {e}")
+            speaker.speak("Error viewing equipped cosmetics")
+            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+
+    def _import_epic_presets_to_local(self, presets: list):
+        """
+        Auto-import Epic presets to local storage so they can be edited.
+        Only imports presets not already in local storage (by name + categories match).
+        """
+        try:
+            from lib.config.config_manager import config_manager
+            try:
+                config_manager.register('fa11y_loadouts', 'config/fa11y_loadouts.json',
+                                        format='json', default=[])
+            except Exception:
+                pass
+
+            local_loadouts = config_manager.get('fa11y_loadouts') or []
+            if not isinstance(local_loadouts, list):
+                local_loadouts = []
+
+            # Build set of existing local names for fast lookup
+            existing_local = set()
+            for ll in local_loadouts:
+                existing_local.add(ll.get("display_name", ""))
+
+            # Group Epic presets by name
+            by_name = {}
+            for p in presets:
+                name = p.get("displayName", "") or "(unnamed)"
+                ltype = p.get("loadoutType", "")
+                if name not in by_name:
+                    by_name[name] = {}
+                by_name[name][ltype] = {
+                    "loadoutSlots": p.get("loadoutSlots", []),
+                    "shuffleType": p.get("shuffleType", "DISABLED"),
+                }
+
+            # Import missing ones
+            imported = 0
+            for name, categories in by_name.items():
+                if name not in existing_local:
+                    local_loadouts.append({
+                        "display_name": name,
+                        "categories": categories,
+                        "source": "epic_import",
+                    })
+                    imported += 1
+
+            if imported > 0:
+                config_manager.set('fa11y_loadouts', data=local_loadouts)
+                logger.info(f"Imported {imported} Epic presets to local storage")
+
+        except Exception as e:
+            logger.warning(f"Could not import Epic presets: {e}")
+
+    def _resolve_item_name(self, equipped_id: str) -> str:
+        """Look up a friendly cosmetic name from its template ID."""
+        if not equipped_id:
+            return "(empty)"
+        item_id = equipped_id.split(":")[-1] if ":" in equipped_id else equipped_id
+        for c in self.cosmetics_data:
+            if c.get("id", "").lower() == item_id.lower():
+                return c.get("name", item_id)
+        return item_id
+
+    def on_view_loadouts(self, event):
+        """Show saved loadout presets from the Locker Service"""
+        try:
+            if not self.auth or not self.auth.is_valid:
+                speaker.speak("Please log in first")
+                return
+
+            speaker.speak("Fetching saved loadouts")
+
+            # Fetch raw locker data to get all preset types
+            locker_data = self.auth.query_locker_items()
+            if not locker_data:
+                speaker.speak("Failed to fetch loadouts")
+                messageBox("Could not retrieve loadout presets from Epic Games.", "Error",
+                           wx.OK | wx.ICON_ERROR, self)
+                return
+
+            presets = locker_data.get("loadoutPresets", [])
+            if not presets:
+                speaker.speak("No saved loadouts found")
+                messageBox("You have no saved loadout presets.", "Loadouts",
+                           wx.OK | wx.ICON_INFORMATION, self)
+                return
+
+            # Auto-import Epic presets to local storage for editing
+            self._import_epic_presets_to_local(presets)
+
+            # Merge presets with same name across categories into combined "All" entries
+            merged_presets = []  # list of dicts with 'displayName', 'categories' dict, 'source'
+            name_index = {}  # name -> index in merged_presets
+
+            for p in presets:
+                name = p.get("displayName", "") or "(unnamed)"
+                ltype = p.get("loadoutType", "")
+
+                if name in name_index:
+                    # Add this category to existing merged entry
+                    merged_presets[name_index[name]]["categories"][ltype] = {
+                        "loadoutSlots": p.get("loadoutSlots", []),
+                        "shuffleType": p.get("shuffleType", "DISABLED"),
+                    }
+                else:
+                    name_index[name] = len(merged_presets)
+                    merged_presets.append({
+                        "displayName": name,
+                        "categories": {
+                            ltype: {
+                                "loadoutSlots": p.get("loadoutSlots", []),
+                                "shuffleType": p.get("shuffleType", "DISABLED"),
+                            }
+                        },
+                        "source": "epic",
+                    })
+
+            # Also load locally saved loadouts
+            try:
+                from lib.config.config_manager import config_manager
+                try:
+                    config_manager.register('fa11y_loadouts', 'config/fa11y_loadouts.json',
+                                            format='json', default=[])
+                except Exception:
+                    pass
+                local_loadouts = config_manager.get('fa11y_loadouts') or []
+                for ll in local_loadouts:
+                    merged_presets.append({
+                        "displayName": ll.get("display_name", "(unnamed)"),
+                        "categories": ll.get("categories", {}),
+                        "source": "local",
+                    })
+            except Exception as e:
+                logger.warning(f"Could not load local loadouts: {e}")
+
+            total = len(merged_presets)
+            speaker.speak(f"Found {total} loadouts")
+
+            # Show loadout selection dialog
+            dlg = wx.Dialog(self, title=f"Loadouts ({total})", size=(600, 700))
+            dlg_sizer = wx.BoxSizer(wx.VERTICAL)
+
+            # Filter by type
+            filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            filter_sizer.Add(wx.StaticText(dlg, label="Filter by type:"),
+                             flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=5)
+
+            type_choices = ["All", "Multi-Category Only"] + sorted(set(LOADOUT_SCHEMA_NAMES.values()))
+            type_filter = wx.Choice(dlg, choices=type_choices)
+            type_filter.SetSelection(0)
+            filter_sizer.Add(type_filter)
+            dlg_sizer.Add(filter_sizer, flag=wx.ALL, border=10)
+
+            # Loadout list
+            list_box = wx.ListBox(dlg, style=wx.LB_SINGLE)
+            dlg_sizer.Add(list_box, proportion=1, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=10)
+
+            # Detail text
+            detail_text = wx.TextCtrl(dlg, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP,
+                                      size=(-1, 150))
+            dlg_sizer.Add(detail_text, flag=wx.EXPAND | wx.ALL, border=10)
+
+            filtered_entries = []
+
+            def _type_label(entry):
+                cats = entry.get("categories", {})
+                cat_names = [LOADOUT_SCHEMA_NAMES.get(k, k.split("_")[-1]) for k in cats]
+                if len(cat_names) > 1:
+                    return " + ".join(sorted(cat_names))
+                elif cat_names:
+                    return cat_names[0]
+                return "?"
+
+            def refresh_list(filter_type="All"):
+                nonlocal filtered_entries
+                list_box.Clear()
+                filtered_entries = []
+                # Reverse lookup schema key from friendly name
+                schema_key_for_filter = None
+                for k, v in LOADOUT_SCHEMA_NAMES.items():
+                    if v == filter_type:
+                        schema_key_for_filter = k
+                        break
+
+                for entry in merged_presets:
+                    cats = entry.get("categories", {})
+
+                    if filter_type == "Multi-Category Only":
+                        if len(cats) < 2:
+                            continue
+                    elif filter_type != "All":
+                        if schema_key_for_filter and schema_key_for_filter not in cats:
+                            continue
+
+                    filtered_entries.append(entry)
+                    name = entry.get("displayName", "(unnamed)")
+                    label = _type_label(entry)
+                    list_box.Append(f"{name} [{label}]")
+                detail_text.SetValue("")
+
+            refresh_list()
+
+            def on_filter_changed(evt):
+                sel = type_filter.GetString(type_filter.GetSelection())
+                refresh_list(sel)
+                speaker.speak(f"Showing {list_box.GetCount()} loadouts")
+
+            type_filter.Bind(wx.EVT_CHOICE, on_filter_changed)
+
+            def on_loadout_selected(evt):
+                idx = list_box.GetSelection()
+                if idx == wx.NOT_FOUND or idx >= len(filtered_entries):
+                    return
+                entry = filtered_entries[idx]
+                lines = [f"Loadout: {entry.get('displayName', '(unnamed)')}",
+                         f"Source: {entry.get('source', '?')}",
+                         f"Categories: {_type_label(entry)}", ""]
+
+                for cat_type, cat_data in entry.get("categories", {}).items():
+                    cat_name = LOADOUT_SCHEMA_NAMES.get(cat_type, cat_type)
+                    lines.append(f"--- {cat_name} ---")
+                    for slot in cat_data.get("loadoutSlots", []):
+                        st = slot.get("slotTemplate", "")
+                        slot_name = st.split(":")[-1].replace("LoadoutSlot_", "").replace("_", " ") if ":" in st else st
+                        equipped_id = slot.get("equippedItemId", "")
+                        display_item = self._resolve_item_name(equipped_id)
+                        lines.append(f"  {slot_name}: {display_item}")
+                    lines.append("")
+
+                detail_text.SetValue("\n".join(lines))
+
+            list_box.Bind(wx.EVT_LISTBOX, on_loadout_selected)
+
+            # First-letter navigation
+            def on_list_char(evt):
+                key = evt.GetUnicodeKey()
+                if key == wx.WXK_NONE:
+                    evt.Skip()
+                    return
+                char = chr(key).lower()
+                if not char.isalnum():
+                    evt.Skip()
+                    return
+                # Find next item starting with this letter, wrapping around
+                count = list_box.GetCount()
+                if count == 0:
+                    evt.Skip()
+                    return
+                current = list_box.GetSelection()
+                start = (current + 1) % count if current != wx.NOT_FOUND else 0
+                for offset in range(count):
+                    idx = (start + offset) % count
+                    item_text = list_box.GetString(idx).lower()
+                    if item_text.startswith(char):
+                        list_box.SetSelection(idx)
+                        # Trigger the selection handler
+                        sel_evt = wx.CommandEvent(wx.wxEVT_LISTBOX, list_box.GetId())
+                        sel_evt.SetInt(idx)
+                        wx.PostEvent(list_box, sel_evt)
+                        return
+                evt.Skip()
+
+            list_box.Bind(wx.EVT_CHAR, on_list_char)
+
+            # Buttons
+            btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+            # Equip via API
+            equip_api_btn = wx.Button(dlg, label="Equip via &API")
+            equip_api_btn.SetToolTip("Equip instantly via Locker Service API. Changes apply next match or game restart.")
+
+            def on_equip_api(evt):
+                idx = list_box.GetSelection()
+                if idx == wx.NOT_FOUND or idx >= len(filtered_entries):
+                    speaker.speak("No loadout selected")
+                    return
+                entry = filtered_entries[idx]
+                name = entry.get("displayName", "(unnamed)")
+                cats = entry.get("categories", {})
+
+                cat_names = ", ".join(LOADOUT_SCHEMA_NAMES.get(k, k) for k in cats)
+                result = messageBox(
+                    f"Equip loadout '{name}' via API?\n\n"
+                    f"Categories: {cat_names}\n\n"
+                    "This applies instantly on Epic's servers.\n"
+                    "Changes will appear in-game after restarting or loading into a match.",
+                    "Equip via API",
+                    wx.YES_NO | wx.ICON_QUESTION, dlg)
+                if result == wx.YES:
+                    speaker.speak(f"Equipping '{name}' via API...")
+                    # Build PUT body with all categories in this loadout
+                    put_data = {}
+                    for cat_type, cat_data in cats.items():
+                        formatted_slots = []
+                        for slot in cat_data.get("loadoutSlots", []):
+                            fs = {
+                                "slotTemplate": slot["slotTemplate"],
+                                "itemCustomizations": slot.get("itemCustomizations", []),
+                            }
+                            if slot.get("equippedItemId"):
+                                fs["equippedItemId"] = slot["equippedItemId"]
+                            formatted_slots.append(fs)
+                        put_data[cat_type] = {
+                            "loadoutSlots": formatted_slots,
+                            "shuffleType": cat_data.get("shuffleType", "DISABLED"),
+                        }
+
+                    success = self.auth.update_active_loadout(put_data)
+                    if success:
+                        speaker.speak(f"Loadout '{name}' equipped via API ({len(cats)} categories)")
+                    else:
+                        speaker.speak(f"Failed to equip loadout")
+                        messageBox(f"Failed to equip '{name}' via API.", "Error",
+                                   wx.OK | wx.ICON_ERROR, dlg)
+
+            equip_api_btn.Bind(wx.EVT_BUTTON, on_equip_api)
+            btn_sizer.Add(equip_api_btn, flag=wx.RIGHT, border=5)
+
+            # Equip via UI automation
+            equip_ui_btn = wx.Button(dlg, label="Equip in &Game (UI)")
+            equip_ui_btn.SetToolTip("Equip each item one-by-one using mouse automation in the Fortnite locker UI.")
+
+            def on_equip_ui(evt):
+                idx = list_box.GetSelection()
+                if idx == wx.NOT_FOUND or idx >= len(filtered_entries):
+                    speaker.speak("No loadout selected")
+                    return
+                entry = filtered_entries[idx]
+                name = entry.get("displayName", "(unnamed)")
+
+                # Build list of items to equip across ALL categories
+                items_to_equip = []
+                for cat_type, cat_data in entry.get("categories", {}).items():
+                    for slot in cat_data.get("loadoutSlots", []):
+                        equipped_id = slot.get("equippedItemId", "")
+                        if not equipped_id:
+                            continue
+                        st = slot.get("slotTemplate", "")
+                        slot_key = st.split(":")[-1] if ":" in st else st
+                        automation = SLOT_TEMPLATE_TO_AUTOMATION.get(slot_key)
+                        if not automation:
+                            continue
+                        category, slot_num = automation
+                        if slot_num is None:
+                            continue
+                        item_name = self._resolve_item_name(equipped_id)
+                        items_to_equip.append({
+                            "name": item_name,
+                            "category": category,
+                            "slot": slot_num,
+                            "slot_key": slot_key,
+                        })
+
+                if not items_to_equip:
+                    speaker.speak("No equippable items in this loadout")
+                    return
+
+                item_list = "\n".join(f"  • {i['name']} → {i['category']} slot {i['slot']}" for i in items_to_equip)
+                result = messageBox(
+                    f"Equip loadout '{name}' in-game?\n\n"
+                    f"This will equip {len(items_to_equip)} items one by one using mouse automation:\n"
+                    f"{item_list}\n\n"
+                    "Make sure Fortnite is open on the lobby screen.\n"
+                    "Do not move the mouse during automation.",
+                    "Equip in Game",
+                    wx.YES_NO | wx.ICON_QUESTION, dlg)
+                if result == wx.YES:
+                    dlg.Iconize(True)
+                    time.sleep(0.2)
+                    self._perform_loadout_ui_automation(items_to_equip, name)
+                    dlg.Iconize(False)
+                    dlg.Raise()
+
+            equip_ui_btn.Bind(wx.EVT_BUTTON, on_equip_ui)
+            btn_sizer.Add(equip_ui_btn, flag=wx.RIGHT, border=5)
+
+            # Delete local loadout button
+            delete_btn = wx.Button(dlg, label="&Delete Local")
+            delete_btn.SetToolTip("Delete a locally saved loadout")
+
+            def on_delete_local(evt):
+                idx = list_box.GetSelection()
+                if idx == wx.NOT_FOUND or idx >= len(filtered_entries):
+                    speaker.speak("No loadout selected")
+                    return
+                entry = filtered_entries[idx]
+                if entry.get("source") != "local":
+                    speaker.speak("Can only delete locally saved loadouts")
+                    messageBox("This loadout is from Epic's servers and cannot be deleted from FA11y.",
+                               "Cannot Delete", wx.OK | wx.ICON_INFORMATION, dlg)
+                    return
+                name = entry.get("displayName", "(unnamed)")
+                result = messageBox(f"Delete local loadout '{name}'?", "Delete Loadout",
+                                    wx.YES_NO | wx.ICON_WARNING, dlg)
+                if result == wx.YES:
+                    try:
+                        from lib.config.config_manager import config_manager
+                        local_loadouts = config_manager.get('fa11y_loadouts') or []
+                        local_loadouts = [l for l in local_loadouts if l.get("display_name") != name]
+                        config_manager.set('fa11y_loadouts', data=local_loadouts)
+                        # Remove from merged list too
+                        merged_presets[:] = [m for m in merged_presets
+                                             if not (m.get("displayName") == name and m.get("source") == "local")]
+                        refresh_list(type_filter.GetString(type_filter.GetSelection()))
+                        speaker.speak(f"Deleted '{name}'")
+                    except Exception as e:
+                        speaker.speak("Error deleting loadout")
+                        logger.error(f"Error deleting local loadout: {e}")
+
+            delete_btn.Bind(wx.EVT_BUTTON, on_delete_local)
+            btn_sizer.Add(delete_btn, flag=wx.RIGHT, border=5)
+
+            close_btn = wx.Button(dlg, wx.ID_CLOSE, "&Close")
+            close_btn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_CLOSE))
+            btn_sizer.Add(close_btn)
+
+            dlg_sizer.Add(btn_sizer, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
+
+            dlg.SetSizer(dlg_sizer)
+            dlg.CentreOnScreen()
+
+            # Allow Escape to close
+            def on_dlg_key(evt):
+                if evt.GetKeyCode() == wx.WXK_ESCAPE:
+                    dlg.EndModal(wx.ID_CLOSE)
+                else:
+                    evt.Skip()
+            dlg.Bind(wx.EVT_CHAR_HOOK, on_dlg_key)
+
+            dlg.ShowModal()
+            dlg.Destroy()
+
+        except Exception as e:
+            logger.error(f"Error viewing loadouts: {e}")
+            speaker.speak("Error viewing loadouts")
+            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
+
+    def _perform_loadout_ui_automation(self, items: list, loadout_name: str):
+        """Equip a list of items one by one using UI automation in Fortnite."""
+        try:
+            import pyautogui
+
+            if not focus_fortnite_window():
+                speaker.speak("Cannot find Fortnite window. Make sure the game is running.")
+                return
+
+            time.sleep(0.5)
+            succeeded = 0
+            failed = 0
+
+            for i, item in enumerate(items):
+                item_name = item["name"]
+                category = item["category"]
+                slot = item["slot"]
+
+                logger.info(f"UI automation: equipping '{item_name}' to {category} slot {slot} ({i+1}/{len(items)})")
+
+                # Use emote wheel coords for emote-category items
+                if category == "Emotes":
+                    slot_coords = EMOTE_SLOT_COORDS.get(slot)
+                else:
+                    slot_coords = SLOT_COORDS.get(slot)
+
+                if not slot_coords:
+                    logger.warning(f"No coords for {category} slot {slot}, skipping")
+                    failed += 1
+                    continue
+
+                try:
+                    # Click locker button
+                    pyautogui.moveTo(350, 69, duration=0.05)
+                    pyautogui.click()
+                    time.sleep(0.3)
+
+                    # Click category
+                    category_coords = CATEGORY_COORDS.get(category)
+                    if category_coords:
+                        pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
+                        pyautogui.click()
+                        time.sleep(0.3)
+                        current_x, current_y = pyautogui.position()
+                        pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                        time.sleep(1.0)
+
+                    # Click slot
+                    pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
+                    pyautogui.click()
+                    time.sleep(1.0)
+
+                    # Click search bar
+                    pyautogui.moveTo(1030, 210, duration=0.05)
+                    pyautogui.click()
+                    time.sleep(0.5)
+
+                    # Type item name
+                    pyautogui.write(item_name, interval=0.02)
+                    time.sleep(0.3)
+                    pyautogui.press('enter')
+                    time.sleep(0.1)
+
+                    # Click item twice to equip
+                    pyautogui.moveTo(1020, 350, duration=0.05)
+                    pyautogui.click()
+                    time.sleep(0.05)
+                    pyautogui.click()
+                    time.sleep(0.1)
+
+                    # Press escape to exit slot picker
+                    pyautogui.press('escape')
+                    time.sleep(0.5)
+
+                    succeeded += 1
+
+                except Exception as e:
+                    logger.error(f"Error equipping '{item_name}': {e}")
+                    failed += 1
+
+            # Return to PLAY tab
+            pyautogui.press('escape')
+            time.sleep(0.5)
+            pyautogui.moveTo(130, 69, duration=0.05)
+            pyautogui.click()
+
+            msg = f"Loadout '{loadout_name}': {succeeded}/{len(items)} items equipped"
+            if failed > 0:
+                msg += f" ({failed} failed)"
+            speaker.speak(msg)
+            logger.info(msg)
+
+        except Exception as e:
+            logger.error(f"Error in loadout UI automation: {e}")
+            speaker.speak("Error during automation")
+
+    def on_save_loadout(self, event):
+        """Save the currently equipped cosmetics as a local loadout preset."""
+        try:
+            if not self.auth or not self.auth.is_valid:
+                speaker.speak("Please log in first")
+                return
+
+            # Ask which categories to save
+            schema_choices = [
+                ("All Categories", None),
+                ("Character", "CosmeticLoadout:LoadoutSchema_Character"),
+                ("Emotes", "CosmeticLoadout:LoadoutSchema_Emotes"),
+                ("Lobby", "CosmeticLoadout:LoadoutSchema_Platform"),
+                ("Wraps", "CosmeticLoadout:LoadoutSchema_Wraps"),
+                ("Instruments", "CosmeticLoadout:LoadoutSchema_Sparks"),
+                ("Jam Tracks", "CosmeticLoadout:LoadoutSchema_Jam"),
+                ("Vehicle (Sedan)", "CosmeticLoadout:LoadoutSchema_Vehicle"),
+            ]
+
+            choice_dlg = wx.SingleChoiceDialog(
+                self,
+                "Which loadout type do you want to save?\n\n"
+                "Select 'All Categories' to save everything at once.",
+                "Save Loadout",
+                [c[0] for c in schema_choices]
+            )
+            if choice_dlg.ShowModal() != wx.ID_OK:
+                choice_dlg.Destroy()
+                return
+            selected_idx = choice_dlg.GetSelection()
+            choice_dlg.Destroy()
+
+            friendly_name, loadout_type = schema_choices[selected_idx]
+
+            # Get a name for the loadout
+            name_dlg = wx.TextEntryDialog(self, "Enter a name for this loadout:", "Loadout Name",
+                                          f"My {friendly_name} Loadout")
+            if name_dlg.ShowModal() != wx.ID_OK:
+                name_dlg.Destroy()
+                return
+            loadout_name = name_dlg.GetValue().strip()
+            name_dlg.Destroy()
+
+            if not loadout_name:
+                speaker.speak("No name entered, cancelled")
+                return
+
+            # Check for duplicate name
+            from lib.config.config_manager import config_manager
+            try:
+                config_manager.register('fa11y_loadouts', 'config/fa11y_loadouts.json',
+                                        format='json', default=[])
+            except Exception:
+                pass
+
+            saved_loadouts = config_manager.get('fa11y_loadouts') or []
+            if not isinstance(saved_loadouts, list):
+                saved_loadouts = []
+
+            existing_idx = None
+            for i, ll in enumerate(saved_loadouts):
+                if ll.get("display_name", "").lower() == loadout_name.lower():
+                    existing_idx = i
+                    break
+
+            if existing_idx is not None:
+                result = messageBox(
+                    f"A loadout named '{loadout_name}' already exists.\n\n"
+                    "Do you want to overwrite it?",
+                    "Loadout Exists",
+                    wx.YES_NO | wx.ICON_WARNING, self)
+                if result != wx.YES:
+                    speaker.speak("Cancelled. Choose a different name.")
+                    return
+
+            speaker.speak(f"Saving loadout '{loadout_name}'...")
+
+            # Get current equipped items
+            locker_data = self.auth.query_locker_items()
+            if not locker_data:
+                speaker.speak("Failed to fetch current loadout data")
+                return
+
+            active_loadout = locker_data.get("activeLoadoutGroup", {})
+            all_loadouts = active_loadout.get("loadouts", {})
+
+            if loadout_type is None:
+                # Save all categories
+                categories_to_save = dict(all_loadouts)
+            else:
+                cat_data = all_loadouts.get(loadout_type)
+                if not cat_data:
+                    speaker.speak(f"No equipped items found for {friendly_name}")
+                    return
+                categories_to_save = {loadout_type: cat_data}
+
+            new_loadout = {
+                "display_name": loadout_name,
+                "categories": {}
+            }
+
+            for cat_type, cat_data in categories_to_save.items():
+                new_loadout["categories"][cat_type] = {
+                    "loadoutSlots": cat_data.get("loadoutSlots", []),
+                    "shuffleType": cat_data.get("shuffleType", "DISABLED"),
+                }
+
+            if existing_idx is not None:
+                saved_loadouts[existing_idx] = new_loadout
+            else:
+                saved_loadouts.append(new_loadout)
+            config_manager.set('fa11y_loadouts', data=saved_loadouts)
+
+            cat_count = len(categories_to_save)
+            slot_count = sum(len(c.get("loadoutSlots", [])) for c in categories_to_save.values())
+            speaker.speak(f"Loadout '{loadout_name}' saved! {cat_count} categories, {slot_count} slots.")
+            messageBox(
+                f"Loadout '{loadout_name}' saved locally.\n\n"
+                f"Categories: {', '.join(LOADOUT_SCHEMA_NAMES.get(k, k) for k in categories_to_save)}\n"
+                f"Total slots: {slot_count}",
+                "Loadout Saved", wx.OK | wx.ICON_INFORMATION, self)
+
+        except Exception as e:
+            logger.error(f"Error saving loadout: {e}")
+            speaker.speak("Error saving loadout")
+            messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def on_close(self, event):
         """Handle close button"""
