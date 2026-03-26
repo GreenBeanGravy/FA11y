@@ -19,8 +19,9 @@ class BackgroundMonitor:
         self.mss_lock = threading.Lock()
         
         # Public status flags that can be accessed by other modules
-        self.map_open = False
-        self.inventory_open = False
+        self._status_lock = threading.Lock()
+        self._map_open = False
+        self._inventory_open = False
         
         self.config = read_config()
         
@@ -46,6 +47,26 @@ class BackgroundMonitor:
         self.error_cooldown = 5.0  # 5 seconds between error reports
         self.last_map_check = 0
         self.map_check_interval = 0.1  # Check map every 100ms
+
+    @property
+    def map_open(self):
+        with self._status_lock:
+            return self._map_open
+
+    @map_open.setter
+    def map_open(self, value):
+        with self._status_lock:
+            self._map_open = value
+
+    @property
+    def inventory_open(self):
+        with self._status_lock:
+            return self._inventory_open
+
+    @inventory_open.setter
+    def inventory_open(self, value):
+        with self._status_lock:
+            self._inventory_open = value
 
     def get_mss(self):
         """Get thread-local MSS instance with proper error handling."""
@@ -109,6 +130,18 @@ class BackgroundMonitor:
         except Exception:
             return False
 
+    def _get_pixel(self, x, y):
+        """Read a single pixel using thread-local mss. Returns (R, G, B) or None."""
+        try:
+            mss_instance = self.get_mss()
+            if mss_instance is None:
+                return None
+            img = mss_instance.grab({'left': x, 'top': y, 'width': 1, 'height': 1})
+            b, g, r = img.pixel(0, 0)[:3]
+            return (r, g, b)
+        except Exception:
+            return None
+
     def check_map_status(self):
         """Check if the map is open/closed with throttling."""
         # Throttle map checks for performance
@@ -119,7 +152,9 @@ class BackgroundMonitor:
         self.last_map_check = current_time
         
         try:
-            pixel_color = pyautogui.pixel(220, 60)
+            pixel_color = self._get_pixel(220, 60)
+            if pixel_color is None:
+                return
             is_map_color = all(abs(a - b) <= 10 for a, b in zip(pixel_color, (247, 255, 26)))
             
             if is_map_color != self.map_open:

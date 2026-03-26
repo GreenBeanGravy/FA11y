@@ -11,6 +11,7 @@ import math
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int
+from lib.managers.screenshot_manager import capture_coordinates, get_pixel
 from lib.detection.dynamic_object_finder import optimized_finder, DYNAMIC_OBJECT_CONFIGS
 from lib.detection.ppi import find_player_position as ppi_find_player_position
 from lib.detection.coordinate_config import get_minimap_coords
@@ -158,8 +159,10 @@ position_tracker = PlayerPositionTracker()
 def check_for_minimap():
     """Check if minimap is present (map not open) by checking white pixel"""
     try:
-        pixel_color = pyautogui.pixel(1883, 49)
-        r, g, b = pixel_color
+        pixel = get_pixel(1883, 49)
+        if pixel is None:
+            return False
+        r, g, b = pixel
         return (250 <= r <= 255) and (250 <= g <= 255) and (250 <= b <= 255)
     except Exception:
         return False
@@ -167,8 +170,10 @@ def check_for_minimap():
 def check_for_full_map():
     """Check if full map is open by checking yellow pixel"""
     try:
-        pixel_color = pyautogui.pixel(66, 66)
-        r, g, b = pixel_color
+        pixel = get_pixel(66, 66)
+        if pixel is None:
+            return False
+        r, g, b = pixel
         return (232 <= r <= 262) and (240 <= g <= 270) and (11 <= b <= 41)
     except Exception:
         return False
@@ -230,21 +235,20 @@ def find_player_icon_location():
 def find_player_icon_location_with_direction():
     """Find both player location and direction"""
     try:
-        screenshot_rgba = np.array(pyautogui.screenshot(region=(
+        screenshot = capture_coordinates(
             ROI_START_ORIG[0],
             ROI_START_ORIG[1],
             ROI_END_ORIG[0] - ROI_START_ORIG[0],
-            ROI_END_ORIG[1] - ROI_START_ORIG[1]
-        )))
-        if screenshot_rgba.shape[2] == 4:
-            screenshot = cv2.cvtColor(screenshot_rgba, cv2.COLOR_RGBA2RGB)
-        else:
-            screenshot = screenshot_rgba
+            ROI_END_ORIG[1] - ROI_START_ORIG[1],
+            convert_format='rgb'
+        )
+        if screenshot is None:
+            return None, None
     except Exception as e:
         print(f"Player icon capture error: {e}")
         return None, None
 
-    screenshot_large = cv2.resize(screenshot, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR, 
+    screenshot_large = cv2.resize(screenshot, None, fx=SCALE_FACTOR, fy=SCALE_FACTOR,
                                 interpolation=cv2.INTER_LINEAR)
     
     white_mask = cv2.inRange(screenshot_large, (253, 253, 253), (255, 255, 255))
@@ -280,16 +284,15 @@ def find_minimap_icon_direction():
         current_map = config.get('POI', 'current_map', fallback='main')
         coords = get_minimap_coords(current_map)
         
-        screenshot_rgba = np.array(pyautogui.screenshot(region=(
+        screenshot = capture_coordinates(
             coords.start[0],
             coords.start[1],
             coords.end[0] - coords.start[0],
-            coords.end[1] - coords.start[1]
-        )))
-        if screenshot_rgba.shape[2] == 4:
-             screenshot = cv2.cvtColor(screenshot_rgba, cv2.COLOR_RGBA2RGB)
-        else:
-            screenshot = screenshot_rgba
+            coords.end[1] - coords.start[1],
+            convert_format='rgb'
+        )
+        if screenshot is None:
+            return None, None
     except Exception as e:
         print(f"Minimap capture error: {e}")
         return None, None
@@ -1280,8 +1283,17 @@ def get_position_with_fallback():
 def check_for_pixel():
     """Check if the pixel at a specific location is white or (60, 61, 80)"""
     try:
-        return pyautogui.pixelMatchesColor(1877, 50, (255, 255, 255), tolerance=10) or \
-               pyautogui.pixelMatchesColor(1877, 50, (60, 61, 80), tolerance=10)
+        pixel = get_pixel(1877, 50)
+        if pixel is None:
+            return False
+        r, g, b = pixel
+        # Check white (tolerance=10)
+        if all(abs(c - t) <= 10 for c, t in zip((r, g, b), (255, 255, 255))):
+            return True
+        # Check (60, 61, 80) (tolerance=10)
+        if all(abs(c - t) <= 10 for c, t in zip((r, g, b), (60, 61, 80))):
+            return True
+        return False
     except Exception:
         return False
 

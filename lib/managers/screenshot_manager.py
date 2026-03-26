@@ -5,6 +5,7 @@ Provides efficient, thread-safe screenshot operations with proper resource manag
 import threading
 import time
 import logging
+from collections import OrderedDict
 from typing import Dict, Tuple, Optional, Union
 import numpy as np
 from mss import mss
@@ -36,7 +37,7 @@ class ScreenshotManager:
         self.access_lock = threading.Lock()
         
         self.enable_caching = False
-        self.cache = {}
+        self.cache = OrderedDict()
         self.cache_lock = threading.Lock()
         self.cache_ttl = 0.05
         
@@ -98,6 +99,7 @@ class ScreenshotManager:
             with self.cache_lock:
                 if cache_key in self.cache:
                     self.stats['cache_hits'] += 1
+                    self.cache.move_to_end(cache_key)
                     return self.cache[cache_key].copy()
                 self.stats['cache_misses'] += 1
         
@@ -116,8 +118,7 @@ class ScreenshotManager:
                     self.cache[cache_key] = result.copy()
                     
                     if len(self.cache) > 20:
-                        oldest_key = min(self.cache.keys(), key=lambda k: k[-1])
-                        del self.cache[oldest_key]
+                        self.cache.popitem(last=False)
             
             return result
             
@@ -157,7 +158,23 @@ class ScreenshotManager:
             self.stats['errors'] += 1
             return None
     
-    def capture_coordinates(self, x: int, y: int, width: int, height: int, 
+    def get_pixel(self, x: int, y: int) -> Optional[tuple]:
+        """Read a single pixel from the screen. Returns (R, G, B) tuple or None on error.
+
+        Uses the thread-local mss instance directly for minimal overhead.
+        """
+        try:
+            mss_instance = self.get_mss_instance()
+            if mss_instance is None:
+                return None
+            img = mss_instance.grab({'left': x, 'top': y, 'width': 1, 'height': 1})
+            # mss returns BGRA
+            b, g, r = img.pixel(0, 0)[:3]
+            return (r, g, b)
+        except Exception:
+            return None
+
+    def capture_coordinates(self, x: int, y: int, width: int, height: int,
                           convert_format: str = 'bgr') -> Optional[np.ndarray]:
         """Capture screen region by coordinates
         
@@ -298,3 +315,7 @@ def capture_full_screen(convert_format: str = 'bgr') -> Optional[np.ndarray]:
         np.ndarray: Screenshot as numpy array or None if failed
     """
     return screenshot_manager.capture_full_screen(convert_format)
+
+def get_pixel(x: int, y: int) -> Optional[tuple]:
+    """Convenience function to read a single pixel. Returns (R, G, B) or None."""
+    return screenshot_manager.get_pixel(x, y)
