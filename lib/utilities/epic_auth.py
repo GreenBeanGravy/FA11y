@@ -5,6 +5,7 @@ Handles authentication with Epic Games and fetching cosmetic locker data
 import os
 import json
 import logging
+import time
 import requests
 import webbrowser
 import base64
@@ -50,6 +51,13 @@ class EpicAuth:
 
         # Fortnite API for cosmetic metadata
         self.FORTNITE_API_BASE = "https://fortnite-api.com/v2"
+
+        # EOS Connect / Locker Service
+        self.EOS_TOKEN_URL = "https://api.epicgames.dev/auth/v1/oauth/token"
+        self.LOCKER_SERVICE_URL = "https://fngw-svc-gc-livefn.ol.epicgames.com/api/locker/v4"
+        self.DEPLOYMENT_ID = "62a9473a2dca46b29ccf17577fcf42d7"
+        self._eos_token = None
+        self._eos_token_expires_at = None
 
         # Load cached auth if available
         self.load_auth()
@@ -201,7 +209,8 @@ class EpicAuth:
 
             data = {
                 "grant_type": "authorization_code",
-                "code": authorization_code
+                "code": authorization_code,
+                "token_type": "eg1"
             }
 
             response = requests.post(
@@ -266,7 +275,8 @@ class EpicAuth:
 
             data = {
                 "grant_type": "refresh_token",
-                "refresh_token": self.refresh_token
+                "refresh_token": self.refresh_token,
+                "token_type": "eg1"
             }
 
             response = requests.post(
@@ -318,6 +328,212 @@ class EpicAuth:
 
         logger.warning("Automatic re-authentication failed (no valid refresh token)")
         return False
+
+    # ========================================================================
+    # EOS Connect / Locker Service
+    # ========================================================================
+
+    def get_eos_connect_token(self) -> Optional[str]:
+        """
+        Exchange Epic Games access token for an EOS Connect token.
+        The EOS token is required for the Locker Service API.
+        Returns the EOS access token string, or None on failure.
+        """
+        import uuid as _uuid
+
+        # Return cached token if still valid
+        if self._eos_token and self._eos_token_expires_at:
+            if datetime.now() < self._eos_token_expires_at:
+                return self._eos_token
+
+        if not self.access_token:
+            return None
+
+        try:
+            credentials = f"{self.CLIENT_ID}:{self.CLIENT_SECRET}"
+            basic_auth = base64.b64encode(credentials.encode()).decode()
+
+            data = {
+                "grant_type": "external_auth",
+                "external_auth_type": "epicgames_access_token",
+                "external_auth_token": self.access_token,
+                "deployment_id": self.DEPLOYMENT_ID,
+                "nonce": str(_uuid.uuid4()),
+            }
+
+            response = requests.post(
+                self.EOS_TOKEN_URL,
+                headers={
+                    "Authorization": f"Basic {basic_auth}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data=data,
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                eos_data = response.json()
+                self._eos_token = eos_data["access_token"]
+                expires_in = eos_data.get("expires_in", 3600)
+                self._eos_token_expires_at = datetime.now() + timedelta(seconds=expires_in - 60)
+                logger.info("EOS Connect token obtained successfully")
+                return self._eos_token
+            else:
+                logger.error(f"EOS Connect token exchange failed: {response.status_code} - {response.text[:200]}")
+                return None
+        except Exception as e:
+            logger.error(f"Error getting EOS Connect token: {e}")
+            return None
+
+    def query_locker_items(self) -> Optional[Dict]:
+        """
+        Query the Locker Service for equipped cosmetics and loadout presets.
+        Returns dict with 'activeLoadoutGroup' and 'loadoutPresets', or None on failure.
+        """
+        eos_token = self.get_eos_connect_token()
+        if not eos_token:
+            logger.error("Cannot query locker: no EOS token")
+            return None
+
+        try:
+            url = f"{self.LOCKER_SERVICE_URL}/{self.DEPLOYMENT_ID}/account/{self.account_id}/items"
+            response = requests.get(
+                url,
+                headers={"Authorization": f"Bearer {eos_token}"},
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Locker Service query failed: {response.status_code} - {response.text[:200]}")
+                return None
+        except Exception as e:
+            logger.error(f"Error querying locker items: {e}")
+            return None
+
+    def get_equipped_cosmetics(self) -> Optional[Dict[str, Dict]]:
+        """
+        Get currently equipped cosmetics from the Locker Service.
+
+        Returns dict mapping loadout schema to slot data, e.g.:
+        {
+            'Character': {
+                'LoadoutSlot_Character': 'AthenaCharacter:cid_xxx',
+                'LoadoutSlot_Backpack': 'AthenaBackpack:bid_xxx',
+                ...
+            },
+            'Emotes': { ... },
+            ...
+        }
+        Returns None on failure.
+        """
+        locker_data = self.query_locker_items()
+        if not locker_data:
+            return None
+
+        active_loadout = locker_data.get("activeLoadoutGroup", {})
+        loadouts = active_loadout.get("loadouts", {})
+
+        result = {}
+        for schema, loadout_data in loadouts.items():
+            # Extract friendly name from schema (e.g. LoadoutSchema_Character -> Character)
+            friendly_name = schema.split("_", 1)[-1] if "_" in schema else schema
+            slots = {}
+            for slot in loadout_data.get("loadoutSlots", []):
+                slot_template = slot.get("slotTemplate", "")
+                slot_name = slot_template.split(":")[-1] if ":" in slot_template else slot_template
+                equipped_id = slot.get("equippedItemId", "")
+                slots[slot_name] = {
+                    "equipped_id": equipped_id,
+                    "customizations": slot.get("itemCustomizations", []),
+                }
+            result[friendly_name] = {
+                "slots": slots,
+                "shuffle_type": loadout_data.get("shuffleType", "DISABLED"),
+            }
+
+        return result
+
+    def get_saved_loadouts(self) -> Optional[List[Dict]]:
+        """
+        Get saved loadout presets from the Locker Service.
+
+        Returns list of preset dicts, each with:
+        {
+            'display_name': str,
+            'loadout_type': str,
+            'preset_id': str,
+            'preset_index': int,
+            'slots': [{'slot_template': str, 'equipped_id': str}, ...]
+        }
+        Returns None on failure.
+        """
+        locker_data = self.query_locker_items()
+        if not locker_data:
+            return None
+
+        presets = locker_data.get("loadoutPresets", [])
+        result = []
+        for preset in presets:
+            slots = []
+            for slot in preset.get("loadoutSlots", []):
+                slot_template = slot.get("slotTemplate", "")
+                slot_name = slot_template.split(":")[-1] if ":" in slot_template else slot_template
+                slots.append({
+                    "slot_name": slot_name,
+                    "equipped_id": slot.get("equippedItemId", ""),
+                    "customizations": slot.get("itemCustomizations", []),
+                })
+
+            result.append({
+                "display_name": preset.get("displayName", ""),
+                "loadout_type": preset.get("loadoutType", ""),
+                "preset_id": preset.get("presetId", ""),
+                "preset_index": preset.get("presetIndex", 0),
+                "slots": slots,
+            })
+
+        return result
+
+    def update_active_loadout(self, loadout_data: Dict) -> bool:
+        """
+        Update the active loadout group via the Locker Service.
+
+        Args:
+            loadout_data: Dict matching the ActiveLoadoutGroup PUT body format.
+                         Keys are loadout schemas, values have loadoutSlots and shuffleType.
+
+        Returns True on success, False on failure.
+        """
+        eos_token = self.get_eos_connect_token()
+        if not eos_token:
+            logger.error("Cannot update loadout: no EOS token")
+            return False
+
+        try:
+            url = f"{self.LOCKER_SERVICE_URL}/{self.DEPLOYMENT_ID}/account/{self.account_id}/active-loadout-group"
+            body = {"loadouts": loadout_data}
+
+            response = requests.put(
+                url,
+                headers={
+                    "Authorization": f"Bearer {eos_token}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                logger.info("Active loadout updated successfully")
+                return True
+            else:
+                logger.error(f"Loadout update failed: {response.status_code} - {response.text[:200]}")
+                return False
+        except Exception as e:
+            logger.error(f"Error updating loadout: {e}")
+            return False
 
     def get_account_info(self) -> Optional[Dict]:
         """Get account information"""
@@ -1031,11 +1247,26 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
         return auth.get_owned_cosmetics_data()
 
     # Otherwise, return all cosmetics
-    # If force refresh or no cache exists, fetch new data
-    if force_refresh or not os.path.exists(auth.cache_file):
+    # Auto-refresh if cache is missing or stale (older than 7 days)
+    cache_stale = False
+    if os.path.exists(auth.cache_file):
+        try:
+            cache_age_seconds = time.time() - os.path.getmtime(auth.cache_file)
+            cache_age_days = cache_age_seconds / 86400
+            if cache_age_days > 7:
+                logger.info(f"Cosmetics cache is {cache_age_days:.1f} days old, auto-refreshing")
+                cache_stale = True
+        except Exception as e:
+            logger.warning(f"Could not check cache age: {e}")
+
+    if force_refresh or cache_stale or not os.path.exists(auth.cache_file):
         if not auth.refresh_cosmetics():
             logger.error("Failed to fetch cosmetics data")
-            return None
+            # If stale refresh failed but cache exists, fall back to stale data
+            if cache_stale:
+                logger.info("Using stale cache as fallback")
+            else:
+                return None
 
     # Load and return cached data
     return auth.load_cosmetics_cache()
@@ -1232,26 +1463,126 @@ class LockerAPI:
 
     def load_loadout(self, loadout_type: str, preset_id: int) -> bool:
         """
-        Load a saved cosmetic loadout
+        Load a saved cosmetic loadout via the Locker Service.
+        Fetches the preset's slots from the Locker Service, then applies them
+        as the active loadout group.
 
         Args:
             loadout_type: Type like "CosmeticLoadout:LoadoutSchema_Character"
-            preset_id: Loadout index (0-9)
+            preset_id: Loadout index (string like "0001" or int like 1)
 
         Returns:
             True if successful, False otherwise
         """
-        body = {
-            "loadoutType": loadout_type,
-            "presetId": preset_id
-        }
+        try:
+            # Fetch all presets from the Locker Service
+            locker_data = self.auth.query_locker_items()
+            if not locker_data:
+                logger.error("Failed to query locker items for loadout equip")
+                return False
 
-        result = self._mcp_operation("EquipModularCosmeticLoadoutPreset", "athena", body)
+            # Find the matching preset
+            presets = locker_data.get("loadoutPresets", [])
+            target_preset = None
+            preset_id_str = str(preset_id).zfill(4) if isinstance(preset_id, int) else str(preset_id)
 
-        if result:
-            return True
-        else:
-            logger.error("Failed to load loadout")
+            for preset in presets:
+                if (preset.get("loadoutType") == loadout_type and
+                        preset.get("presetId") == preset_id_str):
+                    target_preset = preset
+                    break
+
+            if not target_preset:
+                # Also try matching by preset_index
+                for preset in presets:
+                    if (preset.get("loadoutType") == loadout_type and
+                            preset.get("presetIndex") == int(preset_id)):
+                        target_preset = preset
+                        break
+
+            if not target_preset:
+                logger.error(f"Preset not found: type={loadout_type}, id={preset_id}")
+                return False
+
+            # Build the PUT body from the preset's slots
+            formatted_slots = []
+            for slot in target_preset.get("loadoutSlots", []):
+                formatted_slot = {
+                    "slotTemplate": slot["slotTemplate"],
+                    "itemCustomizations": slot.get("itemCustomizations", []),
+                }
+                if slot.get("equippedItemId"):
+                    formatted_slot["equippedItemId"] = slot["equippedItemId"]
+                formatted_slots.append(formatted_slot)
+
+            # Apply via the Locker Service active-loadout-group endpoint
+            return self.auth.update_active_loadout({
+                loadout_type: {
+                    "loadoutSlots": formatted_slots,
+                    "shuffleType": "DISABLED",
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error loading loadout: {e}")
+            return False
+
+    def equip_preset(self, preset_data: Dict) -> bool:
+        """
+        Equip a loadout preset directly from its raw data dict
+        (as returned by EpicAuth.get_saved_loadouts()).
+
+        Args:
+            preset_data: Dict with 'loadout_type' and 'slots' keys
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            loadout_type = preset_data.get("loadout_type", "")
+            if not loadout_type:
+                logger.error("No loadout_type in preset data")
+                return False
+
+            # Re-fetch the raw preset from the Locker Service to get exact slot format
+            locker_data = self.auth.query_locker_items()
+            if not locker_data:
+                logger.error("Failed to query locker items")
+                return False
+
+            # Find matching preset
+            presets = locker_data.get("loadoutPresets", [])
+            preset_id = preset_data.get("preset_id", "")
+            target = None
+            for p in presets:
+                if p.get("presetId") == preset_id and p.get("loadoutType") == loadout_type:
+                    target = p
+                    break
+
+            if not target:
+                logger.error(f"Could not find preset {preset_id} of type {loadout_type}")
+                return False
+
+            # Build slots for PUT
+            formatted_slots = []
+            for slot in target.get("loadoutSlots", []):
+                fs = {
+                    "slotTemplate": slot["slotTemplate"],
+                    "itemCustomizations": slot.get("itemCustomizations", []),
+                }
+                if slot.get("equippedItemId"):
+                    fs["equippedItemId"] = slot["equippedItemId"]
+                formatted_slots.append(fs)
+
+            return self.auth.update_active_loadout({
+                loadout_type: {
+                    "loadoutSlots": formatted_slots,
+                    "shuffleType": "DISABLED",
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error equipping preset: {e}")
             return False
 
 
