@@ -721,7 +721,7 @@ class InventoryManager:
                     processed = approach_fn()
                     
                     # Apply scaling for better OCR
-                    processed = cv2.resize(processed, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+                    processed = cv2.resize(processed, None, fx=2, fy=2, interpolation=cv2.INTER_NEAREST)
                     
                     # Run OCR
                     results = self.ocr_manager.read_numbers(processed, detail=0, 

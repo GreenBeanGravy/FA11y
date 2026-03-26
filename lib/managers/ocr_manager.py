@@ -46,9 +46,8 @@ class OCRManager:
                 try:
                     import easyocr
                     with self.initialization_lock:
-                        # Create readers for different purposes
                         self.reader = easyocr.Reader(['en'])
-                        self.number_reader = easyocr.Reader(['en'], recognizer='number')
+                        self.number_reader = None  # Lazy-loaded on first use
                         self.available = True
                         logger.info("EasyOCR successfully initialized")
                 except ImportError as e:
@@ -111,11 +110,16 @@ class OCRManager:
         
         try:
             with self.access_lock:
-                if not hasattr(self, 'number_reader') or self.number_reader is None:
-                    # Fallback to regular reader
-                    if self.reader is None:
-                        return []
-                    return self.reader.readtext(image, **kwargs)
+                if self.number_reader is None:
+                    # Lazy-load number reader on first use
+                    try:
+                        import easyocr
+                        self.number_reader = easyocr.Reader(['en'], recognizer='number')
+                    except Exception:
+                        # Fallback to regular reader
+                        if self.reader is None:
+                            return []
+                        return self.reader.readtext(image, **kwargs)
                 return self.number_reader.readtext(image, **kwargs)
         except Exception as e:
             logger.error(f"Error in OCR number reading: {e}")
