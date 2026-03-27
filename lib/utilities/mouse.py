@@ -283,22 +283,31 @@ def get_screen_size():
     user32 = ctypes.windll.user32
     return (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
 
-def move_to(target_x, target_y, duration=0.05):
-    """Move cursor to absolute screen coordinates using FakerInput relative moves.
-    Mirrors pyautogui.moveTo(x, y, duration) — blocks for the duration, then returns.
+def move_to(target_x, target_y, duration=0.1):
+    """Move cursor to absolute screen coordinates.
+    Uses SetCursorPos (Windows API) which is independent of mouse sensitivity
+    settings.  For smooth visual movement the travel is split into steps over
+    ``duration`` seconds, matching pyautogui.MINIMUM_DURATION (0.1s).
+    smooth_move_mouse remains for *relative* in-game movement (turning/aiming).
     """
-    global _current_movement_thread
+    user32 = ctypes.windll.user32
     cur_x, cur_y = get_mouse_position()
     dx = target_x - cur_x
     dy = target_y - cur_y
-    if dx != 0 or dy != 0:
-        # Calculate steps to spread over the duration (minimum 1 step)
-        steps = max(1, int(duration / 0.01))  # ~10ms per step
-        step_delay = duration / steps if steps > 1 else 0
-        smooth_move_mouse(dx, dy, step_delay=step_delay, steps=steps)
-        # Block until the movement thread finishes (mirrors pyautogui blocking behavior)
-        if _current_movement_thread and _current_movement_thread.is_alive():
-            _current_movement_thread.join(timeout=2.0)
+    if dx == 0 and dy == 0:
+        return
+    if duration <= 0:
+        user32.SetCursorPos(int(target_x), int(target_y))
+        return
+    steps = max(1, int(duration / 0.01))  # ~10ms per step
+    step_delay = duration / steps
+    for i in range(1, steps + 1):
+        t = i / steps
+        ix = int(cur_x + dx * t)
+        iy = int(cur_y + dy * t)
+        user32.SetCursorPos(ix, iy)
+        if i < steps and step_delay > 0:
+            time.sleep(step_delay)
 
 def move_to_and_click(target_x, target_y, button='left', duration=0.1, settle=0.1):
     """Mirrors pyautogui.moveTo(x, y, duration) + pyautogui.click().
