@@ -331,29 +331,37 @@ def get_screen_size():
     return (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
 
 def move_to(target_x, target_y, duration=0.1):
-    """Move cursor to absolute screen coordinates.
-    Uses SetCursorPos (Windows API) which is independent of mouse sensitivity
-    settings.  For smooth visual movement the travel is split into steps over
-    ``duration`` seconds, matching pyautogui.MINIMUM_DURATION (0.1s).
-    smooth_move_mouse remains for *relative* in-game movement (turning/aiming).
-    """
-    user32 = ctypes.windll.user32
+    """Move cursor to absolute screen coordinates using FakerInput.
+    Computes the pixel delta from current position, then sends scaled
+    FakerInput relative moves spread over ``duration`` seconds to match
+    pyautogui.MINIMUM_DURATION (0.1s)."""
+    if not _ensure_init():
+        return
     cur_x, cur_y = get_mouse_position()
     dx = target_x - cur_x
     dy = target_y - cur_y
     if dx == 0 and dy == 0:
         return
     if duration <= 0:
-        user32.SetCursorPos(int(target_x), int(target_y))
+        _send_fi_relative(dx, dy)
         return
     steps = max(1, int(duration / 0.01))  # ~10ms per step
     step_delay = duration / steps
-    for i in range(1, steps + 1):
-        t = i / steps
-        ix = int(cur_x + dx * t)
-        iy = int(cur_y + dy * t)
-        user32.SetCursorPos(ix, iy)
-        if i < steps and step_delay > 0:
+    step_x = dx / steps
+    step_y = dy / steps
+    sent_x = 0
+    sent_y = 0
+    for i in range(steps):
+        if i == steps - 1:
+            sx = dx - sent_x
+            sy = dy - sent_y
+        else:
+            sx = int(step_x)
+            sy = int(step_y)
+        _send_fi_relative(sx, sy)
+        sent_x += sx
+        sent_y += sy
+        if i < steps - 1 and step_delay > 0:
             time.sleep(step_delay)
 
 def move_to_and_click(target_x, target_y, button='left', duration=0.1, settle=0.1):
