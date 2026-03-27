@@ -62,6 +62,20 @@ class MousePassthroughService:
         if _is_admin():
             print("[INFO] Mouse passthrough: Running with Administrator privileges")
 
+    def _on_config_change(self, config):
+        """Handle main config change event — sync DPI."""
+        from lib.utilities.utilities import get_config_value
+        try:
+            dpi_str, _ = get_config_value(config, 'MousePassthroughDPI', '800')
+            main_dpi = int(float(dpi_str))
+            if 50 <= main_dpi <= 50000:
+                self.config["DPI"] = main_dpi
+                if self.target_device and self.target_device.dpi != main_dpi:
+                    self.target_device.dpi = main_dpi
+                    self.target_device.update_dpi_scale()
+        except (ValueError, TypeError):
+            pass
+
     def initialize(self, speaker):
         """Initialize the mouse passthrough service. Called from FA11y main().
 
@@ -71,8 +85,10 @@ class MousePassthroughService:
         self.speaker = speaker
         self._load_device_from_config()
 
-        # Check if passthrough is enabled in main config and sync DPI
-        from lib.utilities.utilities import read_config, get_config_boolean, get_config_value
+        # Subscribe to main config changes for DPI sync
+        from lib.utilities.utilities import read_config, get_config_boolean, get_config_value, on_config_change
+        on_config_change(self._on_config_change)
+
         main_config = read_config()
         enabled = get_config_boolean(main_config, 'MousePassthrough', True)
 

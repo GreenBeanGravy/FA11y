@@ -33,6 +33,34 @@ _config_cache_time = 0
 _config_cache_timeout = 1.0  # Cache config for 1 second to prevent excessive file reads
 _migration_attempted = False  # Track if migration has been attempted
 
+# Config change event system
+_config_listeners = []
+_config_listeners_lock = threading.Lock()
+
+def on_config_change(callback):
+    """Register a callback to be called when config is saved. callback(config) receives the new ConfigParser."""
+    with _config_listeners_lock:
+        if callback not in _config_listeners:
+            _config_listeners.append(callback)
+
+def off_config_change(callback):
+    """Unregister a config change callback."""
+    with _config_listeners_lock:
+        try:
+            _config_listeners.remove(callback)
+        except ValueError:
+            pass
+
+def _notify_config_listeners(config):
+    """Notify all registered listeners of a config change."""
+    with _config_listeners_lock:
+        listeners = list(_config_listeners)
+    for listener in listeners:
+        try:
+            listener(config)
+        except Exception as e:
+            print(f"Error in config change listener: {e}")
+
 def ensure_config_dir():
     """Create config directory if it doesn't exist"""
     os.makedirs('config', exist_ok=True)
@@ -251,6 +279,7 @@ MasterVolume = 1.0 "Master volume control for all FA11y sounds."
 PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
 MonitorDynamicObjects = false "Toggles background monitoring and spatial audio for nearby dynamic objects while the map is closed."
 MonitorStorm = true "Toggles monitoring for storm detection on the minimap with spatial audio pings."
+MonitorBloom = true "Toggles crosshair bloom monitoring with audio pitch feedback."
 POIVolume = 1.0 "Volume for POI navigation sounds."
 StormVolume = 0.5 "Volume for storm audio pings when storm monitoring is enabled."
 DynamicObjectVolume = 1.0 "Volume for dynamic object detection sounds."
@@ -514,7 +543,7 @@ def get_config_section_for_key(key: str, value: str) -> str:
 def is_audio_setting(key: str) -> bool:
     """Check if a setting is audio-related"""
     audio_toggles = {
-        'PlayPOISound', 'MonitorDynamicObjects', 'MonitorStorm'
+        'PlayPOISound', 'MonitorDynamicObjects', 'MonitorStorm', 'MonitorBloom'
     }
     
     audio_values = {
@@ -665,6 +694,7 @@ def save_config(config: configparser.ConfigParser) -> bool:
     """Save config to file with proper locking and error handling"""
     global _config_cache, _config_cache_time
 
+    should_notify = False
     with _config_lock:
         try:
             # Ensure config directory exists
@@ -691,14 +721,19 @@ def save_config(config: configparser.ConfigParser) -> bool:
                 except Exception:
                     pass  # Silently fail if ConfigManager isn't available
 
-                return True
+                should_notify = True
             else:
                 print(f"Failed to save config to {CONFIG_FILE}")
                 return False
-                
+
         except Exception as e:
             print(f"Error saving config: {e}")
             return False
+
+    # Notify listeners outside the lock to avoid deadlocks
+    if should_notify:
+        _notify_config_listeners(config)
+    return should_notify
 
 def update_config(current_config: configparser.ConfigParser) -> configparser.ConfigParser:
     """

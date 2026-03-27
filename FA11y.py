@@ -1,4 +1,5 @@
 import os
+os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 import sys
 import configparser
 import threading
@@ -83,6 +84,7 @@ from lib.monitors.material_monitor import material_monitor
 from lib.monitors.resource_monitor import resource_monitor
 # from lib.monitors.dynamic_object_monitor import dynamic_object_monitor
 from lib.monitors.storm_monitor import storm_monitor
+from lib.monitors.bloom_monitor import bloom_monitor
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
@@ -215,6 +217,7 @@ def signal_handler(signum, frame):
         resource_monitor.stop_monitoring()
         # dynamic_object_monitor.stop_monitoring()
         storm_monitor.stop_monitoring()
+        bloom_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
 
         # Stop social manager
@@ -1277,15 +1280,9 @@ def open_config_gui() -> None:
                 global config
                 config = updated_config_parser
 
-                with open('config/config.txt', 'w') as f:
-                    config.write(f)
-
+                # save_config() writes to disk, updates cache, and notifies all listeners
+                save_config(config)
                 reload_config()
-
-                # Notify monitors of config changes
-                if storm_monitor.running:
-                    storm_monitor.stop_monitoring()
-                    storm_monitor.start_monitoring()
 
                 print("Configuration updated and saved to disk")
 
@@ -2312,6 +2309,7 @@ def main() -> None:
         resource_monitor.start_monitoring()
         # dynamic_object_monitor.start_monitoring()
         storm_monitor.start_monitoring()
+        bloom_monitor.start_monitoring()
 
         # Start new game object system
         match_tracker.start_monitoring()
