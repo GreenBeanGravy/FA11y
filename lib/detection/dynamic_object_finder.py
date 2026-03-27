@@ -199,8 +199,8 @@ class FastDynamicObjectFinder:
                 return found_dynamic_objects
             else:
                 # For fullscreen searching, capture entire screen
-                import pyautogui
-                screenshot_rgba = np.array(pyautogui.screenshot())
+                from lib.utilities.mouse import screenshot as _screenshot
+                screenshot_rgba = np.array(_screenshot())
                 if screenshot_rgba.shape[2] == 4:
                     screenshot = cv2.cvtColor(screenshot_rgba, cv2.COLOR_RGBA2BGR)
                 else:

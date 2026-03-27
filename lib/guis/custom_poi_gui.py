@@ -7,7 +7,7 @@ import logging
 from typing import Optional, Tuple, Callable
 
 import wx
-import pyautogui
+from lib.utilities.mouse import click_mouse
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
@@ -272,7 +272,7 @@ class CustomPOIGUI(AccessibleDialog):
     
     def _return_focus_to_game(self):
         try:
-            pyautogui.click()
+            click_mouse('left')
         except Exception as e:
             logger.debug(f"Could not return focus to game: {e}")
     

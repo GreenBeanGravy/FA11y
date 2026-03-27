@@ -1153,6 +1153,7 @@ class SocialManager:
 
         try:
             import pyautogui
+            from lib.utilities.mouse import instant_click, get_screen_size
             from lib.utilities.window_utils import focus_fortnite
 
             # Minimize social GUI if open (thread-safe)
@@ -1167,10 +1168,10 @@ class SocialManager:
                 time.sleep(0.1)
 
                 # Click center of screen to ensure Fortnite is ready
-                screen_width, screen_height = pyautogui.size()
+                screen_width, screen_height = get_screen_size()
                 center_x = screen_width // 2
                 center_y = screen_height // 2
-                pyautogui.click(center_x, center_y)
+                instant_click(center_x, center_y)
                 time.sleep(0.2)
 
                 # Ensure focus before first escape
@@ -1226,6 +1227,7 @@ class SocialManager:
 
         try:
             import pyautogui
+            from lib.utilities.mouse import instant_click, get_screen_size
             from lib.utilities.window_utils import focus_fortnite
 
             # Minimize social GUI if open (thread-safe)
@@ -1240,10 +1242,10 @@ class SocialManager:
                 time.sleep(0.1)
 
                 # Click center of screen to ensure Fortnite is ready
-                screen_width, screen_height = pyautogui.size()
+                screen_width, screen_height = get_screen_size()
                 center_x = screen_width // 2
                 center_y = screen_height // 2
-                pyautogui.click(center_x, center_y)
+                instant_click(center_x, center_y)
                 time.sleep(0.2)
 
                 # Ensure focus before first escape

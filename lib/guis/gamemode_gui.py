@@ -10,8 +10,11 @@ import gc
 from typing import List, Tuple, Optional
 
 import wx
-import pyautogui
 from accessible_output2.outputs.auto import Auto
+import pyautogui
+from lib.utilities.mouse import (
+    move_to, move_to_and_click, mouse_scroll, click_mouse
+)
 
 from lib.guis.gui_utilities import (
     AccessibleDialog, BoxSizerHelper, ButtonHelper,
@@ -182,25 +185,23 @@ class GamemodeGUI(AccessibleDialog):
             time.sleep(0.3)
 
             # Click initial position to open discovery
-            pyautogui.moveTo(69, 69, duration=0.04)
-            pyautogui.click()
+            move_to_and_click(69, 69, duration=0.04)
             time.sleep(0.5)
 
             # Move mouse to scroll position
-            pyautogui.moveTo(950, 470, duration=0.04)
+            move_to(950, 470, duration=0.04)
             time.sleep(0.1)
 
             # Scroll down once
-            pyautogui.scroll(-3)
+            mouse_scroll(-3)
             time.sleep(0.2)
 
             # Scroll down again
-            pyautogui.scroll(-3)
+            mouse_scroll(-3)
             time.sleep(1.1)  # Wait extra second for UI to settle
 
             # Click to open search
-            pyautogui.moveTo(160, 170, duration=0.04)
-            pyautogui.click()
+            move_to_and_click(160, 170, duration=0.04)
             time.sleep(0.1)
 
             # Type the gamemode code
@@ -226,25 +227,25 @@ class GamemodeGUI(AccessibleDialog):
             while not check_pixel_white(84, 353):
                 if time.time() - start_time > 5:
                     logger.error("Timeout waiting for search results")
-                    pyautogui.scroll(3)
+                    mouse_scroll(3)
                     time.sleep(0.2)
-                    pyautogui.scroll(3)
+                    mouse_scroll(3)
                     time.sleep(0.2)
-                    pyautogui.scroll(3)
+                    mouse_scroll(3)
                     time.sleep(0.2)
-                    pyautogui.scroll(3)
+                    mouse_scroll(3)
                     return (False, "Search results not found - gamemode may not exist or something else broke")
                 time.sleep(0.1)
             time.sleep(0.1)
 
             # Click the gamemode result
-            pyautogui.moveTo(192, 493, duration=0.04)
-            pyautogui.click()
+            move_to_and_click(192, 493, duration=0.04)
+            time.sleep(0.15)
+            move_to_and_click(192, 493, duration=0.04)
             time.sleep(0.7)
 
             # Click to confirm/select
-            pyautogui.moveTo(235, 923, duration=0.04)
-            pyautogui.click()
+            move_to_and_click(235, 923, duration=0.04)
             time.sleep(0.5)
 
             return (True, None)

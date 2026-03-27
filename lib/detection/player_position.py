@@ -4,6 +4,7 @@ Unified player position, direction, navigation detection module for FA11y
 import cv2
 import numpy as np
 import pyautogui
+from lib.utilities.mouse import move_to, move_to_and_click, move_to_and_right_click, click_mouse
 import time
 import threading
 import os
@@ -47,7 +48,7 @@ speaker = Auto()
 # Initialize spatial audio for POI sound
 spatial_poi = SpatialAudio('sounds/poi.ogg')
 
-pyautogui.FAILSAFE = False
+# pyautogui.FAILSAFE removed - no longer using pyautogui
 
 # Core constants for screen regions
 ROI_START_ORIG = (524, 84)
@@ -184,18 +185,18 @@ def handle_closed_map_ppi(poi_name, poi_coords):
         # Close map
         pyautogui.press('m')
         time.sleep(0.1)
-        
+
         # Wait until we can get player position via PPI
         max_attempts = 1
         player_position = None
-        
+
         for attempt in range(max_attempts):
             # Always try PPI
             player_position = ppi_find_player_position()
             if player_position is not None:
                 break
             time.sleep(0.1)
-        
+
         # Reopen map
         pyautogui.press('m')
         time.sleep(0.1)
@@ -1116,12 +1117,11 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
         is_dynamic_object = any(obj_name.lower() == selected_poi_name.lower() for obj_name, _, _ in DYNAMIC_OBJECTS)
         
         if not is_dynamic_object:
-            pyautogui.moveTo(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
-            pyautogui.rightClick(_pause=False)
+            move_to_and_right_click(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
             time.sleep(0.05)
-            pyautogui.click(_pause=False)
+            click_mouse('left')
         elif is_dynamic_object:
-            pyautogui.moveTo(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
+            move_to(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
 
     # Perform POI actions
     perform_poi_actions(poi_data_tuple, player_location, speak_info=False, use_ppi=use_ppi)

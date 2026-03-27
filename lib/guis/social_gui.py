@@ -5,7 +5,7 @@ Provides interface for managing friends, party, and requests
 import logging
 import wx
 import threading
-import pyautogui
+from lib.utilities.mouse import instant_click
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
@@ -828,8 +828,7 @@ class SocialDialog(AccessibleDialog):
                 logger.debug("Could not find Fortnite window to focus")
                 # Fallback to click method if window not found
                 import time
-                pyautogui.moveTo(1850, 540)
-                pyautogui.click()
+                instant_click(1850, 540)
             
         except Exception as e:
             logger.debug(f"Could not return focus to game: {e}")

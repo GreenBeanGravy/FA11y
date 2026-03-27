@@ -13,8 +13,12 @@ import ctypes
 import ctypes.wintypes
 
 import wx
-import pyautogui
 from accessible_output2.outputs.auto import Auto
+import pyautogui
+from lib.utilities.mouse import (
+    move_to, move_to_and_click, click_mouse, mouse_scroll,
+    get_mouse_position
+)
 
 from lib.guis.gui_utilities import (
     AccessibleDialog, BoxSizerHelper, messageBox,
@@ -910,40 +914,36 @@ class CategoryView(AccessibleDialog):
             time.sleep(0.5)
 
             # Click locker button
-            pyautogui.moveTo(350, 69, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(350, 69)
             time.sleep(0.3)
 
             # Click category
             category_coords = CATEGORY_COORDS.get(category)
             if category_coords:
-                pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
-                pyautogui.click()
+                move_to_and_click(category_coords[0], category_coords[1])
                 time.sleep(0.3)
 
-                current_x, current_y = pyautogui.position()
-                pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                current_x, current_y = get_mouse_position()
+                move_to(current_x + 500, current_y)
                 time.sleep(1.0)
 
             # Click slot
-            pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
-            pyautogui.click()
+            move_to_and_click(slot_coords[0], slot_coords[1])
             time.sleep(1.0)
 
             # Hover over the options area and scroll up to reach the top
-            pyautogui.moveTo(click_x, click_y, duration=0.05)
+            move_to(click_x, click_y)
             scroll_end = time.time() + 0.5
             while time.time() < scroll_end:
-                pyautogui.scroll(5000)  # Scroll up aggressively
+                mouse_scroll(127)  # Scroll up aggressively
                 time.sleep(0.05)
 
             time.sleep(0.3)
 
             # Click the target option
-            pyautogui.moveTo(click_x, click_y, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(click_x, click_y)
             time.sleep(0.05)
-            pyautogui.click()
+            click_mouse('left')
             time.sleep(0.1)
 
             # Press escape to exit
@@ -951,8 +951,7 @@ class CategoryView(AccessibleDialog):
             time.sleep(1)
 
             # Click PLAY tab
-            pyautogui.moveTo(130, 69, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(130, 69)
 
             return True
 
@@ -1058,29 +1057,25 @@ class CategoryView(AccessibleDialog):
             time.sleep(0.5)
 
             # Click locker button
-            pyautogui.moveTo(350, 69, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(350, 69)
             time.sleep(0.3)
 
             # Click category
             category_coords = CATEGORY_COORDS.get(category)
             if category_coords:
-                pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
-                pyautogui.click()
+                move_to_and_click(category_coords[0], category_coords[1])
                 time.sleep(0.3)
 
-                current_x, current_y = pyautogui.position()
-                pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                current_x, current_y = get_mouse_position()
+                move_to(current_x + 500, current_y)
                 time.sleep(1.0)
 
             # Click slot
-            pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
-            pyautogui.click()
+            move_to_and_click(slot_coords[0], slot_coords[1])
             time.sleep(1.0)
 
             # Click search bar
-            pyautogui.moveTo(1030, 210, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(1030, 210)
             time.sleep(0.5)
 
             # Type item name
@@ -1090,10 +1085,9 @@ class CategoryView(AccessibleDialog):
             time.sleep(0.1)
 
             # Click item twice to equip
-            pyautogui.moveTo(1020, 350, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(1020, 350)
             time.sleep(0.05)
-            pyautogui.click()
+            click_mouse('left')
             time.sleep(0.1)
 
             # Press escape to exit
@@ -1101,8 +1095,7 @@ class CategoryView(AccessibleDialog):
             time.sleep(1)
 
             # Click final position (PLAY tab)
-            pyautogui.moveTo(130, 69, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(130, 69)
 
             return True
 
@@ -1967,8 +1960,6 @@ class LockerGUI(AccessibleDialog):
     def _perform_loadout_ui_automation(self, items: list, loadout_name: str):
         """Equip a list of items one by one using UI automation in Fortnite."""
         try:
-            import pyautogui
-
             if not focus_fortnite_window():
                 speaker.speak("Cannot find Fortnite window. Make sure the game is running.")
                 return
@@ -1997,28 +1988,24 @@ class LockerGUI(AccessibleDialog):
 
                 try:
                     # Click locker button
-                    pyautogui.moveTo(350, 69, duration=0.05)
-                    pyautogui.click()
+                    move_to_and_click(350, 69)
                     time.sleep(0.3)
 
                     # Click category
                     category_coords = CATEGORY_COORDS.get(category)
                     if category_coords:
-                        pyautogui.moveTo(category_coords[0], category_coords[1], duration=0.05)
-                        pyautogui.click()
+                        move_to_and_click(category_coords[0], category_coords[1])
                         time.sleep(0.3)
-                        current_x, current_y = pyautogui.position()
-                        pyautogui.moveTo(current_x + 500, current_y, duration=0.05)
+                        current_x, current_y = get_mouse_position()
+                        move_to(current_x + 500, current_y)
                         time.sleep(1.0)
 
                     # Click slot
-                    pyautogui.moveTo(slot_coords[0], slot_coords[1], duration=0.05)
-                    pyautogui.click()
+                    move_to_and_click(slot_coords[0], slot_coords[1])
                     time.sleep(1.0)
 
                     # Click search bar
-                    pyautogui.moveTo(1030, 210, duration=0.05)
-                    pyautogui.click()
+                    move_to_and_click(1030, 210)
                     time.sleep(0.5)
 
                     # Type item name
@@ -2028,10 +2015,9 @@ class LockerGUI(AccessibleDialog):
                     time.sleep(0.1)
 
                     # Click item twice to equip
-                    pyautogui.moveTo(1020, 350, duration=0.05)
-                    pyautogui.click()
+                    move_to_and_click(1020, 350)
                     time.sleep(0.05)
-                    pyautogui.click()
+                    click_mouse('left')
                     time.sleep(0.1)
 
                     # Press escape to exit slot picker
@@ -2047,8 +2033,7 @@ class LockerGUI(AccessibleDialog):
             # Return to PLAY tab
             pyautogui.press('escape')
             time.sleep(0.5)
-            pyautogui.moveTo(130, 69, duration=0.05)
-            pyautogui.click()
+            move_to_and_click(130, 69)
 
             msg = f"Loadout '{loadout_name}': {succeeded}/{len(items)} items equipped"
             if failed > 0:
