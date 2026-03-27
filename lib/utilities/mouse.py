@@ -12,6 +12,29 @@ config = read_config()
 _movement_lock = threading.Lock()
 _current_movement_thread = None
 
+# FakerInput-to-pixel scale factor from Windows mouse settings
+# Windows mouse speed (1-20) applies a multiplier to raw HID relative reports.
+# At speed 10 (default), 1 unit = 1 pixel. At other speeds, we must compensate.
+_SPEED_TO_MULTIPLIER = {
+    1: 0.03125, 2: 0.0625, 3: 0.125, 4: 0.25, 5: 0.375,
+    6: 0.5, 7: 0.625, 8: 0.75, 9: 0.875, 10: 1.0,
+    11: 1.25, 12: 1.5, 13: 1.75, 14: 2.0, 15: 2.25,
+    16: 2.5, 17: 2.75, 18: 3.0, 19: 3.25, 20: 3.5,
+}
+
+def _get_fi_scale():
+    """Get the scale factor to convert pixel deltas to FakerInput units.
+    Queries Windows mouse speed setting (SPI_GETMOUSESPEED) and returns
+    how many FakerInput units = 1 pixel of cursor movement."""
+    speed = ctypes.c_int()
+    ctypes.windll.user32.SystemParametersInfoW(0x0070, 0, ctypes.byref(speed), 0)
+    multiplier = _SPEED_TO_MULTIPLIER.get(speed.value, 1.0)
+    if multiplier <= 0:
+        return 1.0
+    return 1.0 / multiplier
+
+_fi_scale = _get_fi_scale()
+
 # Expose FakerInput state from the passthrough module (single source of truth)
 @property
 def _fakerinput_available():
@@ -65,8 +88,49 @@ def _send_mouse_button(button_name, is_down):
 
     return False
 
+def _send_fi_relative(raw_dx, raw_dy):
+    """Send a single FakerInput relative move, splitting into multiple HID
+    reports if the scaled value exceeds the ±127 Int16 range."""
+    scaled_x = raw_dx * _fi_scale
+    scaled_y = raw_dy * _fi_scale
+
+    # Split into chunks of ±127 max per report
+    max_val = 127
+    chunks_x = int(abs(scaled_x) // max_val)
+    remain_x = scaled_x - chunks_x * max_val * (1 if scaled_x >= 0 else -1)
+    chunks_y = int(abs(scaled_y) // max_val)
+    remain_y = scaled_y - chunks_y * max_val * (1 if scaled_y >= 0 else -1)
+
+    total_chunks = max(chunks_x, chunks_y)
+    for _ in range(total_chunks):
+        cx = max_val * (1 if scaled_x >= 0 else -1) if chunks_x > 0 else 0
+        cy = max_val * (1 if scaled_y >= 0 else -1) if chunks_y > 0 else 0
+        _fi._mouseX_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(int(cx)))
+        _fi._mouseY_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(int(cy)))
+        args = _fi._System.Array[_fi._System.Object]([_fi._mouse_report])
+        _fi._update_method.Invoke(_fi._faker_input, args)
+        _fi._reset_method.Invoke(_fi._mouse_report, None)
+        if chunks_x > 0:
+            chunks_x -= 1
+        if chunks_y > 0:
+            chunks_y -= 1
+
+    # Send remainder
+    rx = int(remain_x)
+    ry = int(remain_y)
+    if rx != 0 or ry != 0:
+        _fi._mouseX_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(rx))
+        _fi._mouseY_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(ry))
+        args = _fi._System.Array[_fi._System.Object]([_fi._mouse_report])
+        _fi._update_method.Invoke(_fi._faker_input, args)
+        _fi._reset_method.Invoke(_fi._mouse_report, None)
+
+
 def smooth_move_mouse(dx: int, dy: int, step_delay: float = 0.01, steps: int = None, step_speed: int = None, second_dy: int = None, recenter_delay: float = None):
-    """Move mouse smoothly with steps using FakerInput"""
+    """Move mouse smoothly with steps using FakerInput.
+    dx/dy are in *pixels*; the Windows mouse-speed scale factor is applied
+    automatically so the cursor travels the correct distance regardless of
+    the user's mouse-speed setting."""
     global _current_movement_thread
 
     if steps is None:
@@ -80,77 +144,60 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float = 0.01, steps: int = N
         print("[mouse.py] FakerInput not available for smooth_move_mouse")
         return False
 
+    def _step_sleep(start_time):
+        if step_speed > 0:
+            remaining = max(0, step_speed_seconds - (time.perf_counter() - start_time))
+            if remaining > 0:
+                time.sleep(remaining)
+        elif step_delay > 0:
+            remaining = max(0, step_delay - (time.perf_counter() - start_time))
+            if remaining > 0:
+                time.sleep(remaining)
+
     def move():
         with _movement_lock:
             try:
                 if steps <= 1:
-                    _fi._mouseX_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(dx))
-                    _fi._mouseY_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(dy))
-                    args = _fi._System.Array[_fi._System.Object]([_fi._mouse_report])
-                    _fi._update_method.Invoke(_fi._faker_input, args)
-                    _fi._reset_method.Invoke(_fi._mouse_report, None)
+                    _send_fi_relative(dx, dy)
                     return
 
                 step_x = dx / steps
                 step_y = dy / steps
+                sent_x = 0
+                sent_y = 0
 
                 for i in range(steps):
                     start_time = time.perf_counter()
 
                     if i == steps - 1:
-                        final_x = dx - int(step_x * i)
-                        final_y = dy - int(step_y * i)
-                        _fi._mouseX_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(final_x))
-                        _fi._mouseY_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(final_y))
+                        sx = dx - sent_x
+                        sy = dy - sent_y
                     else:
-                        _fi._mouseX_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(int(step_x)))
-                        _fi._mouseY_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(int(step_y)))
+                        sx = int(step_x)
+                        sy = int(step_y)
 
-                    args = _fi._System.Array[_fi._System.Object]([_fi._mouse_report])
-                    _fi._update_method.Invoke(_fi._faker_input, args)
-                    _fi._reset_method.Invoke(_fi._mouse_report, None)
-
-                    if step_speed > 0:
-                        elapsed_time = time.perf_counter() - start_time
-                        remaining_time = max(0, step_speed_seconds - elapsed_time)
-                        if remaining_time > 0:
-                            time.sleep(remaining_time)
-                    elif step_delay > 0:
-                        elapsed_time = time.perf_counter() - start_time
-                        remaining_time = max(0, step_delay - elapsed_time)
-                        if remaining_time > 0:
-                            time.sleep(remaining_time)
+                    _send_fi_relative(sx, sy)
+                    sent_x += sx
+                    sent_y += sy
+                    _step_sleep(start_time)
 
                 if second_dy is not None and recenter_delay is not None:
                     if recenter_delay > 0:
                         time.sleep(recenter_delay)
 
                     step_dy = second_dy // steps
+                    sent_y2 = 0
                     for i in range(steps):
                         start_time = time.perf_counter()
 
                         if i == steps - 1:
-                            final_y = second_dy - (step_dy * i)
-                            _fi._mouseX_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(0))
-                            _fi._mouseY_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(final_y))
+                            sy = second_dy - sent_y2
                         else:
-                            _fi._mouseX_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(0))
-                            _fi._mouseY_property.SetValue(_fi._mouse_report, _fi.get_cached_int16(step_dy))
+                            sy = step_dy
 
-                        args = _fi._System.Array[_fi._System.Object]([_fi._mouse_report])
-                        _fi._update_method.Invoke(_fi._faker_input, args)
-                        _fi._reset_method.Invoke(_fi._mouse_report, None)
-
-                        if step_speed > 0:
-                            elapsed_time = time.perf_counter() - start_time
-                            remaining_time = max(0, step_speed_seconds - elapsed_time)
-                            if remaining_time > 0:
-                                time.sleep(remaining_time)
-                        elif step_delay > 0:
-                            elapsed_time = time.perf_counter() - start_time
-                            remaining_time = max(0, step_delay - elapsed_time)
-                            if remaining_time > 0:
-                                time.sleep(remaining_time)
+                        _send_fi_relative(0, sy)
+                        sent_y2 += sy
+                        _step_sleep(start_time)
 
             except Exception as e:
                 print(f"[mouse.py] Mouse movement error: {e}")
