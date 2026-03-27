@@ -75,7 +75,16 @@ class ConfigGUI(AccessibleDialog):
         
         # Show dialog immediately
         self.setupDialog()
-        
+
+        # Set a proper size so the dialog isn't tiny before deferred widgets load
+        display = wx.Display(wx.Display.GetFromWindow(self) if self.GetParent() else 0)
+        screen_rect = display.GetClientArea()
+        width = min(700, int(screen_rect.GetWidth() * 0.6))
+        height = min(600, int(screen_rect.GetHeight() * 0.7))
+        self.SetSize(width, height)
+        self.SetMinSize((400, 350))
+        self.CentreOnScreen()
+
     def makeSettings(self, settingsSizer: BoxSizerHelper):
         """Create dialog structure with minimal content"""
         self.notebook = wx.Notebook(self)
@@ -96,6 +105,8 @@ class ConfigGUI(AccessibleDialog):
             self.analyze_config()
             self.create_widgets()
             self.build_tab_control_lists()
+            # Force layout refresh so panels fill the available space
+            self.Layout()
         except Exception as e:
             logger.error(f"Error populating widgets: {e}")
             speaker.speak("Error loading configuration")

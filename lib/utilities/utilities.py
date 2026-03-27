@@ -240,6 +240,7 @@ TurnSteps = 5 "The number of steps to use when turning left, right, up, or down.
 RecenterSteps = 20 "The number of steps to use when recentering the camera."
 RecenterStepDelay = 2 "The delay, in milliseconds, between each RecenterStep."
 RecenterStepSpeed = 0 "The speed, in milliseconds, in how long it should take for the mouse to move when recentering the camera."
+MousePassthroughDPI = 800 "The DPI value for your mouse used by mouse passthrough. Must match your actual mouse DPI for correct sensitivity."
 RecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera."
 RecenterLookUp = -820 "The sensitivity used when moving the camera up when recentering the camera."
 ResetRecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."

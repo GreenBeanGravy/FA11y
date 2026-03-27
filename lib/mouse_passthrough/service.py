@@ -18,7 +18,7 @@ from lib.mouse_passthrough.faker_input import send_mouse_move
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG = {
-    "DPI": 1600,
+    "DPI": 800,
     "BUFFER_SIZE": 256,
     "HEARTBEAT_ENABLED": True,
     "HEARTBEAT_INTERVAL": 0.3,
@@ -71,10 +71,22 @@ class MousePassthroughService:
         self.speaker = speaker
         self._load_device_from_config()
 
-        # Check if passthrough is enabled in main config
-        from lib.utilities.utilities import read_config, get_config_boolean
+        # Check if passthrough is enabled in main config and sync DPI
+        from lib.utilities.utilities import read_config, get_config_boolean, get_config_value
         main_config = read_config()
         enabled = get_config_boolean(main_config, 'MousePassthrough', True)
+
+        # Seed DPI from main config (authoritative source)
+        try:
+            dpi_str, _ = get_config_value(main_config, 'MousePassthroughDPI', '800')
+            main_dpi = int(float(dpi_str))
+            if 50 <= main_dpi <= 50000:
+                self.config["DPI"] = main_dpi
+                if self.target_device and self.target_device.dpi != main_dpi:
+                    self.target_device.dpi = main_dpi
+                    self.target_device.update_dpi_scale()
+        except (ValueError, TypeError):
+            pass
 
         if self.target_device:
             if enabled:
@@ -103,23 +115,6 @@ class MousePassthroughService:
                 self.speaker.speak("No mouse detected. You can recapture later with Alt Shift M.")
             print("[INFO] No mouse detected. Skipping passthrough setup.")
             return
-
-        # Prompt for DPI
-        if self.speaker:
-            self.speaker.speak(f"Detected {device.friendly_name}. Enter your mouse D P I value, or press Enter to use {self.config['DPI']}.")
-
-        try:
-            dpi_input = input(f"Enter your mouse DPI (default {self.config['DPI']}): ").strip()
-            if dpi_input:
-                new_dpi = int(dpi_input)
-                if 50 <= new_dpi <= 50000:
-                    device.dpi = new_dpi
-                    device.update_dpi_scale()
-                    self.config["DPI"] = new_dpi
-                else:
-                    print(f"[WARN] DPI {new_dpi} out of range, using default {self.config['DPI']}")
-        except (ValueError, EOFError, KeyboardInterrupt):
-            pass  # Use default DPI
 
         self.target_device = device
         self.mouse_hook.target_device = device
