@@ -1177,6 +1177,8 @@ class DiscoveryDialog(AccessibleDialog):
 
                 # Click the gamemode result
                 move_to_and_click(192, 493, duration=0.04)
+                time.sleep(0.15)
+                move_to_and_click(192, 493, duration=0.04)
                 time.sleep(0.7)
 
                 # Click to confirm/select

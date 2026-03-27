@@ -13,7 +13,7 @@ import wx
 from accessible_output2.outputs.auto import Auto
 import pyautogui
 from lib.utilities.mouse import (
-    move_to, move_to_and_click, mouse_scroll
+    move_to, move_to_and_click, mouse_scroll, click_mouse
 )
 
 from lib.guis.gui_utilities import (
@@ -239,6 +239,8 @@ class GamemodeGUI(AccessibleDialog):
             time.sleep(0.1)
 
             # Click the gamemode result
+            move_to_and_click(192, 493, duration=0.04)
+            time.sleep(0.15)
             move_to_and_click(192, 493, duration=0.04)
             time.sleep(0.7)
 

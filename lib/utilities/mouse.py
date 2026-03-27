@@ -278,18 +278,18 @@ def release_middle_button():
     return _send_mouse_button("MiddleButton", False)
 
 def click_mouse(button='left'):
-    """Click mouse button with brief delay"""
+    """Click mouse button — press down, hold 50ms, release"""
     if button == 'left':
         left_mouse_down()
-        time.sleep(0.01)
+        time.sleep(0.05)
         left_mouse_up()
     elif button == 'right':
         right_mouse_down()
-        time.sleep(0.01)
+        time.sleep(0.05)
         right_mouse_up()
     elif button == 'middle':
         hold_middle_button()
-        time.sleep(0.01)
+        time.sleep(0.05)
         release_middle_button()
 
 def hold_mouse_button(button='left'):
