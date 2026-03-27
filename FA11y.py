@@ -3,7 +3,7 @@ import sys
 import configparser
 import threading
 import time
-import pyautogui
+from lib.utilities.mouse import pixel as _pixel
 import subprocess
 import win32com.client
 import requests
@@ -96,6 +96,13 @@ from lib.utilities.input import (
 
 from lib.managers.poi_data_manager import POIData
 from lib.detection.exit_match import exit_match
+from lib.detection.lobby_reader import (
+    read_mode_status,
+    toggle_lobby_fill,
+    set_team_size,
+    toggle_ranked,
+    toggle_build_mode,
+)
 from lib.detection.player_position import (
     announce_current_direction as speak_minimap_direction, 
     start_icon_detection, 
@@ -450,6 +457,15 @@ def reload_config() -> None:
             'decline notification': decline_notification,
             'recapture mouse': lambda: get_mouse_passthrough().recapture_mouse(),
             'toggle mouse passthrough': lambda: get_mouse_passthrough().toggle(),
+            'read mode status': read_mode_status,
+            'toggle fill': toggle_lobby_fill,
+            'toggle ranked': toggle_ranked,
+            'toggle build mode': toggle_build_mode,
+            'set team solo': lambda: set_team_size('Solo'),
+            'set team duo': lambda: set_team_size('Duo'),
+            'set team trio': lambda: set_team_size('Trio'),
+            'set team squad': lambda: set_team_size('Squad'),
+            'set team 6-stack': lambda: set_team_size('6-Stack'),
         })
 
         for i in range(1, 6):
@@ -826,7 +842,7 @@ def check_hotspots() -> None:
         # Check each pixel
         for x, y in hotspot_pixels:
             try:
-                pixel_color = pyautogui.pixel(x, y)
+                pixel_color = _pixel(x, y)
                 r, g, b = pixel_color
                 
                 # Check if pixel is NOT white (250-255) and NOT black (0-5)

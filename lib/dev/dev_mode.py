@@ -1667,14 +1667,14 @@ class DirectionConfigurator:
 
     def capture_region(self):
         """Capture the appropriate region based on current mode."""
-        import pyautogui
+        from lib.utilities.mouse import screenshot as _screenshot
 
         if self.use_minimap:
             region = (self.minimap_x, self.minimap_y, self.minimap_width, self.minimap_height)
         else:
             region = (self.main_x, self.main_y, self.main_width, self.main_height)
 
-        screenshot_rgba = np.array(pyautogui.screenshot(region=region))
+        screenshot_rgba = np.array(_screenshot(region=region))
         if screenshot_rgba.shape[2] == 4:
             return cv2.cvtColor(screenshot_rgba, cv2.COLOR_RGBA2RGB)
         return screenshot_rgba
