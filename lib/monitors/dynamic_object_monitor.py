@@ -6,7 +6,7 @@ import time
 import os
 from typing import Dict, Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, calculate_distance
+from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, on_config_change
 from lib.monitors.background_monitor import monitor
 from lib.detection.dynamic_object_finder import optimized_finder, DYNAMIC_OBJECT_CONFIGS
 from lib.detection.player_position import find_player_position, find_minimap_icon_direction
@@ -139,7 +139,17 @@ class DynamicObjectMonitor:
         self.min_distance_for_audio = 10.0
         
         self.initialize_audio()
-    
+        on_config_change(self._on_config_change)
+
+    def _on_config_change(self, config):
+        """Handle config change event."""
+        if self.default_audio:
+            master_volume, dynamic_object_volume = SpatialAudio.get_volume_from_config(
+                config, 'DynamicObjectVolume', 'MasterVolume', 1.0
+            )
+            self.default_audio.set_master_volume(master_volume)
+            self.default_audio.set_individual_volume(dynamic_object_volume)
+
     def initialize_audio(self):
         """Initialize spatial audio instances for each dynamic object"""
         default_sound_path = 'sounds/dynamicobject.ogg'  # Renamed sound file

@@ -10,7 +10,7 @@ from mss import mss
 from accessible_output2.outputs.auto import Auto
 from threading import Thread, Event, Lock
 import configparser
-from lib.utilities.utilities import read_config, get_config_boolean
+from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
 import zlib
 import pickle
 from pathlib import Path
@@ -103,6 +103,16 @@ SLOT_COORDS = get_slot_coords()
 SECONDARY_SLOT_COORDS = get_secondary_slot_coords()
 CONSUMABLE_COUNT_AREA = get_consumable_count_area()
 AMMO_Y_COORDS = get_ammo_y_coords()
+
+def _on_config_change(config):
+    """Refresh hotbar coordinates when config changes (e.g., map switch)."""
+    global SLOT_COORDS, SECONDARY_SLOT_COORDS, CONSUMABLE_COUNT_AREA, AMMO_Y_COORDS
+    SLOT_COORDS = get_slot_coords()
+    SECONDARY_SLOT_COORDS = get_secondary_slot_coords()
+    CONSUMABLE_COUNT_AREA = get_consumable_count_area()
+    AMMO_Y_COORDS = get_ammo_y_coords()
+
+on_config_change(_on_config_change)
 
 # Directory configuration
 IMAGES_FOLDER = "images"
