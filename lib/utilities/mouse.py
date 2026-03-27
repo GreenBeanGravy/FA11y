@@ -300,20 +300,29 @@ def move_to(target_x, target_y, duration=0.05):
         if _current_movement_thread and _current_movement_thread.is_alive():
             _current_movement_thread.join(timeout=2.0)
 
-def move_to_and_click(target_x, target_y, button='left', duration=0.05):
+def move_to_and_click(target_x, target_y, button='left', duration=0.05, settle=0.05):
     """Mirrors pyautogui.moveTo(x, y, duration) + pyautogui.click().
-    Move takes `duration` seconds (blocking), then click fires immediately."""
+    Move takes `duration` seconds (blocking), then waits `settle` seconds
+    before clicking so the game registers the new cursor position.
+    pyautogui had PAUSE=0.1 after every call; settle provides a similar gap."""
     move_to(target_x, target_y, duration=duration)
+    if settle > 0:
+        time.sleep(settle)
     click_mouse(button)
 
-def instant_click(target_x, target_y, button='left'):
-    """Mirrors pyautogui.click(x, y) — instant move + click with no duration."""
+def instant_click(target_x, target_y, button='left', settle=0.05):
+    """Mirrors pyautogui.click(x, y) — fast move + click.
+    A small settle delay lets the game register the cursor position."""
     move_to(target_x, target_y, duration=0)
+    if settle > 0:
+        time.sleep(settle)
     click_mouse(button)
 
-def move_to_and_right_click(target_x, target_y, duration=0.05):
+def move_to_and_right_click(target_x, target_y, duration=0.05, settle=0.05):
     """Mirrors pyautogui.moveTo(x, y, duration) + pyautogui.rightClick()."""
     move_to(target_x, target_y, duration=duration)
+    if settle > 0:
+        time.sleep(settle)
     click_mouse('right')
 
 # --- Keyboard helpers (SendInput-based, no pyautogui) ---

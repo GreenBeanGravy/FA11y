@@ -2,11 +2,15 @@ import cv2
 import numpy as np
 import os
 import time
+import difflib
+import logging
+
+logger = logging.getLogger(__name__)
 from mss import mss
 from accessible_output2.outputs.auto import Auto
 from threading import Thread, Event, Lock
 import configparser
-from lib.utilities.utilities import read_config, get_config_boolean
+from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
 import zlib
 import pickle
 from pathlib import Path
@@ -14,6 +18,31 @@ from threading import Thread, Event, Lock
 from queue import Queue
 from lib.managers.ocr_manager import get_ocr_manager
 from lib.detection.coordinate_config import get_hotbar_coords
+
+# OCR region for item name text (main map)
+MAIN_MAP_OCR_REGION = {'left': 1131, 'top': 984, 'width': 1297 - 1131, 'height': 1004 - 984}
+
+# Item names loaded from config file for OCR fuzzy matching
+_main_map_items_cache = None
+_main_map_items_lower_cache = None
+
+def _get_main_map_items():
+    """Load and cache the main map item list from config/main_loot.txt."""
+    global _main_map_items_cache, _main_map_items_lower_cache
+    if _main_map_items_cache is not None:
+        return _main_map_items_cache, _main_map_items_lower_cache
+    try:
+        loot_file = os.path.join("maps", "map_main_loot.txt")
+        with open(loot_file, 'r', encoding='utf-8') as f:
+            items = [line.strip() for line in f if line.strip()]
+        _main_map_items_cache = items
+        _main_map_items_lower_cache = [item.lower() for item in items]
+        logger.info(f"Loaded {len(items)} items from main_loot.txt")
+    except Exception as e:
+        logger.error(f"Failed to load main_loot.txt: {e}")
+        _main_map_items_cache = []
+        _main_map_items_lower_cache = []
+    return _main_map_items_cache, _main_map_items_lower_cache
 
 # Screen coordinates for weapon slots - now loaded dynamically based on current map
 def get_slot_coords():
@@ -74,6 +103,16 @@ SLOT_COORDS = get_slot_coords()
 SECONDARY_SLOT_COORDS = get_secondary_slot_coords()
 CONSUMABLE_COUNT_AREA = get_consumable_count_area()
 AMMO_Y_COORDS = get_ammo_y_coords()
+
+def _on_config_change(config):
+    """Refresh hotbar coordinates when config changes (e.g., map switch)."""
+    global SLOT_COORDS, SECONDARY_SLOT_COORDS, CONSUMABLE_COUNT_AREA, AMMO_Y_COORDS
+    SLOT_COORDS = get_slot_coords()
+    SECONDARY_SLOT_COORDS = get_secondary_slot_coords()
+    CONSUMABLE_COUNT_AREA = get_consumable_count_area()
+    AMMO_Y_COORDS = get_ammo_y_coords()
+
+on_config_change(_on_config_change)
 
 # Directory configuration
 IMAGES_FOLDER = "images"
@@ -465,10 +504,83 @@ def detect_rarity_for_slot(slot_coord):
     
     return None
 
+def _ocr_detect_item_name():
+    """
+    OCR-based item name detection for main map.
+    Captures the item name region, filters to near-white pixels with 2px dilation,
+    upscales 2x, runs EasyOCR, and fuzzy-matches against the known item list.
+
+    Returns:
+        str or None: Best matching item name, or None if detection fails.
+    """
+    try:
+        with mss() as sct:
+            screenshot_rgba = np.array(sct.grab(MAIN_MAP_OCR_REGION))
+
+        # Convert to BGR
+        if screenshot_rgba.shape[2] == 4:
+            img = cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2BGR)
+        else:
+            img = screenshot_rgba
+
+        # Create mask for near-white pixels (225-255 on all channels)
+        lower = np.array([225, 225, 225], dtype=np.uint8)
+        upper = np.array([255, 255, 255], dtype=np.uint8)
+        mask = cv2.inRange(img, lower, upper)
+
+        # Dilate mask by 2px to include surrounding pixels
+        kernel = np.ones((5, 5), np.uint8)  # 2px radius = 5x5 kernel
+        mask = cv2.dilate(mask, kernel, iterations=1)
+
+        # Apply mask - white text on black background
+        filtered = cv2.bitwise_and(img, img, mask=mask)
+
+        # Convert to grayscale, threshold to clean binary
+        gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+        _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+
+        # Invert so text is dark on light (better for OCR)
+        binary = cv2.bitwise_not(binary)
+
+        # Upscale 2x
+        binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+
+        # Run EasyOCR
+        results = ocr_manager.read_text(binary, paragraph=False, min_size=5, text_threshold=0.4)
+        if not results:
+            logger.info("OCR hotbar: no text detected")
+            return None
+
+        # Log all OCR results with confidences
+        for bbox, text, conf in results:
+            logger.info(f"OCR hotbar raw: '{text}' (confidence: {conf:.3f})")
+
+        raw_text = results[0][1].strip()
+        ocr_conf = results[0][2]
+        if not raw_text:
+            return None
+
+        # Fuzzy match against item list
+        items, items_lower = _get_main_map_items()
+        raw_lower = raw_text.lower()
+        matches = difflib.get_close_matches(raw_lower, items_lower, n=1, cutoff=0.5)
+        if matches:
+            idx = items_lower.index(matches[0])
+            match_ratio = difflib.SequenceMatcher(None, raw_lower, matches[0]).ratio()
+            logger.info(f"OCR hotbar match: '{raw_text}' -> '{items[idx]}' (ocr_conf: {ocr_conf:.3f}, match_ratio: {match_ratio:.3f})")
+            return items[idx]
+
+        logger.info(f"OCR hotbar: no fuzzy match for '{raw_text}' (ocr_conf: {ocr_conf:.3f})")
+        return None
+    except Exception as e:
+        print(f"Error in OCR hotbar detection: {e}")
+        return None
+
+
 def detect_hotbar_item(slot_index):
     """
     Main function to detect weapon in a hotbar slot.
-    
+
     Args:
         slot_index (int): Index of the slot to check (0-4)
     """
@@ -502,30 +614,58 @@ def detect_hotbar_item(slot_index):
 def detect_hotbar_item_thread(slot_index):
     """
     Thread function for hotbar item detection.
-    
+
     Args:
         slot_index (int): Index of the slot to check (0-4)
     """
     global timer_thread, last_detected_rarity, last_detected_slot, last_detected_item
-    
+
     # Load configuration
     config = read_config()
+    current_map = config.get('POI', 'current_map', fallback='main')
     announce_attachments_enabled = get_config_boolean(config, 'AnnounceWeaponAttachments', True)
     announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
 
+    # Main map: OCR-based detection with 0.5s delay
+    if current_map == 'main':
+        time.sleep(0.75)
+        if stop_event.is_set():
+            return
+
+        item_name = _ocr_detect_item_name()
+        if item_name and not stop_event.is_set():
+            speaker.speak(item_name)
+            last_detected_item = item_name
+            last_detected_rarity = None
+
+            if ocr_manager.is_ready() and announce_ammo_enabled:
+                timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
+                timer_thread.start()
+
+            if announce_attachments_enabled:
+                timer_thread = Thread(target=timer_thread_function, args=(0.4, announce_attachments))
+                timer_thread.start()
+        else:
+            # Still try ammo even if name detection fails
+            if ocr_manager.is_ready() and announce_ammo_enabled:
+                timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
+                timer_thread.start()
+        return
+
+    # Non-main maps: existing image-based detection
     # Get dynamic coordinates
     current_slot_coords = get_slot_coords()
 
     # Check primary slot
     best_match_name, best_score = check_slot(current_slot_coords[slot_index])
-    
+
     if best_score > CONFIDENCE_THRESHOLD and not stop_event.is_set():
         # Found a match, announce weapon name
         speaker.speak(best_match_name)
-        
+
         # Update last detected information
         last_detected_item = best_match_name
-        
+
         # Update rarity from item name if available
         if best_match_name in item_rarity_map:
             last_detected_rarity = item_rarity_map[best_match_name]
@@ -535,12 +675,12 @@ def detect_hotbar_item_thread(slot_index):
                 if best_match_name.startswith(rarity_key):
                     last_detected_rarity = rarity_key
                     break
-        
+
         # Announce ammo if enabled
         if ocr_manager.is_ready() and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
-        
+
         # Announce attachments if enabled
         if announce_attachments_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.4, announce_attachments))

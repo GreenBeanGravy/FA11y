@@ -10,7 +10,7 @@ import numpy as np
 import cv2
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, get_minimap_region
+from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, calculate_distance, process_minimap, get_minimap_region, on_config_change
 
 # Minimap region is now loaded dynamically via get_minimap_region()
 
@@ -119,13 +119,25 @@ class StormMonitor:
         self.active_audio_thread = None
         self.detection_interval = 1.7
 
-        # Cached config values to avoid read_config() in hot path
+        # Cached config values — updated via on_config_change
         self._cached_enabled = True
         self._cached_storm_volume = 0.5
         self._cached_ping_interval = 1.5
-        self._config_cache_time = 0
 
         self.initialize_audio()
+        on_config_change(self._on_config_change)
+
+    def _on_config_change(self, config):
+        """Handle config change event."""
+        self._cached_enabled = get_config_boolean(config, 'MonitorStorm', True)
+        self._cached_storm_volume = get_config_float(config, 'StormVolume', 0.5)
+        self._cached_ping_interval = get_config_float(config, 'StormPingInterval', 1.5)
+        if self.storm_audio:
+            master_volume, storm_volume = SpatialAudio.get_volume_from_config(
+                config, 'StormVolume', 'MasterVolume', 0.5
+            )
+            self.storm_audio.set_master_volume(master_volume)
+            self.storm_audio.set_individual_volume(storm_volume)
 
     def initialize_audio(self):
         """Initialize storm audio"""
@@ -142,18 +154,8 @@ class StormMonitor:
             except Exception:
                 self.storm_audio = None
 
-    def _refresh_config_cache(self):
-        """Refresh cached config values (called periodically, not every getter)."""
-        config = read_config()
-        self._cached_enabled = get_config_boolean(config, 'MonitorStorm', True)
-        self._cached_storm_volume = get_config_float(config, 'StormVolume', 0.5)
-        self._cached_ping_interval = get_config_float(config, 'StormPingInterval', 1.5)
-        self._config_cache_time = time.time()
-
     def is_enabled(self) -> bool:
         """Check if storm monitoring is enabled in config"""
-        if time.time() - self._config_cache_time > 2.0:
-            self._refresh_config_cache()
         return self._cached_enabled
 
     def should_monitor(self) -> bool:
@@ -162,14 +164,10 @@ class StormMonitor:
 
     def get_storm_volume(self) -> float:
         """Get storm volume from config"""
-        if time.time() - self._config_cache_time > 2.0:
-            self._refresh_config_cache()
         return self._cached_storm_volume
 
     def get_storm_ping_interval(self) -> float:
         """Get storm ping interval from config"""
-        if time.time() - self._config_cache_time > 2.0:
-            self._refresh_config_cache()
         return self._cached_ping_interval
 
     def detect_purple_tint(self, screenshot: np.ndarray) -> np.ndarray:

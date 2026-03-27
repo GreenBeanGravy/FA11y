@@ -5,7 +5,7 @@ import numpy as np
 from mss import mss
 from pathlib import Path
 from accessible_output2.outputs.auto import Auto
-from lib.utilities.utilities import read_config, get_config_boolean
+from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
 
 class BackgroundMonitor:
     def __init__(self):
@@ -46,6 +46,13 @@ class BackgroundMonitor:
         self.error_cooldown = 5.0  # 5 seconds between error reports
         self.last_map_check = 0
         self.map_check_interval = 0.1  # Check map every 100ms
+        on_config_change(self._on_config_change)
+
+    def _on_config_change(self, config):
+        """Handle config change event."""
+        self.config = config
+        self.announce_map = get_config_boolean(config, 'AnnounceMapStatus', True)
+        self.announce_inventory = False
 
     @property
     def map_open(self):
