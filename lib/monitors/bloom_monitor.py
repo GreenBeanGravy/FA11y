@@ -11,10 +11,10 @@ Runs at 24 FPS, scanning a 150x150 region around screen center (960, 540).
 import threading
 import time
 import numpy as np
-from mss import mss
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
 from lib.monitors.background_monitor import monitor
+from lib.managers.screenshot_manager import screenshot_manager
 
 # Screen center
 CX, CY = 960, 540
@@ -163,47 +163,47 @@ class BloomMonitor:
 
     def _monitor_loop(self):
         """Main monitor loop at 24 FPS."""
-        with mss() as sct:
-            while not self.stop_event.is_set():
-                loop_start = time.perf_counter()
+        while not self.stop_event.is_set():
+            loop_start = time.perf_counter()
 
-                try:
-                    # Skip if map is open or disabled in config
-                    if monitor.map_open or not self.is_enabled():
-                        self._last_bloom_dist = None
-                        time.sleep(0.25)
-                        continue
+            try:
+                # Skip if map is open or disabled in config
+                if monitor.map_open or not self.is_enabled():
+                    self._last_bloom_dist = None
+                    time.sleep(0.25)
+                    continue
 
-                    # Capture region
-                    raw = np.array(sct.grab(REGION))
-                    # Convert BGRA to RGB
-                    img = raw[:, :, :3][:, :, ::-1]
+                # Capture region via shared ScreenshotManager (thread-local mss reuse)
+                img = screenshot_manager.capture_region(REGION, convert_format='rgb')
+                if img is None:
+                    time.sleep(FRAME_INTERVAL)
+                    continue
 
-                    # Check if crosshair is visible
-                    if not self._is_center_crosshair(img):
-                        self._last_bloom_dist = None
-                        elapsed = time.perf_counter() - loop_start
-                        remaining = FRAME_INTERVAL - elapsed
-                        if remaining > 0:
-                            time.sleep(remaining)
-                        continue
+                # Check if crosshair is visible
+                if not self._is_center_crosshair(img):
+                    self._last_bloom_dist = None
+                    elapsed = time.perf_counter() - loop_start
+                    remaining = FRAME_INTERVAL - elapsed
+                    if remaining > 0:
+                        time.sleep(remaining)
+                    continue
 
-                    # Detect bloom - only play when distance changes
-                    bloom_dist = self._detect_bloom(img)
-                    if bloom_dist is not None:
-                        if bloom_dist != self._last_bloom_dist:
-                            self._play_bloom_tone(bloom_dist)
-                            self._last_bloom_dist = bloom_dist
-                    else:
-                        self._last_bloom_dist = None
+                # Detect bloom - only play when distance changes
+                bloom_dist = self._detect_bloom(img)
+                if bloom_dist is not None:
+                    if bloom_dist != self._last_bloom_dist:
+                        self._play_bloom_tone(bloom_dist)
+                        self._last_bloom_dist = bloom_dist
+                else:
+                    self._last_bloom_dist = None
 
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
-                elapsed = time.perf_counter() - loop_start
-                remaining = FRAME_INTERVAL - elapsed
-                if remaining > 0:
-                    time.sleep(remaining)
+            elapsed = time.perf_counter() - loop_start
+            remaining = FRAME_INTERVAL - elapsed
+            if remaining > 0:
+                time.sleep(remaining)
 
     def start_monitoring(self):
         """Start the bloom monitor."""

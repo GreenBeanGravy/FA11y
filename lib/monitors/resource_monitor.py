@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from mss import mss
 import os
 from threading import Thread, Event, Lock
 from accessible_output2.outputs.auto import Auto
@@ -8,6 +7,7 @@ import time
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, List
+from lib.managers.screenshot_manager import screenshot_manager
 from lib.managers.ocr_manager import get_ocr_manager
 
 # Screen monitoring configuration
@@ -216,18 +216,18 @@ class ResourceMonitor:
             print(f"Error in count detection: {e}")
         return None
 
-    def _get_mss(self):
-        """Get persistent mss instance."""
-        if self._mss_instance is None:
-            self._mss_instance = mss()
-        return self._mss_instance
+    def _capture(self, region):
+        """Capture a screen region via shared ScreenshotManager."""
+        return screenshot_manager.capture_region(region, convert_format='raw')
 
     def monitor_loop(self):
-        sct = self._get_mss()
         try:
             while not self.stop_event.is_set():
                 try:
-                    screenshot = np.array(sct.grab(SCAN_REGION))
+                    screenshot = self._capture(SCAN_REGION)
+                    if screenshot is None:
+                        time.sleep(0.3)
+                        continue
                     current_time = time.time()
                     
                     # Only process if the list is stable
@@ -253,7 +253,7 @@ class ResourceMonitor:
                                     'height': OCR_OFFSET['height']
                                 }
                                 
-                                count_screenshot = np.array(sct.grab(ocr_area))
+                                count_screenshot = self._capture(ocr_area)
                                 count = self.detect_count(count_screenshot, position, name, current_time)
                                 
                                 if count is not None:
@@ -293,7 +293,7 @@ class ResourceMonitor:
                                 'height': OCR_OFFSET['height']
                             }
                             
-                            count_screenshot = np.array(sct.grab(ocr_area))
+                            count_screenshot = self._capture(ocr_area)
                             current_count = self.detect_count(count_screenshot, state.position, name, current_time)
                             
                             if current_count is not None:
@@ -316,12 +316,7 @@ class ResourceMonitor:
                     print(f"Error in monitor loop: {str(e)}")
                     time.sleep(1.0)
         finally:
-            if self._mss_instance:
-                try:
-                    self._mss_instance.close()
-                except Exception:
-                    pass
-                self._mss_instance = None
+            pass  # ScreenshotManager handles mss lifecycle
 
     def start_monitoring(self):
         if not self.running:
