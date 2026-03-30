@@ -1,12 +1,12 @@
 import cv2
 import numpy as np
-from mss import mss
 import os
 from threading import Thread, Event, Lock
 from accessible_output2.outputs.auto import Auto
 import time
 from pathlib import Path
 from lib.managers.ocr_manager import get_ocr_manager
+from lib.managers.screenshot_manager import screenshot_manager
 
 # Screen coordinates
 MATERIAL_ICON_AREA = {
@@ -136,22 +136,22 @@ class MaterialMonitor:
             print(f"Error in count detection: {e}")
         return None
 
-    def _get_mss(self):
-        """Get persistent mss instance (avoids recreation every loop)."""
-        if self._mss_instance is None:
-            self._mss_instance = mss()
-        return self._mss_instance
+    def _capture(self, region):
+        """Capture a screen region via shared ScreenshotManager."""
+        return screenshot_manager.capture_region(region, convert_format='raw')
 
     def monitor_loop(self):
         """Main monitoring loop."""
-        sct = self._get_mss()
         try:
             last_material_time = 0
-            
+
             while not self.stop_event.is_set():
                 try:
-                    # Capture material icon area
-                    icon_screenshot = np.array(sct.grab(MATERIAL_ICON_AREA))
+                    # Capture material icon area via shared ScreenshotManager
+                    icon_screenshot = self._capture(MATERIAL_ICON_AREA)
+                    if icon_screenshot is None:
+                        time.sleep(0.3)
+                        continue
                     
                     # Detect material
                     detected_material = self.detect_material(icon_screenshot)
@@ -166,7 +166,7 @@ class MaterialMonitor:
                             self.last_count = None
                             
                             # Get initial count when new material detected
-                            count_screenshot = np.array(sct.grab(MATERIAL_COUNT_AREA))
+                            count_screenshot = self._capture(MATERIAL_COUNT_AREA)
                             current_count = self.detect_count(count_screenshot)
                             if current_count is not None:
                                 # Announce initial detection
@@ -174,7 +174,7 @@ class MaterialMonitor:
                                 self.last_count = current_count
                         else:
                             # Continue monitoring count for same material
-                            count_screenshot = np.array(sct.grab(MATERIAL_COUNT_AREA))
+                            count_screenshot = self._capture(MATERIAL_COUNT_AREA)
                             current_count = self.detect_count(count_screenshot)
                             
                             if current_count is not None and current_count != self.last_count:
@@ -194,12 +194,7 @@ class MaterialMonitor:
                     print(f"Error in material monitor loop: {e}")
                     time.sleep(0.5)
         finally:
-            if self._mss_instance:
-                try:
-                    self._mss_instance.close()
-                except Exception:
-                    pass
-                self._mss_instance = None
+            pass  # ScreenshotManager handles mss lifecycle
 
     def start_monitoring(self):
         """Start the material monitoring."""

@@ -5,7 +5,6 @@ from lib.utilities.mouse import (
     get_mouse_position, move_to, left_mouse_up, left_mouse_down,
     pixel as read_pixel
 )
-from mss import mss
 import numpy as np
 import os
 import pickle
@@ -164,34 +163,32 @@ class InventoryManager:
         self.last_inventory_check = current_time
         
         try:
-            # Use MSS for efficient screenshot of small region
-            with mss() as sct:
-                screenshot = np.array(sct.grab(self.inventory_region))
-                
-                # Convert to RGB for easier pixel checking
-                if screenshot.shape[2] == 4:
-                    screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2RGB)
-                
-                # Check all key pixels in the screenshot
-                all_coords = []
-                # Add vertical line pixels
-                all_coords.extend(self.key_pixels[0])
-                # Add individual pixels  
-                for i in range(1, len(self.key_pixels)):
-                    all_coords.append(self.key_pixels[i])
-                
-                # Check if all pixels are white
-                for x, y in all_coords:
-                    if y >= screenshot.shape[0] or x >= screenshot.shape[1]:
-                        continue
-                    pixel = screenshot[y, x]
-                    if not (pixel[0] == 255 and pixel[1] == 255 and pixel[2] == 255):
-                        self._last_inventory_state = False
-                        return False
-                
-                self._last_inventory_state = True
-                return True
-                
+            from lib.managers.screenshot_manager import screenshot_manager
+            screenshot = screenshot_manager.capture_region(self.inventory_region, convert_format='rgb')
+            if screenshot is None:
+                self._last_inventory_state = False
+                return False
+
+            # Check all key pixels in the screenshot
+            all_coords = []
+            # Add vertical line pixels
+            all_coords.extend(self.key_pixels[0])
+            # Add individual pixels
+            for i in range(1, len(self.key_pixels)):
+                all_coords.append(self.key_pixels[i])
+
+            # Check if all pixels are white
+            for x, y in all_coords:
+                if y >= screenshot.shape[0] or x >= screenshot.shape[1]:
+                    continue
+                pixel = screenshot[y, x]
+                if not (pixel[0] == 255 and pixel[1] == 255 and pixel[2] == 255):
+                    self._last_inventory_state = False
+                    return False
+
+            self._last_inventory_state = True
+            return True
+
         except Exception:
             self._last_inventory_state = False
             return False
@@ -266,42 +263,19 @@ class InventoryManager:
                 pass
 
     def _execute_movement(self, target_x, target_y):
-        """Execute a smooth mouse movement to the target coordinates"""
-        start_x, start_y = get_mouse_position()
-        
-        # Optimize if already close to target
-        if abs(start_x - target_x) < 5 and abs(start_y - target_y) < 5:
-            move_to(target_x, target_y)
-            return
-
-        def ease_out_cubic(t):
-            """Cubic easing function for smooth movement"""
-            return 1 - pow(1 - t, 3)
-
-        for step in range(self.MOVEMENT_STEPS + 1):
-            if self.stop_monitoring.is_set():
-                break
-                
-            t = step / self.MOVEMENT_STEPS
-            eased_t = ease_out_cubic(t)
-            
-            current_x = int(start_x + (target_x - start_x) * eased_t)
-            current_y = int(start_y + (target_y - start_y) * eased_t)
-            
-            move_to(current_x, current_y)
-            time.sleep(self.MOVEMENT_DURATION / self.MOVEMENT_STEPS)
+        """Move cursor to target coordinates instantly via FakerInput."""
+        move_to(target_x, target_y)
 
     def smooth_move_to(self, x, y):
-        """Queue a smooth movement request"""
-        # Don't queue if already processing similar coordinates
+        """Queue a movement request, clearing any pending moves so rapid
+        key presses jump straight to the latest target."""
+        # Drain any pending moves — we only care about the newest destination
         try:
-            if not self.movement_queue.empty():
-                last_x, last_y = self.movement_queue.queue[-1]
-                if abs(last_x - x) < 10 and abs(last_y - y) < 10:
-                    return
-        except:
+            while not self.movement_queue.empty():
+                self.movement_queue.get_nowait()
+                self.movement_queue.task_done()
+        except Exception:
             pass
-        
         self.movement_queue.put((x, y))
 
     def check_pixel_color(self, x, y, target_color, tolerance=2):

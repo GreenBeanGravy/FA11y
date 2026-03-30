@@ -2,10 +2,10 @@ import threading
 import time
 import cv2
 import numpy as np
-from mss import mss
 from pathlib import Path
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
+from lib.managers.screenshot_manager import screenshot_manager as _ss_mgr
 
 class BackgroundMonitor:
     def __init__(self):
@@ -75,25 +75,12 @@ class BackgroundMonitor:
             self._inventory_open = value
 
     def get_mss(self):
-        """Get thread-local MSS instance with proper error handling."""
-        with self.mss_lock:
-            if not hasattr(self.thread_local, 'mss'):
-                try:
-                    self.thread_local.mss = mss()
-                except Exception:
-                    return None
-            return self.thread_local.mss
+        """Get MSS instance via shared ScreenshotManager."""
+        return _ss_mgr.get_mss_instance()
 
     def cleanup_mss(self):
-        """Clean up MSS instance for current thread."""
-        with self.mss_lock:
-            if hasattr(self.thread_local, 'mss'):
-                try:
-                    self.thread_local.mss.close()
-                except Exception:
-                    pass
-                finally:
-                    delattr(self.thread_local, 'mss')
+        """Clean up MSS instance for current thread via ScreenshotManager."""
+        _ss_mgr.cleanup_thread_resources()
 
     def reload_config(self):
         """Reload configuration values."""
@@ -137,16 +124,8 @@ class BackgroundMonitor:
             return False
 
     def _get_pixel(self, x, y):
-        """Read a single pixel using thread-local mss. Returns (R, G, B) or None."""
-        try:
-            mss_instance = self.get_mss()
-            if mss_instance is None:
-                return None
-            img = mss_instance.grab({'left': x, 'top': y, 'width': 1, 'height': 1})
-            b, g, r = img.pixel(0, 0)[:3]
-            return (r, g, b)
-        except Exception:
-            return None
+        """Read a single pixel using shared ScreenshotManager. Returns (R, G, B) or None."""
+        return _ss_mgr.get_pixel(x, y)
 
     def check_map_status(self):
         """Check if the map is open/closed with throttling."""
@@ -180,11 +159,9 @@ class BackgroundMonitor:
             return
             
         try:
-            mss_instance = self.get_mss()
-            if mss_instance is None:
+            screenshot = _ss_mgr.capture_region(self.inventory_region, convert_format='raw')
+            if screenshot is None:
                 return
-                
-            screenshot = np.array(mss_instance.grab(self.inventory_region))
             is_escape_visible = self.detect_escape_key(screenshot)
             
             if is_escape_visible != self.inventory_open:
