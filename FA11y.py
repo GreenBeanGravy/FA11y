@@ -254,6 +254,13 @@ def signal_handler(signum, frame):
     except:
         pass  # Ignore cleanup errors during shutdown
 
+    # Save profiling data before hard exit (os._exit skips atexit handlers)
+    try:
+        from lib.utilities import perf_profiler
+        perf_profiler.save_profile_results()
+    except Exception:
+        pass
+
     print("FA11y is closing...")
     # Force immediate exit
     os._exit(0)
@@ -2506,9 +2513,90 @@ def main() -> None:
         except:
             pass  # Ignore cleanup errors during shutdown
 
+        # Save profiling data before hard exit (os._exit skips atexit handlers)
+        try:
+            from lib.utilities import perf_profiler
+            perf_profiler.save_profile_results()
+        except Exception:
+            pass
+
         print("FA11y is closing...")
         # Use os._exit for immediate termination
         os._exit(0)
 
 if __name__ == "__main__":
-    main()
+    if "--profile" in sys.argv:
+        # Profile mode: run FA11y normally with real-time per-function profiling
+        from lib.utilities import perf_profiler
+
+        interval = 15.0
+        output_file = "profile_results.txt"
+        for i, arg in enumerate(sys.argv):
+            if arg == "--interval" and i + 1 < len(sys.argv):
+                interval = float(sys.argv[i + 1])
+            if arg == "--output" and i + 1 < len(sys.argv):
+                output_file = sys.argv[i + 1]
+
+        perf_profiler.enable_profile(output_file=output_file, interval=interval)
+        perf_profiler.install_profile_hooks()
+
+        # Now run FA11y normally — profiling wraps are in place.
+        # Wrap in try/finally as an extra safety net for saving profile data,
+        # since os._exit() in signal_handler or main() skips atexit handlers.
+        try:
+            main()
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            perf_profiler.save_profile_results()
+
+    elif "--benchmark" in sys.argv:
+        # Benchmark mode: run the navigation pipeline with profiling
+        from lib.utilities import perf_profiler
+
+        runs = 1
+        for i, arg in enumerate(sys.argv):
+            if arg == "--runs" and i + 1 < len(sys.argv):
+                runs = int(sys.argv[i + 1])
+
+        output_file = "benchmark_results.txt"
+        for i, arg in enumerate(sys.argv):
+            if arg == "--output" and i + 1 < len(sys.argv):
+                output_file = sys.argv[i + 1]
+
+        perf_profiler.enable(output_file)
+
+        print(f"FA11y Benchmark Mode: {runs} run(s), output -> {output_file}")
+        print("Initializing...")
+
+        # Minimal init: just enough to run the navigation pipeline
+        from lib.utilities.utilities import read_config, get_config_boolean
+        from lib.detection.player_position import start_icon_detection
+
+        def check_for_pixel():
+            """Reuse the same logic FA11y uses to decide PPI vs icon detection."""
+            try:
+                from lib.managers.screenshot_manager import get_pixel
+                pixel = get_pixel(1883, 49)
+                if pixel is None:
+                    return True
+                r, g, b = pixel
+                return (250 <= r <= 255) and (250 <= g <= 255) and (250 <= b <= 255)
+            except Exception:
+                return True
+
+        for i in range(runs):
+            label = f"Run {i+1}/{runs}"
+            print(f"\n[{label}] Running navigation pipeline...")
+            perf_profiler.start_run(label)
+            try:
+                start_icon_detection(use_ppi=check_for_pixel())
+            except Exception as e:
+                perf_profiler.mark(f"ERROR: {e}")
+                perf_profiler.end_run()
+                print(f"  Error: {e}")
+
+        perf_profiler.save_results()
+        print("\nBenchmark complete.")
+    else:
+        main()
