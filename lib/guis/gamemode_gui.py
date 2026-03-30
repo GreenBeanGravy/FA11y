@@ -185,11 +185,11 @@ class GamemodeGUI(AccessibleDialog):
             time.sleep(0.3)
 
             # Click initial position to open discovery
-            move_to_and_click(69, 69, duration=0.04)
+            move_to_and_click(69, 69)
             time.sleep(0.5)
 
             # Move mouse to scroll position
-            move_to(950, 470, duration=0.04)
+            move_to(950, 470)
             time.sleep(0.1)
 
             # Scroll down once
@@ -201,7 +201,7 @@ class GamemodeGUI(AccessibleDialog):
             time.sleep(1.1)  # Wait extra second for UI to settle
 
             # Click to open search
-            move_to_and_click(160, 170, duration=0.04)
+            move_to_and_click(160, 170)
             time.sleep(0.1)
 
             # Type the gamemode code
@@ -239,13 +239,13 @@ class GamemodeGUI(AccessibleDialog):
             time.sleep(0.1)
 
             # Click the gamemode result
-            move_to_and_click(192, 493, duration=0.04)
+            move_to_and_click(192, 493)
             time.sleep(0.15)
-            move_to_and_click(192, 493, duration=0.04)
+            move_to_and_click(192, 493)
             time.sleep(0.7)
 
             # Click to confirm/select
-            move_to_and_click(235, 923, duration=0.04)
+            move_to_and_click(235, 923)
             time.sleep(0.5)
 
             return (True, None)
