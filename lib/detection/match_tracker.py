@@ -9,7 +9,7 @@ import uuid
 from typing import Dict, Set, List, Tuple, Optional
 from dataclasses import dataclass, field
 from accessible_output2.outputs.auto import Auto
-from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int, calculate_distance
+from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int, calculate_distance, on_config_change
 
 @dataclass
 class VisitedGameObject:
@@ -54,6 +54,18 @@ class MatchTracker:
         self.last_position_update = 0
         self.position_update_interval = 0.5  # Configurable
         self.current_player_position = None
+
+        # Cached config values (updated via config change events)
+        self._cached_config = read_config()
+        self._cached_current_map = self._cached_config.get('POI', 'current_map', fallback='main')
+        self._cached_announce_new_match = get_config_boolean(self._cached_config, 'AnnounceNewMatch', True)
+        on_config_change(self._on_config_change)
+
+    def _on_config_change(self, config):
+        """Update cached config values when config changes."""
+        self._cached_config = config
+        self._cached_current_map = config.get('POI', 'current_map', fallback='main')
+        self._cached_announce_new_match = get_config_boolean(config, 'AnnounceNewMatch', True)
     
     def start_monitoring(self):
         """Start monitoring for match changes and game object visits"""
@@ -164,8 +176,7 @@ class MatchTracker:
             self._clear_visited_objects_cache()
             
             # Announce if configured
-            config = read_config()
-            if get_config_boolean(config, 'AnnounceNewMatch', True):
+            if self._cached_announce_new_match:
                 self.speaker.speak("New match started")
     
     def _clear_visited_objects_cache(self):
@@ -198,56 +209,57 @@ class MatchTracker:
             
         try:
             from lib.managers.game_object_manager import game_object_manager
-            
-            # Get current map
-            config = read_config()
-            current_map = config.get('POI', 'current_map', fallback='main')
-            
+
+            # Use cached config and map
+            config = self._cached_config
+            current_map = self._cached_current_map
+
             # Get game objects for current map
             game_objects = game_object_manager.get_game_objects_for_map(current_map)
             if not game_objects:
                 return
-            
+
             current_time = time.time()
-            
+
             # Check each game object type
             for obj_type, positions in game_objects.items():
-                if not self._should_track_object_type(obj_type, current_map):
+                if not self._should_track_object_type(obj_type, current_map, config):
                     continue
-                
-                visit_distance = self._get_visit_distance_for_object_type(obj_type, current_map)
-                
+
+                visit_distance = self._get_visit_distance_for_object_type(obj_type, current_map, config)
+
                 for obj_name, x, y in positions:
                     obj_coords = (float(x), float(y))
                     distance = calculate_distance(self.current_player_position, obj_coords)
-                    
+
                     # Check if close enough to mark as visited
                     if distance <= visit_distance:
                         # Mark as visited if not already visited in this match
                         if self._mark_object_visited(obj_type, obj_name, obj_coords, distance, current_time):
                             # This is a new visit, so announce it if configured
-                            config = read_config()
                             clean_type = obj_type.replace(' ', '').replace('_', '').replace('-', '').title()
                             announce_key = f'Announce{clean_type}Visits'
-                            
+
                             if self._get_config_boolean_for_map(config, announce_key, current_map, False):
                                 self.speaker.speak(f"Reached {obj_type}")
-                            
+
                             print(f"Reached {obj_type} at {obj_coords} (distance: {distance:.1f}m)")
                         
         except Exception as e:
             print(f"Error checking nearby game objects: {e}")
     
-    def _should_track_object_type(self, obj_type: str, current_map: str) -> bool:
+    def _should_track_object_type(self, obj_type: str, current_map: str, config=None) -> bool:
         """Check if we should track visits for this object type on the current map"""
-        config = read_config()
+        if config is None:
+            config = self._cached_config
         clean_type = obj_type.replace(' ', '').replace('_', '').replace('-', '').title()
         config_key = f"TrackVisits{clean_type}"
         return self._get_config_boolean_for_map(config, config_key, current_map, True)
-    
-    def _get_visit_distance_for_object_type(self, obj_type: str, current_map: str) -> float:
+
+    def _get_visit_distance_for_object_type(self, obj_type: str, current_map: str, config=None) -> float:
         """Get the visit distance threshold for this object type on the current map"""
-        config = read_config()
+        if config is None:
+            config = self._cached_config
         clean_type = obj_type.replace(' ', '').replace('_', '').replace('-', '').title()
         config_key = f"{clean_type}VisitDistance"
         return self._get_config_float_for_map(config, config_key, current_map, 8.0)  # Default 8 meters
@@ -330,9 +342,8 @@ class MatchTracker:
             return True
     
     def get_position_update_interval(self) -> float:
-        """Get the position update interval from config"""
-        config = read_config()
-        return get_config_float(config, 'PositionUpdateInterval', 0.5)
+        """Get the position update interval from cached config"""
+        return get_config_float(self._cached_config, 'PositionUpdateInterval', 0.5)
     
     def get_current_match_stats(self) -> Dict:
         """Get statistics for the current match"""
@@ -383,10 +394,9 @@ class MatchTracker:
         
         try:
             from lib.managers.game_object_manager import game_object_manager
-            
-            # Get current map
-            config = read_config()
-            current_map = config.get('POI', 'current_map', fallback='main')
+
+            # Use cached current map
+            current_map = self._cached_current_map
             
             # Get visited coordinates for this type
             visited_coords = self.get_visited_coordinates_for_type(obj_type)

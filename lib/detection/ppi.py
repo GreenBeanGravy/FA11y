@@ -5,9 +5,10 @@ Handles map-based position detection using computer vision.
 import cv2
 import numpy as np
 import os
-from mss import mss
 from typing import Optional, Tuple
-from lib.utilities.utilities import read_config
+from lib.managers.screenshot_manager import capture_region
+from lib.utilities.utilities import read_config, on_config_change
+from lib.utilities import perf_profiler
 
 # Check if OpenCL is available and enable it. OpenCV's T-API will handle the rest.
 use_gpu = cv2.ocl.haveOpenCL()
@@ -33,6 +34,22 @@ ROI_END_ORIG_LEGACY = (1390, 1010)
 # Detection region dimensions
 WIDTH, HEIGHT = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
 
+# Cached current map from config (updated via config change events)
+_cached_current_map = 'main'
+
+def _on_config_change(config):
+    """Update cached config values when config changes."""
+    global _cached_current_map
+    _cached_current_map = config.get('POI', 'current_map', fallback='main')
+
+on_config_change(_on_config_change)
+# Initialize from current config
+try:
+    _init_config = read_config()
+    _cached_current_map = _init_config.get('POI', 'current_map', fallback='main')
+except Exception:
+    pass
+
 def get_ppi_coordinates(map_name: str) -> dict:
     """Get appropriate PPI capture region based on map name"""
     if map_name == "o g":
@@ -47,17 +64,22 @@ def get_roi_coordinates(map_name: str) -> Tuple[Tuple[int, int], Tuple[int, int]
 
 class MapManager:
     """Manages map data and matching for position detection - optimized for per-map loading"""
-    
+
     def __init__(self):
         self.current_map = None
         self.current_image_dims = None # Store dimensions for calculations
         self.current_keypoints = None
         self.current_descriptors = None
-        
-        # SIFT and BFMatcher objects are the same, the T-API handles where they run
-        self.sift = cv2.SIFT_create()
+
+        # Capture SIFT: lower contrastThreshold to detect subtle features in
+        # low-contrast minimap areas (snow, ice, sand). No nfeatures cap — the
+        # extra keypoints in sparse regions are worth the ~0.4ms cost.
+        self.sift = cv2.SIFT_create(contrastThreshold=0.03)
+        # Map SIFT: unconstrained (computed once and cached)
+        self.sift_map = cv2.SIFT_create()
+        # BFMatcher — faster than FLANN at the keypoint counts typical for minimap matching
         self.bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
-        
+
         # Cache to prevent repeated prints when loading the same map
         self.map_load_cache = {}
         self.last_map_printed = None
@@ -86,11 +108,11 @@ class MapManager:
         self.current_map = map_name
         cpu_image = cv2.imread(map_file, cv2.IMREAD_GRAYSCALE)
         self.current_image_dims = cpu_image.shape
-        
+
         # Convert the numpy array to a UMat. This tells OpenCV it can be used on the GPU.
         umat_image = cv2.UMat(cpu_image)
         
-        self.current_keypoints, self.current_descriptors = self.sift.detectAndCompute(
+        self.current_keypoints, self.current_descriptors = self.sift_map.detectAndCompute(
             umat_image, None
         )
         
@@ -108,60 +130,82 @@ map_manager = MapManager()
 
 def capture_map_screen(map_name: str = "main"):
     """Capture the map area of the screen using appropriate coordinates for the map"""
-    capture_region = get_ppi_coordinates(map_name)
-    with mss() as sct:
-        screenshot_rgba = np.array(sct.grab(capture_region))
-    return cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2GRAY)
+    region = get_ppi_coordinates(map_name)
+    return capture_region(region, convert_format='gray')
 
-def find_best_match(captured_area):
-    """Find the best match between captured area and current map"""
-    # Convert captured area to UMat to enable GPU processing
-    umat_captured_area = cv2.UMat(captured_area)
-    
-    kp1, des1 = map_manager.sift.detectAndCompute(umat_captured_area, None)
-    
+def _match_at_scale(captured_area, scale_factor=1):
+    """Core matching logic. scale_factor > 1 means capture was downscaled."""
+    scale_label = f"{scale_factor}x" if scale_factor > 1 else "full"
+    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): start")
+    if scale_factor > 1:
+        small = cv2.resize(captured_area,
+                           (captured_area.shape[1] // scale_factor,
+                            captured_area.shape[0] // scale_factor))
+    else:
+        small = captured_area
+
+    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): SIFT detect")
+    kp1, des1 = map_manager.sift.detectAndCompute(small, None)
+
     if des1 is None or map_manager.current_descriptors is None:
         return None
-    
-    # The knnMatch function will automatically use the GPU if descriptors are UMat objects
+
+    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): knnMatch")
     matches = map_manager.bf.knnMatch(des1, map_manager.current_descriptors, k=2)
-    
+
     good_matches = []
     for match_pair in matches:
         if len(match_pair) == 2:
             m, n = match_pair
             if m.distance < 0.75 * n.distance:
                 good_matches.append(m)
-    
+
+    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): ratio test ({len(good_matches)} good)")
+
     MIN_MATCHES = 25
-    if len(good_matches) > MIN_MATCHES:
-        src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([map_manager.current_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        
-        if M is None or not np.all(np.isfinite(M)):
-            return None
-            
-        try:
-            h, w = captured_area.shape
-            pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
-            transformed_pts = cv2.perspectiveTransform(pts, M)
-            
-            if np.all(np.isfinite(transformed_pts)):
-                return transformed_pts
-            else:
-                return None
-                
-        except cv2.error:
-            return None
-    else:
+    if len(good_matches) <= MIN_MATCHES:
         return None
+
+    # Scale keypoints back to original capture coordinates
+    src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+    if scale_factor > 1:
+        src_pts *= scale_factor
+    dst_pts = np.float32([map_manager.current_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+
+    if M is None or not np.all(np.isfinite(M)):
+        return None
+
+    try:
+        h, w = captured_area.shape
+        pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
+        transformed_pts = cv2.perspectiveTransform(pts, M)
+
+        if np.all(np.isfinite(transformed_pts)):
+            return transformed_pts
+        return None
+    except cv2.error:
+        return None
+
+
+def find_best_match(captured_area):
+    """Find the best match between captured area and current map.
+
+    Downscales the capture 2x for speed (3-4x faster SIFT + matching).
+    Falls back to full resolution if the downscaled attempt fails.
+    """
+    # Fast path: downscaled capture (125x125 instead of 250x250)
+    result = _match_at_scale(captured_area, scale_factor=2)
+    if result is not None:
+        return result
+
+    # Fallback: full resolution for difficult areas
+    return _match_at_scale(captured_area, scale_factor=1)
 
 def find_player_position() -> Optional[Tuple[int, int]]:
     """Find player position using the map"""
-    config = read_config()
-    current_map_id = config.get('POI', 'current_map', fallback='main')
+    current_map_id = _cached_current_map
 
     # Extract actual map name for file loading
     if current_map_id == 'main':
@@ -184,8 +228,11 @@ def find_player_position() -> Optional[Tuple[int, int]]:
     roi_width = roi_end[0] - roi_start[0]
     roi_height = roi_end[1] - roi_start[1]
 
+    perf_profiler.mark("    ppi: capture_map_screen")
     captured_area = capture_map_screen(map_filename_to_load)
+    perf_profiler.mark("    ppi: find_best_match start")
     matched_region = find_best_match(captured_area)
+    perf_profiler.mark("    ppi: find_best_match end")
 
     if matched_region is not None:
         center = np.mean(matched_region, axis=0).reshape(-1)
