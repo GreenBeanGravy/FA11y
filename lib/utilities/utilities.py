@@ -632,13 +632,7 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
         if use_cache and _config_cache is not None:
             current_time = time.time()
             if current_time - _config_cache_time < _config_cache_timeout:
-                # Return a copy to prevent external modifications
-                new_config = _create_config_parser_with_case_preserved()
-                for section in _config_cache.sections():
-                    new_config.add_section(section)
-                    for key, value in _config_cache.items(section):
-                        new_config.set(section, key, value)
-                return new_config
+                return _config_cache
 
         config = _create_config_parser_with_case_preserved()
 
@@ -681,14 +675,7 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
         except Exception:
             pass  # Silently fail if ConfigManager isn't available
 
-        # Return a copy to prevent external modifications
-        new_config = _create_config_parser_with_case_preserved()
-        for section in config.sections():
-            new_config.add_section(section)
-            for key, value in config.items(section):
-                new_config.set(section, key, value)
-
-        return new_config
+        return config
 
 def save_config(config: configparser.ConfigParser) -> bool:
     """Save config to file with proper locking and error handling"""

@@ -11,7 +11,8 @@ import os
 import math
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
-from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int
+from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int, on_config_change
+from lib.utilities import perf_profiler
 from lib.managers.screenshot_manager import capture_coordinates, get_pixel
 from lib.detection.dynamic_object_finder import optimized_finder, DYNAMIC_OBJECT_CONFIGS
 from lib.detection.ppi import find_player_position as ppi_find_player_position
@@ -91,6 +92,21 @@ class PlayerPositionTracker:
         self.monitoring = False
         self.monitor_thread = None
         self.stop_event = threading.Event()
+        self._cached_update_interval = 0.5
+        self._init_cached_config()
+        on_config_change(self._on_config_change)
+
+    def _init_cached_config(self):
+        """Initialize cached config values."""
+        try:
+            config = read_config()
+            self._cached_update_interval = get_config_float(config, 'PositionUpdateInterval', 0.5)
+        except Exception:
+            pass
+
+    def _on_config_change(self, config):
+        """Update cached config values when config changes."""
+        self._cached_update_interval = get_config_float(config, 'PositionUpdateInterval', 0.5)
     
     def get_cached_position(self) -> Optional[Tuple[int, int]]:
         """Get last cached position"""
@@ -142,14 +158,10 @@ class PlayerPositionTracker:
             try:
                 # Update position in background
                 self.get_position_and_angle()
-                
-                # Get update interval from config
-                config = read_config()
-                new_interval = get_config_float(config, 'PositionUpdateInterval', 0.5)
-                
-                # Sleep for the configured interval
-                self.stop_event.wait(timeout=new_interval)
-                
+
+                # Sleep for the cached interval (updated via config events)
+                self.stop_event.wait(timeout=self._cached_update_interval)
+
             except Exception as e:
                 print(f"Error in position monitor loop: {e}")
                 time.sleep(1.0)
@@ -1042,6 +1054,8 @@ class ContinuousPOIPinger:
 
 def start_icon_detection(use_ppi=False):
     """Start icon detection with manual trigger handling"""
+    perf_profiler.start_run("navigation")
+    perf_profiler.mark("start_icon_detection entered")
     config = read_config()
     selected_poi_str = config.get('POI', 'selected_poi', fallback='none,0,0')
     selected_poi_parts = selected_poi_str.split(',')
@@ -1069,25 +1083,33 @@ def start_icon_detection(use_ppi=False):
 
 def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True):
     """Icon detection cycle that uses either PPI or original mouse behavior"""
+    perf_profiler.mark("icon_detection_cycle entered")
     if selected_poi_name.lower() == 'none':
         speaker.speak("No POI selected. Please select a POI first.")
+        perf_profiler.end_run()
         return
 
     # Get player info based on method
     if use_ppi:
         # Use PPI method
+        perf_profiler.mark("get_player_info_ppi start")
         player_location, player_angle = get_player_info_ppi()
+        perf_profiler.mark("get_player_info_ppi end")
         if player_location is None:
             speaker.speak("Could not find player position using PPI")
             play_poi_sound_enabled = False
     else:
         # Use original icon detection method
+        perf_profiler.mark("find_player_icon start")
         player_location, player_angle = find_player_icon_location_with_direction()
+        perf_profiler.mark("find_player_icon end")
         if player_location is None:
             speaker.speak("Could not find player position using icon detection")
             play_poi_sound_enabled = False
 
+    perf_profiler.mark("handle_poi_selection start")
     poi_data_tuple = handle_poi_selection(selected_poi_name, player_location, use_ppi)
+    perf_profiler.mark("handle_poi_selection end")
     
     poi_name_resolved, poi_coords_resolved = poi_data_tuple
     # Fallback: if resolution failed, try using saved coordinates from config
@@ -1109,7 +1131,9 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
 
     # Play spatial sound if enabled
     if play_poi_sound_enabled and player_location is not None and player_angle is not None:
+        perf_profiler.mark("play_spatial_poi_sound start")
         play_spatial_poi_sound(player_location, player_angle, poi_coords_resolved)
+        perf_profiler.mark("play_spatial_poi_sound end")
 
     # Handle mouse actions based on method
     if not use_ppi:
@@ -1117,20 +1141,23 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
         is_dynamic_object = any(obj_name.lower() == selected_poi_name.lower() for obj_name, _, _ in DYNAMIC_OBJECTS)
         
         if not is_dynamic_object:
-            move_to_and_right_click(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
+            move_to_and_right_click(poi_coords_resolved[0], poi_coords_resolved[1])
             time.sleep(0.05)
             click_mouse('left')
         elif is_dynamic_object:
-            move_to(poi_coords_resolved[0], poi_coords_resolved[1], duration=0.1)
+            move_to(poi_coords_resolved[0], poi_coords_resolved[1])
 
     # Perform POI actions
+    perf_profiler.mark("perform_poi_actions start")
     perform_poi_actions(poi_data_tuple, player_location, speak_info=False, use_ppi=use_ppi)
-    
+    perf_profiler.mark("perform_poi_actions end")
+
     config = read_config()
     auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
     auto_turn_success = False
     
     if auto_turn_enabled:
+        perf_profiler.mark("auto_turn start")
         if not use_ppi:
             pyautogui.press('escape')
             time.sleep(0.1)
@@ -1138,18 +1165,24 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
             auto_turn_success = auto_turn_towards_poi(player_location, poi_coords_resolved, poi_name_resolved)
         else:
             speaker.speak("Cannot auto-turn, player location unknown.")
-    
+        perf_profiler.mark("auto_turn end")
+
     # Get final angle for speech
+    perf_profiler.mark("get_final_angle start")
     if use_ppi:
         _, latest_player_angle = get_player_info_ppi()
     else:
         _, latest_player_angle = find_player_icon_location_with_direction()
-                                                    
+
     final_direction_source, final_angle_for_speech = find_minimap_icon_direction()
     if final_angle_for_speech is None:
         final_angle_for_speech = latest_player_angle if latest_player_angle is not None else player_angle
+    perf_profiler.mark("get_final_angle end")
 
+    perf_profiler.mark("speak_result start")
     speak_auto_turn_result(poi_name_resolved, player_location, final_angle_for_speech, poi_coords_resolved, auto_turn_enabled, auto_turn_success)
+    perf_profiler.mark("speak_result end")
+    perf_profiler.end_run()
 
 def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location, auto_turn_enabled, success):
     """Speak auto-turn result"""
@@ -1237,26 +1270,33 @@ def describe_player_position(poi_name=None, poi_location=None):
 def get_player_info_ppi():
     """Get player location and angle using PPI method"""
     # Try to use cached position first for performance
+    perf_profiler.mark("  ppi: check cache")
     cached_pos, cached_angle = position_tracker.get_position_and_angle(force_update=True)
-    
+
     if cached_pos is not None and cached_angle is not None:
+        perf_profiler.mark("  ppi: cache hit")
         return cached_pos, cached_angle
-    
+
     # Use PPI for position detection
     player_location = None
     player_angle = None
 
     # Always try PPI regardless of map check
+    perf_profiler.mark("  ppi: find_player_position start")
     player_location = ppi_find_player_position()
+    perf_profiler.mark("  ppi: find_player_position end")
     if player_location is not None:
+        perf_profiler.mark("  ppi: find_minimap_direction start")
         _, player_angle = find_minimap_icon_direction()
-    
+        perf_profiler.mark("  ppi: find_minimap_direction end")
+
     # Always try to get angle from minimap if we don't have it
     if player_angle is None:
+        perf_profiler.mark("  ppi: minimap_direction fallback")
         _, player_angle_fallback = find_minimap_icon_direction()
         if player_angle_fallback is not None:
             player_angle = player_angle_fallback
-            
+
     return player_location, player_angle
 
 def get_player_info(use_ppi=False, manual_trigger=False):
