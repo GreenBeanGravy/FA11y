@@ -330,11 +330,13 @@ def get_screen_size():
     user32 = ctypes.windll.user32
     return (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
 
-def move_to(target_x, target_y, duration=0.1):
+def move_to(target_x, target_y, duration=0):
     """Move cursor to absolute screen coordinates using FakerInput.
-    Computes the pixel delta from current position, then sends scaled
-    FakerInput relative moves spread over ``duration`` seconds to match
-    pyautogui.MINIMUM_DURATION (0.1s)."""
+
+    duration=0 (default): instant move via a single FakerInput report batch.
+    duration>0: spread the move over ``duration`` seconds for visual smoothness
+                (e.g. player_position auto-turn uses this for in-game camera moves).
+    """
     if not _ensure_init():
         return
     cur_x, cur_y = get_mouse_position()
@@ -364,24 +366,27 @@ def move_to(target_x, target_y, duration=0.1):
         if i < steps - 1 and step_delay > 0:
             time.sleep(step_delay)
 
-def move_to_and_click(target_x, target_y, button='left', duration=0.1, settle=0.1):
-    """Mirrors pyautogui.moveTo(x, y, duration) + pyautogui.click().
-    duration matches pyautogui.MINIMUM_DURATION (0.1s).
-    settle matches pyautogui.PAUSE (0.1s) — the delay after moveTo returns."""
+def move_to_and_click(target_x, target_y, button='left', duration=0, settle=0.02):
+    """Move to coordinates and click.
+
+    duration: time to spread the move over (0 = instant).
+    settle: brief pause after move before click — just enough for the game
+            to register the cursor position (20ms). Set to 0 for maximum speed.
+    """
     move_to(target_x, target_y, duration=duration)
     if settle > 0:
         time.sleep(settle)
     click_mouse(button)
 
-def instant_click(target_x, target_y, button='left', settle=0.1):
-    """Mirrors pyautogui.click(x, y) with PAUSE=0.1 between move and click."""
+def instant_click(target_x, target_y, button='left', settle=0.02):
+    """Instant move + click with minimal settle delay."""
     move_to(target_x, target_y, duration=0)
     if settle > 0:
         time.sleep(settle)
     click_mouse(button)
 
-def move_to_and_right_click(target_x, target_y, duration=0.1, settle=0.1):
-    """Mirrors pyautogui.moveTo(x, y, duration) + pyautogui.rightClick()."""
+def move_to_and_right_click(target_x, target_y, duration=0, settle=0.02):
+    """Move to coordinates and right-click."""
     move_to(target_x, target_y, duration=duration)
     if settle > 0:
         time.sleep(settle)

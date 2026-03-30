@@ -115,12 +115,21 @@ class MousePassthroughService:
                 self._first_time_setup()
 
     def _first_time_setup(self):
-        """Guide the user through first-time mouse setup. Skippable."""
+        """Guide the user through first-time mouse setup. Skippable.
+
+        Runs detection on a background thread to avoid blocking the main thread
+        or key listener during the Win32 message pump.
+        """
         if self.speaker:
             self.speaker.speak("No mouse configured for passthrough. Move your mouse to detect it, or press Enter to skip.")
 
         print("[INFO] No mouse configured. Move your mouse to detect it (or wait to skip)...")
 
+        thread = threading.Thread(target=self._first_time_setup_blocking, daemon=True)
+        thread.start()
+
+    def _first_time_setup_blocking(self):
+        """Blocking first-time setup logic — runs on a background thread."""
         device = detect_mouse_device(
             dpi=self.config["DPI"],
             timeout=self.config["DETECTION_TIMEOUT"]
@@ -141,10 +150,20 @@ class MousePassthroughService:
             self.speaker.speak(f"Mouse passthrough started with {device.friendly_name} at {device.dpi} D P I.")
 
     def recapture_mouse(self):
-        """Recapture the mouse device. Triggered by keybind."""
+        """Recapture the mouse device. Triggered by keybind.
+
+        Runs detection on a background thread so it doesn't block the
+        key listener (detect_mouse_device pumps a Win32 message loop
+        for up to DETECTION_TIMEOUT seconds).
+        """
         if self.speaker:
             self.speaker.speak("Move your mouse to detect it.")
 
+        thread = threading.Thread(target=self._recapture_mouse_blocking, daemon=True)
+        thread.start()
+
+    def _recapture_mouse_blocking(self):
+        """Blocking recapture logic — runs on a background thread."""
         # Stop current capture if running
         was_running = self.running
         if was_running:
