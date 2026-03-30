@@ -5,7 +5,7 @@ Detects bloom lines radiating from screen center and plays a pitch-shifted
 440 Hz tone that increases as bloom grows. Also detects pickaxe equip via
 center pixel pattern.
 
-Runs at 24 FPS, scanning a 150x150 region around screen center (960, 540).
+Runs at 10 FPS, scanning a 300x300 region around screen center (960, 540).
 """
 
 import threading
@@ -37,8 +37,8 @@ MAX_BLOOM_DIST = 65
 TONE_VOLUME = 0.25
 TONE_COOLDOWN = 0.05  # Minimum seconds between tone plays
 
-# Frame interval for 24 FPS
-FRAME_INTERVAL = 1.0 / 24.0
+# Frame interval for 10 FPS (24 FPS caused noticeable lag from screenshot overhead)
+FRAME_INTERVAL = 1.0 / 10.0
 
 
 def _color_match(pixel, target, tol=COLOR_TOLERANCE):
@@ -81,6 +81,13 @@ class BloomMonitor:
         # Audio - use engine directly for fire-and-forget playback
         self._sound_id = 'sounds/bloom_tone.ogg'
         self._audio_loaded = False
+
+        # Read actual config on init (before any change events fire)
+        try:
+            config = read_config()
+            self._cached_enabled = get_config_boolean(config, 'MonitorBloom', True)
+        except Exception:
+            pass
 
         on_config_change(self._on_config_change)
 
