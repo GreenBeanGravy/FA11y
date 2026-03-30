@@ -8,7 +8,6 @@ import os
 from typing import Optional, Tuple
 from lib.managers.screenshot_manager import capture_region
 from lib.utilities.utilities import read_config, on_config_change
-from lib.utilities import perf_profiler
 
 # Check if OpenCL is available and enable it. OpenCV's T-API will handle the rest.
 use_gpu = cv2.ocl.haveOpenCL()
@@ -128,6 +127,10 @@ class MapManager:
 # Global map manager instance
 map_manager = MapManager()
 
+# Last matched region (4 corners on map image) — used by storm monitor for scale
+last_matched_region = None
+
+
 def capture_map_screen(map_name: str = "main"):
     """Capture the map area of the screen using appropriate coordinates for the map"""
     region = get_ppi_coordinates(map_name)
@@ -135,8 +138,6 @@ def capture_map_screen(map_name: str = "main"):
 
 def _match_at_scale(captured_area, scale_factor=1):
     """Core matching logic. scale_factor > 1 means capture was downscaled."""
-    scale_label = f"{scale_factor}x" if scale_factor > 1 else "full"
-    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): start")
     if scale_factor > 1:
         small = cv2.resize(captured_area,
                            (captured_area.shape[1] // scale_factor,
@@ -144,13 +145,11 @@ def _match_at_scale(captured_area, scale_factor=1):
     else:
         small = captured_area
 
-    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): SIFT detect")
     kp1, des1 = map_manager.sift.detectAndCompute(small, None)
 
     if des1 is None or map_manager.current_descriptors is None:
         return None
 
-    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): knnMatch")
     matches = map_manager.bf.knnMatch(des1, map_manager.current_descriptors, k=2)
 
     good_matches = []
@@ -159,8 +158,6 @@ def _match_at_scale(captured_area, scale_factor=1):
             m, n = match_pair
             if m.distance < 0.75 * n.distance:
                 good_matches.append(m)
-
-    perf_profiler.mark(f"    ppi._match_at_scale({scale_label}): ratio test ({len(good_matches)} good)")
 
     MIN_MATCHES = 25
     if len(good_matches) <= MIN_MATCHES:
@@ -228,13 +225,12 @@ def find_player_position() -> Optional[Tuple[int, int]]:
     roi_width = roi_end[0] - roi_start[0]
     roi_height = roi_end[1] - roi_start[1]
 
-    perf_profiler.mark("    ppi: capture_map_screen")
     captured_area = capture_map_screen(map_filename_to_load)
-    perf_profiler.mark("    ppi: find_best_match start")
     matched_region = find_best_match(captured_area)
-    perf_profiler.mark("    ppi: find_best_match end")
 
+    global last_matched_region
     if matched_region is not None:
+        last_matched_region = matched_region
         center = np.mean(matched_region, axis=0).reshape(-1)
 
         map_h, map_w = map_manager.current_image_dims
