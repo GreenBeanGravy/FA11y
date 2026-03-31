@@ -367,11 +367,11 @@ class EpicDiscovery:
         islands = []
         
         # Regex to find the main anchor tag block for an island.
-        # Matches <a ... href='/island?code=CODE' ...> ... </a>
+        # Matches <a ... href='/island/CODE' ...> ... </a>
         # Handles attributes in any order.
-        # Captures: 1. Full opening tag (to check class), 2. Code, 3. Inner HTML
+        # Captures: 1. Full opening tag (to check class), 2. Code/slug, 3. Inner HTML
         island_block_pattern = re.compile(
-            r"(<a[^>]+href=['\"]/island\?code=([^'\"]+)['\"][^>]*>)(.*?)</a>",
+            r"(<a[^>]+href=['\"]/island/([^'\"]+)['\"][^>]*>)(.*?)</a>",
             re.DOTALL | re.IGNORECASE
         )
 
