@@ -177,7 +177,8 @@ class SocialDialog(AccessibleDialog):
             'ranked_blastberry_build': 'Reload',
             'ranked_blastberry_nobuild': 'Reload Zero Build',
             'ranked-figment-build': 'OG',
-            'ranked-figment-nobuild': 'OG Zero Build'
+            'ranked-figment-nobuild': 'OG Zero Build',
+            'ranked-squareclub': 'Arena Box Fights'
         }
         return mode_names.get(ranking_type, ranking_type)
 
@@ -302,7 +303,8 @@ class SocialDialog(AccessibleDialog):
             else:
                 # Show each ranked mode with current rank and progress
                 for ranking_type in ['ranked-br', 'ranked-zb', 'ranked_blastberry_build',
-                                      'ranked_blastberry_nobuild', 'ranked-figment-build', 'ranked-figment-nobuild']:
+                                      'ranked_blastberry_nobuild', 'ranked-figment-build', 'ranked-figment-nobuild',
+                                      'ranked-squareclub']:
                     if ranking_type in ranked_data:
                         mode_data = ranked_data[ranking_type]
                         mode_name = self._get_ranked_mode_name(ranking_type)
