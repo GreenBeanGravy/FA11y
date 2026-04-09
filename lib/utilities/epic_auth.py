@@ -868,7 +868,8 @@ class EpicAuth:
                 'ranked_blastberry_build',      # Reload Build
                 'ranked_blastberry_nobuild',    # Reload Zero Build
                 'ranked-figment-build',         # OG Build
-                'ranked-figment-nobuild'        # OG Zero Build
+                'ranked-figment-nobuild',       # OG Zero Build
+                'ranked-squareclub'             # Arena Box Fights
             ]
 
             # Use current date as endsAfter to only get current/active season data
