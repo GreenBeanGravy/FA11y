@@ -863,8 +863,7 @@ class EpicAuth:
 
             # Ranking types to query (excluding Ballistic, Rocket Racing, Getaway)
             ranking_types = [
-                'ranked-br',                    # Battle Royale Build
-                'ranked-zb',                    # Battle Royale Zero Build
+                'ranked-br-combined',           # Battle Royale Combined
                 'ranked_blastberry_build',      # Reload Build
                 'ranked_blastberry_nobuild',    # Reload Zero Build
                 'ranked-figment-build',         # OG Build
