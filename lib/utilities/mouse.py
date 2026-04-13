@@ -12,28 +12,68 @@ config = read_config()
 _movement_lock = threading.Lock()
 _current_movement_thread = None
 
-# FakerInput-to-pixel scale factor from Windows mouse settings
-# Windows mouse speed (1-20) applies a multiplier to raw HID relative reports.
-# At speed 10 (default), 1 unit = 1 pixel. At other speeds, we must compensate.
-_SPEED_TO_MULTIPLIER = {
-    1: 0.03125, 2: 0.0625, 3: 0.125, 4: 0.25, 5: 0.375,
-    6: 0.5, 7: 0.625, 8: 0.75, 9: 0.875, 10: 1.0,
-    11: 1.25, 12: 1.5, 13: 1.75, 14: 2.0, 15: 2.25,
-    16: 2.5, 17: 2.75, 18: 3.0, 19: 3.25, 20: 3.5,
-}
+# SystemParametersInfoW action codes for mouse settings normalisation.
+# Before every FakerInput movement batch we temporarily force speed=10 and
+# Enhanced Pointer Precision OFF so that 1 HID unit = 1 logical pixel,
+# regardless of the user's Windows mouse settings.
+SPI_GETMOUSE = 0x0003
+SPI_SETMOUSE = 0x0004
+SPI_GETMOUSESPEED = 0x0070
+SPI_SETMOUSESPEED = 0x0071
+_MouseParams = ctypes.c_int * 3  # [threshold1, threshold2, acceleration_flag]
 
-def _get_fi_scale():
-    """Get the scale factor to convert pixel deltas to FakerInput units.
-    Queries Windows mouse speed setting (SPI_GETMOUSESPEED) and returns
-    how many FakerInput units = 1 pixel of cursor movement."""
-    speed = ctypes.c_int()
-    ctypes.windll.user32.SystemParametersInfoW(0x0070, 0, ctypes.byref(speed), 0)
-    multiplier = _SPEED_TO_MULTIPLIER.get(speed.value, 1.0)
-    if multiplier <= 0:
-        return 1.0
-    return 1.0 / multiplier
+# Safety net: track the very first original settings so atexit can restore
+# them if the process is killed between a normalize/restore pair.
+_atexit_saved = None
 
-_fi_scale = _get_fi_scale()
+def _save_and_normalize_mouse():
+    """Save current Windows mouse speed & acceleration, then set speed=10 and
+    acceleration OFF.  Returns a tuple ``(speed, params)`` for `_restore_mouse`."""
+    global _atexit_saved
+    user32 = ctypes.windll.user32
+
+    orig_speed = ctypes.c_int()
+    user32.SystemParametersInfoW(SPI_GETMOUSESPEED, 0, ctypes.byref(orig_speed), 0)
+
+    orig_params = _MouseParams()
+    user32.SystemParametersInfoW(SPI_GETMOUSE, 0, ctypes.byref(orig_params), 0)
+
+    saved = (orig_speed.value, (orig_params[0], orig_params[1], orig_params[2]))
+
+    if _atexit_saved is None:
+        _atexit_saved = saved
+
+    if orig_speed.value != 10:
+        user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, 10, 0)
+
+    if orig_params[2] != 0:
+        new_params = _MouseParams(orig_params[0], orig_params[1], 0)
+        user32.SystemParametersInfoW(SPI_SETMOUSE, 0, ctypes.byref(new_params), 0)
+
+    return saved
+
+def _restore_mouse(saved):
+    """Restore Windows mouse settings from a ``_save_and_normalize_mouse`` tuple."""
+    global _atexit_saved
+    orig_speed, (t1, t2, accel) = saved
+    user32 = ctypes.windll.user32
+
+    if orig_speed != 10:
+        user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, orig_speed, 0)
+
+    if accel != 0:
+        params = _MouseParams(t1, t2, accel)
+        user32.SystemParametersInfoW(SPI_SETMOUSE, 0, ctypes.byref(params), 0)
+
+    _atexit_saved = None
+
+import atexit as _atexit
+
+def _emergency_restore():
+    if _atexit_saved is not None:
+        _restore_mouse((_atexit_saved[0], _atexit_saved[1]))
+
+_atexit.register(_emergency_restore)
 
 # Expose FakerInput state from the passthrough module (single source of truth)
 @property
@@ -90,9 +130,14 @@ def _send_mouse_button(button_name, is_down):
 
 def _send_fi_relative(raw_dx, raw_dy):
     """Send a single FakerInput relative move, splitting into multiple HID
-    reports if the scaled value exceeds the ±127 Int16 range."""
-    scaled_x = raw_dx * _fi_scale
-    scaled_y = raw_dy * _fi_scale
+    reports if the scaled value exceeds the ±127 Int16 range.
+
+    Callers are responsible for wrapping their movement batch in
+    ``_save_and_normalize_mouse`` / ``_restore_mouse`` so that Windows
+    mouse speed is 10 and acceleration is OFF, giving a 1:1 mapping
+    between raw units and logical pixels."""
+    scaled_x = raw_dx
+    scaled_y = raw_dy
 
     # Split into chunks of ±127 max per report
     max_val = 127
@@ -156,6 +201,7 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float = 0.01, steps: int = N
 
     def move():
         with _movement_lock:
+            saved = _save_and_normalize_mouse()
             try:
                 if steps <= 1:
                     _send_fi_relative(dx, dy)
@@ -201,6 +247,8 @@ def smooth_move_mouse(dx: int, dy: int, step_delay: float = 0.01, steps: int = N
 
             except Exception as e:
                 print(f"[mouse.py] Mouse movement error: {e}")
+            finally:
+                _restore_mouse(saved)
 
     if _current_movement_thread and _current_movement_thread.is_alive():
         _current_movement_thread.join(timeout=0.1)
@@ -336,35 +384,53 @@ def move_to(target_x, target_y, duration=0):
     duration=0 (default): instant move via a single FakerInput report batch.
     duration>0: spread the move over ``duration`` seconds for visual smoothness
                 (e.g. player_position auto-turn uses this for in-game camera moves).
+
+    Includes a correction loop (max 3 retries) to guarantee the cursor
+    arrives at the target, compensating for any residual rounding or
+    Windows mouse processing artifacts.
     """
     if not _ensure_init():
         return
-    cur_x, cur_y = get_mouse_position()
-    dx = target_x - cur_x
-    dy = target_y - cur_y
-    if dx == 0 and dy == 0:
-        return
-    if duration <= 0:
-        _send_fi_relative(dx, dy)
-        return
-    steps = max(1, int(duration / 0.01))  # ~10ms per step
-    step_delay = duration / steps
-    step_x = dx / steps
-    step_y = dy / steps
-    sent_x = 0
-    sent_y = 0
-    for i in range(steps):
-        if i == steps - 1:
-            sx = dx - sent_x
-            sy = dy - sent_y
-        else:
-            sx = int(step_x)
-            sy = int(step_y)
-        _send_fi_relative(sx, sy)
-        sent_x += sx
-        sent_y += sy
-        if i < steps - 1 and step_delay > 0:
-            time.sleep(step_delay)
+
+    saved = _save_and_normalize_mouse()
+    try:
+        max_corrections = 3
+        for attempt in range(max_corrections + 1):
+            cur_x, cur_y = get_mouse_position()
+            dx = target_x - cur_x
+            dy = target_y - cur_y
+            if dx == 0 and dy == 0:
+                return
+
+            if duration <= 0 or attempt > 0:
+                _send_fi_relative(dx, dy)
+            else:
+                steps = max(1, int(duration / 0.01))
+                step_delay = duration / steps
+                step_x = dx / steps
+                step_y = dy / steps
+                sent_x = 0
+                sent_y = 0
+                for i in range(steps):
+                    if i == steps - 1:
+                        sx = dx - sent_x
+                        sy = dy - sent_y
+                    else:
+                        sx = int(step_x)
+                        sy = int(step_y)
+                    _send_fi_relative(sx, sy)
+                    sent_x += sx
+                    sent_y += sy
+                    if i < steps - 1 and step_delay > 0:
+                        time.sleep(step_delay)
+
+            time.sleep(0.001)  # settle for HID report processing
+
+            final_x, final_y = get_mouse_position()
+            if final_x == target_x and final_y == target_y:
+                return
+    finally:
+        _restore_mouse(saved)
 
 def move_to_and_click(target_x, target_y, button='left', duration=0, settle=0.02):
     """Move to coordinates and click.
