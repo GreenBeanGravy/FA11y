@@ -521,6 +521,15 @@ class EpicDiscovery:
                         except Exception as e:
                             logger.error(f"Error fetching page {page_num}: {e}")
 
+                # Deduplicate by link_code (pages may return overlapping results)
+                seen_codes = set()
+                unique_islands = []
+                for island in islands:
+                    if island.link_code not in seen_codes:
+                        seen_codes.add(island.link_code)
+                        unique_islands.append(island)
+                islands = unique_islands
+
                 # Sort by player count (descending)
                 islands.sort(key=lambda x: x.global_ccu, reverse=True)
                 islands = islands[:limit]

@@ -172,8 +172,7 @@ class SocialDialog(AccessibleDialog):
     def _get_ranked_mode_name(self, ranking_type: str) -> str:
         """Get friendly name for ranked mode"""
         mode_names = {
-            'ranked-br': 'Battle Royale',
-            'ranked-zb': 'Zero Build',
+            'ranked-br-combined': 'Battle Royale',
             'ranked_blastberry_build': 'Reload',
             'ranked_blastberry_nobuild': 'Reload Zero Build',
             'ranked-figment-build': 'OG',
@@ -302,7 +301,7 @@ class SocialDialog(AccessibleDialog):
                 ranked_lines.append("Play ranked matches to see your progress here.")
             else:
                 # Show each ranked mode with current rank and progress
-                for ranking_type in ['ranked-br', 'ranked-zb', 'ranked_blastberry_build',
+                for ranking_type in ['ranked-br-combined', 'ranked_blastberry_build',
                                       'ranked_blastberry_nobuild', 'ranked-figment-build', 'ranked-figment-nobuild',
                                       'ranked-squareclub']:
                     if ranking_type in ranked_data:
