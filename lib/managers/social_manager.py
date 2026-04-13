@@ -362,12 +362,12 @@ class SocialManager:
     def _get_ranked_mode_name(self, ranking_type: str) -> str:
         """Get friendly name for ranked mode"""
         mode_names = {
-            'ranked-br': 'Battle Royale',
-            'ranked-zb': 'Zero Build',
+            'ranked-br-combined': 'Battle Royale',
             'ranked_blastberry_build': 'Reload',
             'ranked_blastberry_nobuild': 'Reload Zero Build',
             'ranked-figment-build': 'OG',
-            'ranked-figment-nobuild': 'OG Zero Build'
+            'ranked-figment-nobuild': 'OG Zero Build',
+            'ranked-squareclub': 'Arena Box Fights'
         }
         return mode_names.get(ranking_type, ranking_type)
 
