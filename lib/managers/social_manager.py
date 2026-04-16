@@ -132,6 +132,50 @@ class SocialManager:
         # Example: fd598199500c4044a0c4f66083349548
         return bool(re.match(r'^[a-f0-9]{32}$', text.lower()))
 
+    def resolve_name_from_partial_id(self, id_or_partial: str) -> Optional[str]:
+        """
+        Resolve an MCP id — full 32-char or an abbreviated
+        '<prefix>...<suffix>' form that Fortnite writes in party-event log
+        lines — to a display name by matching against cached friends and
+        party members. Returns None when no match is found so the caller
+        can fall back to speaking the id.
+
+        Called by MatchEventMonitor via the name_resolver callback wired
+        up in FA11y.main(); safe to call from any thread (read-only scan
+        of caches under the social manager lock).
+        """
+        if not id_or_partial:
+            return None
+
+        # Split once if it's the abbreviated form. Full 32-char hex ids
+        # don't contain '...', so this is a clean discriminator.
+        if '...' in id_or_partial:
+            parts = id_or_partial.split('...', 1)
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                return None
+            prefix, suffix = parts
+            match_fn = lambda aid: aid.startswith(prefix) and aid.endswith(suffix)
+        else:
+            match_fn = lambda aid: aid == id_or_partial
+
+        with self.lock:
+            for f in self.all_friends:
+                if match_fn(f.account_id):
+                    return self._ensure_display_name(f.display_name)
+            for m in self.party_members:
+                if match_fn(m.account_id):
+                    return self._ensure_display_name(m.display_name)
+            for r in self.incoming_requests:
+                if match_fn(r.account_id):
+                    return self._ensure_display_name(r.display_name)
+            for r in self.outgoing_requests:
+                if match_fn(r.account_id):
+                    return self._ensure_display_name(r.display_name)
+            for inv in self.party_invites:
+                if match_fn(inv.from_account_id):
+                    return self._ensure_display_name(inv.from_display_name)
+        return None
+
     def _ensure_display_name(self, display_name: str) -> str:
         """
         Ensure we have a real display name, not an account ID.
@@ -561,6 +605,12 @@ class SocialManager:
             self.prev_outgoing_count = current_outgoing_count
 
             # Check for new party invites
+            # NOTE: Announcements for invites are now handled by
+            # MatchEventMonitor, which parses `OnPartyInviteReceived` and
+            # `OnPingReceived` from the Fortnite log with sub-second
+            # latency. We keep the API-polled count-change logic here only
+            # to drive auto-accept for invites that came in response to
+            # join requests we sent.
             current_invite_count = len(self.party_invites)
             if current_invite_count > self.prev_party_invite_count:
                 new_count = current_invite_count - self.prev_party_invite_count
@@ -577,7 +627,7 @@ class SocialManager:
                             # Check if we can auto-accept (Fortnite must be focused)
                             from lib.utilities.window_utils import get_active_window_title
                             active_title = get_active_window_title()
-                            
+
                             if active_title and "Fortnite" in active_title:
                                 # Auto-accept! They accepted our join request
                                 logger.debug(f"Auto-accepting invite from {display_name} (responded to our join request)")
@@ -589,58 +639,26 @@ class SocialManager:
                                     args=(latest_invite, display_name),
                                     daemon=True
                                 ).start()
-                            else:
-                                # Fortnite not focused, treat as normal invite
-                                logger.debug(f"Cannot auto-accept invite from {display_name}: Fortnite not focused")
-                                self._show_notification(latest_invite, "party_invite")
-                        else:
-                            # Expired, show normal notification
-                            self._show_notification(latest_invite, "party_invite")
-                    else:
-                        # Normal invite, show notification
-                        self._show_notification(latest_invite, "party_invite")
-                elif new_count > 1:
-                    speaker.speak(f"{new_count} new party invites. Open social menu to review.")
-            
+                            # Else: MatchEventMonitor already announced the
+                            # invite; nothing extra to do here.
+
             self.prev_party_invite_count = current_invite_count
 
-        # Check for party changes (joins/leaves)
-        # We need to get the current party members to compare
-        # This assumes refresh_slow_data or similar updates self.party_members periodically
-        # or we rely on the fact that we just refreshed data if we are here?
-        # Actually, _monitor_loop calls refresh_slow_data which updates self.party_members.
-        # We need to store the *previous* state to compare.
-        
-        # Initialize prev_party_members if not exists
+        # NOTE: Party member joined/left announcements are now driven by
+        # MatchEventMonitor parsing `LogParty: Verbose: Adding [<name>]`
+        # and `HandleZonePlayerStateRemoved: [MCP:<id>]` from the Fortnite
+        # log. Those fire instantly (vs. the 30s slow-poll cadence here)
+        # and carry display names inline. The old diff-based announcements
+        # here were removed to avoid duplicate speech.
+        # The previous-id set itself is still tracked because other code
+        # paths may rely on it.
         if not hasattr(self, 'prev_party_members_ids'):
             self.prev_party_members_ids = set()
             if self.party_members:
                 self.prev_party_members_ids = {m.account_id for m in self.party_members}
-        
-        current_member_ids = {m.account_id for m in self.party_members} if self.party_members else set()
-        
-        # Calculate diffs
-        joined_ids = current_member_ids - self.prev_party_members_ids
-        left_ids = self.prev_party_members_ids - current_member_ids
-        
-        # Announce joins
-        for member_id in joined_ids:
-            # Find member object for name
-            member = next((m for m in self.party_members if m.account_id == member_id), None)
-            name = member.display_name if member else "Player"
-            # Don't announce our own join if we just started
-            if member_id != self.social_api.auth.account_id: 
-                 speaker.speak(f"{name} joined the party")
-        
-        # Announce leaves
-        for member_id in left_ids:
-            # We can't look up name in current members, need to rely on cache or generic
-            # Ideally we'd have kept the old member objects, but for now:
-            name = self.social_api._get_display_name(member_id) # This uses cache
-            if member_id != self.social_api.auth.account_id:
-                speaker.speak(f"{name} left the party")
-                
-        self.prev_party_members_ids = current_member_ids
+        self.prev_party_members_ids = {
+            m.account_id for m in self.party_members
+        } if self.party_members else set()
 
     def _show_notification(self, item, item_type):
         """
