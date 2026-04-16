@@ -5,6 +5,8 @@ Provides interface for managing friends, party, and requests
 import logging
 import wx
 import threading
+from datetime import datetime, timezone
+from typing import Optional
 from lib.utilities.mouse import instant_click
 from accessible_output2.outputs.auto import Auto
 
@@ -16,6 +18,29 @@ from lib.utilities.epic_social import Friend, FriendRequest, PartyMember, PartyI
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
+
+
+# Fortnite's 2026-04-16 rank expansion split Elite and Champion into I/II/III
+# sub-tiers, growing the ladder from 18 ranks to 22. Track entries with a
+# lastUpdated timestamp before this cutoff were stored under the old ladder;
+# entries at or after use the new ladder. Keep this value in sync with the
+# copy in lib/managers/social_manager.py.
+_RANK_EXPANSION_UTC = datetime(2026, 4, 16, 10, 0, 0, tzinfo=timezone.utc)
+
+
+def _is_pre_rank_expansion(last_updated: str) -> bool:
+    """Return True if the given ISO8601 lastUpdated timestamp is strictly
+    before the 2026-04-16 rank expansion cutoff. Empty or unparseable strings
+    return False so the caller defaults to the current mapping."""
+    if not last_updated:
+        return False
+    try:
+        ts = datetime.fromisoformat(last_updated.replace('Z', '+00:00'))
+    except (ValueError, TypeError):
+        return False
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts < _RANK_EXPANSION_UTC
 
 
 class SocialDialog(AccessibleDialog):
@@ -138,11 +163,48 @@ class SocialDialog(AccessibleDialog):
 
         return panel
 
-    def _division_to_rank_name(self, division: int) -> str:
+    def _division_to_rank_name(self, division: int, last_updated: Optional[str] = None) -> str:
         """
-        Convert division number to human-readable rank name
-        In Fortnite: I is lowest, II is middle, III is highest within each tier
+        Convert division number to human-readable rank name.
+        In Fortnite: I is lowest, II is middle, III is highest within each tier.
+
+        If last_updated is supplied and predates the 2026-04-16 rank expansion,
+        the legacy (pre-expansion) mapping is used so stored pre-patch ranks
+        still display correctly. Omitting last_updated uses the current mapping.
         """
+        if last_updated and _is_pre_rank_expansion(last_updated):
+            return self._division_to_rank_name_legacy(division)
+        if division == 0:
+            return "Unranked"
+        elif 1 <= division <= 3:
+            tier = ["I", "II", "III"][division - 1]
+            return f"Bronze {tier}"
+        elif 4 <= division <= 6:
+            tier = ["I", "II", "III"][division - 4]
+            return f"Silver {tier}"
+        elif 7 <= division <= 9:
+            tier = ["I", "II", "III"][division - 7]
+            return f"Gold {tier}"
+        elif 10 <= division <= 12:
+            tier = ["I", "II", "III"][division - 10]
+            return f"Platinum {tier}"
+        elif 13 <= division <= 15:
+            tier = ["I", "II", "III"][division - 13]
+            return f"Diamond {tier}"
+        elif 16 <= division <= 18:
+            tier = ["I", "II", "III"][division - 16]
+            return f"Elite {tier}"
+        elif 19 <= division <= 21:
+            tier = ["I", "II", "III"][division - 19]
+            return f"Champion {tier}"
+        elif division == 22:
+            return "Unreal"
+        else:
+            return f"Division {division}"
+
+    def _division_to_rank_name_legacy(self, division: int) -> str:
+        """Pre-2026-04-16 rank mapping. Elite, Champion, and Unreal each had a
+        single tier and the Unreal cap was at division 18."""
         if division == 0:
             return "Unranked"
         elif 1 <= division <= 3:
@@ -313,15 +375,18 @@ class SocialDialog(AccessibleDialog):
 
                         # API uses 0-indexed divisions for ranked tiers
                         # Division 1 = Bronze II, Division 2 = Bronze III, etc.
-                        # Add 1 to get the display rank
-                        current_rank = self._division_to_rank_name(current_div + 1)
-                        highest_rank = self._division_to_rank_name(highest_div + 1)
+                        # Add 1 to get the display rank.
+                        # lastUpdated lets the mapping fall back to the pre-
+                        # 2026-04-16 ladder for stale pre-expansion records.
+                        last_updated = mode_data.get('lastUpdated')
+                        current_rank = self._division_to_rank_name(current_div + 1, last_updated)
+                        highest_rank = self._division_to_rank_name(highest_div + 1, last_updated)
 
                         # Format: "Battle Royale: Bronze II (20% to Bronze III)"
                         if current_div > 0:
                             # Show next rank
                             next_div = current_div + 2  # +1 for offset, +1 for next tier
-                            next_rank = self._division_to_rank_name(next_div)
+                            next_rank = self._division_to_rank_name(next_div, last_updated)
                             progress_pct = int(progress * 100)
                             ranked_lines.append(f"{mode_name}: {current_rank} ({progress_pct}% to {next_rank})")
                         else:
