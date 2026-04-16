@@ -85,6 +85,7 @@ from lib.monitors.resource_monitor import resource_monitor
 # from lib.monitors.dynamic_object_monitor import dynamic_object_monitor
 from lib.monitors.storm_monitor import storm_monitor
 from lib.monitors.bloom_monitor import bloom_monitor
+from lib.monitors.match_event_monitor import match_event_monitor
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
@@ -225,6 +226,7 @@ def signal_handler(signum, frame):
         # dynamic_object_monitor.stop_monitoring()
         storm_monitor.stop_monitoring()
         bloom_monitor.stop_monitoring()
+        match_event_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
 
         # Stop social manager
@@ -2326,6 +2328,7 @@ def main() -> None:
         # dynamic_object_monitor.start_monitoring()
         storm_monitor.start_monitoring()
         bloom_monitor.start_monitoring()
+        match_event_monitor.start_monitoring()
 
         # Start new game object system
         match_tracker.start_monitoring()
@@ -2390,6 +2393,13 @@ def main() -> None:
 
                 social_manager = get_social_manager(epic_auth)
                 social_manager.start_monitoring()
+
+                # Wire MatchEventMonitor's party-id resolver to the social
+                # manager's cache so it can turn partial Fortnite-log ids
+                # (e.g. "e7571...92503") into display names. Also pass the
+                # local account id so the monitor can suppress self-adds.
+                match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
+                match_event_monitor.local_account_id = epic_auth.account_id
 
                 # Initialize discovery API
                 discovery_api = EpicDiscovery(epic_auth)
@@ -2484,6 +2494,7 @@ def main() -> None:
             resource_monitor.stop_monitoring()
             # dynamic_object_monitor.stop_monitoring()
             storm_monitor.stop_monitoring()
+            match_event_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
 
             # Stop social manager

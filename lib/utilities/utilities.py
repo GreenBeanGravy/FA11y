@@ -346,6 +346,17 @@ Decline Notification = lalt+n "Decline pending notification (friend request, par
 Recapture Mouse = lalt+lshift+m "Recapture the mouse device for passthrough. Use when changing mice."
 Toggle Mouse Passthrough = lalt+lshift+p "Toggles mouse passthrough on or off."
 
+[MatchEvents]
+MonitorMatchEvents = true "Master toggle for the in-match log event monitor. Tails Fortnite's local log file to surface real-time events the screen reader otherwise cannot see."
+AnnounceReloadKnocked = true "Announce when you are knocked down in Reload mode."
+AnnounceReloadRespawn = true "Announce when you start respawning, finish respawning, or respawn becomes unavailable in Reload mode."
+AnnouncePlayersLeft = true "Announce the players-remaining count whenever it changes (parsed from Epic rich presence)."
+AnnounceMatchPhase = true "Announce battle bus, storm forming, storm holding, and storm shrinking phase changes."
+AnnounceDeath = true "Announce when you die."
+AnnounceSpectating = true "Announce when you start spectating a new player after death."
+AnnouncePlacement = true "Announce when the match has ended and your final placement is set."
+AnnounceFinalCountdown = true "Announce the final countdown player count for Reload and Box Fights endgames."
+
 [POI]
 selected_poi = closest, 0, 0
 current_map = main"""
