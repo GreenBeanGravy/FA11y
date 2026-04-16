@@ -2,6 +2,9 @@ Nemesis AR
 Combat Assault Rifle
 Chaos Reloader Shotgun
 Iron Pump Shotgun
+hammer revolver
+Super Shredder
+Reaper Sniper Rifle 
 Twin Hammer Shotguns
 Thunder Burst SMG
 Twin Mag SMG
@@ -53,10 +56,13 @@ Midas Flopper
 Mythic Goldfish
 Baron's Double Down Pistol
 Thorne's Vampiric Blade
-Havoc Suppressed Assault Rifle
-Gatekeeper Shotgun
+O.X.R Rifle
+Havoc Pump Shotgun 
 Explosive Repeater Rifle
-Grapple Blade
-Chains of Hades
-Typhoon Blade
-The Kneecapper
+Leadspitter 3000
+Wrecker Revolver
+Sticky Grenade Launcher
+Thunderbolt of Zeus
+Boom Sniper Rifle
+Eradicator O.X.r. Rifle
+Eradicator  Marksman Wrecker Revolver
