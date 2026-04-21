@@ -503,10 +503,11 @@ class WorldInfoAPI:
         if unlocked_zones is None:
             return alerts
         allowed = set(unlocked_zones)
-        # Always allow Ventures (event theaters) unless explicitly excluded,
-        # since any STW account can enter them.
-        if "Ventures" in allowed or True:
-            pass
+        # Always allow Ventures (event theaters) unless the caller explicitly
+        # dropped it. Every STW account can enter Ventures regardless of
+        # campaign progression, so filtering out Ventures would hide the
+        # post-F2P X-Ray Ticket reward slate.
+        allowed.add("Ventures")
         filtered = [a for a in alerts if a.theater_name in allowed]
         logger.info(
             f"get_filtered_alerts: {len(filtered)}/{len(alerts)} match "
