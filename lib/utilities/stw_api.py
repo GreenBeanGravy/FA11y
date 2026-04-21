@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 
 from lib.utilities.epic_auth import EpicAuth
+from lib.utilities.stw_name_lookup import resolve_template_name
 
 logger = logging.getLogger(__name__)
 
@@ -227,12 +228,24 @@ def parse_template_name(template_id: str) -> Dict[str, str]:
     Handles Hero:, Schematic:, Worker:, Defender:, Token:, AccountResource:,
     Gadget:, TeamPerk:, Alteration:. Falls back to the last segment title-
     cased when the template doesn't fit a known pattern.
+
+    First consults `stw_name_lookup` (data extracted from the PAK files)
+    for the REAL game display name — so a Schematic like
+    `sid_assault_bone_vr_ore_t04` returns "Primal Rifle" instead of the
+    heuristic "Bone Assault Rifle (Ore)". Falls back to the old heuristic
+    parser when the lookup has no entry.
     """
     if not template_id:
         return {"name": "(unknown)", "rarity": "", "tier": "", "kind": ""}
 
     kind, _, remainder = template_id.partition(":")
     kind = kind or ""
+
+    # Real-name lookup pass. If we hit, we still run the heuristic to extract
+    # rarity + tier from templates where the lookup doesn't carry them — the
+    # name from the lookup takes priority though.
+    lookup_hit = resolve_template_name(template_id)
+
     segments = remainder.lower().split("_") if remainder else []
 
     rarity = ""
@@ -360,6 +373,17 @@ def parse_template_name(template_id: str) -> Dict[str, str]:
         name = RESOURCE_NAMES.get(template_id, _titleize(remainder))
     else:
         name = _titleize(remainder) or template_id
+
+    # Lookup wins on name; heuristic-derived rarity/tier fill gaps where the
+    # lookup entry doesn't carry them (e.g. some Alterations store rarity
+    # but no tier, ingredients have no tier).
+    if lookup_hit:
+        name = lookup_hit.get("name") or name
+        if not rarity and lookup_hit.get("rar"):
+            rarity = lookup_hit["rar"]
+        lookup_tier = lookup_hit.get("tier")
+        if not tier and lookup_tier is not None:
+            tier = str(lookup_tier)
 
     return {
         "name": name,
@@ -1395,6 +1419,164 @@ class STWApi:
             "MarkNewQuestNotificationSent", body={"itemIds": item_ids}
         )
         return res is not None
+
+    # ------------------------------------------------------------------
+    # Additional MCP write operations
+    #
+    # These cover the remaining STW-relevant ops catalogued in §8 of the
+    # STW API reference that weren't wrapped in the original STWApi pass.
+    # Every op returns the raw MCP response dict (or None on HTTP failure)
+    # so callers can inspect notifications[] — the granted/changed items
+    # ride back in there for reward-graph, llama-gift, and consumable ops.
+    # ------------------------------------------------------------------
+    def unlock_reward_node(
+        self, node_id: str, reward_category_id: str = ""
+    ) -> Optional[Dict]:
+        """Progress a reward graph (Winterfest, Ventures levels, Phoenix
+        seasons, etc.). `reward_category_id` is the specific track within
+        the graph — empty string picks the default category.
+
+        This op lives on `athena`, not `campaign` — both BR and STW reward
+        graphs share the athena profile's reward-node state machine. Epic
+        returns `errors.com.epicgames.modules.profiles.invalid_command`
+        if called against campaign."""
+        return self._mcp_request(
+            "UnlockRewardNode",
+            profile_id="athena",
+            body={"nodeId": node_id, "rewardCategoryId": reward_category_id},
+        )
+
+    def gift_catalog_entry(
+        self,
+        offer_id: str,
+        receiver_account_ids: List[str],
+        gift_wrap_template_id: str = "GiftBox:gb_default",
+        personal_message: str = "",
+        currency: str = "MtxCurrency",
+        currency_sub_type: str = "",
+    ) -> Optional[Dict]:
+        """Gift an offer to other accounts. Recipients get the item in
+        their `common_core` gift box. Up to 5 recipients per call — Epic
+        rejects larger batches with `errors.com.epicgames.fortnite.`
+        `gift_recipient_list_exceeds_size`.
+
+        `currency` + `currency_sub_type` are REQUIRED by the validator
+        even for free-gift offers (use `MtxCurrency` + `""` for V-Bucks-
+        priced items, or the matching `AccountResource:...` sub-type for
+        item-currency offers like X-Ray Ticket gifts)."""
+        return self._mcp_request(
+            "GiftCatalogEntry",
+            profile_id="common_core",
+            body={
+                "offerId": offer_id,
+                "receiverAccountIds": receiver_account_ids,
+                "giftWrapTemplateId": gift_wrap_template_id,
+                "personalMessage": personal_message,
+                "currency": currency,
+                "currencySubType": currency_sub_type,
+            },
+        )
+
+    def activate_consumable(
+        self, target_item_id: str, target_account: str = ""
+    ) -> Optional[Dict]:
+        """Use a consumable — XP boosts, friend boosts, etc. `target_account`
+        is only required for "give to a friend" consumables; empty string
+        activates on self."""
+        body: Dict[str, object] = {"targetItemId": target_item_id}
+        if target_account:
+            body["targetAccount"] = target_account
+        return self._mcp_request("ActivateConsumable", body=body)
+
+    def skip_tutorial(self) -> Optional[Dict]:
+        """Skip the STW tutorial. Idempotent — if already skipped, returns
+        an `errors.com.epicgames.fortnite.stw.tutorial_already_complete`
+        error rather than double-granting the reward."""
+        return self._mcp_request("SkipTutorial")
+
+    def set_affiliate_name(self, affiliate_name: str) -> bool:
+        """Set the Support-A-Creator code (SAC). Empty string clears it.
+        Lives on `common_core`. 14-day cooldown between changes; too-frequent
+        calls return `errors.com.epicgames.modules.gamesubcatalog.`
+        `support_creator_on_cooldown`."""
+        res = self._mcp_request(
+            "SetAffiliateName",
+            profile_id="common_core",
+            body={"affiliateName": affiliate_name},
+        )
+        return res is not None
+
+    def assign_worker_to_squad_batch(
+        self, characters: List[Dict]
+    ) -> bool:
+        """Bulk-slot multiple workers in one call. `characters` is a list of
+        `{squadId, characterId, slotIdx}` dicts. Epic rolls them up server-
+        side so the whole loadout change is atomic (partial failures roll
+        back). Empty list is a valid no-op."""
+        res = self._mcp_request(
+            "AssignWorkerToSquadBatch", body={"characters": characters}
+        )
+        return res is not None
+
+    def convert_legacy_alterations(self, target_item_id: str) -> bool:
+        """Migrate an item's legacy perks to the modern Alteration system.
+        One-shot per item; Epic rejects with
+        `errors.com.epicgames.fortnite.stw.item_not_convertible` if the
+        item has already been migrated."""
+        res = self._mcp_request(
+            "ConvertLegacyAlterations", body={"targetItemId": target_item_id}
+        )
+        return res is not None
+
+    def destroy_world_items(self, item_ids: List[str]) -> bool:
+        """Trash loose world items from the theater0 backpack. Only applies
+        to world-pickup items (resources, ammo, weapons found in missions).
+        Does NOT touch campaign inventory — use `recycle_item_batch` there.
+
+        Body field is `itemIds` (not `targetItemIds` like sibling ops)."""
+        res = self._mcp_request(
+            "DestroyWorldItems",
+            profile_id="theater0",
+            body={"itemIds": item_ids},
+        )
+        return res is not None
+
+    def refund_item(self, target_item_id: str) -> bool:
+        """Undo a recent item operation (recycle/upgrade/promote). Only
+        works within Epic's refund window (~24h) — older actions return
+        `errors.com.epicgames.fortnite.stw.refund_window_expired`."""
+        res = self._mcp_request("RefundItem", body={"targetItemId": target_item_id})
+        return res is not None
+
+    def equip_campaign_customization(
+        self, slot_name: str, item_to_slot: str
+    ) -> bool:
+        """Equip a hoverboard / vehicle customization. Narrow scope: the
+        Epic command's `CustomizationSlot` enum currently only accepts the
+        value `PersonalVehicle`, so this op is effectively the hoverboard
+        equip endpoint.
+
+        `slot_name` should be `"PersonalVehicle"`; `item_to_slot` is a
+        `PersonalVehicle:vid_*` templateId or the owned-item GUID.
+
+        For banners/icons/music packs use `set_homebase_banner` (banners)
+        — those customizations live on homebase customization keys on the
+        campaign profile, not through this op."""
+        res = self._mcp_request(
+            "EquipCampaignCustomization",
+            body={
+                "slotName": slot_name,
+                "itemToSlot": item_to_slot,
+            },
+        )
+        return res is not None
+
+    def claim_difficulty_increase_rewards(self) -> Optional[Dict]:
+        """Claim rewards from zones that have crossed a new power-level
+        threshold (PL 25 → 30, 30 → 40, etc.). Idempotent — already-claimed
+        rewards return a specific `errors.com.epicgames.fortnite.stw.`
+        `no_rewards_available` error rather than double-granting."""
+        return self._mcp_request("ClaimDifficultyIncreaseRewards")
 
 
 # ---------------------------------------------------------------------------
