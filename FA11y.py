@@ -86,6 +86,7 @@ from lib.monitors.resource_monitor import resource_monitor
 from lib.monitors.storm_monitor import storm_monitor
 from lib.monitors.bloom_monitor import bloom_monitor
 from lib.monitors.match_event_monitor import match_event_monitor
+from lib.monitors.stw_alert_monitor import stw_alert_monitor
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
@@ -179,6 +180,7 @@ locker_gui_open = threading.Event()
 gamemode_gui_open = threading.Event()
 visited_objects_gui_open = threading.Event()
 custom_poi_gui_open = threading.Event()
+stw_gui_open = threading.Event()
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
@@ -227,6 +229,7 @@ def signal_handler(signum, frame):
         storm_monitor.stop_monitoring()
         bloom_monitor.stop_monitoring()
         match_event_monitor.stop_monitoring()
+        stw_alert_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
 
         # Stop social manager
@@ -437,6 +440,7 @@ def reload_config() -> None:
             'open gamemode selector': open_gamemode_selector,
             'open locker selector': open_locker_selector,
             'open locker viewer': open_locker_viewer,
+            'open save the world': open_save_the_world,
             'announce reload map rotation': announce_reload_map_rotation,
             'sync current map to reload rotation': sync_current_map_to_reload_rotation,
             'open configuration menu': open_config_gui,
@@ -1454,6 +1458,37 @@ def open_locker_viewer() -> None:
     launch_gui_thread_safe(_do_open_locker_viewer)
 
 
+def open_save_the_world() -> None:
+    """Open the Save the World manager main menu."""
+    from lib.guis.gui_utilities import launch_gui_thread_safe
+
+    def _do_open_stw():
+        global active_pinger, stw_gui_open
+
+        if stw_gui_open.is_set():
+            speaker.speak("Save the World manager is already open")
+            focus_window("Save the World Manager")
+            return
+
+        if active_pinger:
+            active_pinger.stop()
+            active_pinger = None
+            speaker.speak("Continuous ping disabled.")
+        try:
+            from lib.guis.stw_gui import launch_stw_gui
+            stw_gui_open.set()
+            try:
+                launch_stw_gui()
+            finally:
+                stw_gui_open.clear()
+        except Exception as e:
+            print(f"Error opening Save the World manager: {e}")
+            speaker.speak("Error opening Save the World manager")
+            stw_gui_open.clear()
+
+    launch_gui_thread_safe(_do_open_stw)
+
+
 def announce_reload_map_rotation() -> None:
     """Keybind handler - fetch the live Reload map rotation from fortnite.gg
     and speak the current + next map with remaining time. Useful for knowing
@@ -2385,6 +2420,7 @@ def main() -> None:
         storm_monitor.start_monitoring()
         bloom_monitor.start_monitoring()
         match_event_monitor.start_monitoring()
+        stw_alert_monitor.start_monitoring()
 
         # Start new game object system
         match_tracker.start_monitoring()
@@ -2456,6 +2492,7 @@ def main() -> None:
                 # local account id so the monitor can suppress self-adds.
                 match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
                 match_event_monitor.local_account_id = epic_auth.account_id
+                match_event_monitor.local_display_name = epic_auth.display_name
 
                 # Initialize discovery API
                 discovery_api = EpicDiscovery(epic_auth)
@@ -2551,6 +2588,7 @@ def main() -> None:
             # dynamic_object_monitor.stop_monitoring()
             storm_monitor.stop_monitoring()
             match_event_monitor.stop_monitoring()
+            stw_alert_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
 
             # Stop social manager

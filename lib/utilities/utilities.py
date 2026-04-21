@@ -326,6 +326,7 @@ Announce Direction Faced = semicolon "Announces the direction the player is faci
 Announce Ammo = j "Announces the current ammo in the mag and reserves."
 Check Rarity = bracketleft "Announces the rarity of a selected item when the player is in the in-game inventory."
 Open Locker Selector = bracketright "Opens the Locker Selector menu, used for equipping cosmetic items."
+Open Save The World = lalt+lshift+s "Opens the Save the World manager. Grouped menu covers mission alerts (filtered to zones you've unlocked), daily quests, expeditions, llamas, squad and loadout management, items (recycle/upgrade/promote/craft), homebase settings, the Collection Book, and a public-profile lookup. A background monitor also announces V-Buck / X-Ray / Legendary survivor / Evo-mat mission alerts automatically; configure under Settings."
 Announce Reload Map Rotation =  "Queries fortnite.gg for the current Reload map rotation and announces which map is live now, how much time is left, and which map is next."
 Sync Current Map To Reload Rotation =  "Queries fortnite.gg for the current Reload map and automatically sets FA11y's current_map to the matching POI data file. Use just before queuing into Reload."
 Create Custom P O I = backslash "Creates a custom P O I at the players current position while the full-screen map is open, and prompts the user for a name."
@@ -358,6 +359,7 @@ AnnounceDeath = true "Announce when you die."
 AnnounceSpectating = true "Announce when you start spectating a new player after death."
 AnnouncePlacement = true "Announce when the match has ended and your final placement is set."
 AnnounceFinalCountdown = true "Announce the final countdown player count for Reload and Box Fights endgames."
+AnnounceSTWMatchRewards = true "Announce Save the World end-of-match rewards: commander levels gained, XP earned, mission points, and badge total."
 
 [POI]
 selected_poi = closest, 0, 0
