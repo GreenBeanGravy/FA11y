@@ -332,6 +332,7 @@ Sync Current Map To Reload Rotation =  "Queries fortnite.gg for the current Relo
 Create Custom P O I = backslash "Creates a custom P O I at the players current position while the full-screen map is open, and prompts the user for a name."
 Open Gamemode Selector = apostrophe "Opens the Gamemode Selector GUI, used for selecting which gamemode the user wants to play."
 Open Configuration Menu = f9 "Opens the FA11y configuration menu for changing these settings."
+Open Client Settings = lalt+lshift+c "Opens the Client Settings editor for viewing and modifying Fortnite's in-game settings (mouse sensitivity, audio volumes, keybinds, region, voice chat, toggles). Edits can be saved to your local file and pushed to your Epic cloud storage so they follow you across devices."
 Exit Match = f12 "Exits the current match while the in-game quick-menu is open."
 Detect Hotbar 1 = 1 "Announces details about the item the player is currently holding in slot 1."
 Detect Hotbar 2 = 2 "Announces details about the item the player is currently holding in slot 2."

@@ -444,6 +444,7 @@ def reload_config() -> None:
             'announce reload map rotation': announce_reload_map_rotation,
             'sync current map to reload rotation': sync_current_map_to_reload_rotation,
             'open configuration menu': open_config_gui,
+            'open client settings': open_clientsettings_editor,
             'exit match': exit_match,
             'create custom p o i': handle_custom_poi_gui,
             'announce ammo': announce_ammo_manually,
@@ -1280,6 +1281,18 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
     except Exception as e:
         print(f"Error updating script config: {e}")
         speaker.speak("Error updating configuration")
+
+def open_clientsettings_editor() -> None:
+    """Open the Client Settings editor (Fortnite sens/binds/volumes + cloud sync)."""
+    try:
+        from lib.guis.clientsettings_gui import launch_clientsettings_editor
+    except Exception as e:
+        print(f"Error loading Client Settings editor: {e}")
+        speaker.speak("Error loading Client Settings editor")
+        return
+    speaker.speak("Opening Client Settings editor")
+    launch_clientsettings_editor()
+
 
 def open_config_gui() -> None:
     """Open the configuration GUI."""
