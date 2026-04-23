@@ -1,9 +1,12 @@
 """
 Client Settings Editor GUI for FA11y.
 
-Lets the user view and modify values inside Fortnite's ClientSettings.Sav
-(sensitivity, FOV, volumes, keybinds, etc.) and push the result to their
-Epic cloud storage, so settings follow them across devices.
+Cloud-only workflow. On open, the editor downloads the authenticated user's
+``ClientSettings.Sav`` from Epic's cloud storage and parses that as the
+source of truth; saves push the edited buffer straight back to the cloud.
+Local ``Saved/Config/ClientSettings.Sav`` is never read or written by this
+GUI — on-disk copies can lag behind the cloud (especially after playing on
+other devices) and the parser was surfacing stale values.
 
 Uses FA11y's existing EpicAuth session — no separate login.
 
@@ -12,10 +15,11 @@ Layout
 Notebook with three tabs:
     1. "Settings"  — sensitivity (% display), FOV, audio volumes, region, toggles
     2. "Keybinds"  — per-sub-game binding list; double-click a row to edit
-    3. "Cloud"     — show cloud file info, Push / Pull / Diff actions
+    3. "Cloud"     — metadata readout; "Refresh from cloud" discards edits
+                     and re-downloads
 
-Values are edited in-memory on the loaded ClientSettingsFile. Writes happen
-only when the user clicks one of the explicit Save / Push buttons.
+Values are edited in-memory on the loaded ClientSettingsFile. "Save to
+Cloud" serializes the in-memory buffer and PUT-uploads it.
 """
 
 from __future__ import annotations
@@ -47,10 +51,8 @@ from lib.clientsettings.parser import (
 from lib.clientsettings.sync import (
     CLIENT_SETTINGS_FILENAME,
     ClientSettingsManager,
-    diff_settings,
-    is_fortnite_running,
-    locate_local,
 )
+from lib.clientsettings.cloud import CloudStorageError
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -260,15 +262,31 @@ class ClientSettingsEditorDialog(AccessibleDialog):
         self._initial_check: dict[int, bool] = {}
         self._initial_choice: dict[int, int] = {}
 
-        # Load local settings up-front; fail soft.
-        ok, result = _safe(self.manager.read_local)
+        # Download the cloud copy up-front; the GUI is cloud-only so local
+        # state is intentionally ignored. Fail soft — setupDialog still
+        # runs so the user sees a well-formed (if empty) window plus the
+        # explanatory error dialog.
+        ok, result = _safe(self.manager.read_cloud)
         if ok:
             self.parsed = result
         else:
+            msg = str(result)
+            if isinstance(result, CloudStorageError) and "authenticate" in msg.lower():
+                hint = ("\n\nOpen the FA11y auth dialog (Alt+Shift+L) "
+                        "to sign in to your Epic account, then re-open "
+                        "this editor.")
+            elif "HTTP 404" in msg:
+                hint = ("\n\nYour account doesn't have a cloud "
+                        "ClientSettings.Sav yet. Launch Fortnite once and "
+                        "let it sync, then re-open this editor.")
+            else:
+                hint = ""
             wx.CallAfter(
                 messageBox,
-                message=f"Could not load ClientSettings.Sav:\n{result}\n\n"
-                        f"Expected at: {self.manager.local.primary}",
+                message=(
+                    f"Could not fetch ClientSettings.Sav from the cloud:\n"
+                    f"{msg}{hint}"
+                ),
                 caption="FA11y — Client Settings",
                 style=wx.OK | wx.ICON_ERROR,
                 parent=parent,
@@ -288,11 +306,8 @@ class ClientSettingsEditorDialog(AccessibleDialog):
         settingsSizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
 
         bottom = ButtonHelper(wx.HORIZONTAL)
-        self.save_local_btn = bottom.addButton(self, label="Save to &Local file")
-        self.save_local_btn.Bind(wx.EVT_BUTTON, self.on_save_local)
-
-        self.save_both_btn = bottom.addButton(self, label="Save Local &and push to Cloud")
-        self.save_both_btn.Bind(wx.EVT_BUTTON, self.on_save_both)
+        self.save_cloud_btn = bottom.addButton(self, label="&Save to Cloud")
+        self.save_cloud_btn.Bind(wx.EVT_BUTTON, self.on_save_cloud)
 
         close_btn = bottom.addButton(self, label="&Close")
         close_btn.Bind(wx.EVT_BUTTON, lambda evt: self.Close())
@@ -525,10 +540,11 @@ class ClientSettingsEditorDialog(AccessibleDialog):
         info = wx.StaticText(
             panel,
             label=(
-                "Fortnite stores your settings on Epic's cloud so they follow you across devices.\n\n"
-                "Push = upload YOUR local file to the cloud (Fortnite reads this on its next launch).\n"
-                "Pull = download the cloud copy over your local file (requires Fortnite closed).\n"
-                "Diff = show where the local and cloud copies differ."
+                "The editor reads and writes your ClientSettings.Sav directly "
+                "from Epic's cloud storage — the same copy Fortnite syncs on "
+                "launch. Local files on this machine are not used.\n\n"
+                "Refresh = re-download the cloud file and discard any "
+                "unsaved edits in the form."
             ),
         )
         info.Wrap(720)
@@ -544,14 +560,9 @@ class ClientSettingsEditorDialog(AccessibleDialog):
         b1 = btns.addButton(panel, label="Refresh cloud &info")
         b1.Bind(wx.EVT_BUTTON, lambda _: self._refresh_cloud_info())
 
-        b2 = btns.addButton(panel, label="&Push local → cloud")
-        b2.Bind(wx.EVT_BUTTON, lambda _: self._cloud_action_push())
+        b2 = btns.addButton(panel, label="&Re-download (discard edits)")
+        b2.Bind(wx.EVT_BUTTON, lambda _: self._cloud_action_reload())
 
-        b3 = btns.addButton(panel, label="P&ull cloud → local")
-        b3.Bind(wx.EVT_BUTTON, lambda _: self._cloud_action_pull())
-
-        b4 = btns.addButton(panel, label="&Diff local vs cloud")
-        b4.Bind(wx.EVT_BUTTON, lambda _: self._cloud_action_diff())
         outer.Add(btns.sizer, flag=wx.ALL, border=6)
 
         panel.SetSizer(outer)
@@ -571,30 +582,57 @@ class ClientSettingsEditorDialog(AccessibleDialog):
             except Exception as e:
                 self._log(f"ERROR: {e}")
                 return
-            sav = next((f for f in files if f.unique_filename == CLIENT_SETTINGS_FILENAME), None)
+            sav = next(
+                (f for f in files if f.unique_filename == CLIENT_SETTINGS_FILENAME),
+                None,
+            )
             if sav is None:
                 self._log("No ClientSettings.Sav on the cloud for this account yet.")
+                self._log(
+                    "Launch Fortnite once to create the cloud copy, then "
+                    "re-open this editor."
+                )
                 return
             self._log(f"cloud file: {sav.unique_filename}")
             self._log(f"  size:     {sav.length} bytes")
             self._log(f"  uploaded: {sav.uploaded}")
             self._log(f"  hash:     {sav.hash}")
 
-            local_path = self.manager.local.primary
-            if local_path.exists():
-                self._log(f"local file: {local_path}")
-                self._log(f"  size:     {local_path.stat().st_size} bytes")
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _cloud_action_reload(self) -> None:
+        """Discard in-memory edits and re-download the cloud copy."""
+        self._log("--- reloading from cloud ---")
+
+        def worker():
+            ok, result = _safe(self.manager.read_cloud)
+            if not ok:
+                self._log(f"RELOAD ERROR: {result}")
+                wx.CallAfter(speaker.speak, "Reload failed")
+                return
+            self.parsed = result
+            wx.CallAfter(self._reload_form_from_parsed)
+            wx.CallAfter(speaker.speak, "Reloaded from cloud")
+            self._log("Cloud copy re-parsed and form refreshed.")
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _cloud_action_push(self) -> None:
+    # ----------------------------------------------------------------- save
+
+    def on_save_cloud(self, _evt: wx.CommandEvent) -> None:
+        """Apply UI edits to the in-memory buffer, serialize, upload to cloud."""
         if self.parsed is None:
-            speaker.speak("Nothing to push — no local file loaded")
+            messageBox(
+                "No cloud settings loaded — cannot save.",
+                style=wx.OK | wx.ICON_ERROR, parent=self,
+            )
             return
-        # Apply pending UI edits into self.parsed first
         ok, err = _safe(self._commit_form_to_parsed)
         if not ok:
-            self._log(f"ERROR applying form changes: {err}")
+            messageBox(
+                f"Validation error:\n{err}",
+                style=wx.OK | wx.ICON_ERROR, parent=self,
+            )
             return
 
         data = serialize_file(self.parsed)
@@ -603,96 +641,20 @@ class ClientSettingsEditorDialog(AccessibleDialog):
             try:
                 self.manager.cloud.upload(CLIENT_SETTINGS_FILENAME, data)
             except Exception as e:
-                self._log(f"PUSH ERROR: {e}")
-                wx.CallAfter(speaker.speak, "Push failed")
+                self._log(f"SAVE ERROR: {e}")
+                wx.CallAfter(
+                    messageBox,
+                    message=f"Upload to cloud failed:\n{e}",
+                    caption="FA11y — Client Settings",
+                    style=wx.OK | wx.ICON_ERROR, parent=self,
+                )
+                wx.CallAfter(speaker.speak, "Save failed")
                 return
-            self._log(f"Pushed {len(data)} bytes to cloud.")
-            wx.CallAfter(speaker.speak, "Pushed to cloud")
+            self._log(f"Uploaded {len(data)} bytes to cloud.")
+            wx.CallAfter(speaker.speak, "Saved to cloud")
             wx.CallAfter(self._refresh_cloud_info)
 
         threading.Thread(target=worker, daemon=True).start()
-
-    def _cloud_action_pull(self) -> None:
-        if is_fortnite_running():
-            messageBox(
-                "Fortnite is running and holds a lock on the save file.\n"
-                "Close Fortnite before pulling.",
-                caption="FA11y — Client Settings",
-                style=wx.OK | wx.ICON_WARNING, parent=self,
-            )
-            return
-
-        def worker():
-            try:
-                target = self.manager.pull_from_cloud(require_game_closed=True)
-            except Exception as e:
-                self._log(f"PULL ERROR: {e}")
-                wx.CallAfter(speaker.speak, "Pull failed")
-                return
-            self._log(f"Wrote cloud copy to {target}")
-            # Re-read so the form reflects the new local state
-            ok, result = _safe(self.manager.read_local)
-            if ok:
-                self.parsed = result
-                wx.CallAfter(self._reload_form_from_parsed)
-                wx.CallAfter(speaker.speak, "Pulled cloud copy onto local file")
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _cloud_action_diff(self) -> None:
-        def worker():
-            try:
-                local = self.parsed or self.manager.read_local()
-                cloud = self.manager.read_cloud()
-            except Exception as e:
-                self._log(f"DIFF ERROR: {e}")
-                return
-
-            d = diff_settings(local, cloud)
-            self._log(f"--- diff: {d.summary()} ---")
-            if d.only_local:
-                self._log(f"only local ({len(d.only_local)}): {', '.join(d.only_local[:12])}"
-                          + (" ..." if len(d.only_local) > 12 else ""))
-            if d.only_cloud:
-                self._log(f"only cloud ({len(d.only_cloud)}): {', '.join(d.only_cloud[:12])}"
-                          + (" ..." if len(d.only_cloud) > 12 else ""))
-            for row in d.different[:30]:
-                self._log(f"  {row['name']}")
-                self._log(f"    local: {str(row['local'])[:120]}")
-                self._log(f"    cloud: {str(row['cloud'])[:120]}")
-            if len(d.different) > 30:
-                self._log(f"  ... ({len(d.different) - 30} more differences)")
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    # ----------------------------------------------------------------- save
-
-    def on_save_local(self, _evt: wx.CommandEvent) -> None:
-        if self.parsed is None:
-            return
-        ok, err = _safe(self._commit_form_to_parsed)
-        if not ok:
-            messageBox(f"Validation error:\n{err}", style=wx.OK | wx.ICON_ERROR, parent=self)
-            return
-        if is_fortnite_running():
-            if messageBox(
-                "Fortnite is running. Save anyway? (The game holds a lock — this will fail unless you close it first.)",
-                caption="FA11y — Client Settings",
-                style=wx.YES_NO | wx.ICON_WARNING, parent=self,
-            ) != wx.YES:
-                return
-        ok, err = _safe(self.manager.write_local, self.parsed, require_game_closed=False)
-        if not ok:
-            messageBox(f"Save failed:\n{err}", style=wx.OK | wx.ICON_ERROR, parent=self)
-            return
-        speaker.speak("Saved to local file")
-        self._log(f"Saved to {self.manager.local.primary}")
-
-    def on_save_both(self, _evt: wx.CommandEvent) -> None:
-        if self.parsed is None:
-            return
-        self.on_save_local(_evt)
-        self._cloud_action_push()
 
     # -------------------------------------------------------------- plumbing
 
