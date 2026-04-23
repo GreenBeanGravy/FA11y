@@ -105,29 +105,6 @@ _RE_FINAL_COUNTDOWN = re.compile(
     r'FortAthenaMutator_FinalCountdown.*WarnCountdownStartingSoon.*PlayersRemaining:\s*(?P<count>\d+)'
 )
 
-# STW end-of-match XP block (results screen). Each match writes one
-# Start/End pair containing one Player Name subsection per team member.
-# We match each line type independently and use a state machine in
-# _process_line to stitch them into a single combined announcement.
-_RE_STW_XP_START = re.compile(r'LogInGameRewardsSTW:\s*Start LogXPData')
-_RE_STW_XP_END = re.compile(r'LogInGameRewardsSTW:\s*End LogXPData')
-_RE_STW_XP_PLAYER = re.compile(r'LogInGameRewardsSTW:\s*Player Name:\s*(?P<name>.+?)\s*$')
-_RE_STW_XP_DELTA_LEVEL = re.compile(r'LogInGameRewardsSTW:\s*Delta Level:\s*(?P<level>\d+)')
-_RE_STW_XP_DELTA_XP = re.compile(r'LogInGameRewardsSTW:\s*Delta XP:\s*(?P<xp>\d+)')
-
-# STW mission points line (fires once with the real value right after
-# End LogXPData, then repeats many times as the results UI rebuilds).
-_RE_STW_MISSION_POINTS = re.compile(
-    r'LogFortMissionRewards:\s*=+\s*Total Mission Points:\s*(?P<pts>\d+)'
-)
-
-# STW badges total score. Fires 3x before the XP block and 1x after
-# the mission points line; we use the post-block fire as the anchor
-# to speak the combined announcement.
-_RE_STW_BADGES = re.compile(
-    r'LogFortUI:\s*Badges Total Score is\s*(?P<score>\d+)'
-)
-
 # --- Party events ---
 #
 # These events are fired by Fortnite when party state changes. Parsing them
@@ -233,27 +210,6 @@ class MatchEventMonitor(BaseMonitor):
         # last player block seen" as a best-effort fallback.
         self.local_display_name: Optional[str] = None
 
-        # STW end-of-match progression state. The log writes a block per
-        # match:
-        #   LogFortUI: Badges Total Score is <N>            (pre-block, 3x)
-        #   LogInGameRewardsSTW: Start LogXPData
-        #     Player Name: <name>
-        #     Delta Level: <N>
-        #     Delta XP: <N>
-        #     ... (repeats per team member)
-        #   LogInGameRewardsSTW: End LogXPData
-        #   LogFortMissionRewards: ===== Total Mission Points: <N>
-        #   LogFortUI: Badges Total Score is <N>            (post-block, 1x)
-        # We combine everything into one announcement fired on the
-        # post-block Badges line (the final event in the sequence).
-        self._xp_in_block = False
-        self._xp_current_is_local = False
-        self._xp_pending_level = None   # delta levels for local player
-        self._xp_pending_xp = None      # delta xp for local player
-        self._xp_pending_mission_pts = None
-        self._xp_last_badges_score = None   # updated on every Badges line
-        self._xp_awaiting_final = False     # set on End LogXPData, cleared on announce
-
         # Config flags.
         self.config = read_config()
         self._reload_config_flags()
@@ -272,7 +228,6 @@ class MatchEventMonitor(BaseMonitor):
         self.announce_spectate = get_config_boolean(c, 'AnnounceSpectating', True)
         self.announce_placement = get_config_boolean(c, 'AnnouncePlacement', True)
         self.announce_final_countdown = get_config_boolean(c, 'AnnounceFinalCountdown', True)
-        self.announce_stw_rewards = get_config_boolean(c, 'AnnounceSTWMatchRewards', True)
 
     def _on_config_change(self, config):
         self.config = config
@@ -327,13 +282,6 @@ class MatchEventMonitor(BaseMonitor):
             self._last_spectate_target = None
             self._last_final_countdown = None
             self._spectating = False
-            self._xp_in_block = False
-            self._xp_current_is_local = False
-            self._xp_pending_level = None
-            self._xp_pending_xp = None
-            self._xp_pending_mission_pts = None
-            self._xp_last_badges_score = None
-            self._xp_awaiting_final = False
             # Party cache is per-Fortnite-session: new game means Fortnite
             # will re-emit Adding events for any existing party members.
             self._party_member_names.clear()
@@ -554,91 +502,6 @@ class MatchEventMonitor(BaseMonitor):
                 name = self._resolve_party_identity(account_id)
             self._speak(f"{name} left the party")
             return
-
-        # --- STW end-of-match progression (XP block + mission points + badges) ---
-        if _RE_STW_XP_START.search(line):
-            # Fresh results screen: reset per-block state.
-            self._xp_in_block = True
-            self._xp_current_is_local = False
-            self._xp_pending_level = None
-            self._xp_pending_xp = None
-            self._xp_pending_mission_pts = None
-            self._xp_awaiting_final = False
-            return
-
-        if _RE_STW_XP_END.search(line):
-            self._xp_in_block = False
-            # Mark that we're waiting for the trailing Mission Points +
-            # Badges lines so the anchor handler knows to announce.
-            if self._xp_pending_xp is not None or self._xp_pending_level is not None:
-                self._xp_awaiting_final = True
-            return
-
-        if self._xp_in_block:
-            m = _RE_STW_XP_PLAYER.search(line)
-            if m:
-                name = m.group('name').strip()
-                # If we know our display name, match exactly; otherwise
-                # treat every block as local so a single-player session
-                # without auth still announces something.
-                if self.local_display_name:
-                    self._xp_current_is_local = (name == self.local_display_name)
-                else:
-                    self._xp_current_is_local = True
-                return
-            m = _RE_STW_XP_DELTA_LEVEL.search(line)
-            if m and self._xp_current_is_local:
-                self._xp_pending_level = int(m.group('level'))
-                return
-            m = _RE_STW_XP_DELTA_XP.search(line)
-            if m and self._xp_current_is_local:
-                self._xp_pending_xp = int(m.group('xp'))
-                return
-
-        # Mission points: captured once per results screen so a later
-        # repeat of the same value (the UI rebuilds fire many duplicates)
-        # doesn't overwrite a fresh value on the next match.
-        m = _RE_STW_MISSION_POINTS.search(line)
-        if m and self._xp_awaiting_final and self._xp_pending_mission_pts is None:
-            self._xp_pending_mission_pts = int(m.group('pts'))
-            return
-
-        # Badges total score: the line also fires 3x before the XP block.
-        # We only treat it as the announcement anchor when we're in the
-        # awaiting-final window that End LogXPData opened. Otherwise we
-        # just keep the score cached so the next announcement has a
-        # fresh total even if something resets the awaiting flag.
-        m = _RE_STW_BADGES.search(line)
-        if m:
-            score = int(m.group('score'))
-            self._xp_last_badges_score = score
-            if self._xp_awaiting_final:
-                self._announce_stw_match_rewards(score)
-                self._xp_awaiting_final = False
-                self._xp_pending_level = None
-                self._xp_pending_xp = None
-                self._xp_pending_mission_pts = None
-            return
-
-    def _announce_stw_match_rewards(self, badges_score):
-        """Speak the combined STW end-of-match reward line if enabled.
-        Only fires when we have at least one captured reward field."""
-        if not self.announce_stw_rewards:
-            return
-        parts = []
-        level = self._xp_pending_level
-        xp = self._xp_pending_xp
-        pts = self._xp_pending_mission_pts
-        if level and level > 0:
-            parts.append(f"+{level} level{'s' if level != 1 else ''}")
-        if xp and xp > 0:
-            parts.append(f"+{xp:,} XP")
-        if pts and pts > 0:
-            parts.append(f"{pts} mission point{'s' if pts != 1 else ''}")
-        if not parts:
-            return
-        badges_part = f" Badge total {badges_score:,}." if badges_score else ""
-        self._speak(f"Match complete. {', '.join(parts)}.{badges_part}")
 
     def _resolve_party_identity(self, partial_or_full_id: str) -> str:
         """Turn a party-log id (either a partial 'xxxxx...xxxxx' or a full

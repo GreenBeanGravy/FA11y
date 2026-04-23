@@ -86,7 +86,6 @@ from lib.monitors.resource_monitor import resource_monitor
 from lib.monitors.storm_monitor import storm_monitor
 from lib.monitors.bloom_monitor import bloom_monitor
 from lib.monitors.match_event_monitor import match_event_monitor
-from lib.monitors.stw_alert_monitor import stw_alert_monitor
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
@@ -252,7 +251,6 @@ def signal_handler(signum, frame):
         storm_monitor.stop_monitoring()
         bloom_monitor.stop_monitoring()
         match_event_monitor.stop_monitoring()
-        stw_alert_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
 
         # Stop social manager
@@ -809,7 +807,6 @@ def main() -> None:
         storm_monitor.start_monitoring()
         bloom_monitor.start_monitoring()
         match_event_monitor.start_monitoring()
-        stw_alert_monitor.start_monitoring()
 
         # Start new game object system
         match_tracker.start_monitoring()
@@ -977,7 +974,6 @@ def main() -> None:
             # dynamic_object_monitor.stop_monitoring()
             storm_monitor.stop_monitoring()
             match_event_monitor.stop_monitoring()
-            stw_alert_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
 
             # Stop social manager

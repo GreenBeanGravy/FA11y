@@ -99,12 +99,6 @@ MENU_STRUCTURE: List[Tuple[str, List[Tuple[str, str]]]] = [
             ("Service Status", "service_status"),
         ],
     ),
-    (
-        "Settings",
-        [
-            ("Alert and Poller Settings", "settings"),
-        ],
-    ),
 ]
 
 
@@ -473,16 +467,6 @@ def _launch_service_status(parent, stw_api):
         dlg.Destroy()
 
 
-def _launch_settings(parent, stw_api):
-    from lib.guis.stw.settings import STWSettingsDialog
-    dlg = STWSettingsDialog(parent, stw_api)
-    try:
-        ensure_window_focus_and_center_mouse(dlg)
-        dlg.ShowModal()
-    finally:
-        dlg.Destroy()
-
-
 _LAUNCHERS: Dict[str, Callable] = {
     "mission_alerts": _launch_mission_alerts,
     "daily_quests": _launch_daily_quests,
@@ -507,7 +491,6 @@ _LAUNCHERS: Dict[str, Callable] = {
     "overview": _launch_overview,
     "news": _launch_news,
     "service_status": _launch_service_status,
-    "settings": _launch_settings,
 }
 
 

@@ -493,7 +493,6 @@ AnnounceDeath = true "Announce when you die."
 AnnounceSpectating = true "Announce when you start spectating a new player after death."
 AnnouncePlacement = true "Announce when the match has ended and your final placement is set."
 AnnounceFinalCountdown = true "Announce the final countdown player count for Reload and Box Fights endgames."
-AnnounceSTWMatchRewards = true "Announce Save the World end-of-match rewards: commander levels gained, XP earned, mission points, and badge total."
 
 [POI]
 selected_poi = closest, 0, 0
