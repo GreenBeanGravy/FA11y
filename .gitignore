@@ -30,6 +30,7 @@ __pycache__/
 # Dev-tools capture corpus (user-generated minimap recordings)
 /dev_tools/captures/
 /dev_tools/position_accuracy_out/
+/dev_tools/clientsettings_diag/
 
 # Stray debug captures
 storm_debug.png

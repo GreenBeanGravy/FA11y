@@ -24,6 +24,7 @@ you're developing or debugging.
 | `feature_match_bench.py` | Benchmark SIFT / AKAZE / ORB (with / without CLAHE) against every map by sampling synthetic 250×250 crops. Reports success rate, median reprojection error, latency per (map, detector) pair. Use to pick per-map detector overrides (`coordinate_config.MAP_MATCHER_OVERRIDES`). |
 | `position_accuracy_check.py` | Targeted accuracy test for a single map. Samples crops from snow-heavy regions (`--region snow`) or random regions, optionally degrades them (`--degrade light/heavy`) to simulate in-game UI overlay / scale / rotation / JPEG compression, and writes overlay PNGs under `dev_tools/position_accuracy_out/`. Has a `--capture <path>` mode to run all detectors against a real in-game minimap screenshot. |
 | `minimap_recorder.py` | Run alongside FA11y during live play. `F10` saves the current minimap frame to `dev_tools/captures/<map_slug>/`; `F11` saves it flagged BAD (for when FA11y got your position wrong). Each capture also writes a JSON sidecar with every detector's result on that frame. Feed the saved PNGs into `position_accuracy_check.py --capture` to debug offline. |
+| `clientsettings_roundtrip.py` | Download the authenticated user's cloud `ClientSettings.Sav`, parse + re-serialize it, and report byte-level differences. Optional `--edit Name=Value` to include a scalar edit. Use to diagnose why Fortnite rejects our edits. Outputs under `dev_tools/clientsettings_diag/`. |
 
 ## Adding a new tool
 
