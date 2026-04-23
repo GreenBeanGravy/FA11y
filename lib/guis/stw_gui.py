@@ -548,7 +548,7 @@ def launch_stw_gui() -> Optional[int]:
         )
         return None
 
-    from lib.utilities.stw_api import STWApi
+    from lib.stw.api import STWApi
 
     api = STWApi(auth)
     speaker.speak("Opening Save the World manager.")

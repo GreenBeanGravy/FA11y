@@ -18,4 +18,15 @@ __pycache__/
 /config/
 /logs/
 /debug
-pixel_inspector_log.txt
+
+# User-local slug-migration backups (written by _migrate_current_map_slug
+# the first time a legacy config is upgraded; kept on disk so the user can
+# roll back to an older FA11y build by restoring them)
+*.premigration
+
+# Claude Code session state (local only)
+/.claude/
+
+# Dev-tools capture corpus (user-generated minimap recordings)
+/dev_tools/captures/
+/dev_tools/position_accuracy_out/

@@ -36,7 +36,7 @@ from lib.guis.gui_utilities import (
     launch_gui_thread_safe,
     messageBox,
 )
-from lib.utilities.clientsettings_parser import (
+from lib.clientsettings.parser import (
     ClientSettingsFile,
     find_property,
     get_value,
@@ -44,7 +44,7 @@ from lib.utilities.clientsettings_parser import (
     serialize_file,
     set_value,
 )
-from lib.utilities.clientsettings_sync import (
+from lib.clientsettings.sync import (
     CLIENT_SETTINGS_FILENAME,
     ClientSettingsManager,
     diff_settings,

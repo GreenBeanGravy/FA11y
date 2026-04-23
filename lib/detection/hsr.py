@@ -1,3 +1,26 @@
+"""
+Health / Shield / Rarity (HSR) detection.
+
+Two-path strategy:
+
+1. **Fast path — FA11y-OW companion service**
+   If a loopback HTTP service is running at ``http://127.0.0.1:6767/api``
+   (the "FA11y-OW" helper, a separate optional project) it gets queried
+   first. The service reads Fortnite memory/log signals directly and
+   returns exact values, bypassing image analysis.
+
+   The 10 ms timeout below is intentional: if the service isn't up, we
+   fall through instantly rather than block the UI. No state is kept
+   between calls; every H / shield keypress hits the endpoint fresh.
+
+2. **Fallback — visual bar scan**
+   When the service is unreachable (the common case), the functions below
+   walk the health/shield bars pixel-by-pixel against the calibrated
+   ``health_decreases`` step pattern. This is what ships by default and is
+   what the user's F9 settings actually tune.
+
+If you need to re-calibrate: ``python dev_tools/health_calibrator.py``.
+"""
 from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean
@@ -7,10 +30,10 @@ import requests
 
 speaker = Auto()
 
-# API Configuration
+# Optional companion service (FA11y-OW). If not running, requests fail
+# instantly and we fall back to the visual bar scan below.
 API_BASE_URL = "http://127.0.0.1:6767/api"
-# If it takes longer than 10ms, it's likely down.
-API_TIMEOUT = 0.01 
+API_TIMEOUT = 0.01
 
 # Visual detection fallback settings
 health_color, shield_color = (247, 255, 26), (213, 255, 232)

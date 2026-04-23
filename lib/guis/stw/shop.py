@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 import wx
 
 from lib.guis.stw.base import StwSubDialog, speak_later
-from lib.utilities.stw_api import (
+from lib.stw.api import (
     CatalogAPI,
     format_price,
     format_template_display,

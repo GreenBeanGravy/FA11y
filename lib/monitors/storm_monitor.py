@@ -99,13 +99,14 @@ class StormAudioThread:
             pass
 
 
-class StormMonitor:
+from lib.monitors.base import BaseMonitor
+
+
+class StormMonitor(BaseMonitor):
     """Minimap-based storm monitor using PPI-aligned reference comparison"""
     def __init__(self):
+        super().__init__()
         self.speaker = Auto()
-        self.running = False
-        self.stop_event = threading.Event()
-        self.detection_thread = None
 
         self.min_contour_area = 3000
         self.minimap_scale_factor = 0.5
@@ -448,7 +449,7 @@ class StormMonitor:
 
     # ── Loop & lifecycle ────────────────────────────────────────────
 
-    def detection_loop(self):
+    def _monitor_loop(self):
         last_detection_time = 0
         while not self.stop_event.is_set():
             try:
@@ -501,24 +502,24 @@ class StormMonitor:
         return None
 
     def start_monitoring(self):
-        if not self.running:
-            self.running = True
-            self.stop_event.clear()
-            try:
-                tracker = _get_position_tracker()
-                if not tracker.monitoring:
-                    tracker.start_monitoring()
-            except Exception:
-                pass
-            self.detection_thread = threading.Thread(target=self.detection_loop, daemon=True)
-            self.detection_thread.start()
+        """Kick the position tracker first so the storm loop has live
+        player coords available when it fires, then defer the rest of
+        the lifecycle to BaseMonitor."""
+        if self.running:
+            return
+        try:
+            tracker = _get_position_tracker()
+            if not tracker.monitoring:
+                tracker.start_monitoring()
+        except Exception:
+            pass
+        super().start_monitoring()
 
     def stop_monitoring(self):
-        self.stop_event.set()
-        self.running = False
+        """Stop any active audio threads + the spatial audio loop, then
+        let BaseMonitor tear down the detection thread."""
         self.cleanup_audio_thread()
-        if self.detection_thread:
-            self.detection_thread.join(timeout=3.0)
+        super().stop_monitoring()
         if self.storm_audio:
             try:
                 self.storm_audio.stop()

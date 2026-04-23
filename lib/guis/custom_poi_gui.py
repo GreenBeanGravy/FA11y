@@ -11,7 +11,7 @@ from lib.utilities.mouse import click_mouse
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
-    AccessibleDialog, BoxSizerHelper, ButtonHelper, 
+    AccessibleDialog, BoxSizerHelper, ButtonHelper, DisplayableError,
     messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
     BORDER_FOR_DIALOGS
 )
@@ -20,23 +20,6 @@ from lib.utilities.utilities import read_config
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
-
-
-class DisplayableError(Exception):
-    """Error that can be displayed to the user"""
-    
-    def __init__(self, displayMessage: str, titleMessage: str = "Error"):
-        self.displayMessage = displayMessage
-        self.titleMessage = titleMessage
-    
-    def displayError(self, parentWindow=None):
-        wx.CallAfter(
-            messageBox,
-            message=self.displayMessage,
-            caption=self.titleMessage,
-            style=wx.OK | wx.ICON_ERROR,
-            parent=parentWindow
-        )
 
 
 class CustomPOIGUI(AccessibleDialog):

@@ -17,7 +17,7 @@ from lib.utilities.mouse import (
 )
 
 from lib.guis.gui_utilities import (
-    AccessibleDialog, BoxSizerHelper, ButtonHelper,
+    AccessibleDialog, BoxSizerHelper, ButtonHelper, DisplayableError,
     messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
     center_mouse_in_window, BORDER_FOR_DIALOGS
 )
@@ -46,23 +46,6 @@ def safe_speak(text: str):
     except Exception as e:
         # Log the error but don't crash
         logger.debug(f"TTS error (non-critical): {e}")
-
-
-class DisplayableError(Exception):
-    """Error that can be displayed to the user"""
-
-    def __init__(self, displayMessage: str, titleMessage: str = "Error"):
-        self.displayMessage = displayMessage
-        self.titleMessage = titleMessage
-
-    def displayError(self, parentWindow=None):
-        wx.CallAfter(
-            messageBox,
-            message=self.displayMessage,
-            caption=self.titleMessage,
-            style=wx.OK | wx.ICON_ERROR,
-            parent=parentWindow
-        )
 
 
 class GamemodeGUI(AccessibleDialog):

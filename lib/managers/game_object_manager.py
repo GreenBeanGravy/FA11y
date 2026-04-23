@@ -33,14 +33,10 @@ class GameObjectManager:
         self._last_spam_prevention = {}
     
     def _get_game_object_file_path(self, map_name: str) -> str:
-        """Get the file path for a map's game objects file"""
-        if map_name == 'main':
-            return os.path.join('maps', 'map_main_gameobjects.txt')
-        else:
-            safe = (map_name or 'main').strip().lower().replace(' ', '_')
-            import re as _re
-            safe = _re.sub(r'[^a-z0-9_]+', '', safe)
-            return os.path.join('maps', f'map_{safe}_gameobjects.txt')
+        """Get the file path for a map's game objects file."""
+        from lib.utilities.map_rotation import normalize_map_slug
+        slug = normalize_map_slug(map_name)
+        return os.path.join('maps', f'map_{slug}_gameobjects.txt')
     
     def _convert_image_coords_to_screen(self, image_x: float, image_y: float) -> Tuple[int, int]:
         """Convert image coordinates to screen coordinates

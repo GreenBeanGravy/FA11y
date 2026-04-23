@@ -9,12 +9,12 @@ from typing import Optional
 import wx
 
 from lib.guis.stw.base import StwSubDialog, speak_later
-from lib.utilities.stw_api import (
+from lib.stw.api import (
     FORT_STAT_DISPLAY,
     FORT_STAT_ORDER,
     format_template_display,
 )
-from lib.utilities.stw_news import FortniteNewsAPI, LightswitchAPI
+from lib.stw.news import FortniteNewsAPI, LightswitchAPI
 
 logger = logging.getLogger(__name__)
 

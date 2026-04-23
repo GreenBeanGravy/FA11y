@@ -65,13 +65,14 @@ def _find_bloom_line_distance(img, lcx, lcy, dx, dy, max_dist=75):
     return None
 
 
-class BloomMonitor:
+from lib.monitors.base import BaseMonitor
+
+
+class BloomMonitor(BaseMonitor):
     """Monitors crosshair bloom and pickaxe equip state."""
 
     def __init__(self):
-        self.running = False
-        self.stop_event = threading.Event()
-        self.thread = None
+        super().__init__()
         self._last_bloom_dist = None
         self._last_tone_time = 0.0
 
@@ -211,21 +212,5 @@ class BloomMonitor:
             remaining = FRAME_INTERVAL - elapsed
             if remaining > 0:
                 time.sleep(remaining)
-
-    def start_monitoring(self):
-        """Start the bloom monitor."""
-        if not self.running:
-            self.running = True
-            self.stop_event.clear()
-            self.thread = threading.Thread(target=self._monitor_loop, daemon=True)
-            self.thread.start()
-
-    def stop_monitoring(self):
-        """Stop the bloom monitor."""
-        self.stop_event.set()
-        self.running = False
-        if self.thread:
-            self.thread.join(timeout=2.0)
-
 
 bloom_monitor = BloomMonitor()

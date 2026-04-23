@@ -15,7 +15,21 @@ from lib.utilities.utilities import read_config, get_config_boolean, get_config_
 from lib.managers.screenshot_manager import capture_coordinates, get_pixel
 from lib.detection.dynamic_object_finder import optimized_finder, DYNAMIC_OBJECT_CONFIGS
 from lib.detection.ppi import find_player_position as ppi_find_player_position
-from lib.detection.coordinate_config import get_minimap_coords
+from lib.detection.coordinate_config import get_minimap_coords, get_px_to_meters
+
+
+def _current_px_to_meters() -> float:
+    """Pixel-to-meters scaling for distance calculations on the current map.
+
+    Reads the current map from config each time (cheap — ``read_config``
+    caches) so this auto-adapts if the user switches maps mid-session.
+    """
+    try:
+        cfg = read_config()
+        slug = cfg.get('POI', 'current_map', fallback='main')
+    except Exception:
+        slug = 'main'
+    return get_px_to_meters(slug)
 
 
 def _ensure_dynamic_icon_paths():
@@ -445,7 +459,7 @@ def calculate_poi_info(player_location, player_angle, poi_location):
         return None, None, None, "unknown"
     
     poi_vector = np.array(poi_location) - np.array(player_location)
-    distance = np.linalg.norm(poi_vector) * 2.65
+    distance = np.linalg.norm(poi_vector) * _current_px_to_meters()
     poi_angle, cardinal_direction = get_angle_and_direction(poi_vector)
     
     relative_direction = get_relative_direction(player_angle, poi_angle) if player_angle is not None else "unknown"
@@ -586,8 +600,9 @@ def generate_poi_message(poi_name, player_angle, poi_info, player_location=None)
         try:
             # Convert angle to radians and calculate POI position
             angle_rad = math.radians(poi_angle)
-            # Distance is in meters, but we need pixels - divide by 2.65 scale factor
-            distance_pixels = distance / 2.65
+            # Distance is in meters; convert back to map pixels using the
+            # per-map scale factor.
+            distance_pixels = distance / _current_px_to_meters()
             
             poi_x = player_location[0] + distance_pixels * math.cos(angle_rad)
             poi_y = player_location[1] - distance_pixels * math.sin(angle_rad)  # Negative because screen Y increases downward
@@ -646,7 +661,7 @@ def find_closest_poi(icon_location, poi_list):
             coord_y = int(float(poi_data[2]))
             distance = np.linalg.norm(
                 np.array(icon_location) - np.array([coord_x, coord_y])
-            ) * 2.65
+            ) * _current_px_to_meters()
             distances.append((poi_name, (coord_x, coord_y), distance))
         except (ValueError, TypeError, IndexError):
             continue

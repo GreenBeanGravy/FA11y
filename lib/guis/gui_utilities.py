@@ -16,6 +16,26 @@ SPACE_BETWEEN_ASSOCIATED_CONTROL_HORIZONTAL = 10
 SPACE_BETWEEN_ASSOCIATED_CONTROL_VERTICAL = 3
 
 
+class DisplayableError(Exception):
+    """Error intended to be surfaced to the user via a dialog.
+
+    Shared across GUI modules — previously duplicated in five places.
+    """
+
+    def __init__(self, displayMessage: str, titleMessage: str = "Error"):
+        self.displayMessage = displayMessage
+        self.titleMessage = titleMessage
+
+    def displayError(self, parentWindow=None):
+        wx.CallAfter(
+            messageBox,
+            message=self.displayMessage,
+            caption=self.titleMessage,
+            style=wx.OK | wx.ICON_ERROR,
+            parent=parentWindow,
+        )
+
+
 class ButtonHelper:
     """Helper for managing groups of buttons with proper spacing"""
     

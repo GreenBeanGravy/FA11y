@@ -176,14 +176,17 @@ _INTERESTING_STEPS = {
 }
 
 
-class MatchEventMonitor:
+from lib.monitors.base import BaseMonitor
+
+
+class MatchEventMonitor(BaseMonitor):
     """Tails the Fortnite log file in a background thread and speaks events."""
 
+    _THREAD_NAME = "MatchEventMonitor"
+
     def __init__(self):
+        super().__init__()
         self.speaker = Auto()
-        self.running = False
-        self.thread = None
-        self._stop_event = threading.Event()
 
         # File-tracking state.
         self._log_path = os.path.join(_DEFAULT_LOG_DIR, _LOG_FILENAME)
@@ -667,13 +670,13 @@ class MatchEventMonitor:
                     f"MatchEventMonitor: log not present yet, retrying "
                     f"(attempt {attempts}, path={self._log_path})"
                 )
-            if self._stop_event.wait(timeout=5.0):
+            if self.stop_event.wait(timeout=5.0):
                 return
         logger.info("MatchEventMonitor: entering main read loop")
 
         last_rotation_check = time.monotonic()
         while self.running:
-            if self._stop_event.wait(timeout=0.25):
+            if self.stop_event.wait(timeout=0.25):
                 break
             if not self.enabled:
                 continue
@@ -692,7 +695,7 @@ class MatchEventMonitor:
             except Exception as e:
                 logger.debug(f"MatchEventMonitor: loop error: {e}")
                 # Brief backoff so a persistent error doesn't pin a CPU.
-                if self._stop_event.wait(timeout=1.0):
+                if self.stop_event.wait(timeout=1.0):
                     break
 
         # Cleanup on exit.
@@ -704,6 +707,7 @@ class MatchEventMonitor:
         self._fp = None
 
     def start_monitoring(self):
+        """Log startup state then call BaseMonitor to do the actual threading."""
         if self.running:
             logger.info("MatchEventMonitor: start_monitoring called but already running")
             return
@@ -714,16 +718,9 @@ class MatchEventMonitor:
             f"announce_players_left={self.announce_players_left}, "
             f"announce_dbno={self.announce_dbno})"
         )
-        self.running = True
-        self._stop_event.clear()
-        self.thread = threading.Thread(target=self._monitor_loop, daemon=True, name='MatchEventMonitor')
-        self.thread.start()
+        super().start_monitoring()
 
-    def stop_monitoring(self):
-        self.running = False
-        self._stop_event.set()
-        if self.thread:
-            self.thread.join(timeout=1.0)
+    # stop_monitoring inherited from BaseMonitor
 
 
 # Single shared instance, matching the pattern of other monitors.

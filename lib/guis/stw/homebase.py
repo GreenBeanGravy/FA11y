@@ -9,7 +9,7 @@ from typing import List, Optional
 import wx
 
 from lib.guis.stw.base import StwSubDialog, speak_later
-from lib.utilities.stw_api import FORT_STAT_DISPLAY, FORT_STAT_ORDER
+from lib.stw.api import FORT_STAT_DISPLAY, FORT_STAT_ORDER
 
 logger = logging.getLogger(__name__)
 

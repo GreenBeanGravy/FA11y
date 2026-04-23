@@ -25,8 +25,8 @@ from typing import List, Optional, Set
 from accessible_output2.outputs.auto import Auto
 
 from lib.config.config_manager import config_manager
-from lib.utilities.stw_api import STWApi, rate_limit_state
-from lib.utilities.stw_world_info import MissionAlert, WorldInfoAPI
+from lib.stw.api import STWApi, rate_limit_state
+from lib.stw.world_info import MissionAlert, WorldInfoAPI
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +57,17 @@ def _register_config() -> None:
     )
 
 
-class STWAlertMonitor:
+from lib.monitors.base import BaseMonitor
+
+
+class STWAlertMonitor(BaseMonitor):
     """Polls /world/info and speaks high-value mission alerts."""
 
+    _THREAD_NAME = "STWAlertMonitor"
+
     def __init__(self) -> None:
+        super().__init__()
         self.speaker = Auto()
-        self.running = False
-        self.thread: Optional[threading.Thread] = None
-        self._stop_event = threading.Event()
 
         # Seen-set, reset at UTC midnight.
         self._seen_alert_guids: Set[str] = set()
@@ -212,18 +215,18 @@ class STWAlertMonitor:
     # ------------------------------------------------------------------
     # Main loop
     # ------------------------------------------------------------------
-    def _loop(self) -> None:
+    def _monitor_loop(self) -> None:
         logger.info("STWAlertMonitor: loop started")
         # Small delay on first iteration so FA11y boot logs don't get drowned.
         first_delay = 20.0
-        if self._stop_event.wait(timeout=first_delay):
+        if self.stop_event.wait(timeout=first_delay):
             return
         while self.running:
             try:
                 self._reset_if_new_utc_day()
                 if not self._enabled():
                     # Check again in 30s.
-                    if self._stop_event.wait(timeout=30.0):
+                    if self.stop_event.wait(timeout=30.0):
                         return
                     continue
                 new = self._detect_new_alerts()
@@ -232,28 +235,10 @@ class STWAlertMonitor:
                 logger.debug(f"STWAlertMonitor: loop error: {e}")
             # Sleep interval honouring throttle state.
             interval = float(self._poll_seconds())
-            if self._stop_event.wait(timeout=interval):
+            if self.stop_event.wait(timeout=interval):
                 return
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
-    def start_monitoring(self) -> None:
-        if self.running:
-            return
-        self.running = True
-        self._stop_event.clear()
-        self.thread = threading.Thread(
-            target=self._loop, daemon=True, name="STWAlertMonitor"
-        )
-        self.thread.start()
-        logger.info("STWAlertMonitor: started")
-
-    def stop_monitoring(self) -> None:
-        self.running = False
-        self._stop_event.set()
-        if self.thread:
-            self.thread.join(timeout=1.0)
+    # Lifecycle inherited from BaseMonitor
 
 
 stw_alert_monitor = STWAlertMonitor()

@@ -1,0 +1,5 @@
+Gnarly Farms, 1042,485
+Library Landing,863,573
+Stranger Suburbs,1100,672
+Hawkins Heights,905,739
+Center of map,970,600

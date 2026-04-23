@@ -1,0 +1,5 @@
+Holloway House,977,493
+Flowberry Fields,845,566
+Ritzy Redux,1064,641
+Snooty Strip,858,714
+Boutique Bay,972,747

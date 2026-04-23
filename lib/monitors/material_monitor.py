@@ -23,12 +23,13 @@ MATERIAL_COUNT_AREA = {
     'height': 47  # 715 - 673 + 5
 }
 
-class MaterialMonitor:
+from lib.monitors.base import BaseMonitor
+
+
+class MaterialMonitor(BaseMonitor):
     def __init__(self):
+        super().__init__()
         self.speaker = Auto()
-        self.running = False
-        self.stop_event = Event()
-        self.thread = None
         self._mss_instance = None
 
         # Get OCR manager instance
@@ -140,7 +141,7 @@ class MaterialMonitor:
         """Capture a screen region via shared ScreenshotManager."""
         return screenshot_manager.capture_region(region, convert_format='raw')
 
-    def monitor_loop(self):
+    def _monitor_loop(self):
         """Main monitoring loop."""
         try:
             last_material_time = 0
@@ -196,20 +197,7 @@ class MaterialMonitor:
         finally:
             pass  # ScreenshotManager handles mss lifecycle
 
-    def start_monitoring(self):
-        """Start the material monitoring."""
-        if not self.running:
-            self.running = True
-            self.stop_event.clear()
-            self.thread = Thread(target=self.monitor_loop, daemon=True)
-            self.thread.start()
-
-    def stop_monitoring(self):
-        """Stop the material monitoring."""
-        self.stop_event.set()
-        self.running = False
-        if self.thread:
-            self.thread.join(timeout=1.0)
+    # Lifecycle inherited from BaseMonitor
 
 # Create a single instance
 material_monitor = MaterialMonitor()

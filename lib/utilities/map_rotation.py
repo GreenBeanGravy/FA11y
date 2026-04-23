@@ -53,18 +53,38 @@ USER_AGENT = (
 # rotation schedule doesn't change mid-day; only on Epic patch deploys.
 CACHE_TTL_SECONDS = 600
 
-# Display name -> FA11y map_name. These match the files in the ``maps/``
-# directory. Extend as new Reload arenas rotate in.
+# Display name -> FA11y map slug. Slugs are canonical: lowercase + underscores,
+# matching the files in ``maps/`` (e.g. ``map_reload_venture_pois.txt``).
+# Extend as new Reload arenas rotate in.
 DISPLAY_TO_FA11Y_MAP = {
-    "Venture":      "reload venture",
-    "Oasis":        "reload oasis",
-    "Slurp Rush":   "reload slurp rush",
-    "Surf City":    "reload surfcity",
-    "Squid Grounds": None,                # No FA11y file yet
-    "PunchBerry":   "reload oasis",        # codename fallback
-    "BlastBerry":   "reload venture",
-    "DashBerry":    "reload slurp rush",
+    "Venture":      "reload_venture",
+    "Oasis":        "reload_oasis",
+    "Slurp Rush":   "reload_slurp_rush",
+    "Surf City":    "reload_surfcity",
+    "Elite Stronghold": "reload_elite_stronghold",
+    "Stranger Things": "blitz_stranger_things",
+    "Squid Grounds": None,                  # No FA11y file yet
+    "PunchBerry":   "reload_oasis",         # codename fallback
+    "BlastBerry":   "reload_venture",
+    "DashBerry":    "reload_slurp_rush",
 }
+
+
+_SLUG_CLEAN_RE = re.compile(r"[^a-z0-9_]+")
+
+
+def normalize_map_slug(raw: Optional[str]) -> str:
+    """Canonicalize a map slug to ``[a-z0-9_]+``.
+
+    Legacy configs stored values like ``"reload venture"`` with spaces. This
+    folds them to ``"reload_venture"`` so every loader agrees on the same
+    filename. Empty / None falls back to ``"main"``.
+    """
+    if not raw:
+        return "main"
+    s = raw.strip().lower().replace(" ", "_")
+    s = _SLUG_CLEAN_RE.sub("", s)
+    return s or "main"
 
 
 @dataclass

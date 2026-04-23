@@ -161,10 +161,23 @@ else:
 pygame.mixer.init()
 update_sound = pygame.mixer.Sound("sounds/update.ogg")
 
-# GitHub repository configuration
-GITHUB_REPO_URL = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main"
-VERSION_URL = f"{GITHUB_REPO_URL}/VERSION"
-CHANGELOG_URL = f"{GITHUB_REPO_URL}/CHANGELOG.txt"
+# GitHub URLs and update-check machinery now live in lib/app/updater_check.
+from lib.app.updater_check import (
+    run_updater as _run_updater_ext,
+    check_for_updates as _check_for_updates_ext,
+    get_version as _get_version_ext,
+    parse_version as _parse_version_ext,
+)
+from lib.app.auth_watcher import (
+    check_auth_expiration as _check_auth_expiration_ext,
+    get_legendary_username as _get_legendary_username_ext,
+    validate_epic_auth as _validate_epic_auth_ext,
+)
+
+# Shared-state module — own the Event objects and lazy singletons so
+# extracted action handlers see the same references. Alias the events at
+# module level so legacy in-file code keeps working.
+from lib.app import state as _app_state
 
 speaker = Auto()
 key_state = {}
@@ -172,47 +185,57 @@ action_handlers = {}
 config = None
 key_bindings = {}
 key_listener_thread = None
-stop_key_listener = threading.Event()
-config_gui_open = threading.Event()
-social_gui_open = threading.Event()
-discovery_gui_open = threading.Event()
-locker_gui_open = threading.Event()
-gamemode_gui_open = threading.Event()
-visited_objects_gui_open = threading.Event()
-custom_poi_gui_open = threading.Event()
-stw_gui_open = threading.Event()
+
+# Thread-synchronization events: authoritative copies live in state,
+# aliased here so existing ``xxx.is_set()`` / ``xxx.set()`` call sites
+# inside FA11y.py continue to target the same object.
+stop_key_listener = _app_state.stop_key_listener
+config_gui_open = _app_state.config_gui_open
+social_gui_open = _app_state.social_gui_open
+discovery_gui_open = _app_state.discovery_gui_open
+locker_gui_open = _app_state.locker_gui_open
+gamemode_gui_open = _app_state.gamemode_gui_open
+visited_objects_gui_open = _app_state.visited_objects_gui_open
+custom_poi_gui_open = _app_state.custom_poi_gui_open
+stw_gui_open = _app_state.stw_gui_open
+_shutdown_requested = _app_state.shutdown_requested
+auth_expired = _app_state.auth_expired
+
 keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
 social_manager = None
 discovery_api = None
-
-# Global shutdown flag for instant shutdown
-_shutdown_requested = threading.Event()
-
-# Auth expiration flag - set when API returns 401
-auth_expired = threading.Event()
 auth_expiration_announced = False  # Track if we've already announced it
 
-# POI category definitions
-POI_CATEGORY_SPECIAL = "special"
-POI_CATEGORY_REGULAR = "regular"
-POI_CATEGORY_LANDMARK = "landmark"
-POI_CATEGORY_FAVORITE = "favorite"
-POI_CATEGORY_CUSTOM = "custom"
-POI_CATEGORY_GAMEOBJECT = "gameobject"
-# POI_CATEGORY_DYNAMICOBJECT = "dynamicobject"
+# POI category definitions — constants now live in lib/app/constants.py.
+from lib.app.constants import (
+    POI_CATEGORY_SPECIAL,
+    POI_CATEGORY_REGULAR,
+    POI_CATEGORY_LANDMARK,
+    POI_CATEGORY_FAVORITE,
+    POI_CATEGORY_CUSTOM,
+    POI_CATEGORY_GAMEOBJECT,
+    SPECIAL_POI_CLOSEST,
+    SPECIAL_POI_SAFEZONE,
+    SPECIAL_POI_CLOSEST_LANDMARK,
+)
 
-# Special POI names
-SPECIAL_POI_CLOSEST = "closest"
-SPECIAL_POI_SAFEZONE = "safe zone"
-SPECIAL_POI_CLOSEST_LANDMARK = "closest landmark"
+# Shared mutable state now lives in lib.app.state. We publish the shared
+# speaker/update_sound onto it at startup so extracted action handlers can
+# reach them via ``state.speaker``.
+from lib.app import state as _app_state
 
-# Global variable to track current POI category
+# Legacy aliases for code still reading the module-level name directly.
 current_poi_category = POI_CATEGORY_SPECIAL
 
 # Initialize logger
 logger = logging.getLogger(__name__)
+
+# Publish shared state for lib.app.* modules.
+_app_state.speaker = speaker
+_app_state.logger = logger
+_app_state.update_sound = update_sound
 
 def signal_handler(signum, frame):
     """Handle CTRL+C and other termination signals for immediate shutdown."""
@@ -287,65 +310,18 @@ def cleanup_on_exit():
     except:
         pass
 
+from lib.app.movement_actions import (
+    handle_movement as _handle_movement_ext,
+    handle_scroll as _handle_scroll_ext,
+)
+
+
 def handle_movement(action: str, reset_sensitivity: bool) -> None:
-    """Handle all movement-related actions."""
-    global config
-    turn_sensitivity = get_config_int(config, 'TurnSensitivity', 100)
-    secondary_turn_sensitivity = get_config_int(config, 'SecondaryTurnSensitivity', 50)
-    turn_delay = get_config_float(config, 'TurnDelay', 0.01)
-    turn_steps = get_config_int(config, 'TurnSteps', 5)
-    recenter_delay = get_config_float(config, 'RecenterDelay', 0.05)
-    recenter_steps = get_config_int(config, 'RecenterSteps', 10)
-    recenter_step_delay = get_config_float(config, 'RecenterStepDelay', 0) / 1000.0
-    recenter_step_speed = get_config_int(config, 'RecenterStepSpeed', 0)
-    up_down_sensitivity = turn_sensitivity // 2
-    x_move, y_move = 0, 0
+    _handle_movement_ext(action, reset_sensitivity, speaker)
 
-    if action in ['turn left', 'turn right', 'secondary turn left', 'secondary turn right', 'look up', 'look down']:
-        if 'secondary' in action:
-            sensitivity = secondary_turn_sensitivity
-        elif action in ['look up', 'look down']:
-            sensitivity = up_down_sensitivity
-        else:
-            sensitivity = turn_sensitivity
-
-        if 'left' in action:
-            x_move = -sensitivity
-        elif 'right' in action:
-            x_move = sensitivity
-        elif action == 'look up':
-            y_move = -sensitivity
-        elif action == 'look down':
-            y_move = sensitivity
-
-        smooth_move_mouse(x_move, y_move, turn_delay, turn_steps)
-        return
-
-    elif action == 'turn around':
-        x_move = get_config_int(config, 'TurnAroundSensitivity', 1158)
-        smooth_move_mouse(x_move, 0, turn_delay, turn_steps)
-        return
-    elif action == 'recenter':
-        if reset_sensitivity:
-            recenter_move = get_config_int(config, 'ResetRecenterLookDown', 1500)
-            down_move = get_config_int(config, 'ResetRecenterLookUp', -580)
-        else:
-            recenter_move = get_config_int(config, 'RecenterLookDown', 1500)
-            down_move = get_config_int(config, 'RecenterLookUp', -820)
-
-        smooth_move_mouse(0, recenter_move, recenter_step_delay, recenter_steps, recenter_step_speed, down_move, recenter_delay)
-        speaker.speak("Reset Camera")
-        return
-
-    smooth_move_mouse(x_move, y_move, recenter_delay)
 
 def handle_scroll(action: str) -> None:
-    """Handle scroll wheel actions."""
-    global config
-    scroll_sensitivity = get_config_int(config, 'ScrollSensitivity', 120)
-    if action == 'scroll down':
-        scroll_sensitivity = -scroll_sensitivity
-    mouse_scroll(scroll_sensitivity)
+    _handle_scroll_ext(action)
 
 def reload_config() -> None:
     """Reload configuration and update action handlers with thread safety"""
@@ -506,630 +482,36 @@ def is_valid_key_or_combination(key_combo: str) -> bool:
     from lib.utilities.input import validate_key_combination
     return validate_key_combination(key_combo)
 
-def get_match_stats() -> None:
-    """Announce current match statistics"""
-    try:
-        stats = match_tracker.get_current_match_stats()
-        if not stats:
-            speaker.speak("No active match data available")
-            return
-        
-        duration_minutes = int(stats['duration'] // 60)
-        duration_seconds = int(stats['duration'] % 60)
-        
-        message = f"Match active for {duration_minutes} minutes {duration_seconds} seconds. "
-        message += f"Total visits: {stats['total_visits']}. "
-        
-        if stats['visited_object_types']:
-            message += "Visited: " + ", ".join(stats['visited_object_types'])
-        
-        speaker.speak(message)
-        print(f"Match Stats: {stats}")
-        
-    except Exception as e:
-        print(f"Error getting match stats: {e}")
-        speaker.speak("Error getting match statistics")
-
-def mark_last_reached_object_as_bad() -> None:
-    """Mark the last reached game object as bad and remove it from the map"""
-    try:
-        # Get current match stats to find last reached object
-        stats = match_tracker.get_current_match_stats()
-        if not stats or not stats.get('visited_object_types'):
-            speaker.speak("No game objects have been reached yet")
-            return
-        
-        # Find the most recently visited object across all types
-        last_visited = None
-        latest_time = 0
-        last_visited_type = None
-        
-        for obj_type in stats['visited_object_types']:
-            visited_objects = match_tracker.get_visited_objects_of_type(obj_type)
-            for visited_obj in visited_objects:
-                if visited_obj.visit_time > latest_time:
-                    latest_time = visited_obj.visit_time
-                    last_visited = visited_obj
-                    last_visited_type = obj_type
-        
-        if not last_visited:
-            speaker.speak("No game objects have been reached yet")
-            return
-        
-        # Get current map and file paths
-        config = read_config()
-        current_map = config.get('POI', 'current_map', fallback='main')
-        
-        if current_map == 'main':
-            source_file = os.path.join('maps', 'map_main_gameobjects.txt')
-            bad_file = os.path.join('maps', 'map_main_badgameobject.txt')
-        else:
-            safe_map = current_map.strip().lower().replace(' ', '_')
-            import re
-            safe_map = re.sub(r'[^a-z0-9_]+', '', safe_map)
-            source_file = os.path.join('maps', f'map_{safe_map}_gameobjects.txt')
-            bad_file = os.path.join('maps', f'map_{safe_map}_badgameobject.txt')
-        
-        if not os.path.exists(source_file):
-            speaker.speak(f"Game objects file not found for {current_map} map")
-            return
-        
-        # Convert screen coordinates back to image coordinates for matching
-        from lib.managers.game_object_manager import MAP_IMAGE_WIDTH, MAP_IMAGE_HEIGHT, SCREEN_BOUNDS_X1, SCREEN_BOUNDS_Y1, SCREEN_BOUNDS_X2, SCREEN_BOUNDS_Y2
-        
-        screen_width = SCREEN_BOUNDS_X2 - SCREEN_BOUNDS_X1
-        screen_height = SCREEN_BOUNDS_Y2 - SCREEN_BOUNDS_Y1
-        screen_x = last_visited.coordinates[0] - SCREEN_BOUNDS_X1
-        screen_y = last_visited.coordinates[1] - SCREEN_BOUNDS_Y1
-        image_x = (screen_x / screen_width) * MAP_IMAGE_WIDTH
-        image_y = (screen_y / screen_height) * MAP_IMAGE_HEIGHT
-        
-        # Find and remove matching line from source file
-        line_removed = None
-        updated_lines = []
-        
-        with open(source_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        for line in lines:
-            line_stripped = line.strip()
-            if not line_stripped or line_stripped.startswith('#'):
-                updated_lines.append(line)
-                continue
-            
-            try:
-                parts = line_stripped.split(',')
-                if len(parts) == 3:
-                    obj_type = parts[0].strip()
-                    file_x = float(parts[1].strip())
-                    file_y = float(parts[2].strip())
-                    
-                    # Check if this matches our target (within tolerance)
-                    if (obj_type == last_visited_type and 
-                        abs(file_x - image_x) <= 5 and 
-                        abs(file_y - image_y) <= 5):
-                        line_removed = line_stripped
-                        continue  # Skip this line (remove it)
-                
-                updated_lines.append(line)
-            except (ValueError, IndexError):
-                updated_lines.append(line)
-        
-        if not line_removed:
-            speaker.speak("Could not find matching game object in file")
-            return
-        
-        # Write updated source file
-        with open(source_file, 'w', encoding='utf-8') as f:
-            f.writelines(updated_lines)
-        
-        # Add to bad objects file
-        os.makedirs('maps', exist_ok=True)
-        bad_lines = []
-        
-        if os.path.exists(bad_file):
-            with open(bad_file, 'r', encoding='utf-8') as f:
-                bad_lines = f.readlines()
-        
-        # Add header if file is empty
-        if not bad_lines:
-            bad_lines = [f"# Bad game objects for {current_map} map\n",
-                        "# Format: ObjectType,X,Y (coordinates relative to map image)\n",
-                        "#\n"]
-        
-        # Remove trailing empty lines and add the bad object
-        while bad_lines and not bad_lines[-1].strip():
-            bad_lines.pop()
-        bad_lines.append(line_removed + '\n')
-        
-        with open(bad_file, 'w', encoding='utf-8') as f:
-            f.writelines(bad_lines)
-        
-        # Refresh game object data and remove from match tracking
-        game_object_manager.reload_map_data(current_map)
-        
-        if last_visited_type in match_tracker.current_match.visited_objects:
-            visited_list = match_tracker.current_match.visited_objects[last_visited_type]
-            match_tracker.current_match.visited_objects[last_visited_type] = [
-                obj for obj in visited_list if obj.coordinates != last_visited.coordinates
-            ]
-            if not match_tracker.current_match.visited_objects[last_visited_type]:
-                del match_tracker.current_match.visited_objects[last_visited_type]
-        
-        speaker.speak(f"Marked {last_visited_type} as bad and removed from map")
-        
-    except Exception as e:
-        print(f"Error marking object as bad: {e}")
-        speaker.speak("Error marking last reached object as bad")
+from lib.app.match_actions import (
+    get_match_stats,
+    mark_last_reached_object_as_bad,
+    check_hotspots,
+    open_visited_objects,
+)
 
 # Auth expiration handling
-def handle_auth_expiration():
-    """Handle authentication expiration - announce once and set flag"""
-    global auth_expiration_announced
-    auth_expired.set()
-    if not auth_expiration_announced:
-        speaker.speak("Authentication expired. Press ALT+E to re-authenticate.")
-        logger.warning("Epic Games authentication expired")
-        auth_expiration_announced = True
+from lib.app.auth_actions import (
+    handle_auth_expiration,
+    on_auth_success as _on_auth_success,
+    open_authentication,
+    open_browser_login,
+)
 
-def _on_auth_success(epic_auth):
-    """Handle successful authentication (shared helper)"""
-    global social_manager, discovery_api, auth_expired, auth_expiration_announced
-
-    # Clear auth expiration flags
-    auth_expired.clear()
-    auth_expiration_announced = False
-
-    # Initialize or reinitialize social manager and other auth-dependent features
-    if social_manager:
-        # If social manager exists, stop and reinitialize
-        social_manager.stop_monitoring()
-
-    # Always initialize social manager and discovery API if auth is valid
-    if epic_auth and epic_auth.access_token:
-        from lib.managers.social_manager import get_social_manager
-        from lib.utilities.epic_discovery import EpicDiscovery
-
-        social_manager = get_social_manager(epic_auth)
-        social_manager.start_monitoring()
-        logger.debug("Social manager initialized after authentication")
-
-        # Initialize discovery API
-        discovery_api = EpicDiscovery(epic_auth)
-        logger.debug("Discovery API initialized after authentication")
-
-def open_browser_login():
-    """Open Epic Games authentication dialog (same as open_authentication)"""
-    # Browser login is now integrated into the main auth dialog
-    open_authentication()
-
-def open_authentication():
-    """Open Epic Games authentication dialog for re-authentication (ALT+E)"""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    def _do_authentication():
-        """Inner function that runs on main thread"""
-        global social_manager, discovery_api, auth_expired, auth_expiration_announced
-
-        try:
-            from lib.utilities.epic_auth import get_epic_auth_instance
-            from lib.guis.epic_login_dialog import LoginDialog
-            import wx
-
-            epic_auth = get_epic_auth_instance()
-
-            # Create wx app if needed (safe because we're on main thread now)
-            app = wx.GetApp()
-            if app is None:
-                app = wx.App(False)
-
-            speaker.speak("Opening authentication dialog")
-
-            # Show login dialog with browser login option
-            login_dialog = LoginDialog(None, epic_auth)
-            result = login_dialog.ShowModal()
-            authenticated = login_dialog.authenticated
-            login_dialog.Destroy()
-
-            if authenticated:
-                # Refresh auth instance
-                epic_auth = get_epic_auth_instance()
-                _on_auth_success(epic_auth)
-                # Don't announce again - the dialog already announced it
-                logger.debug(f"Re-authenticated as {epic_auth.display_name}")
-            else:
-                speaker.speak("Authentication cancelled")
-
-        except Exception as e:
-            logger.error(f"Error opening authentication dialog: {e}")
-            speaker.speak("Error opening authentication dialog")
-
-    # Launch on main thread (thread-safe)
-    launch_gui_thread_safe(_do_authentication)
-
-# Social manager wrapper functions
-def open_social_menu():
-    """Open the social menu"""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    if social_gui_open.is_set():
-        speaker.speak("Social menu is already open")
-        focus_window("Social Menu")
-        return
-
-    def _open():
-        global social_manager
-        if not social_manager:
-            speaker.speak("Social features not enabled")
-            return
-
-        # Wait for initial data to load (with timeout)
-        if not social_manager.initial_data_loaded.is_set():
-            speaker.speak("Loading social data")
-            if not social_manager.wait_for_initial_data(timeout=10):
-                speaker.speak("Timeout waiting for social data, opening anyway")
-
-        social_gui_open.set()
-        try:
-            from lib.guis.social_gui import show_social_gui
-            show_social_gui(social_manager)
-        finally:
-            social_gui_open.clear()
-    
-    launch_gui_thread_safe(_open)
-
-def open_discovery_gui():
-    """Open the discovery GUI (does not require authentication)"""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    if discovery_gui_open.is_set():
-        speaker.speak("Discovery GUI is already open")
-        focus_window("Discovery GUI")
-        return
-
-    def _open():
-        global discovery_api
-        # Create discovery API if not already available (no auth required for public features)
-        if not discovery_api:
-            from lib.utilities.epic_discovery import EpicDiscovery
-            local_discovery_api = EpicDiscovery(epic_auth if epic_auth and epic_auth.is_valid else None)
-        else:
-            local_discovery_api = discovery_api
-
-        discovery_gui_open.set()
-        try:
-            from lib.guis.discovery_gui import show_discovery_gui
-            show_discovery_gui(local_discovery_api)
-        finally:
-            discovery_gui_open.clear()
-
-    launch_gui_thread_safe(_open)
-
-def accept_notification():
-    """Accept pending notification (Alt+Y)"""
-    from lib.guis.gui_utilities import run_on_main_thread
-
-    def _do_accept():
-        """Inner function that runs on main thread"""
-        global social_manager
-        if social_manager:
-            social_manager.accept_notification()
-        else:
-            logger.debug("Social manager not initialized")
-
-    # Run on main thread (thread-safe)
-    run_on_main_thread(_do_accept)
-
-def decline_notification():
-    """Decline pending notification (Alt+D)"""
-    from lib.guis.gui_utilities import run_on_main_thread
-
-    def _do_decline():
-        """Inner function that runs on main thread"""
-        global social_manager
-        if social_manager:
-            social_manager.decline_notification()
-        else:
-            logger.debug("Social manager not initialized")
-
-    # Run on main thread (thread-safe)
-    run_on_main_thread(_do_decline)
-
-def check_hotspots() -> None:
-    """Check for hotspot POIs on the map"""
-    try:
-        # Import here to avoid circular imports
-        from lib.monitors.background_monitor import monitor
-        
-        # Define the pixel coordinates to check
-        hotspot_pixels = [
-            (683, 303), (955, 311), (1210, 245), (782, 405), (904, 417),
-            (1031, 461), (654, 511), (555, 618), (725, 641), (894, 625),
-            (1078, 639), (1232, 607), (585, 894), (957, 846), (1190, 876),
-            (764, 830), (1265, 776)
-        ]
-        
-        hotspot_coordinates = []
-        
-        # Check each pixel
-        for x, y in hotspot_pixels:
-            try:
-                pixel_color = _pixel(x, y)
-                r, g, b = pixel_color
-                
-                # Check if pixel is NOT white (250-255) and NOT black (0-5)
-                is_white = (250 <= r <= 255) and (250 <= g <= 255) and (250 <= b <= 255)
-                is_black = (0 <= r <= 5) and (0 <= g <= 5) and (0 <= b <= 5)
-                
-                if not is_white and not is_black:
-                    hotspot_coordinates.append((x, y))
-                    
-            except Exception as e:
-                print(f"Error checking pixel at {x},{y}: {e}")
-                continue
-        
-        if not hotspot_coordinates:
-            speaker.speak("No hotspots detected")
-            return
-        
-        if len(hotspot_coordinates) > 2:
-            speaker.speak(f"Error: {len(hotspot_coordinates)} hotspots detected, expected maximum 2")
-            return
-        
-        # Find closest POIs to the hotspot coordinates
-        hotspot_pois = []
-        
-        global poi_data_instance
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-        
-        current_map = config.get('POI', 'current_map', fallback='main')
-        
-        # Get POIs for current map
-        if current_map == 'main':
-            # Ensure data is loaded
-            poi_data_instance._ensure_api_data_loaded()
-            available_pois = poi_data_instance.main_pois
-        elif current_map in poi_data_instance.maps:
-            poi_data_instance._ensure_map_data_loaded(current_map)
-            available_pois = poi_data_instance.maps[current_map].pois
-        else:
-            speaker.speak("No POI data available for current map")
-            return
-        
-        for hotspot_x, hotspot_y in hotspot_coordinates:
-            closest_poi = None
-            min_distance = float('inf')
-            
-            for poi_name, poi_x_str, poi_y_str in available_pois:
-                try:
-                    poi_x = int(float(poi_x_str))
-                    poi_y = int(float(poi_y_str))
-                    
-                    # Calculate distance
-                    distance = ((hotspot_x - poi_x) ** 2 + (hotspot_y - poi_y) ** 2) ** 0.5
-                    
-                    if distance < min_distance:
-                        min_distance = distance
-                        closest_poi = poi_name
-                        
-                except (ValueError, TypeError):
-                    continue
-            
-            if closest_poi:
-                hotspot_pois.append(closest_poi)
-        
-        # Announce the results
-        if len(hotspot_pois) == 1:
-            speaker.speak(f"{hotspot_pois[0]} is a hot spot")
-        elif len(hotspot_pois) == 2:
-            speaker.speak(f"{hotspot_pois[0]} and {hotspot_pois[1]} are hot spots")
-        else:
-            speaker.speak("No POIs found near hotspots")
-            
-    except Exception as e:
-        print(f"Error checking hotspots: {e}")
-        speaker.speak("Error checking hotspots")
-
-def open_visited_objects() -> None:
-    """Open the visited objects manager GUI"""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    if visited_objects_gui_open.is_set():
-        speaker.speak("Visited objects manager is already open")
-        focus_window("Visited Objects Manager")
-        return
-
-    def _do_open_visited_objects():
-        """Inner function that runs on main thread"""
-        visited_objects_gui_open.set()
-        try:
-            from lib.guis.visited_objects_gui import launch_visited_objects_gui
-            launch_visited_objects_gui()
-        except Exception as e:
-            print(f"Error opening visited objects GUI: {e}")
-            speaker.speak("Error opening visited objects manager")
-        finally:
-            visited_objects_gui_open.clear()
-
-    # Launch on main thread (thread-safe)
-    launch_gui_thread_safe(_do_open_visited_objects)
-
-def toggle_keybinds() -> None:
-    """Toggle keybinds on/off."""
-    global keybinds_enabled
-    keybinds_enabled = not keybinds_enabled
-    state = 'enabled' if keybinds_enabled else 'disabled'
-    speaker.speak(f"FA11y {state}")
-    print(f"FA11y has been {state}.")
-
-def toggle_continuous_ping() -> None:
-    """Toggle continuous pinging for the selected POI."""
-    global active_pinger, config
-    if active_pinger:
-        active_pinger.stop()
-        active_pinger = None
-        speaker.speak("Continuous ping disabled.")
-        return
-
-    config = read_config()
-    selected_poi_str = config.get('POI', 'selected_poi', fallback='none,0,0')
-    parts = selected_poi_str.split(',')
-    if len(parts) < 3 or parts[0].strip().lower() == 'none':
-        speaker.speak("No POI selected.")
-        return
-
-    poi_name = parts[0].strip()
-    player_pos = find_player_position()
-    if not player_pos:
-        speaker.speak("Cannot start ping, player position unknown.")
-        return
-
-    poi_data = handle_poi_selection(poi_name, player_pos)
-    if not poi_data or not poi_data[1]:
-        speaker.speak(f"Location for {poi_name} not found.")
-        return
-
-    poi_coords = (int(float(poi_data[1][0])), int(float(poi_data[1][1])))
-    
-    active_pinger = ContinuousPOIPinger(poi_coords)
-    active_pinger.start()
-    speaker.speak(f"Continuous ping enabled for {poi_name}.")
-
-def _refresh_poi_selector_after_favorite_toggle(was_added: bool, poi_name: str) -> None:
-    """
-    Refresh POI selector state after toggling a favorite.
-    Forces reload of favorites data from disk for all maps.
-    
-    Args:
-        was_added: True if POI was added to favorites, False if removed
-        poi_name: Name of the POI that was toggled
-    """
-    global config, current_poi_category
-    
-    try:
-        # Force reload favorites from disk for all maps
-        from lib.managers.poi_data_manager import get_favorites_manager
-        favorites_manager = get_favorites_manager()
-        favorites_manager.load_favorites()  # Reload from disk to get fresh data
-        
-        config = read_config()
-        current_map = config.get('POI', 'current_map', fallback='main')
-        
-        # Get updated favorites list for current map (now with fresh data)
-        favorites = favorites_manager.get_favorites_as_tuples(map_name=current_map)
-        
-        logger.info(f"Favorites refreshed: {len(favorites)} favorites for map '{current_map}'")
-        
-        # If we removed the last favorite and we're in favorites category, switch to special
-        if not was_added and not favorites and current_poi_category == POI_CATEGORY_FAVORITE:
-            logger.info("Last favorite removed, switching to special category")
-            current_poi_category = POI_CATEGORY_SPECIAL
-            
-            # Get first POI in special category and update config
-            special_pois = get_pois_by_category(POI_CATEGORY_SPECIAL)
-            if special_pois:
-                first_poi = special_pois[0]
-                config.set('POI', 'selected_poi', f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}")
-                save_config(config)
-        
-        # If we just added a favorite while in favorites category, keep current selection
-        elif was_added and current_poi_category == POI_CATEGORY_FAVORITE:
-            # Current POI is already selected, just log it
-            logger.info(f"Added {poi_name} to favorites, keeping current selection")
-        
-        # If we're in favorites category and removed a POI, ensure current selection is still valid
-        elif not was_added and current_poi_category == POI_CATEGORY_FAVORITE:
-            selected_poi_str = config.get('POI', 'selected_poi', fallback='none,0,0')
-            selected_poi_name = selected_poi_str.split(',')[0].strip()
-            
-            # Check if currently selected POI is still in favorites
-            favorite_names = [f[0] for f in favorites]
-            
-            if selected_poi_name not in favorite_names:
-                if favorites:
-                    # Current selection no longer in favorites, select first favorite
-                    first_fav = favorites[0]
-                    config.set('POI', 'selected_poi', f"{first_fav[0]}, {first_fav[1]}, {first_fav[2]}")
-                    save_config(config)
-                    logger.info(f"Updated selection to first favorite: {first_fav[0]}")
-                else:
-                    # No favorites left, handled by the first condition above
-                    pass
-        
-        # If we added a new favorite and we're NOT in favorites category, user might want to cycle to it later
-        elif was_added and current_poi_category != POI_CATEGORY_FAVORITE:
-            logger.info(f"Added {poi_name} to favorites while in {current_poi_category} category")
-                
-    except Exception as e:
-        logger.error(f"Error refreshing POI selector after favorite toggle: {e}")
+from lib.app.social_actions import (
+    open_social_menu,
+    open_discovery_gui,
+    accept_notification,
+    decline_notification,
+)
 
 
-def toggle_favorite_poi() -> None:
-    """Toggle the currently selected POI as a favorite."""
-    global config, poi_data_instance, current_poi_category
+from lib.app.keybind_actions import (
+    toggle_keybinds,
+    toggle_continuous_ping,
+    _refresh_poi_selector_after_favorite_toggle,
+    toggle_favorite_poi,
+)
 
-    try:
-        # Get current selected POI from config
-        config = read_config()
-        selected_poi_str = config.get('POI', 'selected_poi', fallback='none,0,0')
-        parts = selected_poi_str.split(',')
-
-        if len(parts) < 3 or parts[0].strip().lower() == 'none':
-            speaker.speak("No POI selected.")
-            return
-
-        poi_name = parts[0].strip()
-        poi_x = parts[1].strip()
-        poi_y = parts[2].strip()
-
-        # Don't allow favoriting special POIs
-        if poi_name.lower() in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(),
-                                SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
-            speaker.speak("Cannot favorite special POIs.")
-            return
-
-        # Don't allow favoriting game objects (they are dynamic "Closest X" POIs)
-        if current_poi_category == POI_CATEGORY_GAMEOBJECT:
-            speaker.speak("Cannot favorite game object locators.")
-            return
-
-        # Initialize POI data manager if needed
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-
-        # Get the favorites manager (use singleton)
-        from lib.managers.poi_data_manager import get_favorites_manager
-        favorites_manager = get_favorites_manager()
-
-        # Determine source tab based on current category
-        source_tab_map = {
-            POI_CATEGORY_REGULAR: "regular",
-            POI_CATEGORY_LANDMARK: "landmark",
-            POI_CATEGORY_CUSTOM: "custom",
-            POI_CATEGORY_FAVORITE: "favorite"
-        }
-        source_tab = source_tab_map.get(current_poi_category, "regular")
-
-        # Get current map for filtering
-        current_map = config.get('POI', 'current_map', fallback='main')
-        
-        # Toggle favorite status
-        poi_tuple = (poi_name, poi_x, poi_y)
-        was_added = favorites_manager.toggle_favorite(poi_tuple, source_tab, current_map)
-
-        # Refresh the POI selector state after toggling favorite
-        _refresh_poi_selector_after_favorite_toggle(was_added, poi_name)
-
-        # Announce result
-        if was_added:
-            speaker.speak(f"Added {poi_name} to favorites.")
-        else:
-            speaker.speak(f"Removed {poi_name} from favorites.")
-
-    except Exception as e:
-        logger.error(f"Error toggling favorite POI: {e}")
-        speaker.speak("Error toggling favorite status.")
 
 def key_listener() -> None:
     """Listen for and handle key presses with modifier key support and fast shutdown response."""
@@ -1282,1085 +664,78 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
         print(f"Error updating script config: {e}")
         speaker.speak("Error updating configuration")
 
-def open_clientsettings_editor() -> None:
-    """Open the Client Settings editor (Fortnite sens/binds/volumes + cloud sync)."""
-    try:
-        from lib.guis.clientsettings_gui import launch_clientsettings_editor
-    except Exception as e:
-        print(f"Error loading Client Settings editor: {e}")
-        speaker.speak("Error loading Client Settings editor")
-        return
-    speaker.speak("Opening Client Settings editor")
-    launch_clientsettings_editor()
+from lib.app.menu_actions import (
+    open_clientsettings_editor,
+    handle_custom_poi_gui,
+    open_gamemode_selector,
+    open_locker_selector,
+    open_locker_viewer,
+    open_save_the_world,
+    open_config_gui as _open_config_gui_ext,
+)
 
 
 def open_config_gui() -> None:
-    """Open the configuration GUI."""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
+    """Open the configuration GUI (delegates to lib.app.menu_actions).
 
-    if config_gui_open.is_set():
-        speaker.speak("Configuration is already open")
-        focus_window("FA11y Configuration")
-        return
-
-    def _do_open_config():
-        """Inner function that runs on main thread"""
-        config_gui_open.set()
-        try:
-            from lib.guis.config_gui import launch_config_gui
-
-            global config
-            config_instance = Config()
-            config_instance.config = config
-
-            def update_callback(updated_config_parser):
-                global config
-                config = updated_config_parser
-
-                # save_config() writes to disk, updates cache, and notifies all listeners
-                save_config(config)
-                reload_config()
-
-                print("Configuration updated and saved to disk")
-
-            launch_config_gui(config_instance, update_callback)
-
-        except Exception as e:
-            print(f"Error opening config GUI: {e}")
-            speaker.speak("Error opening configuration GUI")
-        finally:
-            config_gui_open.clear()
-
-    # Launch on main thread (thread-safe)
-    launch_gui_thread_safe(_do_open_config)
-
-# POI selector GUI has been removed - use virtual POI selector with cycle_poi() instead
-
-def handle_custom_poi_gui(use_ppi=False) -> None:
-    """Handle custom POI GUI creation with map-specific support"""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    if custom_poi_gui_open.is_set():
-        speaker.speak("Custom POI creator is already open")
-        focus_window("Create Custom POI")
-        return
-
-    def _do_custom_poi_gui():
-        """Inner function that runs on main thread"""
-        custom_poi_gui_open.set()
-        try:
-            from lib.guis.custom_poi_gui import launch_custom_poi_creator
-
-            global config
-            current_map = config.get('POI', 'current_map', fallback='main')
-
-            use_ppi = check_for_pixel()
-
-            class PlayerDetector:
-                def get_player_position(self, use_ppi_flag):
-                    from lib.detection.player_position import find_player_position as find_map_player_pos, find_player_icon_location
-                    return find_map_player_pos() if use_ppi_flag else find_player_icon_location()
-
-            launch_custom_poi_creator(use_ppi, PlayerDetector(), current_map)
-
-        except Exception as e:
-            print(f"Error opening custom POI GUI: {e}")
-            speaker.speak("Error opening custom POI creator")
-        finally:
-            custom_poi_gui_open.clear()
-
-    # Launch on main thread (thread-safe)
-    launch_gui_thread_safe(_do_custom_poi_gui)
-
-def open_gamemode_selector() -> None:
-    """Open the gamemode selector GUI with Epic auth for advanced features."""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    def _do_open_gamemode():
-        """Inner function that runs on main thread"""
-        global gamemode_gui_open
-
-        # Check if gamemode GUI is already open
-        if gamemode_gui_open.is_set():
-            speaker.speak("Gamemode selector is already open")
-            focus_window("Game Mode Selection")
-            return
-
-        try:
-            from lib.guis.gamemode_gui import launch_gamemode_selector
-
-            gamemode_gui_open.set()
-            try:
-                launch_gamemode_selector()
-            finally:
-                gamemode_gui_open.clear()
-
-        except Exception as e:
-            print(f"Error opening gamemode selector: {e}")
-            speaker.speak("Error opening gamemode selector")
-            gamemode_gui_open.clear()
-
-    # Launch on main thread (thread-safe)
-    launch_gui_thread_safe(_do_open_gamemode)
-
-def open_locker_selector() -> None:
-    """Open the unified locker GUI for browsing and equipping cosmetics."""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    def _do_open_locker():
-        """Inner function that runs on main thread"""
-        global active_pinger, locker_gui_open
-
-        # Check if locker GUI is already open
-        if locker_gui_open.is_set():
-            speaker.speak("Locker is already open")
-            focus_window("Locker")
-            return
-
-        if active_pinger:
-            active_pinger.stop()
-            active_pinger = None
-            speaker.speak("Continuous ping disabled.")
-        try:
-            from lib.guis.locker_gui import launch_locker_gui
-            locker_gui_open.set()
-            try:
-                launch_locker_gui()
-            finally:
-                locker_gui_open.clear()
-
-        except Exception as e:
-            print(f"Error opening locker: {e}")
-            speaker.speak("Error opening locker")
-            locker_gui_open.clear()
-
-    # Launch on main thread (thread-safe)
-    launch_gui_thread_safe(_do_open_locker)
-
-def open_locker_viewer() -> None:
-    """Open the unified locker GUI for browsing and equipping cosmetics."""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    def _do_open_locker_viewer():
-        """Inner function that runs on main thread"""
-        global active_pinger, locker_gui_open
-
-        # Check if locker GUI is already open
-        if locker_gui_open.is_set():
-            speaker.speak("Locker is already open")
-            focus_window("Locker")
-            return
-
-        if active_pinger:
-            active_pinger.stop()
-            active_pinger = None
-            speaker.speak("Continuous ping disabled.")
-        try:
-            from lib.guis.locker_gui import launch_locker_gui
-            locker_gui_open.set()
-            try:
-                launch_locker_gui()
-            finally:
-                locker_gui_open.clear()
-
-        except Exception as e:
-            print(f"Error opening locker: {e}")
-            speaker.speak("Error opening locker")
-
-    # Launch on main thread (thread-safe)
-    launch_gui_thread_safe(_do_open_locker_viewer)
+    The extracted version takes ``reload_config`` as a callback so it can
+    trigger FA11y's action-handler rewiring after the user saves settings.
+    """
+    _open_config_gui_ext(reload_config)
 
 
-def open_save_the_world() -> None:
-    """Open the Save the World manager main menu."""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
 
-    def _do_open_stw():
-        global active_pinger, stw_gui_open
-
-        if stw_gui_open.is_set():
-            speaker.speak("Save the World manager is already open")
-            focus_window("Save the World Manager")
-            return
-
-        if active_pinger:
-            active_pinger.stop()
-            active_pinger = None
-            speaker.speak("Continuous ping disabled.")
-        try:
-            from lib.guis.stw_gui import launch_stw_gui
-            stw_gui_open.set()
-            try:
-                launch_stw_gui()
-            finally:
-                stw_gui_open.clear()
-        except Exception as e:
-            print(f"Error opening Save the World manager: {e}")
-            speaker.speak("Error opening Save the World manager")
-            stw_gui_open.clear()
-
-    launch_gui_thread_safe(_do_open_stw)
+from lib.app.reload_rotation_actions import (
+    announce_reload_map_rotation as _announce_reload_rotation_ext,
+    sync_current_map_to_reload_rotation as _sync_reload_rotation_ext,
+)
 
 
 def announce_reload_map_rotation() -> None:
-    """Keybind handler - fetch the live Reload map rotation from fortnite.gg
-    and speak the current + next map with remaining time. Useful for knowing
-    which Reload arena you are about to load into."""
-    try:
-        from lib.utilities.map_rotation import speech_announcement
-        speaker.speak(speech_announcement())
-    except Exception as e:
-        print(f"Reload map rotation failed: {e}")
-        speaker.speak("Could not fetch Reload map rotation.")
+    _announce_reload_rotation_ext(speaker)
 
 
 def sync_current_map_to_reload_rotation() -> None:
-    """Keybind handler - query fortnite.gg's rotation and set FA11y's
-    POI.current_map to whatever Reload arena is currently live. Useful just
-    before queuing into a Reload match so FA11y's POI data is correct.
-
-    Speaks confirmation and no-ops quietly if already synced or if the
-    rotation API is unreachable."""
-    try:
-        from lib.utilities.map_rotation import current_reload_map
-        from lib.utilities.utilities import Config, read_config, clear_config_cache
-        state = current_reload_map()
-        if state is None:
-            speaker.speak("Rotation data unavailable.")
-            return
-        target = state.current.fa11y_map
-        if not target:
-            speaker.speak(
-                f"Current map is {state.current.name}, "
-                f"but FA11y has no data file for it."
-            )
-            return
-        cfg = read_config()
-        current = cfg.get('POI', 'current_map', fallback='main')
-        if current.strip().lower() == target.strip().lower():
-            speaker.speak(f"Already on {target}.")
-            return
-        adapter = Config()
-        adapter.set_current_map(target)
-        if adapter.save():
-            clear_config_cache()
-            speaker.speak(
-                f"FA11y map set to {target} "
-                f"(live Reload: {state.current.name})."
-            )
-        else:
-            speaker.speak("Failed to save map setting.")
-    except Exception as e:
-        print(f"Reload map sync failed: {e}")
-        speaker.speak("Could not sync to Reload rotation.")
+    _sync_reload_rotation_ext(speaker)
 
 
-def get_poi_category(poi_name: str) -> str:
-    """
-    Determine which category a POI belongs to.
-    
-    Args:
-        poi_name: Name of the POI
-        
-    Returns:
-        str: Category identifier
-    """
-    global poi_data_instance, config
-    
-    # Get the current map
-    current_map = config.get('POI', 'current_map', fallback='main')
+from lib.app.poi_navigation import (
+    get_poi_category,
+    get_pois_by_category,
+    get_display_poi_name,
+    sort_pois_by_position,
+    get_poi_position_description,
+    get_poi_categories,
+    cycle_poi_category,
+    cycle_poi,
+    cycle_map,
+)
 
-    n = (poi_name or '').strip().lower()
-    if n.startswith('closest '):
-        try:
-            types = {t.lower() for t in game_object_manager.get_available_object_types(current_map)}
-            if n.replace('closest ', '', 1).strip() in types:
-                return POI_CATEGORY_GAMEOBJECT
-        except Exception:
-            pass
-    
-    # Check special POIs first
-    if poi_name.lower() == SPECIAL_POI_CLOSEST.lower():
-        return POI_CATEGORY_SPECIAL
-    
-    if poi_name.lower() == SPECIAL_POI_SAFEZONE.lower():
-        return POI_CATEGORY_SPECIAL
-    
-    if poi_name.lower() == SPECIAL_POI_CLOSEST_LANDMARK.lower() and current_map == 'main':
-        return POI_CATEGORY_SPECIAL
-    
-    # Check favorites
-    favorites_file = 'config/FAVORITE_POIS.txt'
-    if os.path.exists(favorites_file):
-        try:
-            with open(favorites_file, 'r') as f:
-                favorites_data = json.load(f)
-                if any(f['name'].lower() == poi_name.lower() for f in favorites_data):
-                    return POI_CATEGORY_FAVORITE
-        except (json.JSONDecodeError, FileNotFoundError):
-            pass
-    
-    # Check custom POIs
-    custom_pois = load_custom_pois(current_map)
-    if any(poi[0].lower() == poi_name.lower() for poi in custom_pois):
-        return POI_CATEGORY_CUSTOM
-    
-    # Check game objects
-    game_object_types = game_object_manager.get_available_object_types(current_map)
-    for obj_type in game_object_types:
-        objects = game_object_manager.get_objects_of_type(current_map, obj_type)
-        if any(obj[0].lower() == poi_name.lower() for obj in objects):
-            return POI_CATEGORY_GAMEOBJECT
-    
-    # Check dynamic objects
-    # dynamic_objects = get_dynamic_objects()
-    # if any(poi[0].lower() == poi_name.lower() for poi in dynamic_objects):
-    #     return POI_CATEGORY_DYNAMICOBJECT
-    
-    # Check landmarks (main map only)
-    if current_map == 'main':
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-        poi_data_instance._ensure_api_data_loaded()
-        if any(poi[0].lower() == poi_name.lower() for poi in poi_data_instance.landmarks):
-            return POI_CATEGORY_LANDMARK
-    
-    # Default to regular
-    return POI_CATEGORY_REGULAR
 
-'''
-def get_dynamic_objects() -> List[Tuple[str, str, str]]:
-    """Get dynamic objects from icons folder"""
-    dynamic_objects = []
-    icons_folder = 'icons'
-    
-    if os.path.exists(icons_folder):
-        try:
-            for filename in os.listdir(icons_folder):
-                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                    object_name = os.path.splitext(filename)[0]
-                    display_name = object_name.replace('_', ' ').title()
-                    dynamic_objects.append((display_name, "0", "0"))
-        except Exception as e:
-            print(f"Error loading dynamic objects: {e}")
-    
-    return sorted(dynamic_objects, key=lambda x: x[0])
-'''
 
-def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
-    """
-    Get all POIs in a specific category.
-    
-    Args:
-        category: POI category
-        
-    Returns:
-        list: List of POI tuples (name, x, y)
-    """
-    global poi_data_instance, config
-    
-    current_map = config.get('POI', 'current_map', fallback='main')
-    
-    # Special POIs
-    if category == POI_CATEGORY_SPECIAL:
-        special_pois = [(SPECIAL_POI_CLOSEST, "0", "0"), (SPECIAL_POI_SAFEZONE, "0", "0")]
-        if current_map == 'main':
-            special_pois.append((SPECIAL_POI_CLOSEST_LANDMARK, "0", "0"))
-        return special_pois
-    
-    # Favorites (filtered by current map)
-    if category == POI_CATEGORY_FAVORITE:
-        from lib.managers.poi_data_manager import get_favorites_manager
-        favorites_manager = get_favorites_manager()
-        return favorites_manager.get_favorites_as_tuples(map_name=current_map)
-    
-    # Custom POIs
-    if category == POI_CATEGORY_CUSTOM:
-        return load_custom_pois(current_map)
-    
-    # Game Objects (from new game objects system) - sorted alphabetically
-    if category == POI_CATEGORY_GAMEOBJECT:
-        # Get all available object types for current map
-        available_types = game_object_manager.get_available_object_types(current_map)
-        
-        # Sort types alphabetically
-        ordered_types = sorted(available_types)
-        
-        return [(f"Closest {t}", "0", "0") for t in ordered_types]
-    
-    # Landmarks (main map only)
-    if category == POI_CATEGORY_LANDMARK and current_map == 'main':
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-        poi_data_instance._ensure_api_data_loaded()
-        return poi_data_instance.landmarks
-    
-    # Regular POIs
-    if category == POI_CATEGORY_REGULAR:
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-            
-        if current_map == 'main':
-            poi_data_instance._ensure_api_data_loaded()
-            return poi_data_instance.main_pois
-        elif current_map in poi_data_instance.maps:
-            poi_data_instance._ensure_map_data_loaded(current_map)
-            return poi_data_instance.maps[current_map].pois
-    
-    return []
-
-def get_display_poi_name(poi_name: str) -> str:
-    """
-    Get display-friendly POI name by removing 'Closest ' prefix from game objects only
-    
-    Args:
-        poi_name: Original POI name
-        
-    Returns:
-        str: Clean POI name for display/speech
-    """
-    # Only strip "Closest " from game objects, not from other POI types
-    poi_category = get_poi_category(poi_name)
-    if poi_category == POI_CATEGORY_GAMEOBJECT and poi_name.startswith("Closest "):
-        return poi_name[8:]  # Remove "Closest " (8 characters)
-    return poi_name
-
-def sort_pois_by_position(pois: List[Tuple[str, str, str]]) -> List[Tuple[str, str, str]]:
-    """
-    Sort POIs by their position on the map.
-    
-    Args:
-        pois: List of POI tuples
-        
-    Returns:
-        list: Sorted list of POI tuples
-    """
-    def poi_sort_key(poi: Tuple[str, str, str]) -> Tuple[int, int, int, int]:
-        name, x_str, y_str = poi
-        try:
-            x = int(float(x_str)) - ROI_START_ORIG[0]
-            y = int(float(y_str)) - ROI_START_ORIG[1]
-            width, height = ROI_END_ORIG[0] - ROI_START_ORIG[0], ROI_END_ORIG[1] - ROI_START_ORIG[1]
-            
-            quadrant = get_quadrant(x, y, width, height)
-            position = get_position_in_quadrant(x, y, width // 2, height // 2)
-            
-            position_values = {
-                "top-left": 0, "top": 1, "top-right": 2,
-                "left": 3, "center": 4, "right": 5,
-                "bottom-left": 6, "bottom": 7, "bottom-right": 8
-            }
-            
-            return (quadrant, position_values.get(position, 9), y, x)
-        except (ValueError, TypeError):
-            # If coordinates can't be parsed, sort alphabetically by name
-            return (9, 9, 9, 9)
-    
-    if not pois:
-        return []
-    
-    # Don't sort special POIs or game objects
-    if pois[0][0].lower() in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), SPECIAL_POI_CLOSEST_LANDMARK.lower()]:
-        return pois
-    
-    # Don't sort game objects (they have coordinates "0", "0") - they are already ordered by config
-    if all(poi[1] == "0" and poi[2] == "0" for poi in pois):
-        return pois  # Keep the config-based ordering for game objects
-    
-    return sorted(pois, key=poi_sort_key)
-
-def get_poi_position_description(poi: Tuple[str, str, str]) -> str:
-    """
-    Generate a concise description of a POI's position using quadrant format.
-    
-    Args:
-        poi: Tuple containing (name, x, y) coordinates
-        
-    Returns:
-        str: Description in format "position of quadrant"
-    """
-    try:
-        name, x_str, y_str = poi
-        x = int(float(x_str))
-        y = int(float(y_str))
-        
-        # Calculate relative position in region of interest
-        x_rel = x - ROI_START_ORIG[0]
-        y_rel = y - ROI_START_ORIG[1]
-        width = ROI_END_ORIG[0] - ROI_START_ORIG[0]
-        height = ROI_END_ORIG[1] - ROI_START_ORIG[1]
-        
-        # Get quadrant (0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right)
-        quadrant = get_quadrant(x_rel, y_rel, width, height)
-        
-        # Get position within quadrant
-        quadrant_width = width // 2
-        quadrant_height = height // 2
-        x_in_quad = x_rel % quadrant_width
-        y_in_quad = y_rel % quadrant_height
-        
-        position = get_position_in_quadrant(x_in_quad, y_in_quad, quadrant_width, quadrant_height)
-        
-        # Map quadrant index to name
-        quadrant_names = ["top left", "top right", "bottom left", "bottom right"]
-        quadrant_name = quadrant_names[quadrant]
-        
-        # Return concise description
-        if position == "center":
-            return f"center of {quadrant_name} quadrant"
-        else:
-            return f"{position} of {quadrant_name} quadrant"
-    except (ValueError, TypeError, IndexError):
-        return "position unknown"
-
-def get_poi_categories(include_empty: bool = False) -> List[str]:
-    """
-    Get available POI categories for the current map.
-    
-    Args:
-        include_empty: Whether to include empty categories
-        
-    Returns:
-        list: Available category identifiers
-    """
-    global config
-    
-    categories = [POI_CATEGORY_SPECIAL, POI_CATEGORY_REGULAR]
-    current_map = config.get('POI', 'current_map', fallback='main')
-    
-    # Add landmarks for main map
-    if current_map == 'main':
-        categories.append(POI_CATEGORY_LANDMARK)
-    
-    # Add game objects if any exist
-    game_objects = get_pois_by_category(POI_CATEGORY_GAMEOBJECT)
-    if include_empty or game_objects:
-        categories.append(POI_CATEGORY_GAMEOBJECT)
-    
-    # Add dynamic objects if any exist
-    # dynamic_objects = get_pois_by_category(POI_CATEGORY_DYNAMICOBJECT)
-    # if include_empty or dynamic_objects:
-    #     categories.append(POI_CATEGORY_DYNAMICOBJECT)
-    
-    # Add favorites if any exist
-    favorites = get_pois_by_category(POI_CATEGORY_FAVORITE)
-    if include_empty or favorites:
-        categories.append(POI_CATEGORY_FAVORITE)
-    
-    # Add custom POIs if any exist
-    custom_pois = get_pois_by_category(POI_CATEGORY_CUSTOM)
-    if include_empty or custom_pois:
-        categories.append(POI_CATEGORY_CUSTOM)
-    
-    return categories
-
-def cycle_poi_category(direction: str = "forwards") -> None:
-    """Cycle between POI categories with safe config handling"""
-    global config, poi_data_instance, current_poi_category, active_pinger
-    if active_pinger:
-        active_pinger.stop()
-        active_pinger = None
-        speaker.speak("Continuous ping disabled.")
-    
-    try:
-        # Always re-read the config to ensure we have the latest state
-        clear_config_cache()
-        config = read_config(use_cache=False)
-        
-        # Validate POI data is initialized
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-        
-        # Get all available categories
-        categories = get_poi_categories()
-        if not categories:
-            speaker.speak("No POI categories available")
-            return
-        
-        # Find current category index
-        try:
-            current_index = categories.index(current_poi_category)
-        except ValueError:
-            # If current category not found, default to first category
-            current_index = 0
-        
-        # Calculate new index with wrapping
-        if direction == "backwards":
-            new_index = (current_index - 1) % len(categories)
-        else:  # forwards
-            new_index = (current_index + 1) % len(categories)
-        
-        # Get new category
-        new_category = categories[new_index]
-        
-        # Update global category tracker
-        current_poi_category = new_category
-        
-        # Get POIs in the new category
-        category_pois = get_pois_by_category(new_category)
-        
-        # Sort POIs by position (preserves config order for game objects)
-        sorted_pois = sort_pois_by_position(category_pois)
-        
-        # If category has POIs, select the first one
-        if sorted_pois:
-            first_poi = sorted_pois[0]
-            
-            # Use thread-safe config operations
-            config_adapter = Config()
-            config_adapter.set_poi(first_poi[0], first_poi[1], first_poi[2])
-            success = config_adapter.save()
-            
-            if success:
-                # Update our global config reference
-                clear_config_cache()
-                config = read_config(use_cache=False)
-                
-                # Get category display name
-                category_display_names = {
-                    POI_CATEGORY_SPECIAL: "Special",
-                    POI_CATEGORY_REGULAR: "Regular",
-                    POI_CATEGORY_LANDMARK: "Landmark",
-                    POI_CATEGORY_FAVORITE: "Favorite",
-                    POI_CATEGORY_CUSTOM: "Custom",
-                    POI_CATEGORY_GAMEOBJECT: "Game Object",
-                    # POI_CATEGORY_DYNAMICOBJECT: "Dynamic Object"
-                }
-                display_name = category_display_names.get(new_category, new_category.title())
-                
-                # Get position description if not a special POI or game object
-                position_desc = ""
-                if (first_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), 
-                                                SPECIAL_POI_CLOSEST_LANDMARK.lower()] 
-                    and first_poi[1] != "0" and first_poi[2] != "0"):
-                    position_desc = get_poi_position_description(first_poi)
-                    if position_desc:
-                        position_desc = f", {position_desc}"
-                
-                # Announce selection
-                display_poi_name = get_display_poi_name(first_poi[0])
-                speaker.speak(f"{display_name} POIs: {display_poi_name}{position_desc}")
-            else:
-                speaker.speak("Error saving POI selection")
-        else:
-            speaker.speak(f"No POIs available in the selected category")
-            
-    except Exception as e:
-        print(f"Error cycling POI category: {e}")
-        speaker.speak("Error cycling POI categories")
-
-def cycle_poi(direction: str = "forwards") -> None:
-    """Cycle through POIs in the current category with safe config handling"""
-    global config, poi_data_instance, current_poi_category, active_pinger
-    if active_pinger:
-        active_pinger.stop()
-        active_pinger = None
-        speaker.speak("Continuous ping disabled.")
-    
-    try:
-        # Always re-read the config to ensure we have the latest state
-        clear_config_cache()
-        config = read_config(use_cache=False)
-        
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-        
-        # Get POIs in the current category
-        category_pois = get_pois_by_category(current_poi_category)
-        
-        # If no POIs in the category, notify user
-        if not category_pois:
-            speaker.speak("No POIs available in the current category")
-            return
-        
-        # Sort POIs by position (preserves config order for game objects)
-        sorted_pois = sort_pois_by_position(category_pois)
-        
-        # Get current selected POI directly from config
-        selected_poi_str = config.get('POI', 'selected_poi', fallback='closest, 0, 0')
-        selected_poi_parts = selected_poi_str.split(',')
-        selected_poi_name = selected_poi_parts[0].strip()
-        
-        # Find index of current POI
-        current_index = -1
-        for i, poi in enumerate(sorted_pois):
-            if poi[0].lower() == selected_poi_name.lower():
-                current_index = i
-                break
-        
-        # If not found, default to first POI
-        if current_index == -1:
-            current_index = 0
-        
-        # Calculate new index with wrapping
-        if direction == "backwards":
-            new_index = (current_index - 1) % len(sorted_pois)
-        else:  # forwards
-            new_index = (current_index + 1) % len(sorted_pois)
-        
-        # Get new POI
-        new_poi = sorted_pois[new_index]
-        
-        # Use thread-safe config operations
-        config_adapter = Config()
-        config_adapter.set_poi(new_poi[0], new_poi[1], new_poi[2])
-        success = config_adapter.save()
-        
-        if success:
-            # Update our global config reference
-            clear_config_cache()
-            config = read_config(use_cache=False)
-            
-            # Get position description if not a special POI or game object
-            position_desc = ""
-            if (new_poi[0].lower() not in [SPECIAL_POI_CLOSEST.lower(), SPECIAL_POI_SAFEZONE.lower(), 
-                                          SPECIAL_POI_CLOSEST_LANDMARK.lower()] 
-                and new_poi[1] != "0" and new_poi[2] != "0"):
-                position_desc = get_poi_position_description(new_poi)
-                if position_desc:
-                    position_desc = f", {position_desc}"
-            
-            # Announce selection
-            display_poi_name = get_display_poi_name(new_poi[0])
-            speaker.speak(f"{display_poi_name}{position_desc}")
-        else:
-            speaker.speak("Error saving POI selection")
-            
-    except Exception as e:
-        print(f"Error cycling POI: {e}")
-        speaker.speak("Error cycling POIs")
-
-def cycle_map(direction: str = "forwards"):
-    """Cycle to the next/previous map with safe config handling"""
-    global config, poi_data_instance, current_poi_category, active_pinger
-    if active_pinger:
-        active_pinger.stop()
-        active_pinger = None
-        speaker.speak("Continuous ping disabled.")
-    
-    try:
-        # Always re-read the config to ensure we have the latest state
-        clear_config_cache()
-        config = read_config(use_cache=False)
-        
-        if poi_data_instance is None:
-            poi_data_instance = POIData()
-
-        # Get the current map from config
-        current_map = config.get('POI', 'current_map', fallback='main')
-        
-        # Get a sorted list of all available maps
-        all_maps = sorted(poi_data_instance.maps.keys())
-        
-        # Find the index of the current map
-        try:
-            current_index = all_maps.index(current_map)
-        except ValueError:
-            current_index = 0
-        
-        # Calculate the new index with wrapping
-        if direction == "backwards":
-            new_index = (current_index - 1) % len(all_maps)
-        else:  # forwards
-            new_index = (current_index + 1) % len(all_maps)
-        
-        # Get the new map name
-        new_map = all_maps[new_index]
-        
-        # Remember current category - don't change it when switching maps
-        previous_category = current_poi_category
-        
-        # Try to get POIs in the current category for the new map
-        # Temporarily update the config to check POIs
-        temp_config = config
-        temp_config.set('POI', 'current_map', new_map)
-        category_pois = get_pois_by_category(previous_category)
-        
-        # If no POIs in the current category on the new map, fall back to special category
-        if not category_pois:
-            current_poi_category = POI_CATEGORY_SPECIAL
-            category_pois = get_pois_by_category(POI_CATEGORY_SPECIAL)
-        
-        # Reset selected POI to first one in the category
-        if category_pois:
-            sorted_pois = sort_pois_by_position(category_pois)
-            first_poi = sorted_pois[0]
-            selected_poi_value = f"{first_poi[0]}, {first_poi[1]}, {first_poi[2]}"
-        else:
-            # If no POIs found at all, reset to closest
-            selected_poi_value = "closest, 0, 0"
-        
-        # Use thread-safe config operations
-        config_adapter = Config()
-        config_adapter.set_current_map(new_map)
-        config_adapter.set_poi(*selected_poi_value.split(', '))
-        success = config_adapter.save()
-        
-        if success:
-            # Update our global config reference
-            clear_config_cache()
-            config = read_config(use_cache=False)
-            
-            # Get display name for announcement
-            try:
-                display_name = poi_data_instance.maps[new_map].name
-            except (KeyError, AttributeError):
-                display_name = new_map.replace('_', ' ').title()
-                
-            speaker.speak(f"{display_name} map selected")
-        else:
-            speaker.speak("Error saving map selection")
-            
-    except Exception as e:
-        print(f"Error cycling map: {e}")
-        speaker.speak("Error cycling maps")
-
-def handle_update_with_changelog() -> None:
-    """Handle update notification with changelog display option."""
-    local_changelog_path = 'CHANGELOG.txt'
-    
-    local_changelog_exists = os.path.exists(local_changelog_path)
-    
-    remote_changelog = None
-    try:
-        response = requests.get(CHANGELOG_URL, timeout=10)
-        response.raise_for_status()
-        remote_changelog = response.text
-    except requests.RequestException as e:
-        print(f"Failed to fetch remote changelog: {e}")
-        speaker.speak("FA11y has been updated! Closing in 5 seconds...")
-        print("FA11y has been updated! Closing in 5 seconds...")
-        time.sleep(5)
-        return
-    
-    changelog_updated = True
-    if local_changelog_exists:
-        try:
-            with open(local_changelog_path, 'r', encoding='utf-8') as f:
-                local_changelog = f.read()
-            changelog_updated = remote_changelog != local_changelog
-        except Exception as e:
-            print(f"Error reading local changelog: {e}")
-    
-    try:
-        with open(local_changelog_path, 'w', encoding='utf-8') as f:
-            f.write(remote_changelog)
-    except Exception as e:
-        print(f"Error saving changelog: {e}")
-    
-    if changelog_updated:
-        speaker.speak("FA11y has been updated! Open changelog? Press Y for yes, or any other key for no.")
-        print("FA11y has been updated! Open changelog? (Y/N)")
-        
-        try:
-            import msvcrt
-            key = msvcrt.getch().decode('utf-8', errors='ignore').lower()
-            
-            if key == 'y':
-                try:
-                    if sys.platform == 'win32':
-                        os.startfile(local_changelog_path)
-                    elif sys.platform == 'darwin':
-                        subprocess.call(['open', local_changelog_path])
-                    else:
-                        subprocess.call(['xdg-open', local_changelog_path])
-                except Exception as e:
-                    print(f"Failed to open changelog: {e}")
-                    speaker.speak("Failed to open changelog. Closing in 5 seconds...")
-                    print("Failed to open changelog. Closing in 5 seconds...")
-                    time.sleep(5)
-                    return
-            else:
-                speaker.speak("Closing in 5 seconds...")
-                print("Closing in 5 seconds...")
-        except:
-            print("Press Y and Enter to open changelog, or just Enter to close")
-            response = input().strip().lower()
-            if response == 'y':
-                try:
-                    if sys.platform == 'win32':
-                        os.startfile(local_changelog_path)
-                    elif sys.platform == 'darwin':
-                        subprocess.call(['open', local_changelog_path])
-                    else:
-                        subprocess.call(['xdg-open', local_changelog_path])
-                except Exception as e:
-                    print(f"Failed to open changelog: {e}")
-            
-        time.sleep(5)
-    else:
-        speaker.speak("FA11y has been updated! Closing in 5 seconds...")
-        print("FA11y has been updated! Closing in 5 seconds...")
-        time.sleep(5)
+# Updater + auth-watcher bodies moved to lib/app/. Expose thin wrappers
+# so the existing call sites in this file keep working unchanged.
 
 def run_updater() -> bool:
-    """Run the updater script."""
-    result = subprocess.run([sys.executable, 'updater.py', '--run-by-fa11y'], capture_output=True, text=True)
-    update_performed = result.returncode == 1
-    
-    if update_performed:
-        handle_update_with_changelog()
-        
-    return update_performed
+    return _run_updater_ext(speaker)
 
-def get_version() -> str:
-    """Get version from GitHub repository with cache-busting."""
-    try:
-        response = requests.get(VERSION_URL, timeout=10, params={"t": int(time.time())})
-        response.raise_for_status()
-        return response.text.strip()
-    except requests.RequestException as e:
-        print(f"Failed to fetch version from GitHub: {e}")
-        return None
+def get_version() -> Optional[str]:
+    return _get_version_ext()
 
 def parse_version(version: str) -> tuple:
-    """Parse version string into tuple."""
-    return tuple(map(int, version.split('.')))
+    return _parse_version_ext(version)
 
 def check_for_updates() -> None:
-    """Periodically check for updates with shutdown awareness."""
-    last_announced_remote_version = None
-
-    while not _shutdown_requested.is_set():
-        # Check for shutdown request every 0.1 seconds during the 15-second wait
-        for _ in range(150):  # 15 seconds = 150 * 0.1 second checks
-            if _shutdown_requested.is_set():
-                return
-            time.sleep(0.1)
-
-        if _shutdown_requested.is_set():
-            return
-
-        local_version = None
-        if os.path.exists('VERSION'):
-            with open('VERSION', 'r') as f:
-                local_version = f.read().strip()
-
-        remote_version = get_version()
-
-        if not local_version:
-            pass  # Reduce spam
-        elif not remote_version:
-            pass  # Reduce spam
-        else:
-            try:
-                local_v = parse_version(local_version)
-                remote_v = parse_version(remote_version)
-                if local_v < remote_v:
-                    if remote_version != last_announced_remote_version and not _shutdown_requested.is_set():
-                        update_sound.play()
-                        speaker.speak("An update is available for FA11y! Restart FA11y to update!")
-                        print("An update is available for FA11y! Restart FA11y to update!")
-                        last_announced_remote_version = remote_version
-                elif local_v >= remote_v:
-                    last_announced_remote_version = None
-            except ValueError:
-                pass  # Reduce spam
+    _check_for_updates_ext(speaker, _shutdown_requested, update_sound)
 
 def check_auth_expiration() -> None:
-    """Proactively check if Epic auth token is about to expire and refresh it."""
-    # Wait for initial auth to complete before starting checks
-    time.sleep(30)
+    _check_auth_expiration_ext(_shutdown_requested, _on_auth_success)
 
-    while not _shutdown_requested.is_set():
-        # Check every 60 seconds
-        for _ in range(600):  # 60 seconds = 600 * 0.1 second checks
-            if _shutdown_requested.is_set():
-                return
-            time.sleep(0.1)
-
-        if _shutdown_requested.is_set():
-            return
-
-        try:
-            from lib.utilities.epic_auth import get_epic_auth_instance
-            from lib.config.config_manager import config_manager
-            epic_auth = get_epic_auth_instance()
-
-            if not epic_auth.access_token or not epic_auth.is_valid:
-                continue
-
-            auth_data = config_manager.get('epic_auth')
-            if not auth_data:
-                continue
-
-            expiry_str = auth_data.get('expires_at')
-            if not expiry_str:
-                continue
-
-            from datetime import datetime as dt, timedelta as td
-            expiry = dt.fromisoformat(expiry_str)
-            time_until_expiry = expiry - dt.now()
-
-            if time_until_expiry <= td(minutes=5):
-                logger.info(f"Token expires in {time_until_expiry}. Attempting proactive refresh...")
-                if epic_auth.refresh_access_token():
-                    logger.info("Proactive token refresh succeeded")
-                    _on_auth_success(epic_auth)
-                else:
-                    logger.warning("Proactive token refresh failed; will fall back on 401 handling")
-        except Exception as e:
-            logger.error(f"Error in auth expiration check: {e}")
-
-def get_legendary_username() -> str:
-    """Get username from Legendary launcher."""
-    try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        os.chdir(script_dir)
-
-        result = subprocess.run(["legendary", "status"], capture_output=True, text=True)
-        if result.returncode == 0:
-            output = result.stdout
-            for line in output.splitlines():
-                if "Epic account:" in line:
-                    username = line.split("Epic account:")[1].strip()
-                    if username and username != "<not logged in>":
-                        return username
-        return None
-    except Exception as e:
-        print(f"Failed to run 'legendary status': {str(e)}")
-        return None
+def get_legendary_username() -> Optional[str]:
+    return _get_legendary_username_ext()
 
 def validate_epic_auth(epic_auth) -> bool:
-    """
-    Validate Epic auth token with a test API request
-
-    Args:
-        epic_auth: EpicAuth instance to validate
-
-    Returns:
-        True if token is valid, False otherwise
-    """
-    if not epic_auth or not epic_auth.access_token:
-        return False
-
-    try:
-        import requests
-        # Make a lightweight API request to test the token
-        response = requests.get(
-            f"https://account-public-service-prod.ol.epicgames.com/account/api/public/account/{epic_auth.account_id}",
-            headers={'Authorization': f'Bearer {epic_auth.access_token}'},
-            timeout=5
-        )
-
-        if response.status_code == 401:
-            logger.debug("Epic auth token expired (401 response)")
-            return False
-        elif response.status_code == 200:
-            logger.debug("Epic auth token validated successfully")
-            return True
-        else:
-            logger.warning(f"Unexpected status during auth validation: {response.status_code}")
-            # For other errors, assume token might still be valid
-            return True
-
-    except Exception as e:
-        logger.warning(f"Error validating Epic auth token: {e}")
-        # If we can't validate, assume valid to avoid blocking
-        return True
-
-
-# Removed: attempt_cookie_auth_before_gui - now using wx WebView's native cookie management
+    return _validate_epic_auth_ext(epic_auth)
 
 def main() -> None:
     """Main entry point for FA11y with instant shutdown capability."""
@@ -2422,8 +797,9 @@ def main() -> None:
         auth_check_thread = threading.Thread(target=check_auth_expiration, daemon=True)
         auth_check_thread.start()
 
-        # Start auxiliary systems - all as daemon threads
-        threading.Thread(target=start_height_monitor, daemon=True).start()
+        # Start auxiliary systems — height_monitor is a BaseMonitor that
+        # spawns its own daemon thread, so no outer wrapper needed.
+        start_height_monitor()
         
         # Start monitoring systems
         monitor.start_monitoring()

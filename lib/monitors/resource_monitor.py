@@ -58,12 +58,13 @@ class ResourceState:
             
         return True
 
-class ResourceMonitor:
+from lib.monitors.base import BaseMonitor
+
+
+class ResourceMonitor(BaseMonitor):
     def __init__(self):
+        super().__init__()
         self.speaker = Auto()
-        self.running = False
-        self.stop_event = Event()
-        self.thread = None
         self.lock = Lock()
         self._mss_instance = None
         self.active_resources: Dict[str, ResourceState] = {}
@@ -220,7 +221,7 @@ class ResourceMonitor:
         """Capture a screen region via shared ScreenshotManager."""
         return screenshot_manager.capture_region(region, convert_format='raw')
 
-    def monitor_loop(self):
+    def _monitor_loop(self):
         try:
             while not self.stop_event.is_set():
                 try:
@@ -318,18 +319,7 @@ class ResourceMonitor:
         finally:
             pass  # ScreenshotManager handles mss lifecycle
 
-    def start_monitoring(self):
-        if not self.running:
-            self.running = True
-            self.stop_event.clear()
-            self.thread = Thread(target=self.monitor_loop, daemon=True)
-            self.thread.start()
-
-    def stop_monitoring(self):
-        self.stop_event.set()
-        self.running = False
-        if self.thread:
-            self.thread.join(timeout=1.0)
+    # Lifecycle inherited from BaseMonitor
 
 # Create a single instance
 resource_monitor = ResourceMonitor()

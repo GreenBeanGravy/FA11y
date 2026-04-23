@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Tuple
 import wx
 
 from lib.guis.stw.base import StwSubDialog, speak_later
-from lib.utilities.stw_api import format_template_display, parse_template_name
+from lib.stw.api import format_template_display, parse_template_name
 
 logger = logging.getLogger(__name__)
 

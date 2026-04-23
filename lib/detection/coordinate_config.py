@@ -5,8 +5,10 @@ This module provides map-specific screen coordinates for different Fortnite seas
 Coordinates are used for minimap detection, health/shield detection, hotbar detection, etc.
 """
 
-from typing import Dict, Tuple, List, Any
-from dataclasses import dataclass
+from typing import Dict, Tuple, List, Any, Optional
+from dataclasses import dataclass, field
+
+from lib.detection.feature_matcher import DetectorType, MatcherConfig
 
 
 @dataclass
@@ -50,6 +52,16 @@ class CoordinateSet:
     minimap: MinimapCoords
     health_shield: HealthShieldCoords
     hotbar: HotbarCoords
+    # Conversion factor for player_position distance calculations:
+    # ``distance_meters = pixel_vector_norm * px_to_meters``.
+    # Empirically 2.65 on current-season maps at 1920x1080. Split out here so
+    # a rework of the detector per-map only has to retune this number.
+    px_to_meters: float = 2.65
+    # Per-map feature-matching overrides. ``None`` = use the global defaults
+    # (from config ``[POI] feature_detector`` / ``feature_clahe``). Set this
+    # for maps with known detector preferences — e.g. reload arenas where
+    # AKAZE + CLAHE outperforms SIFT on the purple / berry terrain.
+    matcher_override: Optional[MatcherConfig] = None
 
 
 # ==============================================================================
@@ -165,14 +177,69 @@ CURRENT_COORDINATES = CoordinateSet(
 # MAP NAME MAPPINGS
 # ==============================================================================
 
-# Map identifiers that should use OG coordinates
-OG_MAP_IDENTIFIERS = {'og', 'reload', 'season_og', 'fortnite_og', 'o g'}
+# Map identifiers that should use OG coordinates. Includes the canonical
+# underscore slug ``o_g`` (what the config stores today) as well as legacy
+# spaced / alt forms for migration safety.
+OG_MAP_IDENTIFIERS = {'og', 'reload', 'season_og', 'fortnite_og', 'o g', 'o_g'}
 
 # Coordinate registry
 COORDINATE_REGISTRY: Dict[str, CoordinateSet] = {
     'og': OG_COORDINATES,
+    'o_g': OG_COORDINATES,
     'current': CURRENT_COORDINATES,
     'main': CURRENT_COORDINATES,  # Default main map uses current coordinates
+}
+
+
+# ==============================================================================
+# PER-MAP FEATURE-MATCHER OVERRIDES
+# ==============================================================================
+# Chosen based on ``python dev_tools/feature_match_bench.py`` runs against
+# the map .pngs we ship. The bench uses synthetic 250x250 crops from each
+# map — that tends to favour SIFT because there's no UI overlay, no zoom
+# mismatch, no compression. Real in-game performance may prefer AKAZE in
+# harder-to-match conditions (partial occlusion, scale drift).
+#
+# Summary of bench takeaways (success rate @ 20 synthetic crops):
+#
+#   * Main/OG: SIFT 100%, AKAZE 100%. SIFT kept (backward compat).
+#   * reload_elite_stronghold: SIFT and AKAZE both 100%, but AKAZE is ~3×
+#     faster AND user-reported real-world issues. AKAZE+CLAHE override.
+#   * blitz_stranger_things (snow-heavy): SIFT 60%, SIFT+CLAHE 80%. Big
+#     CLAHE win → force CLAHE on. Keep SIFT detector.
+#   * Other reload arenas (venture/oasis/slurp_rush/surfcity): SIFT
+#     outperforms AKAZE on synthetic crops (85–95% vs 75–80%). Keep SIFT
+#     default — users can flip to AKAZE globally via [POI] feature_detector
+#     if real-world data tells a different story.
+#
+# Users can change the global default at runtime via [POI] feature_detector
+# and [POI] feature_clahe in config.txt. A per-map override defined here
+# takes precedence over the global setting.
+
+_AKAZE_CLAHE = MatcherConfig(
+    detector=DetectorType.AKAZE,
+    akaze_threshold=0.0008,    # Slightly lower than default — more keypoints
+    preprocess_clahe=True,
+    clahe_clip_limit=2.5,
+    lowe_ratio=0.80,           # AKAZE matches are tighter; loosen the ratio
+    min_good_matches=15,       # AKAZE typically produces fewer matches overall
+)
+
+_SIFT_CLAHE = MatcherConfig(
+    detector=DetectorType.SIFT,
+    sift_contrast_threshold=0.02,  # Even more permissive than ppi.py default
+    preprocess_clahe=True,
+    clahe_clip_limit=2.5,
+    lowe_ratio=0.75,
+    min_good_matches=20,
+)
+
+MAP_MATCHER_OVERRIDES: Dict[str, MatcherConfig] = {
+    'reload_elite_stronghold': _AKAZE_CLAHE,  # New map, user-reported issues
+    'blitz_stranger_things':   _SIFT_CLAHE,   # Snow-heavy; CLAHE +20pp success
+    # Other reload arenas intentionally NOT overridden — synthetic bench
+    # favours SIFT and they've been fine in production. Revisit if real
+    # minimap capture data shows otherwise.
 }
 
 
@@ -218,6 +285,20 @@ def get_health_shield_coords(map_name: str = 'main') -> HealthShieldCoords:
 def get_hotbar_coords(map_name: str = 'main') -> HotbarCoords:
     """Get hotbar coordinates for the specified map."""
     return get_coordinates(map_name).hotbar
+
+
+def get_px_to_meters(map_name: str = 'main') -> float:
+    """Pixel-to-meters scaling factor for the given map."""
+    return get_coordinates(map_name).px_to_meters
+
+
+def get_matcher_config(map_name: str = 'main') -> Optional[MatcherConfig]:
+    """Return the per-map feature-matcher override, if any.
+
+    ``None`` means: use whatever the global config (POI.feature_detector +
+    POI.feature_clahe) says.
+    """
+    return MAP_MATCHER_OVERRIDES.get(map_name.lower().strip())
 
 
 def get_minimap_region(map_name: str = 'main') -> Dict[str, int]:

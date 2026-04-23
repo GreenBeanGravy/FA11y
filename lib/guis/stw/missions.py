@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 import wx
 
 from lib.guis.stw.base import StwSubDialog, confirm, speak_later
-from lib.utilities.stw_world_info import MissionAlert, WorldInfoAPI
+from lib.stw.world_info import MissionAlert, WorldInfoAPI
 
 logger = logging.getLogger(__name__)
 

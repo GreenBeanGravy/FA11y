@@ -113,17 +113,23 @@ class DynamicObjectAudioThread:
         except Exception:
             pass
 
-class DynamicObjectMonitor:
-    """Background monitor for nearby dynamic objects with spatial audio"""
-    
+from lib.monitors.base import BaseMonitor
+
+
+class DynamicObjectMonitor(BaseMonitor):
+    """Background monitor for nearby dynamic objects with spatial audio.
+
+    The detection thread (inherited lifecycle) manages a fleet of per-object
+    ``DynamicObjectAudioThread`` instances kept in ``self.active_audio_threads``.
+    Stopping the monitor tears the fleet down.
+    """
+
+    _JOIN_TIMEOUT = 3.0  # detection loop does heavier work; give it more time
+
     def __init__(self):
+        super().__init__()
         self.speaker = Auto()
-        self.running = False
-        self.stop_event = threading.Event()
-        
-        # Separate threads for detection and audio management
-        self.detection_thread = None
-        
+
         # Audio system for dynamic objects
         self.audio_instances = {}
         self.default_audio = None
@@ -230,7 +236,7 @@ class DynamicObjectMonitor:
         """Check if audio should play based on distance"""
         return distance > self.min_distance_for_audio
     
-    def detection_loop(self):
+    def _monitor_loop(self):
         """Dedicated thread for object detection with fixed timing"""
         last_detection_time = 0
         
@@ -326,31 +332,18 @@ class DynamicObjectMonitor:
             audio_thread.stop()
         self.active_audio_threads.clear()
     
-    def start_monitoring(self):
-        """Start the dynamic object monitoring"""
-        if not self.running:
-            self.running = True
-            self.stop_event.clear()
-            
-            self.detection_thread = threading.Thread(target=self.detection_loop, daemon=True)
-            self.detection_thread.start()
-    
+    # start_monitoring inherited from BaseMonitor
+
     def stop_monitoring(self):
-        """Stop the dynamic object monitoring"""
-        self.stop_event.set()
-        self.running = False
-        
+        """Tear down the per-object audio fleet, then let BaseMonitor
+        stop the detection thread, then release the shared audio slots."""
         self.cleanup_all_audio_threads()
-        
-        if self.detection_thread:
-            self.detection_thread.join(timeout=3.0)
-        
+        super().stop_monitoring()
         if self.default_audio:
             try:
                 self.default_audio.stop()
             except Exception:
                 pass
-        
         for audio_instance in self.audio_instances.values():
             try:
                 audio_instance.stop()

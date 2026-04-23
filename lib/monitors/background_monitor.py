@@ -7,12 +7,14 @@ from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
 from lib.managers.screenshot_manager import screenshot_manager as _ss_mgr
 
-class BackgroundMonitor:
+from lib.monitors.base import BaseMonitor
+
+
+class BackgroundMonitor(BaseMonitor):
     def __init__(self):
+        super().__init__()
         self.speaker = Auto()
-        self.running = False
-        self.thread = None
-        
+
         # Thread-local storage for MSS - use a lock to ensure thread safety
         self.thread_local = threading.local()
         self.mss_lock = threading.Lock()
@@ -177,10 +179,10 @@ class BackgroundMonitor:
             if current_time - self.last_error_time > self.error_cooldown:
                 self.last_error_time = current_time
 
-    def monitor_loop(self):
+    def _monitor_loop(self):
         """Main monitoring loop with performance optimizations."""
         try:
-            while self.running:
+            while not self.stop_event.is_set():
                 try:
                     if self.announce_map:
                         self.check_map_status()
@@ -195,23 +197,9 @@ class BackgroundMonitor:
             # Ensure cleanup on exit
             self.cleanup_mss()
 
-    def start_monitoring(self):
-        """Start the background monitoring thread."""
-        if not self.running:
-            self.running = True
-            self.stop_event = threading.Event()
-            self.thread = threading.Thread(target=self.monitor_loop, daemon=True)
-            self.thread.start()
-
     def stop_monitoring(self):
-        """Stop the background monitoring thread."""
-        self.running = False
-        if hasattr(self, 'stop_event'):
-            self.stop_event.set()
-        if self.thread:
-            self.thread.join(timeout=1.0)
-            
-        # Clean up MSS instances
+        """Stop the thread via BaseMonitor, then clean up mss instances."""
+        super().stop_monitoring()
         self.cleanup_mss()
 
 # Create a single instance

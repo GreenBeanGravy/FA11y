@@ -105,7 +105,140 @@ def migrate_config_files():
     if migrated_count > 0:
         print(f"Migration complete: {migrated_count} files moved to config/ folder")
 
+    _migrate_current_map_slug()
+
     return migrated_count > 0
+
+
+def _write_slug_migration_backup(src_path: str) -> None:
+    """Stash a ``.premigration`` copy before we rewrite a user data file.
+
+    Unlike the rolling ``.backup`` file FavoritesManager keeps (cleared on
+    every successful save), ``.premigration`` is intentionally long-lived —
+    it only gets created once, the first time this migration touches the
+    file. If a user ever needs to recover the legacy-slug version (e.g.
+    they rolled back to an older FA11y build), the snapshot is sitting
+    right there next to the live file.
+    """
+    backup_path = f"{src_path}.premigration"
+    if os.path.exists(backup_path):
+        return  # already captured on a prior run — don't clobber it
+    try:
+        import shutil
+        shutil.copy2(src_path, backup_path)
+    except Exception as e:
+        print(f"slug migration: could not write backup {backup_path}: {e}")
+
+
+def _migrate_current_map_slug():
+    """One-time rewrite of every persisted ``map_name`` to the canonical
+    underscore slug.
+
+    Legacy installs stored values like ``"reload venture"`` (space). After
+    the 18.7 map rename, maps/ filenames and ``[POI] current_map`` use the
+    canonical ``reload_venture`` (underscore). Three stores on disk carry
+    map_name values that need migrating in lockstep or existing per-map
+    data (favorites, custom POIs) silently disappears when the filter
+    below stops matching:
+
+    * ``config/config.txt`` → ``[POI] current_map``
+    * ``config/FAVORITE_POIS.txt`` → JSON array, ``map_name`` field per entry
+    * ``config/CUSTOM_POI.txt`` → CSV, ``map_name`` is the 4th column
+
+    Before each rewrite a ``.premigration`` snapshot is saved alongside
+    the live file so an older FA11y build can still be rolled back to.
+    Safe to call multiple times — it's a no-op once everything is canonical.
+    """
+    try:
+        from lib.utilities.map_rotation import normalize_map_slug
+    except Exception as e:
+        print(f"slug migration: normalize_map_slug unavailable: {e}")
+        return
+
+    # 1. config.txt :: [POI] current_map
+    cfg_path = os.path.join('config', 'config.txt')
+    if os.path.exists(cfg_path):
+        try:
+            cp = configparser.ConfigParser(interpolation=None)
+            cp.read(cfg_path, encoding='utf-8')
+            if cp.has_section('POI'):
+                raw = cp.get('POI', 'current_map', fallback='main')
+                canon = normalize_map_slug(raw)
+                if canon != raw:
+                    _write_slug_migration_backup(cfg_path)
+                    cp.set('POI', 'current_map', canon)
+                    with open(cfg_path, 'w', encoding='utf-8') as f:
+                        cp.write(f)
+                    print(
+                        f"Migrated current_map slug: '{raw}' -> '{canon}' "
+                        f"(backup at {cfg_path}.premigration)"
+                    )
+        except Exception as e:
+            print(f"current_map slug migration failed: {e}")
+
+    # 2. FAVORITE_POIS.txt :: JSON entries, "map_name" per entry
+    fav_path = os.path.join('config', 'FAVORITE_POIS.txt')
+    if os.path.exists(fav_path):
+        try:
+            import json
+            with open(fav_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                migrated_count = 0
+                for entry in data:
+                    if not isinstance(entry, dict):
+                        continue
+                    old = entry.get('map_name')
+                    if not isinstance(old, str):
+                        continue
+                    new = normalize_map_slug(old)
+                    if new != old:
+                        entry['map_name'] = new
+                        migrated_count += 1
+                if migrated_count:
+                    _write_slug_migration_backup(fav_path)
+                    with open(fav_path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, indent=2)
+                    print(
+                        f"Migrated {migrated_count} favorite(s) to canonical "
+                        f"slugs (backup at {fav_path}.premigration)"
+                    )
+        except Exception as e:
+            print(f"favorites slug migration failed: {e}")
+
+    # 3. CUSTOM_POI.txt :: CSV lines, 4th column is map_name
+    cpoi_path = os.path.join('config', 'CUSTOM_POI.txt')
+    if os.path.exists(cpoi_path):
+        try:
+            with open(cpoi_path, 'r', encoding='utf-8') as f:
+                raw_lines = f.readlines()
+            new_lines = []
+            migrated_count = 0
+            for line in raw_lines:
+                stripped = line.rstrip('\n')
+                if not stripped.strip():
+                    new_lines.append(line)
+                    continue
+                parts = [p.strip() for p in stripped.split(',')]
+                if len(parts) >= 4:
+                    old = parts[3]
+                    new = normalize_map_slug(old)
+                    if new != old:
+                        parts[3] = new
+                        migrated_count += 1
+                    new_lines.append(','.join(parts) + '\n')
+                else:
+                    new_lines.append(line)
+            if migrated_count:
+                _write_slug_migration_backup(cpoi_path)
+                with open(cpoi_path, 'w', encoding='utf-8') as f:
+                    f.writelines(new_lines)
+                print(
+                    f"Migrated {migrated_count} custom POI(s) to canonical "
+                    f"slugs (backup at {cpoi_path}.premigration)"
+                )
+        except Exception as e:
+            print(f"custom-POI slug migration failed: {e}")
 
 def get_dynamic_object_configs():
     """Get dynamic object configurations for dynamic config generation"""
@@ -364,7 +497,9 @@ AnnounceSTWMatchRewards = true "Announce Save the World end-of-match rewards: co
 
 [POI]
 selected_poi = closest, 0, 0
-current_map = main"""
+current_map = main
+feature_detector = sift "Feature-matching algorithm for position detection on maps without a hard-coded override. Options: sift (default, best in varied terrain), akaze (better on low-contrast / uniform terrain like reload arenas and snow), orb (fastest, lower accuracy)."
+feature_clahe = false "Apply CLAHE histogram equalization before feature matching. Dramatically improves match rate on snow / ice / sand / other low-contrast terrain at a ~0.5 ms cost. Reload arenas already have this enabled per-map." """
 
     # Add map-specific game objects sections
     maps_with_objects = get_maps_with_game_objects()
@@ -384,11 +519,21 @@ current_map = main"""
 
 DEFAULT_CONFIG = get_default_config()
 
-# Register app_config with ConfigManager for optional use
-# This allows code to use config_manager.get('app_config', key) if preferred
-# while keeping backward compatibility with read_config/save_config
-config_manager.register('app_config', CONFIG_FILE, format='ini',
-                       default=DEFAULT_CONFIG, cache_timeout=1.0)
+# Register app_config with ConfigManager as a ``custom`` format delegating
+# to the legacy ``read_config`` / ``save_config`` helpers in this module.
+# This unifies the two config paths — both ``config_manager.get('app_config')``
+# and ``read_config()`` now hit the same on-disk source and the same
+# in-memory cache (the legacy ``_config_cache``), so there's no drift.
+#
+# ``cache_timeout=0`` disables ConfigManager's own cache; every get()
+# re-enters ``read_config()`` which carries the authoritative 1-second
+# cache. Single cache, single source.
+config_manager.register(
+    'app_config', CONFIG_FILE, format='custom',
+    default=None, cache_timeout=0.0,
+    custom_loader=lambda _filename: read_config(),
+    custom_saver=lambda _filename, parser: save_config(parser),
+)
 
 def _create_config_parser_with_case_preserved() -> configparser.ConfigParser:
     """Create a ConfigParser that preserves case for keys"""
@@ -680,16 +825,11 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
                 print("Warning: Could not save new config file")
             print(f"Created new config file: {CONFIG_FILE}")
         
-        # Update cache
+        # Update cache (ConfigManager's app_config registry delegates to
+        # this function via its custom_loader, so this is the one-and-only
+        # cache — no manual sync needed any more).
         _config_cache = config
         _config_cache_time = time.time()
-
-        # Also update ConfigManager's cache to keep them in sync
-        try:
-            config_manager._registries['app_config'].cache = config
-            config_manager._registries['app_config'].cache_time = time.time()
-        except Exception:
-            pass  # Silently fail if ConfigManager isn't available
 
         return config
 
@@ -1126,8 +1266,9 @@ class Config:
         self.set_value('selected_poi', f"{name}, {x}, {y}", 'POI')
     
     def set_current_map(self, map_name):
-        """Set the current map"""
-        self.set_value('current_map', map_name, 'POI')
+        """Set the current map (always stored as a canonical underscore slug)."""
+        from lib.utilities.map_rotation import normalize_map_slug
+        self.set_value('current_map', normalize_map_slug(map_name), 'POI')
     
     def save(self):
         """Save configuration to file with thread-safe locking"""

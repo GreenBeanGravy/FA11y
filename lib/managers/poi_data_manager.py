@@ -26,12 +26,13 @@ _favorites_lock = threading.RLock()
 class CoordinateSystem:
     """Handles coordinate transformation between world and screen coordinates"""
 
-    def __init__(self, poi_file="pois.txt"):
+    def __init__(self, poi_file=os.path.join("maps", "map_main_pois.txt")):
         """
         Initialize the coordinate system.
 
         Args:
-            poi_file: Path to the POI file containing reference points
+            poi_file: Path to the POI file containing reference points (pipe-delimited
+                      with world coords; defaults to the main-map file under maps/).
         """
         self.poi_file = poi_file
         self.REFERENCE_PAIRS = self._load_reference_pairs()
@@ -291,9 +292,10 @@ class POIData:
             self._load_local_pois()
 
     def _load_local_pois(self):
-        """Load POIs from local pois.txt file."""
+        """Load POIs from local main-map file (pipe-delimited with world coords)."""
+        path = os.path.join("maps", "map_main_pois.txt")
         try:
-            with open('pois.txt', 'r', encoding='utf-8') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 for line in f:
                     parts = line.strip().split('|')
                     if len(parts) == 3:
@@ -306,7 +308,7 @@ class POIData:
             self.maps["main"].pois = self.main_pois
 
         except FileNotFoundError:
-            logger.warning("Local pois.txt file not found")
+            logger.warning(f"Local main POIs file not found at {path}")
         except Exception as e:
             logger.error(f"Error loading main POIs from file: {e}")
 

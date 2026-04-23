@@ -15,7 +15,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import wx
 
 from lib.guis.stw.base import StwSubDialog, explain_api_error, speak_later
-from lib.utilities.stw_api import (
+from lib.stw.api import (
     FORT_STAT_DISPLAY,
     FORT_STAT_ORDER,
     format_perk,
