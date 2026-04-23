@@ -905,14 +905,22 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
                 # Use user's value but update the description from default
                 user_value_str = current_config.get(section, key)
                 user_value_part = user_value_str.split('"')[0].strip()
-                
+
                 default_desc = ""
                 if '"' in default_full_value:
                     default_desc = default_full_value.split('"', 1)[1]
                     if default_desc.endswith('"'):
                         default_desc = default_desc[:-1]
-                
-                final_value = f'{user_value_part} "{default_desc}"'
+
+                # For empty-value keybinds (user_value_part == ""), we must
+                # not prepend a space — configparser strips leading spaces
+                # on read, so ``' "desc"'`` round-trips to ``'"desc"'`` and
+                # update_config would save every single call. Match the
+                # shape configparser actually stores when there's no value.
+                if user_value_part:
+                    final_value = f'{user_value_part} "{default_desc}"'
+                else:
+                    final_value = f'"{default_desc}"'
                 updated_config.set(section, key, final_value)
             else:
                 # User is missing this key, add it from default
