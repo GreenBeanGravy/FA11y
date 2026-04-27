@@ -79,9 +79,9 @@ class ResourceMonitor(BaseMonitor):
 
     def load_resource_templates(self):
         templates = {}
-        mats_folder = Path("mats")
+        mats_folder = Path("assets") / "mats"
         materials = ['wood', 'stone', 'metal']
-        ammo_folder = Path("ammo")
+        ammo_folder = Path("assets") / "ammo"
         ammo_types = ['light_bullets', 'heavy_bullets', 'medium_bullets', 'shells', 'rockets']
         
         for folder, resources in [(mats_folder, materials), (ammo_folder, ammo_types)]:

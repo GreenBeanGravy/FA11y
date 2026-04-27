@@ -65,7 +65,8 @@ IGNORED_FILES = [
 
 # Folders to exclude from cleanup (will not be removed)
 EXCLUDED_FOLDERS = [
-    'sounds',       # Never remove custom sounds
+    'assets',       # Bundled visual / audio assets (sounds, ammo/mat/key templates, image cache)
+    'data',         # Bundled gamemodes and maps data
     '.git',         # Git repository
     '__pycache__',  # Python cache
     'whls',         # Local wheel files
@@ -399,7 +400,7 @@ def is_sound_file(file_path):
     """
     Checks if a file is in the sounds folder and is a sound file.
     """
-    return file_path.startswith('sounds/') and file_path.lower().endswith(('.ogg', '.wav', '.mp3'))
+    return file_path.startswith('assets/sounds/') and file_path.lower().endswith(('.ogg', '.wav', '.mp3'))
 
 def should_skip_file(file_path):
     """
@@ -838,25 +839,26 @@ def main():
         updates_available = any(update_results)
 
     # Special handling for sounds folder - only add missing files
+    sounds_dir = os.path.join('assets', 'sounds')
     sounds_updated = False
-    if 'sounds' not in os.listdir():
-        os.makedirs('sounds', exist_ok=True)
+    if not os.path.exists(sounds_dir):
+        os.makedirs(sounds_dir, exist_ok=True)
         sounds_updated = True
 
     # Check if we need to update the sounds folder by adding missing files
     try:
-        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/sounds?ref={GITHUB_BRANCH}"
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/assets/sounds?ref={GITHUB_BRANCH}"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         remote_sound_files = [file['name'] for file in response.json() if file['type'] == 'file']
 
-        existing_sounds = os.listdir('sounds') if os.path.exists('sounds') else []
+        existing_sounds = os.listdir(sounds_dir) if os.path.exists(sounds_dir) else []
 
         # Only download sounds that don't exist locally
         for sound_file in remote_sound_files:
             if sound_file not in existing_sounds:
-                sound_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/sounds/{sound_file}"
-                if download_file_to_path(sound_url, os.path.join('sounds', sound_file)):
+                sound_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/assets/sounds/{sound_file}"
+                if download_file_to_path(sound_url, os.path.join(sounds_dir, sound_file)):
                     print_info(f"Added missing sound file: {sound_file}")
                     sounds_updated = True
     except requests.RequestException as e:

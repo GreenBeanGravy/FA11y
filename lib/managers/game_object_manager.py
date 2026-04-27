@@ -36,7 +36,7 @@ class GameObjectManager:
         """Get the file path for a map's game objects file."""
         from lib.utilities.map_rotation import normalize_map_slug
         slug = normalize_map_slug(map_name)
-        return os.path.join('maps', f'map_{slug}_gameobjects.txt')
+        return os.path.join('data', 'maps', f'map_{slug}_gameobjects.txt')
     
     def _convert_image_coords_to_screen(self, image_x: float, image_y: float) -> Tuple[int, int]:
         """Convert image coordinates to screen coordinates
@@ -374,7 +374,7 @@ class GameObjectManager:
             file_path = self._get_game_object_file_path(map_name)
             try:
                 # Ensure maps directory exists
-                os.makedirs('maps', exist_ok=True)
+                os.makedirs(os.path.join('data', 'maps'), exist_ok=True)
                 
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(f"# Game objects for {map_name} map\n")

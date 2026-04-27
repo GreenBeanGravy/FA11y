@@ -54,7 +54,7 @@ USER_AGENT = (
 CACHE_TTL_SECONDS = 600
 
 # Display name -> FA11y map slug. Slugs are canonical: lowercase + underscores,
-# matching the files in ``maps/`` (e.g. ``map_reload_venture_pois.txt``).
+# matching the files in ``data/maps/`` (e.g. ``map_reload_venture_pois.txt``).
 # Extend as new Reload arenas rotate in.
 DISPLAY_TO_FA11Y_MAP = {
     "Venture":      "reload_venture",

@@ -60,7 +60,7 @@ from lib.monitors.background_monitor import monitor
 speaker = Auto()
 
 # Initialize spatial audio for POI sound
-spatial_poi = SpatialAudio('sounds/poi.ogg')
+spatial_poi = SpatialAudio('assets/sounds/poi.ogg')
 
 # pyautogui.FAILSAFE removed - no longer using pyautogui
 
@@ -948,7 +948,7 @@ def play_spatial_poi_sound(player_location, player_angle, poi_location):
     
     config = read_config()
     play_poi_sound_enabled = get_config_boolean(config, 'PlayPOISound', True)
-    if not play_poi_sound_enabled or not os.path.exists('sounds/poi.ogg'):
+    if not play_poi_sound_enabled or not os.path.exists('assets/sounds/poi.ogg'):
         return None
     
     # Get volume configuration

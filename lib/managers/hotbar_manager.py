@@ -32,7 +32,7 @@ def _get_main_map_items():
     if _main_map_items_cache is not None:
         return _main_map_items_cache, _main_map_items_lower_cache
     try:
-        loot_file = os.path.join("maps", "map_main_loot.txt")
+        loot_file = os.path.join("data", "maps", "map_main_loot.txt")
         with open(loot_file, 'r', encoding='utf-8') as f:
             items = [line.strip() for line in f if line.strip()]
         _main_map_items_cache = items
@@ -115,12 +115,10 @@ def _on_config_change(config):
 on_config_change(_on_config_change)
 
 # Directory configuration
-IMAGES_FOLDER = "images"
-ATTACHMENTS_FOLDER = "attachments"
+IMAGES_FOLDER = os.path.join("assets", "images")
 
 # Detection settings
 CONFIDENCE_THRESHOLD = 0.82  # Minimum confidence for positive detection
-ATTACHMENT_DETECTION_AREA = (1240, 1000, 1410, 1070)  # Area to scan for attachments
 # AMMO_Y_COORDS now loaded dynamically via get_ammo_y_coords()
 
 # Pattern for detecting the ammo count divider
@@ -194,7 +192,6 @@ class ImageCache:
 # Initialize global variables
 speaker = Auto()  # Text-to-speech output
 reference_images = {}  # Cached weapon images
-attachment_images = {}  # Attachment images
 image_cache = ImageCache()  # Image cache manager
 item_rarity_map = {}  # Map from item names to rarities
 rarity_map_initialized = False
@@ -369,29 +366,6 @@ def detect_rarity_by_color(slot_img):
         return max_rarity[0]
     return None
 
-def load_images(folder, is_attachment=False):
-    """
-    Load images from a folder (used for attachments only).
-    
-    Args:
-        folder (str): Path to the images folder
-        is_attachment (bool): Whether loading attachment images
-        
-    Returns:
-        dict: Dictionary of loaded images
-    """
-    images = {}
-    for filename in os.listdir(folder):
-        if filename.lower().endswith((".png", ".jpg", ".jpeg")):
-            img = cv2.imread(os.path.join(folder, filename))
-            if img is not None:
-                name = os.path.splitext(filename)[0]
-                if is_attachment:
-                    # Convert attachment images to binary for better matching
-                    _, img = cv2.threshold(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 254, 255, cv2.THRESH_BINARY)
-                images[name] = img
-    return images
-
 def load_reference_images():
     """
     Load weapon images from the cache file and resize them to slot dimensions.
@@ -418,17 +392,6 @@ def load_reference_images():
         img = image_cache.load_cached_image(image_name, cache_file)
         if img is not None:
             reference_images[name_without_ext] = cv2.resize(img, (slot_width, slot_height))
-
-def load_attachment_images():
-    """Load all attachment images from their respective folders."""
-    global attachment_images
-    for attachment_type in ["Scope", "Magazine", "Underbarrel", "Barrel"]:
-        folder_path = os.path.join(ATTACHMENTS_FOLDER, attachment_type)
-        if os.path.exists(folder_path):
-            attachment_images[attachment_type] = load_images(folder_path, is_attachment=True)
-        else:
-            print(f"Warning: Attachment folder not found: {folder_path}")
-            attachment_images[attachment_type] = {}
 
 def pixel_based_matching(screenshot, template, threshold=30):
     """
@@ -623,7 +586,6 @@ def detect_hotbar_item_thread(slot_index):
     # Load configuration
     config = read_config()
     current_map = config.get('POI', 'current_map', fallback='main')
-    announce_attachments_enabled = get_config_boolean(config, 'AnnounceWeaponAttachments', True)
     announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
 
     # Main map: OCR-based detection with 0.5s delay
@@ -640,10 +602,6 @@ def detect_hotbar_item_thread(slot_index):
 
             if ocr_manager.is_ready() and announce_ammo_enabled:
                 timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
-                timer_thread.start()
-
-            if announce_attachments_enabled:
-                timer_thread = Thread(target=timer_thread_function, args=(0.4, announce_attachments))
                 timer_thread.start()
         else:
             # Still try ammo even if name detection fails
@@ -679,11 +637,6 @@ def detect_hotbar_item_thread(slot_index):
         # Announce ammo if enabled
         if ocr_manager.is_ready() and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
-            timer_thread.start()
-
-        # Announce attachments if enabled
-        if announce_attachments_enabled:
-            timer_thread = Thread(target=timer_thread_function, args=(0.4, announce_attachments))
             timer_thread.start()
     else:
         # If no match in primary slot, check secondary slot
@@ -884,22 +837,6 @@ def announce_ammo_manually():
     else:
         speaker.speak("No ammo")
 
-def announce_attachments():
-    """Announce detected weapon attachments."""
-    if stop_event.is_set():
-        return
-    with mss() as sct:
-        detected_attachments = detect_attachments(sct)
-    if detected_attachments:
-        attachment_list = [f"a {detected_attachments[at_type]}" for at_type in ["Scope", "Magazine", "Underbarrel", "Barrel"] if at_type in detected_attachments]
-        if attachment_list:
-            attachment_message = "with "
-            if len(attachment_list) == 1:
-                attachment_message += attachment_list[0]
-            else:
-                attachment_message += ", ".join(attachment_list[:-1]) + f", and {attachment_list[-1]}"
-            speaker.speak(attachment_message)
-
 def is_white(pixel):
     """Check if a pixel is white (used for divider detection)."""
     return np.all(pixel[:3] == [255, 255, 255])
@@ -1074,57 +1011,15 @@ def detect_ammo_count(ammo_screenshot):
         print(f"Error in ammo detection: {e}")
     return None
 
-def detect_attachments(sct):
-    """
-    Detect weapon attachments from a screenshot.
-    
-    Args:
-        sct (mss.mss): Screenshot context
-        
-    Returns:
-        dict: Dictionary of detected attachments by type
-    """
-    try:
-        screenshot_rgba = np.array(sct.grab({'left': ATTACHMENT_DETECTION_AREA[0], 'top': ATTACHMENT_DETECTION_AREA[1], 
-                                        'width': ATTACHMENT_DETECTION_AREA[2] - ATTACHMENT_DETECTION_AREA[0], 
-                                        'height': ATTACHMENT_DETECTION_AREA[3] - ATTACHMENT_DETECTION_AREA[1]}))
-        if screenshot_rgba.shape[2] == 4:
-            screenshot = cv2.cvtColor(screenshot_rgba, cv2.COLOR_BGRA2BGR)
-        else:
-            screenshot = screenshot_rgba
-    except Exception as e:
-        print(f"Error grabbing attachment area screenshot: {e}")
-        return {}
-
-    _, binary_screenshot = cv2.threshold(cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY), 254, 255, cv2.THRESH_BINARY)
-    
-    detected_attachments = {}
-    
-    for attachment_type in ["Scope", "Magazine", "Underbarrel", "Barrel"]:
-        if attachment_type not in attachment_images or not attachment_images[attachment_type]:
-            continue
-        
-        best_match, best_score = max(
-            ((name, cv2.matchTemplate(binary_screenshot, template, cv2.TM_CCOEFF_NORMED).max())
-             for name, template in attachment_images[attachment_type].items()),
-            key=lambda x: x[1], default=(None, 0.0) 
-        )
-        
-        if best_score > CONFIDENCE_THRESHOLD:
-            detected_attachments[attachment_type] = best_match
-    
-    return detected_attachments
-
 def initialize_hotbar_detection():
     """
     Initialize the hotbar detection system.
-    
+
     Returns:
         bool: True if initialization successful, False otherwise
     """
     try:
         load_reference_images()
-        load_attachment_images()
         initialize_item_rarity_map()
         initialize_rarity_colors()
         return True

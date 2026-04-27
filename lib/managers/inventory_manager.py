@@ -196,7 +196,7 @@ class InventoryManager:
     def load_item_names(self):
         """Load item names from the cache file"""
         try:
-            images_folder = "images"
+            images_folder = os.path.join("assets", "images")
             cache_file = os.path.join(images_folder, "image_cache.pkl")
             
             if os.path.exists(cache_file):

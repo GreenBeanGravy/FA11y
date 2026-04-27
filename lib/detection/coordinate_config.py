@@ -42,7 +42,6 @@ class HotbarCoords:
     primary_slots: List[Tuple[int, int, int, int]]
     secondary_slots: List[Tuple[int, int, int, int]]
     consumable_count_area: Tuple[int, int, int, int]
-    attachment_detection_area: Tuple[int, int, int, int]
     ammo_y_coords: Dict[str, Tuple[int, int]]
 
 
@@ -108,7 +107,6 @@ OG_COORDINATES = CoordinateSet(
             (1828, 920, 1891, 964)   # Slot 5
         ],
         consumable_count_area=(1314, 927, 1392, 971),
-        attachment_detection_area=(1240, 1000, 1410, 1070),
         ammo_y_coords={
             'current': (929, 962),
             'reserve': (936, 962)
@@ -165,7 +163,6 @@ CURRENT_COORDINATES = CoordinateSet(
             (1828, 920, 1891, 964)   # Slot 5
         ],
         consumable_count_area=(1314, 927, 1392, 971),
-        attachment_detection_area=(1240, 1000, 1410, 1070),
         ammo_y_coords={
             'current': (929, 962),
             'reserve': (936, 962)

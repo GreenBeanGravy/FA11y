@@ -275,7 +275,7 @@ def get_dynamic_object_configs():
 
 def get_available_sounds():
     """Get list of available sound files in the sounds directory"""
-    sounds_dir = 'sounds'
+    sounds_dir = os.path.join('assets', 'sounds')
     if not os.path.exists(sounds_dir):
         return []
     
@@ -290,7 +290,7 @@ def get_available_sounds():
 def get_maps_with_game_objects():
     """Get maps that have game objects and their object types (without circular imports)"""
     try:
-        maps_dir = 'maps'
+        maps_dir = os.path.join('data', 'maps')
         if not os.path.exists(maps_dir):
             return {}
         
@@ -406,7 +406,6 @@ SimplifySpeechOutput = false "Toggles simplifying speech for various FA11y annou
 MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
 IgnoreNumlock = false "When enabled, mouse keys will work regardless of numlock state."
 ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
-AnnounceWeaponAttachments = true "Toggles the announcements of weapon attachments when equipping weapons."
 AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weapons."
 AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
@@ -716,8 +715,8 @@ def get_config_section_for_key(key: str, value: str) -> str:
         return 'GameObjects'
     
     toggles_keys = [
-        'SimplifySpeechOutput', 'MouseKeys', 'ResetSensitivity', 
-        'AnnounceWeaponAttachments', 'AnnounceAmmo', 'AutoUpdates', 
+        'SimplifySpeechOutput', 'MouseKeys', 'ResetSensitivity',
+        'AnnounceAmmo', 'AutoUpdates',
         'CreateDesktopShortcut', 'AutoTurn', 'AnnounceMapStatus', 'AnnounceInventoryStatus'
     ]
     if key in toggles_keys:

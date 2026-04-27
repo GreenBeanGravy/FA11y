@@ -103,7 +103,7 @@ class BackgroundMonitor(BaseMonitor):
         if self.template_loaded:
             return
             
-        template_path = Path("keys") / "escape.png"
+        template_path = Path("assets") / "keys" / "escape.png"
         if template_path.exists():
             try:
                 img = cv2.imread(str(template_path))

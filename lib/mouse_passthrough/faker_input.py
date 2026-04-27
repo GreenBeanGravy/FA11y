@@ -87,7 +87,7 @@ def _load_fakerinput_dll():
         import System
         _System = System
 
-        dll_path = os.path.join(os.path.dirname(__file__), "..", "..", "FakerInputWrapper.dll")
+        dll_path = os.path.join(os.path.dirname(__file__), "FakerInputWrapper.dll")
         dll_path = os.path.normpath(dll_path)
 
         if os.path.exists(dll_path):

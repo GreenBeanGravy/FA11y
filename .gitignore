@@ -28,9 +28,8 @@ __pycache__/
 /.claude/
 
 # Stray debug captures
-storm_debug.png
 /debug/
 
 # Per-install marker — written once after PowerShell Unblock-File so
 # subsequent launches can skip the DLL unblock dance.
-FakerInputWrapper.dll.unblocked
+lib/mouse_passthrough/FakerInputWrapper.dll.unblocked

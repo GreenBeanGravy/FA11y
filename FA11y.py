@@ -169,7 +169,7 @@ else:
 
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
-update_sound = pygame.mixer.Sound("sounds/update.ogg")
+update_sound = pygame.mixer.Sound("assets/sounds/update.ogg")
 
 # GitHub URLs and update-check machinery now live in lib/app/updater_check.
 from lib.app.updater_check import (

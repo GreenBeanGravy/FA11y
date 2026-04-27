@@ -158,7 +158,7 @@ class DynamicObjectMonitor(BaseMonitor):
 
     def initialize_audio(self):
         """Initialize spatial audio instances for each dynamic object"""
-        default_sound_path = 'sounds/dynamicobject.ogg'  # Renamed sound file
+        default_sound_path = 'assets/sounds/dynamicobject.ogg'  # Renamed sound file
         
         if os.path.exists(default_sound_path):
             try:
@@ -174,7 +174,7 @@ class DynamicObjectMonitor(BaseMonitor):
                 self.default_audio = None
         
         for dynamic_object_name in DYNAMIC_OBJECT_CONFIGS.keys():
-            dynamic_object_sound_path = f'sounds/{dynamic_object_name}.ogg'
+            dynamic_object_sound_path = f'assets/sounds/{dynamic_object_name}.ogg'
             
             if os.path.exists(dynamic_object_sound_path):
                 try:

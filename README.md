@@ -50,8 +50,8 @@ what it currently does:
 1. Install Python 3.10+ (check "Add Python to PATH" during install)
 2. Download the latest FA11y release and extract it (avoid the Fortnite
    install directory and system folders)
-3. Double-click `FA11y_debug.bat` — it installs the Python dependencies from
-   `requirements.txt` and launches FA11y
+3. From the extracted folder, run `pip install -r requirements.txt` to install
+   dependencies, then launch with `python FA11y.py`
 4. On first run, FA11y creates `config/config.txt` with default keybinds;
    press `F9` in-game to open the configuration menu
 

@@ -182,7 +182,7 @@ class MapManager:
             self._rebuild_capture_tools(cfg)
             return True
 
-        map_file = f"maps/{map_name}.png"
+        map_file = f"data/maps/{map_name}.png"
         if not os.path.exists(map_file):
             if self.last_map_printed != map_name:
                 print(f"Map file not found: {map_file}")

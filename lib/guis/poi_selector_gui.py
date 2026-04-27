@@ -38,7 +38,7 @@ _favorites_lock = threading.RLock()
 
 class CoordinateSystem:
     """Handles coordinate transformation between world and screen coordinates"""
-    def __init__(self, poi_file=os.path.join("maps", "map_main_pois.txt")):
+    def __init__(self, poi_file=os.path.join("data", "maps", "map_main_pois.txt")):
         self.poi_file = poi_file
         self.REFERENCE_PAIRS = self._load_reference_pairs()
         self.transform_matrix = self._calculate_transformation_matrix()
@@ -147,8 +147,8 @@ class POIData:
     def _discover_available_maps(self):
         """Discover available maps without loading their data"""
         self.maps["main"] = MapData("Main Map", [])
-        
-        maps_dir = "maps"
+
+        maps_dir = os.path.join("data", "maps")
         if os.path.exists(maps_dir):
             for filename in os.listdir(maps_dir):
                 if filename.startswith("map_") and filename.endswith("_pois.txt"):
@@ -191,7 +191,7 @@ class POIData:
         if map_name == "main":
             self._ensure_api_data_loaded()
         elif map_name in self.maps and not self.maps[map_name].pois:
-            maps_dir = "maps"
+            maps_dir = os.path.join("data", "maps")
             filename = os.path.join(maps_dir, f"map_{map_name}_pois.txt")
             if os.path.exists(filename):
                 self.maps[map_name].pois = self._load_map_pois(filename)
@@ -225,7 +225,7 @@ class POIData:
     
     def _load_local_pois(self):
         try:
-            with open(os.path.join('maps', 'map_main_pois.txt'), 'r', encoding='utf-8') as f:
+            with open(os.path.join('data', 'maps', 'map_main_pois.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
                     parts = line.strip().split('|')
                     if len(parts) == 3:

@@ -153,7 +153,7 @@ class StormMonitor(BaseMonitor):
             self.storm_audio.set_individual_volume(storm_volume)
 
     def initialize_audio(self):
-        storm_sound_path = 'sounds/storm.ogg'
+        storm_sound_path = 'assets/sounds/storm.ogg'
         if os.path.exists(storm_sound_path):
             try:
                 self.storm_audio = SpatialAudio(storm_sound_path)
@@ -185,7 +185,7 @@ class StormMonitor(BaseMonitor):
         name = self._cached_current_map
         if self._color_ref is not None and self._color_ref_name == name:
             return self._color_ref
-        path = f"maps/{name}.png"
+        path = f"data/maps/{name}.png"
         if not os.path.exists(path):
             return None
         bgr = cv2.imread(path, cv2.IMREAD_COLOR)
@@ -294,91 +294,6 @@ class StormMonitor(BaseMonitor):
 
         return storm_mask, purple_shift
 
-    # ── Debug output ────────────────────────────────────────────────
-
-    def _save_debug_image(self, screenshot: np.ndarray, ref_aligned,
-                          purple_shift, mask,
-                          contour=None, closest_point=None):
-        """TEMPORARY: Save debug image every tick."""
-        try:
-            h, w = screenshot.shape[:2]
-            center = (w // 2, h // 2)
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            has_ref = ref_aligned is not None
-
-            # Panel 1: Live minimap
-            live_bgr = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)
-
-            # Panel 2: Aligned reference (or placeholder)
-            if has_ref:
-                ref_bgr = cv2.cvtColor(ref_aligned, cv2.COLOR_RGB2BGR)
-            else:
-                ref_bgr = np.zeros_like(live_bgr)
-                cv2.putText(ref_bgr, "Waiting for PPI match...", (10, h // 2), font, 0.4, (100, 100, 100), 1)
-
-            # Panel 3: Difference (amplified)
-            if has_ref:
-                abs_diff = np.abs(screenshot.astype(np.float32) - ref_aligned.astype(np.float32))
-                diff_vis = np.clip(abs_diff * 3, 0, 255).astype(np.uint8)
-                diff_bgr = cv2.cvtColor(diff_vis, cv2.COLOR_RGB2BGR)
-            else:
-                diff_bgr = np.zeros_like(live_bgr)
-
-            # Panel 4: Storm overlay on live
-            overlay = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)
-            if mask is not None and np.any(mask > 0):
-                storm_layer = np.zeros_like(overlay)
-                storm_layer[mask > 0] = (180, 50, 180)
-                overlay = cv2.addWeighted(overlay, 0.6, storm_layer, 0.4, 0)
-            if contour is not None:
-                cv2.drawContours(overlay, [contour], -1, (0, 255, 0), 2)
-            if closest_point is not None:
-                cv2.circle(overlay, tuple(closest_point), 5, (0, 0, 255), -1)
-                cv2.line(overlay, center, tuple(closest_point), (0, 0, 255), 2)
-            cv2.circle(overlay, center, 4, (255, 255, 0), -1)
-
-            # Grid
-            top_row = np.hstack([live_bgr, ref_bgr])
-            bot_row = np.hstack([diff_bgr, overlay])
-            grid = np.vstack([top_row, bot_row])
-
-            labels = ["Live (PPI region)", "Aligned Reference", "Difference (x3)", "Storm Overlay"]
-            for i, label in enumerate(labels):
-                cv2.putText(grid, label, ((i % 2) * w + 5, (i // 2) * h + 20),
-                            font, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
-            # Stats bar
-            text_bar = np.zeros((60, grid.shape[1], 3), dtype=np.uint8)
-            storm_count = int(np.sum(mask > 0)) if mask is not None else 0
-
-            # Scale info from PPI
-            matched = ppi_module.last_matched_region
-            scale_str = "N/A"
-            if matched is not None:
-                pts = matched.reshape(4, 2)
-                qw = (np.linalg.norm(pts[3] - pts[0]) + np.linalg.norm(pts[2] - pts[1])) / 2
-                scale_str = f"{qw / w:.2f}"
-
-            cv2.putText(text_bar,
-                        f"Storm: {storm_count}px  Scale: {scale_str}  Map: {self._cached_current_map}",
-                        (5, 18), font, 0.4, (200, 200, 200), 1, cv2.LINE_AA)
-
-            if purple_shift is not None and storm_count > 0:
-                sv = purple_shift[mask > 0]
-                cv2.putText(text_bar,
-                            f"Purple shift (storm): mean={np.mean(sv):.1f} min={np.min(sv):.1f} max={np.max(sv):.1f}",
-                            (5, 38), font, 0.35, (180, 180, 255), 1, cv2.LINE_AA)
-            elif purple_shift is not None:
-                cv2.putText(text_bar,
-                            f"Purple shift (all): mean={np.mean(purple_shift):.1f} min={np.min(purple_shift):.1f} max={np.max(purple_shift):.1f}",
-                            (5, 38), font, 0.35, (200, 200, 200), 1, cv2.LINE_AA)
-
-            final = np.vstack([grid, text_bar])
-            debug_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'storm_debug.png')
-            cv2.imwrite(os.path.abspath(debug_path), final)
-        except Exception as e:
-            print(f"[storm debug] Failed to save debug image: {e}")
-
     # ── Main detection ──────────────────────────────────────────────
 
     def detect_storm_on_minimap(self) -> Optional[Tuple[int, int]]:
@@ -424,10 +339,6 @@ class StormMonitor(BaseMonitor):
                                       int(closest_point[1] + ppi_region['top']))
                     else:
                         storm_contour = None
-
-            # TEMPORARY: Always save debug
-            self._save_debug_image(screenshot, ref_aligned, purple_shift, mask,
-                                   storm_contour, closest_point)
 
             return result
         except Exception as e:

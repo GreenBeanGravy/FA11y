@@ -28,7 +28,7 @@ from lib.managers.screenshot_manager import capture_coordinates
 logger = logging.getLogger(__name__)
 
 # Constants
-GAMEMODES_FOLDER = "gamemodes"
+GAMEMODES_FOLDER = os.path.join("data", "gamemodes")
 
 # Global speaker instance
 speaker = Auto()

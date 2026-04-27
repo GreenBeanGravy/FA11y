@@ -46,7 +46,7 @@ class MaterialMonitor(BaseMonitor):
     def load_material_templates(self):
         """Load material template images."""
         templates = {}
-        mats_folder = Path("mats")
+        mats_folder = Path("assets") / "mats"
         materials = ['wood', 'stone', 'metal']
         
         for material in materials:

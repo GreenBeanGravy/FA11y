@@ -73,8 +73,8 @@ def mark_last_reached_object_as_bad() -> None:
 
         from lib.utilities.map_rotation import normalize_map_slug
         slug = normalize_map_slug(current_map)
-        source_file = os.path.join('maps', f'map_{slug}_gameobjects.txt')
-        bad_file = os.path.join('maps', f'map_{slug}_badgameobject.txt')
+        source_file = os.path.join('data', 'maps', f'map_{slug}_gameobjects.txt')
+        bad_file = os.path.join('data', 'maps', f'map_{slug}_badgameobject.txt')
 
         if not os.path.exists(source_file):
             speaker.speak(f"Game objects file not found for {current_map} map")
@@ -124,7 +124,7 @@ def mark_last_reached_object_as_bad() -> None:
         with open(source_file, 'w', encoding='utf-8') as f:
             f.writelines(updated_lines)
 
-        os.makedirs('maps', exist_ok=True)
+        os.makedirs(os.path.join('data', 'maps'), exist_ok=True)
         bad_lines = []
         if os.path.exists(bad_file):
             with open(bad_file, 'r', encoding='utf-8') as f:

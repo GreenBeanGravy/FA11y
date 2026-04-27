@@ -80,7 +80,7 @@ class BloomMonitor(BaseMonitor):
         self._cached_enabled = True
 
         # Audio - use engine directly for fire-and-forget playback
-        self._sound_id = 'sounds/bloom_tone.ogg'
+        self._sound_id = 'assets/sounds/bloom_tone.ogg'
         self._audio_loaded = False
 
         # Read actual config on init (before any change events fire)

@@ -879,22 +879,22 @@ class ConfigGUI(AccessibleDialog):
             
             sound_file = None
             if volume_key == 'MasterVolume':
-                sound_file = 'sounds/poi.ogg'
+                sound_file = 'assets/sounds/poi.ogg'
             elif volume_key == 'POIVolume':
-                sound_file = 'sounds/poi.ogg'
+                sound_file = 'assets/sounds/poi.ogg'
             elif volume_key == 'StormVolume':
-                sound_file = 'sounds/storm.ogg'
+                sound_file = 'assets/sounds/storm.ogg'
             elif volume_key == 'DynamicObjectVolume':
-                sound_file = 'sounds/dynamicobject.ogg'
+                sound_file = 'assets/sounds/dynamicobject.ogg'
             else:
                 clean_key = volume_key.replace('Volume', '').lower()
                 for sound_name in get_available_sounds():
                     if clean_key in sound_name.lower():
-                        sound_file = f'sounds/{sound_name}.ogg'
+                        sound_file = f'assets/sounds/{sound_name}.ogg'
                         break
-                
+
                 if not sound_file:
-                    sound_file = 'sounds/poi.ogg'
+                    sound_file = 'assets/sounds/poi.ogg'
             
             if not os.path.exists(sound_file):
                 return
@@ -1028,7 +1028,7 @@ class ConfigGUI(AccessibleDialog):
         """Handle key events for shortcuts and capture"""
         key_code = event.GetKeyCode()
         focused = self.FindFocus()
-        
+
         if self.capturing_key:
             if key_code == wx.WXK_ESCAPE:
                 self._cancel_capture()
@@ -1036,12 +1036,23 @@ class ConfigGUI(AccessibleDialog):
             else:
                 self.handle_key_capture()
                 return
-        
+
+        # Ctrl+F → setting search. Handled before single-letter shortcuts so
+        # the F doesn't fall through to anything else.
+        if event.ControlDown() and key_code in (ord('F'), ord('f')):
+            self._open_search_dialog()
+            return
+
         if key_code == wx.WXK_TAB:
             if self.handle_tab_navigation(event):
                 return
-        
-        if key_code == ord('R') or key_code == ord('r'):
+
+        # The single-letter shortcuts below should NOT fire when a modifier
+        # is held — Ctrl+R / Ctrl+T would otherwise hijack browser-style
+        # combos and trigger reset/test unexpectedly.
+        modifier_held = (event.ControlDown() or event.AltDown() or event.MetaDown())
+
+        if not modifier_held and key_code in (ord('R'), ord('r')):
             if focused:
                 self.reset_focused_setting(focused)
                 return
@@ -1049,15 +1060,144 @@ class ConfigGUI(AccessibleDialog):
             if focused and self.is_keybind_button(focused):
                 self.unbind_keybind(focused)
                 return
-        elif key_code == ord('T') or key_code == ord('t'):
+        elif not modifier_held and key_code in (ord('T'), ord('t')):
             if focused and self.is_volume_entry(focused):
                 self.test_focused_volume(focused)
                 return
         elif key_code == wx.WXK_ESCAPE:
             self.save_and_close()
             return
-        
+
         event.Skip()
+
+    # ------------------------------------------------------------------
+    # Ctrl+F search
+    # ------------------------------------------------------------------
+
+    def _open_search_dialog(self) -> None:
+        """Show the search popup; navigate to the chosen setting on accept."""
+        try:
+            self._ensure_all_settings_built()
+            entries = self._build_search_index()
+        except Exception as e:
+            logger.error(f"Error building search index: {e}")
+            speaker.speak("Search unavailable.")
+            return
+
+        if not entries:
+            speaker.speak("No settings to search.")
+            return
+
+        speaker.speak("Search settings.")
+        dlg = _SettingSearchDialog(self, entries)
+        try:
+            if dlg.ShowModal() == wx.ID_OK and dlg.result is not None:
+                tab_internal, key = dlg.result
+                self._navigate_to_setting(tab_internal, key)
+        finally:
+            dlg.Destroy()
+
+    def _ensure_all_settings_built(self) -> None:
+        """Build every notebook tab and every per-map GameObjects sub-panel
+        so ``self.tab_variables`` covers the full setting space."""
+        if not hasattr(self, "_tab_built"):
+            return
+
+        # 1. Force-build any deferred notebook tabs.
+        for tab_name in list(self.tabs.keys()):
+            if not self._tab_built.get(tab_name, False):
+                try:
+                    self._build_tab(tab_name)
+                except Exception as e:
+                    logger.error(f"Error pre-building tab {tab_name!r}: {e}")
+
+        # 2. Force-build per-map GameObjects sub-panels (they're lazy-built
+        #    by the Map dropdown, so non-default maps may have no widgets yet).
+        host = getattr(self, "_gameobjects_subpanel_host", None)
+        map_keys = getattr(self, "_gameobjects_map_keys", None)
+        subpanels = getattr(self, "_gameobjects_subpanels", None)
+        if host is None or not map_keys or subpanels is None:
+            return
+        for map_name in map_keys:
+            if map_name in subpanels:
+                continue
+            try:
+                sub = wx.Panel(host)
+                sub.SetSizer(wx.BoxSizer(wx.VERTICAL))
+                self._build_per_map_widgets(sub, map_name)
+                sub.Hide()
+                subpanels[map_name] = sub
+                host.GetSizer().Add(sub, proportion=1, flag=wx.EXPAND)
+            except Exception as e:
+                logger.error(f"Error pre-building per-map widgets for {map_name!r}: {e}")
+
+    def _build_search_index(self):
+        """Return ``[(tab_display, tab_internal, key, description), ...]`` for
+        every setting widget tracked in ``tab_variables``."""
+        entries: List[Tuple[str, str, str, str]] = []
+        for tab_internal, widgets in self.tab_variables.items():
+            if not widgets:
+                continue
+            # Per-map sections like "MainGameObjects" render inside the
+            # GameObjects tab via the Map dropdown — show that in the label.
+            if (tab_internal.endswith("GameObjects")
+                    and tab_internal != "GameObjects"):
+                map_token = tab_internal[:-len("GameObjects")]
+                # Convert "Main" / "Reload_Oasis" → human text.
+                map_display = map_token.replace('_', ' ').strip()
+                tab_display = f"GameObjects ({map_display})"
+            else:
+                tab_display = tab_internal
+            for key, widget in widgets.items():
+                description = ""
+                try:
+                    description = getattr(widget, "description", "") or ""
+                except Exception:
+                    description = ""
+                entries.append((tab_display, tab_internal, key, description))
+        # Stable order: by tab, then key.
+        entries.sort(key=lambda e: (e[0].lower(), e[2].lower()))
+        return entries
+
+    def _navigate_to_setting(self, tab_internal: str, key: str) -> None:
+        """Switch notebook (and per-map dropdown if needed), then focus widget."""
+        is_per_map = (tab_internal.endswith("GameObjects")
+                      and tab_internal != "GameObjects")
+        target_tab = "GameObjects" if is_per_map else tab_internal
+
+        # Switch notebook page.
+        for idx in range(self.notebook.GetPageCount()):
+            if self.notebook.GetPageText(idx) == target_tab:
+                if self.notebook.GetSelection() != idx:
+                    self.notebook.SetSelection(idx)
+                # Lazy-built tabs also need explicit build before focusing.
+                if hasattr(self, "_tab_built") and not self._tab_built.get(target_tab, False):
+                    try:
+                        self._build_tab(target_tab)
+                    except Exception:
+                        pass
+                break
+
+        # If per-map, point the dropdown at the right map and reveal its panel.
+        if is_per_map:
+            map_token = tab_internal[:-len("GameObjects")]
+            map_name = map_token.lower()
+            choice = getattr(self, "_gameobjects_map_choice", None)
+            map_keys = getattr(self, "_gameobjects_map_keys", None)
+            if choice is not None and map_keys:
+                try:
+                    map_idx = map_keys.index(map_name)
+                    choice.SetSelection(map_idx)
+                    self._show_gameobjects_map(map_name)
+                except (ValueError, AttributeError) as e:
+                    logger.error(f"Could not switch to map {map_name!r}: {e}")
+
+        widget = self.tab_variables.get(tab_internal, {}).get(key)
+        if widget is not None:
+            wx.CallAfter(widget.SetFocus)
+            speaker.speak(f"{key} on {target_tab} tab")
+        else:
+            speaker.speak(f"Could not focus {key}")
     
     def is_keybind_button(self, widget):
         """Check if widget is a keybind button"""
@@ -1291,8 +1431,139 @@ class ConfigGUI(AccessibleDialog):
         self.EndModal(wx.ID_OK)
 
 
-def launch_config_gui(config_obj: 'Config', 
-                     update_callback: Callable[[configparser.ConfigParser], None], 
+class _SettingSearchDialog(wx.Dialog):
+    """Ctrl+F search popup for the config GUI.
+
+    Shows a TextCtrl + ListBox. Typing live-filters the entries by
+    substring match against ``key + description``. Up/Down from the
+    text field move the list selection so the user never has to leave
+    the search box. Enter accepts; Esc cancels. ``self.result`` is set
+    to ``(tab_internal, key)`` on accept, ``None`` on cancel.
+    """
+
+    def __init__(self, parent: wx.Window, entries):
+        super().__init__(parent, title="Search settings",
+                         style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self._entries = entries
+        self._filtered = list(entries)
+        self.result = None
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        prompt = wx.StaticText(
+            self,
+            label="Type to filter. Up/Down moves selection. Enter jumps to setting.",
+        )
+        sizer.Add(prompt, flag=wx.ALL, border=8)
+
+        self._search = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
+        sizer.Add(self._search, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=8)
+
+        self._list = wx.ListBox(self, style=wx.LB_SINGLE)
+        sizer.Add(self._list, proportion=1, flag=wx.EXPAND | wx.ALL, border=8)
+
+        self._status = wx.StaticText(self, label="")
+        sizer.Add(self._status, flag=wx.LEFT | wx.RIGHT | wx.BOTTOM, border=8)
+
+        self.SetSizer(sizer)
+        self.SetSize((560, 440))
+        self.SetMinSize((400, 320))
+        self.CentreOnParent()
+
+        self._search.Bind(wx.EVT_TEXT, self._on_text)
+        self._search.Bind(wx.EVT_TEXT_ENTER, self._on_accept)
+        self._search.Bind(wx.EVT_CHAR_HOOK, self._on_search_char_hook)
+        self._list.Bind(wx.EVT_LISTBOX_DCLICK, self._on_accept)
+        self._list.Bind(wx.EVT_CHAR_HOOK, self._on_list_char_hook)
+
+        self._populate_list("")
+        # Search field gets focus by default — start typing immediately.
+        wx.CallAfter(self._search.SetFocus)
+
+    def _populate_list(self, query: str) -> None:
+        q = query.lower().strip()
+        if not q:
+            self._filtered = list(self._entries)
+        else:
+            terms = q.split()
+            scored = []
+            for entry in self._entries:
+                _, _, key, description = entry
+                key_l = key.lower()
+                hay = f"{key_l} {description.lower()}"
+                if not all(t in hay for t in terms):
+                    continue
+                if key_l == q:
+                    score = -1000
+                elif key_l.startswith(q):
+                    score = -500
+                elif q in key_l:
+                    score = -100
+                else:
+                    score = 0
+                scored.append((score, key_l, entry))
+            scored.sort(key=lambda x: (x[0], x[1]))
+            self._filtered = [e for _, _, e in scored]
+
+        self._list.Clear()
+        for tab_display, _tab_internal, key, _description in self._filtered:
+            self._list.Append(f"{key}  —  {tab_display}")
+        if self._filtered:
+            self._list.SetSelection(0)
+        count = len(self._filtered)
+        self._status.SetLabel(f"{count} match{'es' if count != 1 else ''}")
+
+    def _on_text(self, _event):
+        self._populate_list(self._search.GetValue())
+
+    def _move_selection(self, delta: int) -> None:
+        count = self._list.GetCount()
+        if count == 0:
+            return
+        sel = self._list.GetSelection()
+        if sel == wx.NOT_FOUND:
+            sel = 0
+        new = max(0, min(count - 1, sel + delta))
+        if new != sel:
+            self._list.SetSelection(new)
+
+    def _on_search_char_hook(self, event):
+        key_code = event.GetKeyCode()
+        if key_code == wx.WXK_DOWN:
+            self._move_selection(1)
+            return
+        if key_code == wx.WXK_UP:
+            self._move_selection(-1)
+            return
+        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._on_accept(event)
+            return
+        if key_code == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CANCEL)
+            return
+        event.Skip()
+
+    def _on_list_char_hook(self, event):
+        key_code = event.GetKeyCode()
+        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._on_accept(event)
+            return
+        if key_code == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CANCEL)
+            return
+        event.Skip()
+
+    def _on_accept(self, _event):
+        sel = self._list.GetSelection()
+        if sel == wx.NOT_FOUND or sel >= len(self._filtered):
+            return
+        _tab_display, tab_internal, key, _description = self._filtered[sel]
+        self.result = (tab_internal, key)
+        self.EndModal(wx.ID_OK)
+
+
+def launch_config_gui(config_obj: 'Config',
+                     update_callback: Callable[[configparser.ConfigParser], None],
                      default_config_str: Optional[str] = None) -> None:
     """Launch the configuration GUI"""
     try:

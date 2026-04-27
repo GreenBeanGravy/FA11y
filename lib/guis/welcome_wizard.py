@@ -158,7 +158,7 @@ class AudioTestPage(WizardPage):
 
     def _on_test(self, _event):
         try:
-            sound_path = os.path.join("sounds", "poi.ogg")
+            sound_path = os.path.join("assets", "sounds", "poi.ogg")
             if not os.path.exists(sound_path):
                 speaker.speak("Test sound file is missing.")
                 return
