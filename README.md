@@ -22,15 +22,14 @@ what it currently does:
 ### In-match
 
 - Get directions (stereo audio + spoken bearing) to POIs, landmarks, game
-  objects, custom POIs, favorites, and the safe zone
+  objects, custom POIs, custom favorite locations, and the safe zone
 - Announce health, shields, rarity, ammo, and held-item state
 - Announce height while skydiving
-- Announce the direction you are facing (read from the minimap compass)
+- Announce the direction you are facing
 - Auto-turn toward the selected POI when you start navigation
-- Announce match events by tailing Fortnite's log: knockdowns, respawns,
-  players-remaining changes, battle bus, storm phases, death, spectating,
-  final placement, final-countdown counts
-- Full keyboard camera and mouse control — recenter, turn, look, scroll,
+- Announce match events like knockdowns, respawns,
+  players-remaining changes, battle bus, storm phases, death, and spectating info
+- Full keyboard camera and mouse control — recentering camera, turning, scrolling,
   left/right click
 
 ### Out of match
@@ -143,75 +142,6 @@ All keybinds are configurable via `F9` → FA11y configuration menu.
 Launch Fortnite afterwards from the Fortnite Manager (performance mode is
 recommended).
 
-## Adding a new map
-
-`maps/` is a flat folder. Every file name uses a canonical lowercase
-underscore slug (e.g. `reload_venture`, `blitz_stranger_things`, `o_g`).
-
-To add a new map:
-
-1. Drop these files into `maps/`:
-   - `maps/<slug>.png` — the map image (screenshot or export)
-   - `maps/map_<slug>_pois.txt` — lines of `Name,ScreenX,ScreenY`
-   - `maps/map_<slug>_gameobjects.txt` — lines of `ObjectType,ImageX,ImageY`
-     (optional; only if you want game-object detection on this map)
-2. Restart FA11y. Map discovery picks the new slug up automatically.
-3. To set FA11y to the new map, either cycle with `0` in-game or edit
-   `config/config.txt` → `[POI] current_map = <slug>`.
-
-If this is a Reload arena, also add a row to `DISPLAY_TO_FA11Y_MAP` in
-`lib/utilities/map_rotation.py` so the Reload rotation announcement knows
-about it.
-
-## Position detection (feature-matcher)
-
-FA11y locates you on the map by feature-matching the minimap capture against
-the map image in `maps/<slug>.png`. The matcher is pluggable:
-
-- **SIFT** (default) — best on texture-rich terrain like the main battle-royale map
-- **AKAZE** — 3× faster than SIFT, better on uniform / low-contrast terrain (reload arenas)
-- **ORB** — fastest, lower accuracy — rarely the right default
-
-Plus a **CLAHE** preprocessing pass that dramatically improves matching on
-snow / sand / other low-contrast areas.
-
-Global defaults live in `config/config.txt`:
-
-```
-[POI]
-feature_detector = sift       ; sift | akaze | orb
-feature_clahe    = false      ; true enables CLAHE on capture + map
-```
-
-Per-map overrides trump the global setting. Two ship by default in
-`lib/detection/coordinate_config.py::MAP_MATCHER_OVERRIDES`:
-
-- `reload_elite_stronghold` → AKAZE + CLAHE (the snow-heavy Reload map)
-- `blitz_stranger_things` → SIFT + CLAHE
-
-If you find another map that matches badly, try flipping the global
-`feature_detector` to `akaze` and `feature_clahe` to `true`, or add a
-per-map entry to `MAP_MATCHER_OVERRIDES`.
-
-## Developer tools
-
-Self-contained dev utilities live under `dev_tools/`. They are not loaded by
-the runtime app; run them manually from the repo root:
-
-| Script | Purpose |
-|---|---|
-| `python dev_tools/pixel_picker.py` | Click-through magnifier overlay; reads pixels the way FA11y sees them |
-| `python dev_tools/health_calibrator.py` | Auto-calibrate the health-bar decrease pattern |
-| `python dev_tools/health_shield_debugger.py` | Live-tune health/shield bar detection |
-| `python dev_tools/ppi_configurator.py` | Live-tune PPI (minimap feature matching) |
-| `python dev_tools/direction_configurator.py` | Live-tune minimap icon / direction detection |
-| `python dev_tools/feature_match_bench.py` | A/B benchmark every detector × CLAHE combo against every shipped `maps/*.png`; exports CSV |
-| `python dev_tools/position_accuracy_check.py <slug>` | Targeted accuracy visualizer per map; supports `--region snow`, `--degrade heavy`, and `--capture <path>` to run every detector against a real minimap screenshot |
-| `python dev_tools/minimap_recorder.py` | Run alongside FA11y during live play; `F10` saves the current minimap frame (+ every detector's result as JSON) to `dev_tools/captures/<map>/`, `F11` flags it BAD |
-| `python dev_tools/clear_pycache.py` | Delete every `__pycache__` in the repo |
-
-See `dev_tools/README.md` for contribution rules.
-
 ## Troubleshooting
 
 - **"Position doesn't update / wrong position"**: verify resolution is
@@ -219,30 +149,10 @@ See `dev_tools/README.md` for contribution rules.
   windowed), and the minimap is visible with nothing overlapping it. If it
   persists specifically on one map, try flipping `[POI] feature_detector`
   to `akaze` and `feature_clahe` to `true` in `config/config.txt`.
-- **Debugging a specific bad frame**: run `python dev_tools/minimap_recorder.py`
-  alongside FA11y during play, press `F11` when position goes wrong. Then
-  offline, feed the saved PNG into
-  `python dev_tools/position_accuracy_check.py <map_slug> --capture <path>` —
-  it'll run every detector on your real capture and write overlay PNGs
-  showing where each detector places you.
-- **"Map I selected doesn't match"**: run `python dev_tools/ppi_configurator.py`
-  to visually verify features are matching against the right `maps/<slug>.png`.
-- **"Health/shield announcements are wrong"**: run
-  `python dev_tools/health_calibrator.py` with a full 100 HP bar on screen.
-- **Config says `current_map = reload venture` with a space**: first boot on
-  this version rewrites it to the canonical `reload_venture` automatically.
-  The same pass normalizes `map_name` in your favorites
-  (`config/FAVORITE_POIS.txt`) and custom POIs (`config/CUSTOM_POI.txt`) so
-  per-map data keeps showing up after the rename. A `.premigration` snapshot
-  of each file is saved alongside (e.g. `config/config.txt.premigration`)
-  so you can roll back to an older FA11y build by restoring them.
-- **`FA11y_debug.bat` fails**: run `pip install -r requirements.txt` manually
-  and inspect the errors.
 
 ## Contributing
 
 - Main repo: https://github.com/greenbeangravy/fa11y
-- Fork for WIP branches: https://github.com/ShotgunSpoon/FA11y
 - Issues and feature requests welcome on the main repo
 
 ## License
