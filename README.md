@@ -144,11 +144,7 @@ recommended).
 
 ## Troubleshooting
 
-- **"Position doesn't update / wrong position"**: verify resolution is
-  exactly 1920 × 1080, Fortnite is fullscreen (not windowed-fullscreen or
-  windowed), and the minimap is visible with nothing overlapping it. If it
-  persists specifically on one map, try flipping `[POI] feature_detector`
-  to `akaze` and `feature_clahe` to `true` in `config/config.txt`.
+- Most issues are caused by an incorrect screen resolution, or Fortnite not being in fullscreen. They can be solved by ensuring your screen resolution is set to 1920x1080, and Fortnite is in fullscreen, which can be toggled with F11 while the game is in focus.
 
 ## Contributing
 
