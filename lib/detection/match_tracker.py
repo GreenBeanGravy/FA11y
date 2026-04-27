@@ -55,11 +55,27 @@ class MatchTracker:
         self.position_update_interval = 0.5  # Configurable
         self.current_player_position = None
 
+        # Debounce so the height-bar trigger and the FA11y-OW phase trigger
+        # don't both fire _start_new_match for the same transition.
+        self._last_new_match_time = 0.0
+        self._new_match_debounce_seconds = 10.0
+        self._last_phase_seen: Optional[str] = None
+
         # Cached config values (updated via config change events)
         self._cached_config = read_config()
         self._cached_current_map = self._cached_config.get('POI', 'current_map', fallback='main')
         self._cached_announce_new_match = get_config_boolean(self._cached_config, 'AnnounceNewMatch', True)
         on_config_change(self._on_config_change)
+
+        # Subscribe to FA11y-OW phase transitions as a more reliable
+        # new-match trigger than the height-bar heuristic. The listener is
+        # a no-op when FA11y-OW isn't running (the SSE thread just stays
+        # disconnected and never delivers events).
+        try:
+            from lib.utilities.fa11y_ow_client import get_client
+            get_client().on_event('phase', self._on_ow_phase)
+        except Exception:
+            pass
 
     def _on_config_change(self, config):
         """Update cached config values when config changes."""
@@ -159,22 +175,45 @@ class MatchTracker:
         except Exception:
             pass
     
+    def _on_ow_phase(self, changed_key: str, state: dict):
+        """Listener for FA11y-OW 'phase' state changes.
+
+        GEP reports phase as one of 'lobby', 'aircraft', 'airfield', etc.
+        A transition into aircraft/airfield is a new match. We debounce
+        against the height-bar trigger so the same match doesn't get
+        started twice.
+        """
+        phase = state.get('phase')
+        prev = self._last_phase_seen
+        self._last_phase_seen = phase
+        if phase in ('aircraft', 'airfield') and prev not in ('aircraft', 'airfield'):
+            print(f"FA11y-OW phase -> {phase}, starting new match")
+            self._start_new_match()
+
     def _start_new_match(self):
         """Start a new match session"""
         with self.match_lock:
+            # Debounce: ignore triggers within the debounce window so the
+            # height-bar heuristic and the FA11y-OW phase listener don't
+            # both fire for the same transition.
+            now = time.time()
+            if now - self._last_new_match_time < self._new_match_debounce_seconds:
+                return
+            self._last_new_match_time = now
+
             # Close current match if active
             if self.current_match and self.current_match.is_active:
                 self.current_match.is_active = False
                 self.match_history.append(self.current_match)
                 print(f"Match {self.current_match.match_id[:8]} completed")
-            
+
             # Start new match
             self.current_match = MatchSession()
             print(f"New match started: {self.current_match.match_id[:8]}")
-            
+
             # Clear visited objects cache
             self._clear_visited_objects_cache()
-            
+
             # Announce if configured
             if self._cached_announce_new_match:
                 self.speaker.speak("New match started")

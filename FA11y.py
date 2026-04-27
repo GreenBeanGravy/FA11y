@@ -255,6 +255,13 @@ def signal_handler(signum, frame):
         match_event_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
 
+        # Stop the FA11y-OW SSE subscriber so we don't dangle on shutdown.
+        try:
+            from lib.utilities.fa11y_ow_client import get_client as _get_ow_client
+            _get_ow_client().stop()
+        except Exception:
+            pass
+
         # Stop social manager
         if social_manager:
             social_manager.stop_monitoring()
@@ -815,7 +822,13 @@ def main() -> None:
         # Start auxiliary systems — height_monitor is a BaseMonitor that
         # spawns its own daemon thread, so no outer wrapper needed.
         start_height_monitor()
-        
+
+        # Start the FA11y-OW companion client (SSE subscriber). Idempotent
+        # and harmless if FA11y-OW isn't running — it will reconnect on its
+        # own once the companion appears.
+        from lib.utilities.fa11y_ow_client import get_client as _get_ow_client
+        _get_ow_client()
+
         # Start monitoring systems
         monitor.start_monitoring()
         material_monitor.start_monitoring()
@@ -991,6 +1004,13 @@ def main() -> None:
             storm_monitor.stop_monitoring()
             match_event_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
+
+            # Stop the FA11y-OW SSE subscriber so we don't dangle on shutdown.
+            try:
+                from lib.utilities.fa11y_ow_client import get_client as _get_ow_client
+                _get_ow_client().stop()
+            except Exception:
+                pass
 
             # Stop social manager
             if social_manager:
