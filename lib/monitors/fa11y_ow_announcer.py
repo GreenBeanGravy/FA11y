@@ -27,6 +27,27 @@ from lib.utilities.utilities import get_config_boolean, on_config_change, read_c
 logger = logging.getLogger(__name__)
 
 
+# Items the game auto-issues at match start that aren't real "pickups" or
+# user-facing equips: the pickaxe, the build edit tool, the creative phone,
+# and the four wall/floor/stair/roof structural pieces. Filtering them
+# silences the noise the user hits on every match.
+_STRUCTURAL_PREFIXES = ("BuildingItemData_", "WID_Harvest_")
+_STRUCTURAL_EXACT = frozenset({
+    "EditTool",
+    "WID_LiveEditTool",
+    "WID_CreativeTool",
+})
+
+
+def _is_structural(name: str) -> bool:
+    if not name or not name.strip():
+        return True
+    name = name.strip()
+    if name in _STRUCTURAL_EXACT:
+        return True
+    return any(name.startswith(p) for p in _STRUCTURAL_PREFIXES)
+
+
 def _toggles() -> Dict[str, bool]:
     cfg = read_config()
     return {
@@ -93,12 +114,20 @@ class Fa11yOwAnnouncer:
         self._speak(phrase)
 
     def _on_item_equipped(self, item: Optional[Dict[str, Any]]) -> None:
-        if not item or not self._toggles.get("equip"):
+        if not self._toggles.get("equip"):
+            return
+        if not item:
+            # Slot transitioned to empty (or to secondary quickbar). Reset
+            # the dedupe so re-equipping the prior weapon announces again.
+            self._last_equipped_id = None
+            return
+        raw_id = str(item.get("rawId") or "")
+        if _is_structural(raw_id):
+            self._last_equipped_id = None
             return
         # Suppress repeats when the same item gets re-emitted (e.g. ammo
         # ticks down on the equipped weapon) — only re-announce on rawId
         # change. Pickup events still fire on transitions empty -> populated.
-        raw_id = str(item.get("rawId") or "")
         if raw_id and raw_id == self._last_equipped_id:
             return
         self._last_equipped_id = raw_id
@@ -118,6 +147,9 @@ class Fa11yOwAnnouncer:
 
     def _on_item_pickup(self, item: Optional[Dict[str, Any]]) -> None:
         if not item or not self._toggles.get("pickup"):
+            return
+        raw_id = str(item.get("rawId") or "")
+        if _is_structural(raw_id):
             return
         name = str(item.get("displayName") or item.get("rawId") or "").strip()
         if not name:
