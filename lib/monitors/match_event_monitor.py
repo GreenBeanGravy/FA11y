@@ -118,6 +118,21 @@ _RE_PARTY_MEMBER_REMOVED = re.compile(
 )
 
 
+# Inventory open/close, detected via Fortnite's UI input-router events.
+# Open: leaf-most node becomes [InventoryScreenContainer] when the
+# inventory screen is pushed onto the UI stack.
+# Close: input mode transitions back to ECommonInputMode::Game (the
+# in-match HUD is leaf-most again). The same close pattern fires for
+# any UI returning to gameplay, so we only treat it as an inventory
+# close when our open-state flag is set.
+_RE_INVENTORY_OPEN = re.compile(
+    r'LogUIActionRouter:.*Applying input config for leaf-most node \[InventoryScreenContainer\]'
+)
+_RE_BACK_TO_GAME = re.compile(
+    r'LogUIActionRouter:.*InputMode:.*New \(ECommonInputMode::Game\)'
+)
+
+
 # Phase-step strings worth announcing. Filtered to high-signal events;
 # 'None' steps and intermediate transitions are noise.
 _INTERESTING_STEPS = {
@@ -163,6 +178,11 @@ class MatchEventMonitor(BaseMonitor):
         # changes that happen while we're spectating should be announced.
         self._spectating = False
 
+        # Inventory open state, driven by UIActionRouter log lines.
+        # Stays in sync with BackgroundMonitor's inventory_open flag once
+        # the first log event fires.
+        self._inventory_open = False
+
         # Party-event state. _party_member_names maps MCP id -> display
         # name so we can announce "X left the party" when we only get an
         # id in the removal line. Populated by LogParty: Verbose: Adding
@@ -199,6 +219,7 @@ class MatchEventMonitor(BaseMonitor):
         self.announce_spectate = get_config_boolean(c, 'AnnounceSpectating', True)
         self.announce_placement = get_config_boolean(c, 'AnnouncePlacement', True)
         self.announce_final_countdown = get_config_boolean(c, 'AnnounceFinalCountdown', True)
+        self.announce_inventory = get_config_boolean(c, 'AnnounceInventoryStatus', True)
 
     def _on_config_change(self, config):
         self.config = config
@@ -292,7 +313,43 @@ class MatchEventMonitor(BaseMonitor):
             # don't let it kill the monitor thread.
             logger.info(f"MatchEventMonitor: speak failed: {e}")
 
+    def _update_external_inventory_state(self, is_open: bool) -> None:
+        """Push the log-derived inventory state to BackgroundMonitor and
+        flip its ``_external_inventory_source`` flag so the pixel-based
+        check stops running. Done lazily on the first event so the
+        background monitor doesn't have to know about us at startup."""
+        try:
+            from lib.monitors.background_monitor import monitor as bg
+        except Exception:
+            return
+        try:
+            bg._external_inventory_source = True
+            bg.inventory_open = is_open
+        except Exception:
+            pass
+
     def _process_line(self, line: str):
+        # --- Inventory open / close (UIActionRouter) ---
+        # Cheap fast-path: most lines aren't UIActionRouter at all, but the
+        # ones that are fire frequently when menus open/close, so do this
+        # before the heavier patterns. The "Applying input config" line is
+        # the first marker for both open and close cases — bail out for
+        # any non-UIActionRouter lines first.
+        if 'LogUIActionRouter:' in line:
+            if _RE_INVENTORY_OPEN.search(line):
+                if not self._inventory_open:
+                    self._inventory_open = True
+                    self._update_external_inventory_state(True)
+                    if self.announce_inventory:
+                        self._speak("Inventory opened")
+                return
+            if self._inventory_open and _RE_BACK_TO_GAME.search(line):
+                self._inventory_open = False
+                self._update_external_inventory_state(False)
+                if self.announce_inventory:
+                    self._speak("Inventory closed")
+                return
+
         # --- Reload DBNO / respawn (user-requested core feature) ---
         if _RE_DBNO_KNOCKED.search(line):
             if self.announce_dbno:

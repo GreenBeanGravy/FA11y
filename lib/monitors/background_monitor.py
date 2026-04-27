@@ -23,6 +23,12 @@ class BackgroundMonitor(BaseMonitor):
         self._status_lock = threading.Lock()
         self._map_open = False
         self._inventory_open = False
+        # When MatchEventMonitor sees inventory open/close in the Fortnite
+        # log it sets this flag and starts driving inventory_open directly.
+        # The pixel-based inventory check below skips itself while it's set
+        # — log-based detection is faster and avoids template-match flaps
+        # from animations or cosmetic UI overlays.
+        self._external_inventory_source = False
         
         self.config = read_config()
         
@@ -158,6 +164,10 @@ class BackgroundMonitor(BaseMonitor):
     def check_inventory_status(self):
         """Check if inventory is open/closed using template matching."""
         if self.map_open:  # Don't check if map is open
+            return
+        if self._external_inventory_source:
+            # MatchEventMonitor is providing authoritative inventory state
+            # via Fortnite log events; skip the pixel scan to avoid flaps.
             return
             
         try:
