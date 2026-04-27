@@ -97,20 +97,30 @@ def check_health_shields():
     try:
         # Try API first (fast and accurate when FA11y-OW is running)
         health, shield, overshield = get_health_shield_from_api()
-        
-        if health is not None:
+
+        # Treat (health=0, shield=0) as "no data yet" instead of trusting it.
+        # GEP reports 0/0 in the lobby and during the brief window between
+        # match start and the first me/health update. If we returned the
+        # zeroes here the user would hear "0 Health, No Shield" instead of
+        # what's actually on screen, so let the visual scan run instead.
+        api_has_real_values = (
+            health is not None
+            and (health > 0 or (shield is not None and shield > 0))
+        )
+
+        if api_has_real_values:
             # Successfully got values from API
             speaker.speak(f'{health} Health')
-            
+
             if shield > 0:
                 speaker.speak(f'{shield} Shield')
             else:
                 speaker.speak('No Shield')
-            
+
             # Announce overshield if present
             if overshield > 0:
                 speaker.speak(f'{overshield} Overshield')
-            
+
             return
         
         # API failed or unavailable, fall back to visual detection

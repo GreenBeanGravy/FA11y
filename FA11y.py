@@ -96,6 +96,7 @@ from lib.monitors.bloom_monitor import bloom_monitor
 from lib.monitors.match_event_monitor import match_event_monitor
 from lib.monitors.fa11y_ow_announcer import announcer as fa11y_ow_announcer
 from lib.utilities.fa11y_ow_client import client as fa11y_ow_client
+from lib.utilities.fa11y_ow_calibration import calibrate_fa11y_ow_position
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
@@ -447,6 +448,7 @@ def reload_config() -> None:
             'decline notification': decline_notification,
             'recapture mouse': lambda: get_mouse_passthrough().recapture_mouse(),
             'toggle mouse passthrough': lambda: get_mouse_passthrough().toggle(),
+            'calibrate fa11y-ow position': calibrate_fa11y_ow_position,
             'read mode status': read_mode_status,
             'toggle fill': toggle_lobby_fill,
             'toggle ranked': toggle_ranked,

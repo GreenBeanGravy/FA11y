@@ -509,6 +509,7 @@ Accept Notification = lalt+y "Accept pending notification (friend request, party
 Decline Notification = lalt+n "Decline pending notification (friend request, party invite)."
 Recapture Mouse = lalt+lshift+m "Recapture the mouse device for passthrough. Use when changing mice."
 Toggle Mouse Passthrough = lalt+lshift+p "Toggles mouse passthrough on or off."
+Calibrate FA11y-OW Position =  "Captures FA11y's visual position and FA11y-OW's GEP location at the same instant. Press three times at three different positions on the open full-screen map; FA11y-OW then becomes a substitute for visual position detection on that map. Repeat per map."
 
 [MatchEvents]
 MonitorMatchEvents = true "Master toggle for the in-match log event monitor. Tails Fortnite's local log file to surface real-time events the screen reader otherwise cannot see."
