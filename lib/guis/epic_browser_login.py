@@ -70,11 +70,27 @@ class SilentAuthDialog(wx.Dialog):
         # Start authentication attempt
         wx.CallAfter(self._start_silent_auth)
 
+    def _safe_end_modal(self, code: int) -> None:
+        """End the modal loop iff one is still running.
+
+        Multiple paths can race to close the dialog (success, timeout,
+        WebView error). Whichever lands second hits a no-running-loop
+        assertion otherwise.
+        """
+        try:
+            if self.IsBeingDeleted():
+                return
+            if not self.IsModal():
+                return
+            self.EndModal(code)
+        except Exception as e:
+            logger.debug(f"EndModal skipped: {e}")
+
     def _start_silent_auth(self):
         """Start the silent authentication attempt"""
         if not self.browser:
             logger.error("No browser available for silent auth")
-            wx.CallAfter(lambda: self.EndModal(wx.ID_CANCEL))
+            wx.CallAfter(self._safe_end_modal, wx.ID_CANCEL)
             return
 
         # Navigate to Epic's redirect URL
@@ -165,7 +181,7 @@ class SilentAuthDialog(wx.Dialog):
                 if self.auth_instance.is_valid and self.auth_instance.access_token:
                     logger.info(f"Silent auth successful for {self.auth_instance.display_name}")
                     self.auth_successful = True
-                    wx.CallAfter(lambda: self.EndModal(wx.ID_OK))
+                    wx.CallAfter(self._safe_end_modal, wx.ID_OK)
                     return
                 else:
                     logger.warning("Silent auth: Token exchange succeeded but auth not valid")
@@ -202,7 +218,7 @@ class SilentAuthDialog(wx.Dialog):
         if not self.auth_successful:
             elapsed = time.time() - self.start_time
             logger.debug(f"Silent auth timed out after {elapsed:.1f}s")
-            self.EndModal(wx.ID_CANCEL)
+            self._safe_end_modal(wx.ID_CANCEL)
 
     def was_successful(self) -> bool:
         """Check if authentication was successful"""
@@ -270,6 +286,17 @@ class EpicBrowserLoginDialog(wx.Dialog):
 
         # Start login flow
         wx.CallAfter(self._start_login)
+
+    def _safe_end_modal(self, code: int) -> None:
+        """End the modal loop iff one is still running (race-safe)."""
+        try:
+            if self.IsBeingDeleted():
+                return
+            if not self.IsModal():
+                return
+            self.EndModal(code)
+        except Exception as e:
+            logger.debug(f"EndModal skipped: {e}")
 
     def _setup_ui(self):
         """Setup the dialog UI with WebView"""
@@ -453,7 +480,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
                     logger.info(f"Successfully authenticated as {self.auth_instance.display_name}")
                     self.login_successful = True
                     self._update_status(f"✓ Successfully authenticated as {self.auth_instance.display_name}!")
-                    wx.CallLater(500, lambda: self.EndModal(wx.ID_OK))
+                    wx.CallLater(500, self._safe_end_modal, wx.ID_OK)
                 else:
                     logger.error("Token exchange succeeded but auth is not valid")
                     self._auto_completing = False
@@ -487,7 +514,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
         if success:
             self.login_successful = True
             self._update_status("Authentication successful!")
-            wx.CallLater(500, lambda: self.EndModal(wx.ID_OK))
+            wx.CallLater(500, self._safe_end_modal, wx.ID_OK)
         else:
             # Auto-complete failed, let user try manual button
             self._auto_completing = False
@@ -507,7 +534,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
         if success:
             self.login_successful = True
             self._update_status("Authentication successful!")
-            wx.CallLater(500, lambda: self.EndModal(wx.ID_OK))
+            wx.CallLater(500, self._safe_end_modal, wx.ID_OK)
         else:
             # Show error and let user retry
             wx.MessageBox(
@@ -667,7 +694,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
 
     def _on_cancel(self, event):
         """Handle cancel button"""
-        self.EndModal(wx.ID_CANCEL)
+        self._safe_end_modal(wx.ID_CANCEL)
 
     def _on_close(self, event):
         """Handle dialog close"""

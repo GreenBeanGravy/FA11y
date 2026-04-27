@@ -1,17 +1,7 @@
-"""
-Base class for background monitors.
+"""Base class for background monitors with lifecycle management.
 
-Every FA11y monitor (bloom, material, resource, storm, match events, STW
-alerts, …) needs the same lifecycle plumbing: a running flag, a stop event,
-a daemon thread, idempotent start/stop, and a timed join on shutdown.
-Before this class, each monitor reinvented that dance — and several had
-subtle variants (missing stop-events, underscored field names, no join
-timeout, race between the flag and the event).
-
-Subclasses implement ``_monitor_loop`` — the function that runs on the
-daemon thread. Inside the loop they should call ``self.stop_event.wait(t)``
-or check ``self.stop_event.is_set()`` instead of sleeping so that
-``stop_monitoring()`` actually breaks them out.
+Subclasses implement ``_monitor_loop``; use ``self.stop_event.wait(t)``
+inside it so ``stop_monitoring()`` can break out cleanly.
 """
 from __future__ import annotations
 
@@ -49,9 +39,16 @@ class BaseMonitor:
     # ------------------------------------------------------------------
 
     def start_monitoring(self) -> None:
-        """Start the monitor thread. Idempotent."""
+        """Start the monitor thread. Idempotent. No-op while wizard is open."""
         if self.running:
             return
+        # No monitors while the first-run wizard is up.
+        try:
+            from lib.app import state
+            if state.wizard_open.is_set():
+                return
+        except Exception:
+            pass
         self.running = True
         self.stop_event.clear()
         self.thread = threading.Thread(
@@ -79,6 +76,20 @@ class BaseMonitor:
         raise NotImplementedError(
             f"{type(self).__name__} must implement _monitor_loop()"
         )
+
+    @staticmethod
+    def wizard_paused() -> bool:
+        """True while the first-run wizard owns the screen.
+
+        Subclass loops should check this at the top of each iteration
+        and sleep instead of doing work — keeps TTS / screen capture
+        from firing while the user is configuring FA11y.
+        """
+        try:
+            from lib.app import state
+            return state.wizard_open.is_set()
+        except Exception:
+            return False
 
     # ------------------------------------------------------------------
     # Internal: swallow uncaught exceptions so a buggy monitor doesn't

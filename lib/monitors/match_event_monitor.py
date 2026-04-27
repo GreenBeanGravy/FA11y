@@ -1,27 +1,4 @@
-"""
-Real-time match event monitor for FA11y.
-
-Tails Fortnite's local log file (FortniteGame.log) and announces in-game
-events through the screen reader. This is the only practical way to surface
-information that Epic doesn't expose via any public API:
-
-  - Reload knocked / can-respawn / respawning / respawned state changes
-  - Players-remaining count (parsed from EOS rich-presence updates)
-  - Match phases (bus locked, bus flying, storm forming/holding/shrinking)
-  - Death / final placement / spectating
-  - Final-countdown player count (Reload/box-fights endgame)
-
-Every announcement is gated by a separate config toggle so users can keep
-only what they want.
-
-Implementation notes:
-  - The log file gets renamed to FortniteGame-backup-<timestamp>.log when
-    Fortnite launches a fresh instance. We re-open by inode (st_ino on
-    POSIX, st_ino is also returned on Windows by os.stat) and by mtime as
-    a fallback.
-  - We pick up where Fortnite's writer is, not the start of the file. On
-    initial start we seek to the end so historical events don't all replay.
-"""
+"""Tail FortniteGame.log and announce in-game events via the screen reader."""
 
 import os
 import re
@@ -203,12 +180,6 @@ class MatchEventMonitor(BaseMonitor):
         # "joined the party" announcements for yourself when the Adding
         # event fires for the local user.
         self.local_account_id: Optional[str] = None
-
-        # Local display name, set by FA11y at startup. Used to pick the
-        # local player's section out of STW end-of-match XP blocks, which
-        # list every team member's progression. None means "announce the
-        # last player block seen" as a best-effort fallback.
-        self.local_display_name: Optional[str] = None
 
         # Config flags.
         self.config = read_config()
@@ -542,6 +513,8 @@ class MatchEventMonitor(BaseMonitor):
             if self.stop_event.wait(timeout=0.25):
                 break
             if not self.enabled:
+                continue
+            if self.wizard_paused():
                 continue
             try:
                 # Cheap rotation check every ~2 seconds (stat is fast but

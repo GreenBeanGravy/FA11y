@@ -2375,29 +2375,12 @@ def launch_locker_gui():
                 dlg.Destroy()
             if app:
                 app.ProcessPendingEvents()
-                while app.HasPendingEvents():
-                    app.Yield()
 
     except Exception as e:
         logger.error(f"Error launching locker: {e}")
         speaker.speak("Error opening locker")
         messageBox(f"Failed to launch locker: {e}", "Error", wx.OK | wx.ICON_ERROR)
         return None
-
-    finally:
-        try:
-            gc.collect()
-            try:
-                ctypes.windll.user32.SetFocus(0)
-                if ctypes.windll.user32.OpenClipboard(0):
-                    ctypes.windll.user32.EmptyClipboard()
-                    ctypes.windll.user32.CloseClipboard()
-            except Exception:
-                pass
-            time.sleep(0.05)
-            gc.collect()
-        except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
 
 
 # Alias for backward compatibility

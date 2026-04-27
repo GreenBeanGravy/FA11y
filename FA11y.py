@@ -20,7 +20,15 @@ import logging
 import wx
 from typing import List, Tuple, Optional, Dict, Any, Union
 from lib.mouse_passthrough import get_mouse_passthrough
+from lib.mouse_passthrough import faker_input as _faker_input
 from lib.config.config_manager import config_manager
+
+# Kick off the FakerInput .NET CoreCLR load on a daemon thread the
+# moment imports are done. Loading the DLL takes 3-5 s; doing it in
+# the background lets the rest of FA11y startup proceed in parallel,
+# and any caller that actually needs FakerInput will join the thread
+# via ``ensure_loaded()``.
+_faker_input.preload_async()
 
 # Suppress pkg_resources deprecation warnings from external libraries
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", category=UserWarning)
@@ -173,9 +181,6 @@ from lib.app.auth_watcher import (
     validate_epic_auth as _validate_epic_auth_ext,
 )
 
-# Shared-state module — own the Event objects and lazy singletons so
-# extracted action handlers see the same references. Alias the events at
-# module level so legacy in-file code keeps working.
 from lib.app import state as _app_state
 
 speaker = Auto()
@@ -185,9 +190,7 @@ config = None
 key_bindings = {}
 key_listener_thread = None
 
-# Thread-synchronization events: authoritative copies live in state,
-# aliased here so existing ``xxx.is_set()`` / ``xxx.set()`` call sites
-# inside FA11y.py continue to target the same object.
+# Aliases for the authoritative Events that live in lib.app.state.
 stop_key_listener = _app_state.stop_key_listener
 config_gui_open = _app_state.config_gui_open
 social_gui_open = _app_state.social_gui_open
@@ -196,7 +199,6 @@ locker_gui_open = _app_state.locker_gui_open
 gamemode_gui_open = _app_state.gamemode_gui_open
 visited_objects_gui_open = _app_state.visited_objects_gui_open
 custom_poi_gui_open = _app_state.custom_poi_gui_open
-stw_gui_open = _app_state.stw_gui_open
 _shutdown_requested = _app_state.shutdown_requested
 auth_expired = _app_state.auth_expired
 
@@ -414,11 +416,9 @@ def reload_config() -> None:
             'open gamemode selector': open_gamemode_selector,
             'open locker selector': open_locker_selector,
             'open locker viewer': open_locker_viewer,
-            'open save the world': open_save_the_world,
             'announce reload map rotation': announce_reload_map_rotation,
             'sync current map to reload rotation': sync_current_map_to_reload_rotation,
             'open configuration menu': open_config_gui,
-            'open client settings': open_clientsettings_editor,
             'exit match': exit_match,
             'create custom p o i': handle_custom_poi_gui,
             'announce ammo': announce_ammo_manually,
@@ -542,6 +542,10 @@ def key_listener() -> None:
         if _shutdown_requested.is_set():
             break
 
+        if _app_state.wizard_open.is_set():
+            time.sleep(0.05)
+            continue
+
         # Check active window for GUI focus management
         active_title = get_active_window_title()
         is_gui_focused = any(title in active_title for title in gui_titles)
@@ -585,13 +589,10 @@ def key_listener() -> None:
                 # logger.debug(f"Blocked action '{action_lower}' because GUI is focused") # Uncomment for debugging
                 continue
 
-            # *** MODIFIED LOGIC STARTS HERE ***
-            key_pressed = False
+            # Movement is lenient on extra modifiers; everything else is strict.
             if action_lower in mouse_key_actions:
-                # For movement, use the lenient check that ignores extra modifiers
                 key_pressed = is_key_combination_pressed_ignore_extra_mods(key_combo)
             else:
-                # For all other actions, use the strict, exact-match check
                 key_pressed = is_key_combination_pressed(key_combo)
 
             key_state_key = key_combo
@@ -663,12 +664,10 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
         speaker.speak("Error updating configuration")
 
 from lib.app.menu_actions import (
-    open_clientsettings_editor,
     handle_custom_poi_gui,
     open_gamemode_selector,
     open_locker_selector,
     open_locker_viewer,
-    open_save_the_world,
     open_config_gui as _open_config_gui_ext,
 )
 
@@ -744,24 +743,42 @@ def main() -> None:
         # Register shutdown handlers early
         register_shutdown_handlers()
 
-        # Initialize global wx.App on main thread BEFORE starting any threads
-        # This prevents threading issues when GUIs are opened from background threads
+        # wx.App must exist before the wizard (or any GUI) can show.
         from lib.guis.gui_utilities import initialize_global_wx_app
         try:
             initialize_global_wx_app()
             logger.debug("Global wx.App initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize wx.App: {e}")
-            # Continue anyway - GUIs will try to create app when needed
 
-        # Check and welcome user
+        # First-run wizard runs before anything else — nothing speaks,
+        # nothing polls, no monitors, no key listener.
+        first_run = False
+        try:
+            from lib.guis.welcome_wizard import is_first_run, run_welcome_wizard
+            if is_first_run():
+                first_run = True
+                logger.info("First-run wizard triggered.")
+                # Block until the FakerInput .NET runtime finishes
+                # loading so its "[INFO] Loading…/loaded" messages don't
+                # interleave with the wizard, and so any input the
+                # wizard depends on is ready before the user sees a
+                # control.
+                _faker_input.ensure_loaded()
+                run_welcome_wizard()
+                clear_config_cache()
+        except Exception as e:
+            logger.exception(f"First-run wizard failed to launch: {e}")
+
         local_username = get_legendary_username()
         if local_username:
             print(f"Welcome back {local_username}!")
-            speaker.speak(f"Welcome back {local_username}!")
+            if not first_run:
+                speaker.speak(f"Welcome back {local_username}!")
         else:
             print("You are not logged into Legendary.")
-            speaker.speak("You are not logged into Legendary.")
+            if not first_run:
+                speaker.speak("You are not logged into Legendary.")
 
         # Check startup settings
         temp_config = read_config()
@@ -878,7 +895,6 @@ def main() -> None:
                 # local account id so the monitor can suppress self-adds.
                 match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
                 match_event_monitor.local_account_id = epic_auth.account_id
-                match_event_monitor.local_display_name = epic_auth.display_name
 
                 # Initialize discovery API
                 discovery_api = EpicDiscovery(epic_auth)

@@ -1,33 +1,10 @@
-"""
-Keybind-driven GUI launchers.
-
-All seven ``open_*`` menu actions — Client Settings editor, configuration
-GUI, custom POI creator, gamemode selector, locker, Save the World.
-
-Every launcher follows the same pattern: check the per-GUI ``threading.Event``
-flag (in ``state``), bail if already open, otherwise spawn the GUI on the
-wx main thread. Locker and STW additionally stop the active POI pinger so
-navigation audio doesn't bleed into menu interaction.
-"""
+"""GUI launchers (config, custom POI, gamemode, locker)."""
 from __future__ import annotations
 
 from typing import Callable, Optional
 
 from lib.app import state
 from lib.utilities.window_utils import focus_window
-
-
-def open_clientsettings_editor() -> None:
-    """Open the Client Settings editor (Fortnite sens/binds/volumes + cloud sync)."""
-    speaker = state.speaker
-    try:
-        from lib.guis.clientsettings_gui import launch_clientsettings_editor
-    except Exception as e:
-        print(f"Error loading Client Settings editor: {e}")
-        speaker.speak("Error loading Client Settings editor")
-        return
-    speaker.speak("Opening Client Settings editor")
-    launch_clientsettings_editor()
 
 
 def open_config_gui(reload_config: Optional[Callable] = None) -> None:
@@ -138,7 +115,7 @@ def open_gamemode_selector() -> None:
 
 
 def _stop_active_pinger_for_menu() -> None:
-    """Shared helper — locker + STW stop the POI pinger when they open."""
+    """Shared helper — locker stops the POI pinger when it opens."""
     pinger = state.get_active_pinger()
     if pinger:
         pinger.stop()
@@ -177,30 +154,3 @@ def open_locker_selector() -> None:
 # the two keybinds opened the same GUI. Kept for back-compat with existing
 # FA11y action handler mapping that binds both names.
 open_locker_viewer = open_locker_selector
-
-
-def open_save_the_world() -> None:
-    """Open the Save the World manager."""
-    speaker = state.speaker
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    def _do_open_stw():
-        if state.stw_gui_open.is_set():
-            speaker.speak("Save the World manager is already open")
-            focus_window("Save the World Manager")
-            return
-
-        _stop_active_pinger_for_menu()
-        try:
-            from lib.guis.stw_gui import launch_stw_gui
-            state.stw_gui_open.set()
-            try:
-                launch_stw_gui()
-            finally:
-                state.stw_gui_open.clear()
-        except Exception as e:
-            print(f"Error opening Save the World manager: {e}")
-            speaker.speak("Error opening Save the World manager")
-            state.stw_gui_open.clear()
-
-    launch_gui_thread_safe(_do_open_stw)

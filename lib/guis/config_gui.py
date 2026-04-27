@@ -34,6 +34,31 @@ logger = logging.getLogger(__name__)
 speaker = Auto()
 
 
+# Keys routed to the "Advanced" tab regardless of source section.
+ADVANCED_KEYS = frozenset({
+    "SimplifySpeechOutput",
+    "IgnoreNumlock",
+    "ResetSensitivity",
+    "TurnAroundSensitivity",
+    "RecenterDelay",
+    "TurnDelay",
+    "RecenterStepDelay",
+    "RecenterStepSpeed",
+    "RecenterLookDown",
+    "RecenterLookUp",
+    "ResetRecenterLookDown",
+    "ResetRecenterLookUp",
+    "StormPingInterval",
+    "ContinuousPingMinInterval",
+    "ContinuousPingMaxInterval",
+    "ContinuousPingDistanceExponent",
+    "PositionUpdateInterval",
+    "MaxInstancesForGameObjectPositioning",
+    # Onboarding wizard re-run toggle.
+    "FirstRunComplete",
+})
+
+
 class ConfigGUI(AccessibleDialog):
     """Configuration GUI with instant opening via deferred widget creation"""
 
@@ -55,8 +80,13 @@ class ConfigGUI(AccessibleDialog):
         self.capture_widget = None
         self.capture_action = None
         self.tab_control_widgets = {}
-        
-        # Show dialog immediately
+
+        # Polling timer picks up mouse buttons (EVT_CHAR_HOOK can't see them).
+        self._capture_timer: Optional[wx.Timer] = None
+        # Arms after a no-keys-pressed tick so the capture activator
+        # (Enter/Space/click) isn't sampled as the user's binding.
+        self._capture_armed = False
+
         self.setupDialog()
 
         # Set a proper size so the dialog isn't tiny before deferred widgets load
@@ -83,26 +113,89 @@ class ConfigGUI(AccessibleDialog):
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
     
     def _populateWidgets(self):
-        """Populate widgets after dialog is shown"""
+        """Populate active tab now; queue rest for background build."""
         try:
             self.analyze_config()
-            self.create_widgets()
-            self.build_tab_control_lists()
-            # Force layout refresh so panels fill the available space
+
+            self._tab_built = {tab_name: False for tab_name in self.tabs}
+            self._prebuild_queue: List[str] = []
+
+            active_idx = self.notebook.GetSelection()
+            if active_idx == wx.NOT_FOUND or active_idx >= self.notebook.GetPageCount():
+                active_idx = 0
+            active_tab = self.notebook.GetPageText(active_idx)
+
+            self._build_tab(active_tab)
             self.Layout()
+
+            self._prebuild_queue = [
+                t for t in self.tabs if t != active_tab and not self._tab_built.get(t, False)
+            ]
+            if self._prebuild_queue:
+                wx.CallLater(50, self._prebuild_next)
         except Exception as e:
             logger.error(f"Error populating widgets: {e}")
             speaker.speak("Error loading configuration")
-    
-    def build_tab_control_lists(self):
-        """Build ordered lists of focusable controls for each tab"""
+
+    def _prebuild_next(self) -> None:
+        """Build the next queued tab, then reschedule."""
+        try:
+            if self.IsBeingDeleted() or not self.IsShown():
+                return
+        except Exception:
+            return
+        if not getattr(self, '_prebuild_queue', None):
+            return
+
+        tab_name = self._prebuild_queue.pop(0)
+        if not self._tab_built.get(tab_name, False):
+            try:
+                self._build_tab(tab_name)
+            except Exception as e:
+                logger.error(f"Error pre-building tab {tab_name!r}: {e}")
+
+        if self._prebuild_queue:
+            wx.CallLater(50, self._prebuild_next)
+
+    def _build_tab(self, tab_name: str) -> None:
+        """Construct widgets for a single tab. Idempotent; cheap to call again."""
+        if tab_name not in self.tabs:
+            return
+        if self._tab_built.get(tab_name):
+            return
+
+        panel = self.tabs[tab_name]
+        panel.Freeze()
+        try:
+            self.create_widgets(target_tab=tab_name)
+            self.build_tab_control_lists(target_tab=tab_name)
+        finally:
+            panel.Thaw()
+        panel.Layout()
+        self._tab_built[tab_name] = True
+
+    def build_tab_control_lists(self, target_tab: Optional[str] = None):
+        """Rebuild focusable-widget lists. ``target_tab=None`` does all tabs."""
+        if target_tab is not None:
+            if target_tab not in self.tabs:
+                return
+            self.tab_control_widgets[target_tab] = []
+            self._collect_focusable_widgets(
+                self.tabs[target_tab], self.tab_control_widgets[target_tab]
+            )
+            return
         for tab_name, panel in self.tabs.items():
             self.tab_control_widgets[tab_name] = []
             self._collect_focusable_widgets(panel, self.tab_control_widgets[tab_name])
     
     def _collect_focusable_widgets(self, parent, widget_list):
-        """Recursively collect focusable widgets in tab order"""
+        """Recursively collect focusable widgets in tab order. Skip hidden subtrees."""
         for child in parent.GetChildren():
+            try:
+                if not child.IsShown():
+                    continue
+            except Exception:
+                pass
             if isinstance(child, (wx.Button, wx.TextCtrl, wx.CheckBox, wx.SpinCtrl, wx.Choice, wx.ComboBox, wx.ListCtrl)):
                 widget_list.append(child)
             elif hasattr(child, 'GetChildren'):
@@ -144,10 +237,14 @@ class ConfigGUI(AccessibleDialog):
         self.setFocusToFirstControl()
     
     def onPageChanged(self, event):
-        """Handle notebook page change and announce tab"""
+        """Handle notebook page change, build tab lazily, announce."""
         page_index = event.GetSelection()
         if page_index >= 0 and page_index < self.notebook.GetPageCount():
             tab_text = self.notebook.GetPageText(page_index)
+            # Build this tab on first visit so opening the dialog stays
+            # snappy when the user only ever touches one or two tabs.
+            if hasattr(self, '_tab_built') and not self._tab_built.get(tab_text, False):
+                self._build_tab(tab_text)
             speaker.speak(f"{tab_text} tab")
         event.Skip()
     
@@ -181,13 +278,11 @@ class ConfigGUI(AccessibleDialog):
     def create_tabs(self):
         """Create empty tab structure"""
         self.tabs = {}
-        
-        tab_names = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds"]
-        
-        for map_name in sorted(self.maps_with_objects.keys()):
-            display_name = f"{map_name.title()}GameObjects"
-            tab_names.append(display_name)
-        
+
+        # Per-map GameObjects sections aren't separate tabs anymore — they
+        # render inside the GameObjects tab via a Map dropdown.
+        tab_names = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds", "Advanced"]
+
         for tab_name in tab_names:
             panel = scrolled.ScrolledPanel(self.notebook)
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
@@ -277,162 +372,369 @@ class ConfigGUI(AccessibleDialog):
                     self.key_to_action[key_lower] = action
                     self.action_to_key[action] = key_lower
     
-    def create_widgets(self):
-        """Create widgets for each configuration section"""
-        # Clear loading indicators from all panels
-        for tab_name, panel in self.tabs.items():
+    def create_widgets(self, target_tab: Optional[str] = None):
+        """Create widgets. ``target_tab`` filters to one tab; ADVANCED_KEYS divert to "Advanced"."""
+        # GameObjects gets a special map-dropdown layout; route there.
+        if target_tab == "GameObjects":
+            self._build_gameobjects_tab_layout()
+            return
+
+        if target_tab is None:
+            self._build_gameobjects_tab_layout()
+            panels_to_reset = [(n, p) for n, p in self.tabs.items() if n != "GameObjects"]
+        else:
+            if target_tab not in self.tabs:
+                return
+            panels_to_reset = [(target_tab, self.tabs[target_tab])]
+        for tab_name, panel in panels_to_reset:
             panel.DestroyChildren()
             panel.sizer = wx.BoxSizer(wx.VERTICAL)
             panel.SetSizer(panel.sizer)
-        
+
+        def _matches(actual_tab: str) -> bool:
+            return target_tab is None or actual_tab == target_tab
+
+        def _resolve(natural_tab: str, key_name: str) -> str:
+            return "Advanced" if key_name in ADVANCED_KEYS else natural_tab
+
         for section in self.config.config.sections():
-            if section == "POI": 
+            if section == "POI":
                 continue
-                
+
             for key in self.config.config[section]:
                 value_string = self.config.config[section][key]
-                
+
                 if section == "Toggles":
-                    self.create_checkbox("Toggles", key, value_string)
+                    actual_tab = _resolve("Toggles", key)
+                    if _matches(actual_tab):
+                        self.create_checkbox(actual_tab, key, value_string)
                 elif section == "Values":
-                    self.create_value_entry("Values", key, value_string)
+                    actual_tab = _resolve("Values", key)
+                    if _matches(actual_tab):
+                        self.create_value_entry(actual_tab, key, value_string)
                 elif section == "Audio":
-                    value, _ = self.extract_value_and_description(value_string)
-                    if value.lower() in ['true', 'false']:
-                        self.create_checkbox("Audio", key, value_string)
-                    elif key.endswith('Volume') or key == 'MasterVolume':
-                        self.create_volume_entry("Audio", key, value_string)
-                    else:
-                        self.create_value_entry("Audio", key, value_string)
+                    actual_tab = _resolve("Audio", key)
+                    if _matches(actual_tab):
+                        value, _ = self.extract_value_and_description(value_string)
+                        if value.lower() in ['true', 'false']:
+                            self.create_checkbox(actual_tab, key, value_string)
+                        elif key.endswith('Volume') or key == 'MasterVolume':
+                            self.create_volume_entry(actual_tab, key, value_string)
+                        else:
+                            self.create_value_entry(actual_tab, key, value_string)
                 elif section == "GameObjects":
-                    value, _ = self.extract_value_and_description(value_string)
-                    if value.lower() in ['true', 'false']:
-                        self.create_checkbox("GameObjects", key, value_string)
-                    else:
-                        self.create_value_entry("GameObjects", key, value_string)
+                    # Universal [GameObjects] keys are rendered by
+                    # _build_gameobjects_tab_layout; only the advanced-
+                    # routed ones need standard handling.
+                    actual_tab = _resolve("GameObjects", key)
+                    if actual_tab == "GameObjects":
+                        continue
+                    if _matches(actual_tab):
+                        value, _ = self.extract_value_and_description(value_string)
+                        if value.lower() in ['true', 'false']:
+                            self.create_checkbox(actual_tab, key, value_string)
+                        else:
+                            self.create_value_entry(actual_tab, key, value_string)
                 elif section.endswith("GameObjects"):
-                    tab_name = section
-                    value, _ = self.extract_value_and_description(value_string)
-                    if value.lower() in ['true', 'false']:
-                        self.create_checkbox(tab_name, key, value_string)
-                    else:
-                        self.create_value_entry(tab_name, key, value_string)
+                    # Per-map sections live entirely inside the
+                    # GameObjects tab's map sub-panels.
+                    continue
                 elif section == "Keybinds":
-                    self.create_keybind_entry("Keybinds", key, value_string)
+                    # Keybinds aren't candidates for Advanced — they're
+                    # all user-facing customisation by definition.
+                    if _matches("Keybinds"):
+                        self.create_keybind_entry("Keybinds", key, value_string)
+                elif section == "Setup":
+                    # [Setup] keys are wizard-related toggles; route via
+                    # ADVANCED_KEYS so they live on the Advanced tab.
+                    actual_tab = _resolve("Advanced", key)
+                    if _matches(actual_tab):
+                        value, _ = self.extract_value_and_description(value_string)
+                        if value.lower() in ['true', 'false']:
+                            self.create_checkbox(actual_tab, key, value_string)
+                        else:
+                            self.create_value_entry(actual_tab, key, value_string)
                 elif section == "SETTINGS":
                     val_part, _ = self.extract_value_and_description(value_string)
                     if is_audio_setting(key):
+                        actual_tab = _resolve("Audio", key)
+                        if not _matches(actual_tab):
+                            continue
                         if val_part.lower() in ['true', 'false']:
-                            self.create_checkbox("Audio", key, value_string)
+                            self.create_checkbox(actual_tab, key, value_string)
                         elif key.endswith('Volume') or key == 'MasterVolume':
-                            self.create_volume_entry("Audio", key, value_string)
+                            self.create_volume_entry(actual_tab, key, value_string)
                         else:
-                            self.create_value_entry("Audio", key, value_string)
+                            self.create_value_entry(actual_tab, key, value_string)
                     elif is_game_objects_setting(key):
+                        actual_tab = _resolve("GameObjects", key)
+                        if not _matches(actual_tab):
+                            continue
                         if val_part.lower() in ['true', 'false']:
-                            self.create_checkbox("GameObjects", key, value_string)
+                            self.create_checkbox(actual_tab, key, value_string)
                         else:
-                            self.create_value_entry("GameObjects", key, value_string)
+                            self.create_value_entry(actual_tab, key, value_string)
                     elif is_map_specific_game_object_setting(key):
-                        target_tab = "MainGameObjects"
+                        legacy_target = "MainGameObjects"
                         for map_name in self.maps_with_objects.keys():
                             if map_name == 'main':
-                                target_tab = f"{map_name.title()}GameObjects"
+                                legacy_target = f"{map_name.title()}GameObjects"
                                 break
-                        
+                        actual_tab = _resolve(legacy_target, key)
+                        if not _matches(actual_tab):
+                            continue
                         if val_part.lower() in ['true', 'false']:
-                            self.create_checkbox(target_tab, key, value_string)
+                            self.create_checkbox(actual_tab, key, value_string)
                         else:
-                            self.create_value_entry(target_tab, key, value_string)
+                            self.create_value_entry(actual_tab, key, value_string)
                     elif val_part.lower() in ['true', 'false']:
-                        self.create_checkbox("Toggles", key, value_string)
+                        actual_tab = _resolve("Toggles", key)
+                        if _matches(actual_tab):
+                            self.create_checkbox(actual_tab, key, value_string)
                     else:
-                        self.create_value_entry("Values", key, value_string)
+                        actual_tab = _resolve("Values", key)
+                        if _matches(actual_tab):
+                            self.create_value_entry(actual_tab, key, value_string)
                 elif section == "SCRIPT KEYBINDS":
-                    self.create_keybind_entry("Keybinds", key, value_string)
-        
-        # Refresh all panels
-        for panel in self.tabs.values():
+                    if _matches("Keybinds"):
+                        self.create_keybind_entry("Keybinds", key, value_string)
+
+        for _tab_name, panel in panels_to_reset:
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
-    
-    def create_checkbox(self, tab_name: str, key: str, value_string: str):
-        """Create a checkbox for a boolean setting"""
-        if tab_name not in self.tabs:
+
+    # ------------------------------------------------------------------
+    # GameObjects tab — universal settings + map dropdown + per-map
+    # sub-panels (replaces the old per-map notebook tabs).
+    # ------------------------------------------------------------------
+
+    def _build_gameobjects_tab_layout(self) -> None:
+        """Lay out the GameObjects tab: universal section, map picker, per-map host."""
+        panel = self.tabs.get("GameObjects")
+        if panel is None:
             return
-            
+
+        panel.DestroyChildren()
+        panel.sizer = wx.BoxSizer(wx.VERTICAL)
+        panel.SetSizer(panel.sizer)
+
+        # Reset trackers — Advanced-routed keys keep their existing entries.
+        self.tab_widgets["GameObjects"] = []
+        self.tab_variables["GameObjects"] = {}
+
+        # 1. Universal [GameObjects] settings (skip ADVANCED_KEYS — those go on Advanced).
+        if self.config.config.has_section("GameObjects"):
+            for key in self.config.config["GameObjects"]:
+                if key in ADVANCED_KEYS:
+                    continue
+                value_string = self.config.config["GameObjects"][key]
+                value, _ = self.extract_value_and_description(value_string)
+                if value.lower() in ['true', 'false']:
+                    self.create_checkbox("GameObjects", key, value_string)
+                else:
+                    self.create_value_entry("GameObjects", key, value_string)
+
+        # 2. Map dropdown row.
+        available_maps = sorted(self.maps_with_objects.keys()) if self.maps_with_objects else []
+        if 'main' in available_maps:
+            available_maps.remove('main')
+            available_maps.insert(0, 'main')
+
+        if available_maps:
+            chooser_row = wx.BoxSizer(wx.HORIZONTAL)
+            chooser_row.Add(wx.StaticText(panel, label="Map:"),
+                            flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+            self._gameobjects_map_keys = available_maps
+            self._gameobjects_map_choice = wx.Choice(
+                panel, choices=[m.replace('_', ' ').title() for m in available_maps],
+            )
+            self._gameobjects_map_choice.SetSelection(0)
+            self._gameobjects_map_choice.description = (
+                "Pick which map's per-object tracking settings to view and edit."
+            )
+            self._gameobjects_map_choice.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+            self._gameobjects_map_choice.Bind(wx.EVT_CHOICE, self._on_gameobjects_map_changed)
+            chooser_row.Add(self._gameobjects_map_choice, flag=wx.ALL, border=5)
+            panel.sizer.Add(chooser_row, flag=wx.ALL, border=2)
+
+        # 3. Sub-panel host. Each map's settings live in its own panel,
+        # built lazily on first show, then hidden / shown as the
+        # dropdown changes. Keeps state across switches.
+        self._gameobjects_subpanel_host = wx.Panel(panel)
+        host_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._gameobjects_subpanel_host.SetSizer(host_sizer)
+        panel.sizer.Add(self._gameobjects_subpanel_host, proportion=1,
+                        flag=wx.EXPAND | wx.ALL, border=2)
+
+        self._gameobjects_subpanels = {}  # map_name -> wx.Panel
+
+        if available_maps:
+            self._show_gameobjects_map(available_maps[0])
+
+        try:
+            panel.SetupScrolling(scroll_x=False, scroll_y=True)
+        except Exception:
+            pass
+
+    def _on_gameobjects_map_changed(self, event):
+        idx = self._gameobjects_map_choice.GetSelection()
+        if idx == wx.NOT_FOUND:
+            return
+        try:
+            map_name = self._gameobjects_map_keys[idx]
+        except (IndexError, AttributeError):
+            return
+        self._show_gameobjects_map(map_name)
+
+    def _show_gameobjects_map(self, map_name: str) -> None:
+        """Hide every map sub-panel, build / show the requested one."""
+        host = getattr(self, "_gameobjects_subpanel_host", None)
+        if host is None:
+            return
+
+        # Hide all currently visible.
+        for sub in self._gameobjects_subpanels.values():
+            sub.Hide()
+
+        # Build on first request.
+        if map_name not in self._gameobjects_subpanels:
+            sub = wx.Panel(host)
+            sub_sizer = wx.BoxSizer(wx.VERTICAL)
+            sub.SetSizer(sub_sizer)
+            self._build_per_map_widgets(sub, map_name)
+            self._gameobjects_subpanels[map_name] = sub
+            host.GetSizer().Add(sub, proportion=1, flag=wx.EXPAND)
+
+        self._gameobjects_subpanels[map_name].Show()
+        host.Layout()
+        host.GetParent().Layout()
+        # Refresh tab-order list so Tab navigation skips the hidden maps.
+        self.build_tab_control_lists(target_tab="GameObjects")
+
+    def _build_per_map_widgets(self, parent_panel, map_name: str) -> None:
+        """Build per-object widgets for ``map_name`` onto ``parent_panel``.
+
+        Widgets are tracked under the ``<MapName>GameObjects`` key in
+        ``tab_variables`` so the existing save logic still routes each
+        value back to its real config section.
+        """
+        section_name = f"{map_name.title()}GameObjects"
+        if not self.config.config.has_section(section_name):
+            return
+
+        # Reset trackers for this section (we may rebuild on reset).
+        self.tab_widgets[section_name] = []
+        self.tab_variables[section_name] = {}
+
+        for key in self.config.config[section_name]:
+            if key in ADVANCED_KEYS:
+                continue  # would render on Advanced, not here
+            value_string = self.config.config[section_name][key]
+            value, _ = self.extract_value_and_description(value_string)
+            if value.lower() in ['true', 'false']:
+                self.create_checkbox(section_name, key, value_string,
+                                     parent_override=parent_panel)
+            else:
+                self.create_value_entry(section_name, key, value_string,
+                                        parent_override=parent_panel)
+
+    def _resolve_widget_parent(self, tab_name: str, parent_override=None):
+        """Pick the wx parent for a widget. ``parent_override`` lets the
+        GameObjects map sub-panels host widgets that are still tracked
+        under a per-map ``tab_name`` key in ``tab_variables``."""
+        if parent_override is not None:
+            return parent_override
+        return self.tabs.get(tab_name)
+
+    def _ensure_tracking(self, tab_name: str) -> None:
+        """Make sure ``tab_widgets`` / ``tab_variables`` have entries for a
+        non-notebook tracking key (e.g. ``MainGameObjects``)."""
+        if tab_name not in self.tab_widgets:
+            self.tab_widgets[tab_name] = []
+        if tab_name not in self.tab_variables:
+            self.tab_variables[tab_name] = {}
+
+    def create_checkbox(self, tab_name: str, key: str, value_string: str, parent_override=None):
+        """Create a checkbox for a boolean setting."""
+        panel = self._resolve_widget_parent(tab_name, parent_override)
+        if panel is None:
+            return
+
         value, description = self.extract_value_and_description(value_string)
         bool_value = value.lower() == 'true'
-        
-        panel = self.tabs[tab_name]
+
         checkbox = wx.CheckBox(panel, label=key)
         checkbox.SetValue(bool_value)
         checkbox.description = description
-        
+
         checkbox.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         checkbox.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
-        
+
+        self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].append(checkbox)
         self.tab_variables[tab_name][key] = checkbox
-        
-        if not hasattr(panel, 'sizer'):
+
+        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
             panel.sizer = wx.BoxSizer(wx.VERTICAL)
             panel.SetSizer(panel.sizer)
-        
+        elif not hasattr(panel, 'sizer'):
+            panel.sizer = panel.GetSizer()
+
         panel.sizer.Add(checkbox, flag=wx.ALL, border=5)
-    
-    def create_value_entry(self, tab_name: str, key: str, value_string: str):
-        """Create a text entry field or spin control for a value setting"""
-        if tab_name not in self.tabs:
+
+    def create_value_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
+        """Create a text entry field or spin control for a value setting."""
+        panel = self._resolve_widget_parent(tab_name, parent_override)
+        if panel is None:
             return
-            
+
         value, description = self.extract_value_and_description(value_string)
-        
-        panel = self.tabs[tab_name]
-        
+
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        
+
         label = wx.StaticText(panel, label=key)
-        
+
         is_numeric = self.is_numeric_setting(key, value)
-        
+
         if is_numeric:
             try:
                 numeric_value = int(float(value))
             except (ValueError, TypeError):
                 numeric_value = 0
-            
+
             min_val, max_val = self.get_value_range(key)
-            
+
             entry = wx.SpinCtrl(panel, value=str(numeric_value), min=min_val, max=max_val)
             entry.SetValue(numeric_value)
         else:
             entry = wx.TextCtrl(panel, value=value, style=wx.TE_PROCESS_ENTER)
             entry.Bind(wx.EVT_CHAR_HOOK, self.onTextCharHook)
-        
+
         entry.description = description
-        
+
         entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
-        
+
         sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
         sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
-        
+
+        self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].extend([label, entry])
         self.tab_variables[tab_name][key] = entry
-        
-        if not hasattr(panel, 'sizer'):
+
+        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
             panel.sizer = wx.BoxSizer(wx.VERTICAL)
             panel.SetSizer(panel.sizer)
-        
+        elif not hasattr(panel, 'sizer'):
+            panel.sizer = panel.GetSizer()
+
         panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
-    
-    def create_volume_entry(self, tab_name: str, key: str, value_string: str):
-        """Create a volume entry field with test button"""
-        if tab_name not in self.tabs:
+
+    def create_volume_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
+        """Create a volume entry field with test button."""
+        panel = self._resolve_widget_parent(tab_name, parent_override)
+        if panel is None:
             return
-            
+
         value, description = self.extract_value_and_description(value_string)
-        
-        panel = self.tabs[tab_name]
         
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         
@@ -459,24 +761,26 @@ class ConfigGUI(AccessibleDialog):
         sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
         sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
         sizer.Add(test_button, flag=wx.ALL, border=3)
-        
+
+        self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].extend([label, entry, test_button])
         self.tab_variables[tab_name][key] = entry
-        
-        if not hasattr(panel, 'sizer'):
+
+        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
             panel.sizer = wx.BoxSizer(wx.VERTICAL)
             panel.SetSizer(panel.sizer)
-        
+        elif not hasattr(panel, 'sizer'):
+            panel.sizer = panel.GetSizer()
+
         panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
-    
-    def create_keybind_entry(self, tab_name: str, key: str, value_string: str):
-        """Create a keybind button that shows current bind and captures new ones"""
-        if tab_name not in self.tabs:
+
+    def create_keybind_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
+        """Create a keybind button that shows current bind and captures new ones."""
+        panel = self._resolve_widget_parent(tab_name, parent_override)
+        if panel is None:
             return
-            
+
         value, description = self.extract_value_and_description(value_string)
-        
-        panel = self.tabs[tab_name]
         
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         
@@ -492,14 +796,17 @@ class ConfigGUI(AccessibleDialog):
         
         sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
         sizer.Add(keybind_button, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
-        
+
+        self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].extend([label, keybind_button])
         self.tab_variables[tab_name][key] = keybind_button
-        
-        if not hasattr(panel, 'sizer'):
+
+        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
             panel.sizer = wx.BoxSizer(wx.VERTICAL)
             panel.SetSizer(panel.sizer)
-        
+        elif not hasattr(panel, 'sizer'):
+            panel.sizer = panel.GetSizer()
+
         panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
     
     def onControlCharHook(self, event):
@@ -622,33 +929,76 @@ class ConfigGUI(AccessibleDialog):
         """Start capturing a new keybind"""
         original_text = button_widget.GetLabel()
         button_widget.SetLabel(f"{action_name}: Press any key...")
-        
+
         self.capturing_key = True
         self.capture_widget = button_widget
         self.capture_action = action_name
-        
+
         original_value = ""
         if self.config.config.has_section("Keybinds") and action_name in self.config.config["Keybinds"]:
             original_value, _ = self.extract_value_and_description(self.config.config["Keybinds"][action_name])
-        
+
         self.original_capture_value = original_value
-    
+
+        self._capture_armed = False
+        self._start_capture_polling()
+
+    def _start_capture_polling(self):
+        """Start a wx.Timer that polls global key state during keybind capture."""
+        if self._capture_timer is None:
+            self._capture_timer = wx.Timer(self)
+            self.Bind(wx.EVT_TIMER, self._on_capture_timer, self._capture_timer)
+        if not self._capture_timer.IsRunning():
+            self._capture_timer.Start(30)
+
+    def _stop_capture_polling(self):
+        """Stop the capture polling timer if it's running."""
+        if self._capture_timer is not None and self._capture_timer.IsRunning():
+            self._capture_timer.Stop()
+
+    def _on_capture_timer(self, _event):
+        """Timer tick — try to capture a keybind from current global key state."""
+        if not self.capturing_key:
+            self._stop_capture_polling()
+            return
+        self.handle_key_capture()
+
+    def _cancel_capture(self):
+        """Restore the captured button's label and exit capture mode."""
+        if self.capture_widget is not None and self.capture_action is not None:
+            if self.original_capture_value:
+                self.capture_widget.SetLabel(
+                    f"{self.capture_action}: {self.original_capture_value}"
+                )
+            else:
+                self.capture_widget.SetLabel(f"{self.capture_action}: Unbound")
+        self.capturing_key = False
+        self.capture_widget = None
+        self.capture_action = None
+        self._stop_capture_polling()
+
     def handle_key_capture(self):
         """Handle key capture using input utilities"""
         if not self.capturing_key:
             return
-            
+
+        # Wait for a no-keys-pressed tick before sampling.
+        if not self._capture_armed:
+            if get_pressed_key_combination() == "":
+                self._capture_armed = True
+            return
+
         new_key = get_pressed_key_combination()
-        
+
         if new_key:
             if validate_key_combination(new_key):
                 new_key_lower = new_key.lower()
                 old_key_for_action = self.action_to_key.get(self.capture_action, "")
-                
+
                 if old_key_for_action and self.key_to_action.get(old_key_for_action) == self.capture_action:
                     self.key_to_action.pop(old_key_for_action, None)
                 self.action_to_key.pop(self.capture_action, None)
-                
+
                 if new_key_lower and new_key_lower in self.key_to_action:
                     conflicting_action = self.key_to_action[new_key_lower]
                     if conflicting_action != self.capture_action:
@@ -657,21 +1007,22 @@ class ConfigGUI(AccessibleDialog):
                             if conflicting_action in tab_vars:
                                 tab_vars[conflicting_action].SetLabel(f"{conflicting_action}: Unbound")
                                 break
-                
+
                 if new_key_lower:
                     self.key_to_action[new_key_lower] = self.capture_action
                 self.action_to_key[self.capture_action] = new_key_lower
-                
+
                 self.capture_widget.SetLabel(f"{self.capture_action}: {new_key}")
             else:
                 if self.original_capture_value:
                     self.capture_widget.SetLabel(f"{self.capture_action}: {self.original_capture_value}")
                 else:
                     self.capture_widget.SetLabel(f"{self.capture_action}: Unbound")
-            
+
             self.capturing_key = False
             self.capture_widget = None
             self.capture_action = None
+            self._stop_capture_polling()
     
     def onKeyEvent(self, event):
         """Handle key events for shortcuts and capture"""
@@ -680,13 +1031,7 @@ class ConfigGUI(AccessibleDialog):
         
         if self.capturing_key:
             if key_code == wx.WXK_ESCAPE:
-                if self.original_capture_value:
-                    self.capture_widget.SetLabel(f"{self.capture_action}: {self.original_capture_value}")
-                else:
-                    self.capture_widget.SetLabel(f"{self.capture_action}: Unbound")
-                self.capturing_key = False
-                self.capture_widget = None
-                self.capture_action = None
+                self._cancel_capture()
                 return
             else:
                 self.handle_key_capture()
@@ -771,9 +1116,11 @@ class ConfigGUI(AccessibleDialog):
                         lookup_section = "Audio"
                     elif tab_name == "GameObjects":
                         lookup_section = "GameObjects"
-                    
+                    elif tab_name == "Advanced":
+                        lookup_section = self._default_section_for_key(key) or tab_name
+
                     default_full_value = get_default_config_value_string(lookup_section, key)
-                    
+
                     if not default_full_value:
                         return
                     
@@ -837,11 +1184,27 @@ class ConfigGUI(AccessibleDialog):
         if '"' in value_string:
             quote_pos = value_string.find('"')
             value = value_string[:quote_pos].strip()
-            description = value_string[quote_pos+1:] 
+            description = value_string[quote_pos+1:]
             if description.endswith('"'):
                 description = description[:-1]
             return value, description
         return value_string, ""
+
+    def _default_section_for_key(self, key: str) -> Optional[str]:
+        """Return the default-config section that owns ``key`` (cached parser)."""
+        from lib.utilities.utilities import (
+            DEFAULT_CONFIG,
+            _create_config_parser_with_case_preserved,
+        )
+        parser = getattr(self, "_default_section_parser", None)
+        if parser is None:
+            parser = _create_config_parser_with_case_preserved()
+            parser.read_string(DEFAULT_CONFIG)
+            self._default_section_parser = parser
+        for section in parser.sections():
+            if parser.has_option(section, key):
+                return section
+        return None
     
     def save_and_close(self):
         """Save configuration and close"""
@@ -855,7 +1218,7 @@ class ConfigGUI(AccessibleDialog):
             
             config_parser_instance = self.config.config
 
-            required_sections = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds", "POI"]
+            required_sections = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds", "POI", "Setup"]
             for map_name in self.maps_with_objects.keys():
                 required_sections.append(f"{map_name.title()}GameObjects")
 
@@ -866,7 +1229,7 @@ class ConfigGUI(AccessibleDialog):
             for tab_name in self.tab_variables:
                 for setting_key, widget in self.tab_variables[tab_name].items():
                     description = getattr(widget, 'description', '')
-                    
+
                     if isinstance(widget, wx.CheckBox):
                         value_to_save = 'true' if widget.GetValue() else 'false'
                     elif isinstance(widget, wx.SpinCtrl):
@@ -882,19 +1245,35 @@ class ConfigGUI(AccessibleDialog):
                                 value_to_save = ""
                         else:
                             value_to_save = ""
-                            
+
                         if value_to_save.strip() and not validate_key_combination(value_to_save):
                             value_to_save = ""
                     else:
                         value_to_save = widget.GetValue()
-                    
+
                     value_string_to_save = f"{value_to_save} \"{description}\"" if description else str(value_to_save)
-                    
-                    if tab_name.endswith("GameObjects"):
+
+                    # Advanced widgets save back to their real section.
+                    if tab_name == "Advanced":
+                        target_section = None
+                        for sec in config_parser_instance.sections():
+                            if config_parser_instance.has_option(sec, setting_key):
+                                target_section = sec
+                                break
+                        if target_section is None:
+                            target_section = self._default_section_for_key(setting_key)
+                        if target_section is None:
+                            logger.warning(
+                                f"save_and_close: no section found for advanced key {setting_key!r}, skipping"
+                            )
+                            continue
+                    elif tab_name.endswith("GameObjects"):
                         target_section = tab_name
                     else:
                         target_section = tab_name
-                    
+
+                    if not config_parser_instance.has_section(target_section):
+                        config_parser_instance.add_section(target_section)
                     config_parser_instance.set(target_section, setting_key, value_string_to_save)
 
             self.update_callback(config_parser_instance)

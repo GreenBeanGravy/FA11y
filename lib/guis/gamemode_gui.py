@@ -288,8 +288,6 @@ def launch_gamemode_selector():
 
             if app:
                 app.ProcessPendingEvents()
-                while app.HasPendingEvents():
-                    app.Yield()
 
     except Exception as e:
         error = DisplayableError(
@@ -301,41 +299,10 @@ def launch_gamemode_selector():
         safe_speak("Error opening gamemode selector")
 
     finally:
-        try:
-            gc.collect()
-
+        # Restore the window that had focus before the dialog opened so
+        # the user lands back in Fortnite (or wherever they came from).
+        if current_window:
             try:
-                ctypes.windll.user32.SetFocus(0)
-
-                if ctypes.windll.user32.OpenClipboard(0):
-                    ctypes.windll.user32.EmptyClipboard()
-                    ctypes.windll.user32.CloseClipboard()
-
-            except:
+                ctypes.windll.user32.SetForegroundWindow(current_window)
+            except Exception:
                 pass
-
-            if current_window:
-                try:
-                    ctypes.windll.user32.SetForegroundWindow(current_window)
-                    ctypes.windll.user32.SetFocus(current_window)
-                except:
-                    pass
-
-            time.sleep(0.2)
-            gc.collect()
-
-            try:
-                import tkinter as tk
-                if hasattr(tk, '_default_root') and tk._default_root is not None:
-                    try:
-                        if tk._default_root.winfo_exists():
-                            pass
-                        else:
-                            tk._default_root = None
-                    except:
-                        tk._default_root = None
-            except:
-                pass
-
-        except Exception as cleanup_error:
-            logger.error(f"Error during cleanup: {cleanup_error}")

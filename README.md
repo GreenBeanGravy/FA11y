@@ -41,11 +41,6 @@ what it currently does:
 - Browse and equip cosmetics via the Locker selector
 - Select and queue game modes via the Gamemode selector
 - Browse Creative islands via the Discovery menu
-- Save the World manager: mission alerts, daily quests, expeditions, llamas,
-  squad/loadout management, recycle/upgrade/craft, Collection Book, public
-  profile lookup
-- Client Settings editor — mouse sensitivity, audio volumes, keybinds,
-  region, voice chat, toggles (local + Epic cloud sync)
 - Epic authentication / social menu (friends, party, requests)
 - Reload map rotation — query fortnite.gg and announce which map is live now
   and what's next; optionally sync FA11y's `current_map` to it automatically
@@ -123,8 +118,6 @@ All keybinds are configurable via `F9` → FA11y configuration menu.
 | Key | Action |
 |---|---|
 | `'` | Gamemode selector |
-| `L-Alt + Shift + C` | Client Settings editor |
-| `L-Alt + Shift + S` | Save the World manager |
 | `L-Alt + V` | Visited-objects manager |
 | `L-Alt + .` | Social menu |
 | `L-Alt + '` | Discovery menu |

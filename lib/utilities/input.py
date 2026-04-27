@@ -142,6 +142,9 @@ MODIFIER_KEYS = {
     'ralt': win32con.VK_RMENU,
 }
 
+# Reserved by FA11y for confirm / cancel — never bindable.
+RESERVED_MAIN_KEYS = {'enter', 'esc'}
+
 def is_key_pressed(key: str) -> bool:
     """
     Checks if a specific key is currently pressed.
@@ -413,10 +416,10 @@ def validate_key_combination(key_combo: str) -> bool:
     # Validate main key exists
     main_key_lower = main_key.lower()
 
-    # Prevent modifiers from being used as main keys
-    # This fixes the bug where pressing SHIFT/ALT alone gets captured
-    # instead of waiting for the full key combination
+    # Modifiers and reserved keys can't stand alone as a binding.
     if main_key_lower in MODIFIER_KEYS:
+        return False
+    if main_key_lower in RESERVED_MAIN_KEYS:
         return False
 
     if main_key_lower in VK_KEYS:

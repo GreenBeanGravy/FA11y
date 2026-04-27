@@ -453,6 +453,10 @@ class StormMonitor(BaseMonitor):
         last_detection_time = 0
         while not self.stop_event.is_set():
             try:
+                if self.wizard_paused():
+                    self.cleanup_audio_thread()
+                    time.sleep(0.5)
+                    continue
                 current_time = time.time()
                 if not self.should_monitor():
                     self.cleanup_audio_thread()

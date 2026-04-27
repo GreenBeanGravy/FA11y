@@ -4,6 +4,7 @@ FakerInput DLL bridge for sending mouse input through the virtual device driver.
 
 import os
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -24,18 +25,57 @@ _mouseY_property = None
 _net_int16_cache = {}
 _cache_range = 0
 
+# Lazy-load gating. Loading the DLL spins up the .NET CoreCLR runtime
+# and can spawn a PowerShell process for Unblock-File — together that's
+# multi-second work that used to run at module import and stall every
+# FA11y startup. Now the work runs at most once, on demand, and can be
+# kicked off from a background thread by ``preload_async``.
+_load_lock = threading.Lock()
+_load_attempted = False  # True after the first ensure_loaded() call.
+_load_event = threading.Event()  # Set once load is finished (success or failure).
+
+
+def _unblock_marker_path(dll_path: str) -> str:
+    return dll_path + ".unblocked"
+
+
+def _maybe_unblock_dll(dll_path: str) -> None:
+    """Run Unblock-File once per install, then never again.
+
+    Spawning PowerShell costs ~1-2 s on Windows. Once Unblock-File has
+    succeeded it doesn't need to run again — the NTFS Zone.Identifier
+    stream is gone. We track that with a sentinel file next to the DLL.
+    """
+    marker = _unblock_marker_path(dll_path)
+    if os.path.exists(marker):
+        return
+    try:
+        import subprocess
+        subprocess.run(
+            ['powershell', '-NoProfile', '-NonInteractive', '-Command',
+             f'Unblock-File -Path "{dll_path}"'],
+            capture_output=True, timeout=5,
+        )
+        try:
+            with open(marker, "w", encoding="utf-8") as f:
+                f.write("ok")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 def get_cached_int16(value):
     """Get a cached .NET Int16 value. Only caches values within the configured range."""
     if abs(value) <= _cache_range:
         if value not in _net_int16_cache:
             _net_int16_cache[value] = _System.Int16(value)
         return _net_int16_cache[value]
-    # Outside cache range — create temporary, don't store
     return _System.Int16(value)
 
 
 def _load_fakerinput_dll():
-    """Load the FakerInput DLL at module import time."""
+    """Load the FakerInput DLL. Caller holds ``_load_lock``."""
     global FAKERINPUT_AVAILABLE, _System, _FakerInputType, _RelativeMouseReportType, _MouseButtonType
 
     try:
@@ -43,21 +83,15 @@ def _load_fakerinput_dll():
         import pythonnet
         from pythonnet import set_runtime
         set_runtime("coreclr")
-        import clr
+        import clr  # noqa: F401
         import System
         _System = System
 
-        # DLL is at the project root
         dll_path = os.path.join(os.path.dirname(__file__), "..", "..", "FakerInputWrapper.dll")
         dll_path = os.path.normpath(dll_path)
 
         if os.path.exists(dll_path):
-            try:
-                import subprocess
-                subprocess.run(['powershell', '-Command', f'Unblock-File -Path "{dll_path}"'],
-                              capture_output=True, timeout=5)
-            except:
-                pass
+            _maybe_unblock_dll(dll_path)
 
             try:
                 _assembly = System.Reflection.Assembly.LoadFrom(dll_path)
@@ -81,8 +115,34 @@ def _load_fakerinput_dll():
         print(f"[ERROR] FakerInput setup error: {e}")
 
 
-# Load DLL on import
-_load_fakerinput_dll()
+def ensure_loaded() -> bool:
+    """Load the FakerInput DLL on first call. Idempotent + thread-safe."""
+    global _load_attempted
+    if _load_event.is_set():
+        return FAKERINPUT_AVAILABLE
+    with _load_lock:
+        if _load_event.is_set():
+            return FAKERINPUT_AVAILABLE
+        if _load_attempted:
+            # Another thread is mid-load — wait for it.
+            pass
+        else:
+            _load_attempted = True
+            try:
+                _load_fakerinput_dll()
+            finally:
+                _load_event.set()
+            return FAKERINPUT_AVAILABLE
+    # Another thread is doing it; wait outside the lock.
+    _load_event.wait()
+    return FAKERINPUT_AVAILABLE
+
+
+def preload_async() -> threading.Thread:
+    """Kick off DLL load on a daemon thread so import-time stays cheap."""
+    t = threading.Thread(target=ensure_loaded, name="FakerInputPreload", daemon=True)
+    t.start()
+    return t
 
 
 def initialize_fakerinput(cache_range):
@@ -90,6 +150,8 @@ def initialize_fakerinput(cache_range):
     global _faker_input, _mouse_report, _initialized, _System, FAKERINPUT_AVAILABLE
     global _FakerInputType, _RelativeMouseReportType, _update_method, _reset_method
     global _mouseX_property, _mouseY_property, _cache_range
+
+    ensure_loaded()
 
     if not FAKERINPUT_AVAILABLE or not _System or _FakerInputType is None:
         return False

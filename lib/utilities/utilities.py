@@ -111,18 +111,10 @@ def migrate_config_files():
 
 
 def _write_slug_migration_backup(src_path: str) -> None:
-    """Stash a ``.premigration`` copy before we rewrite a user data file.
-
-    Unlike the rolling ``.backup`` file FavoritesManager keeps (cleared on
-    every successful save), ``.premigration`` is intentionally long-lived —
-    it only gets created once, the first time this migration touches the
-    file. If a user ever needs to recover the legacy-slug version (e.g.
-    they rolled back to an older FA11y build), the snapshot is sitting
-    right there next to the live file.
-    """
+    """Save a one-time ``.premigration`` snapshot alongside ``src_path``."""
     backup_path = f"{src_path}.premigration"
     if os.path.exists(backup_path):
-        return  # already captured on a prior run — don't clobber it
+        return
     try:
         import shutil
         shutil.copy2(src_path, backup_path)
@@ -131,23 +123,10 @@ def _write_slug_migration_backup(src_path: str) -> None:
 
 
 def _migrate_current_map_slug():
-    """One-time rewrite of every persisted ``map_name`` to the canonical
-    underscore slug.
+    """Migrate persisted ``map_name`` values to canonical underscore slug.
 
-    Legacy installs stored values like ``"reload venture"`` (space). After
-    the 18.7 map rename, maps/ filenames and ``[POI] current_map`` use the
-    canonical ``reload_venture`` (underscore). Three stores on disk carry
-    map_name values that need migrating in lockstep or existing per-map
-    data (favorites, custom POIs) silently disappears when the filter
-    below stops matching:
-
-    * ``config/config.txt`` → ``[POI] current_map``
-    * ``config/FAVORITE_POIS.txt`` → JSON array, ``map_name`` field per entry
-    * ``config/CUSTOM_POI.txt`` → CSV, ``map_name`` is the 4th column
-
-    Before each rewrite a ``.premigration`` snapshot is saved alongside
-    the live file so an older FA11y build can still be rolled back to.
-    Safe to call multiple times — it's a no-op once everything is canonical.
+    Touches ``[POI] current_map`` in config.txt, ``map_name`` in
+    FAVORITE_POIS.txt entries, and column 4 of CUSTOM_POI.txt. Idempotent.
     """
     try:
         from lib.utilities.map_rotation import normalize_map_slug
@@ -385,7 +364,7 @@ AnnounceWeaponAttachments = true "Toggles the announcements of weapon attachment
 AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weapons."
 AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
-AutoTurn = true "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
+AutoTurn = false "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
 MousePassthrough = true "Toggles the mouse passthrough feature. When enabled, your configured mouse is captured and relayed through the FakerInput driver."
@@ -412,7 +391,7 @@ MasterVolume = 1.0 "Master volume control for all FA11y sounds."
 PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
 MonitorDynamicObjects = false "Toggles background monitoring and spatial audio for nearby dynamic objects while the map is closed."
 MonitorStorm = true "Toggles monitoring for storm detection on the minimap with spatial audio pings."
-MonitorBloom = true "Toggles crosshair bloom monitoring with audio pitch feedback."
+MonitorBloom = false "Toggles crosshair bloom monitoring with audio pitch feedback."
 POIVolume = 1.0 "Volume for POI navigation sounds."
 StormVolume = 0.5 "Volume for storm audio pings when storm monitoring is enabled."
 DynamicObjectVolume = 1.0 "Volume for dynamic object detection sounds."
@@ -459,13 +438,11 @@ Announce Direction Faced = semicolon "Announces the direction the player is faci
 Announce Ammo = j "Announces the current ammo in the mag and reserves."
 Check Rarity = bracketleft "Announces the rarity of a selected item when the player is in the in-game inventory."
 Open Locker Selector = bracketright "Opens the Locker Selector menu, used for equipping cosmetic items."
-Open Save The World = lalt+lshift+s "Opens the Save the World manager. Grouped menu covers mission alerts (filtered to zones you've unlocked), daily quests, expeditions, llamas, squad and loadout management, items (recycle/upgrade/promote/craft), homebase settings, the Collection Book, and a public-profile lookup. A background monitor also announces V-Buck / X-Ray / Legendary survivor / Evo-mat mission alerts automatically; configure under Settings."
 Announce Reload Map Rotation =  "Queries fortnite.gg for the current Reload map rotation and announces which map is live now, how much time is left, and which map is next."
 Sync Current Map To Reload Rotation =  "Queries fortnite.gg for the current Reload map and automatically sets FA11y's current_map to the matching POI data file. Use just before queuing into Reload."
 Create Custom P O I = backslash "Creates a custom P O I at the players current position while the full-screen map is open, and prompts the user for a name."
 Open Gamemode Selector = apostrophe "Opens the Gamemode Selector GUI, used for selecting which gamemode the user wants to play."
 Open Configuration Menu = f9 "Opens the FA11y configuration menu for changing these settings."
-Open Client Settings = lalt+lshift+c "Opens the Client Settings editor for viewing and modifying Fortnite's in-game settings (mouse sensitivity, audio volumes, keybinds, region, voice chat, toggles). Edits can be saved to your local file and pushed to your Epic cloud storage so they follow you across devices."
 Exit Match = f12 "Exits the current match while the in-game quick-menu is open."
 Detect Hotbar 1 = 1 "Announces details about the item the player is currently holding in slot 1."
 Detect Hotbar 2 = 2 "Announces details about the item the player is currently holding in slot 2."
@@ -498,7 +475,10 @@ AnnounceFinalCountdown = true "Announce the final countdown player count for Rel
 selected_poi = closest, 0, 0
 current_map = main
 feature_detector = sift "Feature-matching algorithm for position detection on maps without a hard-coded override. Options: sift (default, best in varied terrain), akaze (better on low-contrast / uniform terrain like reload arenas and snow), orb (fastest, lower accuracy)."
-feature_clahe = false "Apply CLAHE histogram equalization before feature matching. Dramatically improves match rate on snow / ice / sand / other low-contrast terrain at a ~0.5 ms cost. Reload arenas already have this enabled per-map." """
+feature_clahe = false "Apply CLAHE histogram equalization before feature matching. Dramatically improves match rate on snow / ice / sand / other low-contrast terrain at a ~0.5 ms cost. Reload arenas already have this enabled per-map."
+
+[Setup]
+FirstRunComplete = false "Whether the first-run setup wizard has been completed. Uncheck (set to false) and restart FA11y to re-run the onboarding wizard." """
 
     # Add map-specific game objects sections
     maps_with_objects = get_maps_with_game_objects()
@@ -878,20 +858,40 @@ def save_config(config: configparser.ConfigParser) -> bool:
     return should_notify
 
 def update_config(current_config: configparser.ConfigParser) -> configparser.ConfigParser:
-    """
-    Updates the user's configuration by comparing it against the default.
-    - Adds missing sections and keys.
-    - Removes obsolete sections and keys.
-    - Preserves user's values for existing keys.
-    - Ensures descriptions are up-to-date.
-    - Reorganizes the file to match the default order.
-    - Returns the updated config object, saving to disk if changes were made.
-    """
+    """Reconcile the user's config with the default layout (in-place save)."""
     default_config_parser = _create_config_parser_with_case_preserved()
     default_config_parser.read_string(DEFAULT_CONFIG)
-    
+
     updated_config = _create_config_parser_with_case_preserved()
     default_order = get_default_config_order()
+
+    # Legacy section fallbacks: pre-split [SETTINGS] / [SCRIPT KEYBINDS]
+    # and the old flat [GameObjects] before per-map split.
+    has_legacy_settings = current_config.has_section("SETTINGS")
+    has_legacy_keybinds = current_config.has_section("SCRIPT KEYBINDS")
+    has_flat_gameobjects = current_config.has_section("GameObjects")
+
+    # Existing users (have any prior section) shouldn't see the wizard.
+    is_pre_wizard_existing_user = (
+        not current_config.has_section("Setup")
+        and (
+            current_config.has_section("Toggles")
+            or has_legacy_settings
+            or has_legacy_keybinds
+        )
+    )
+
+    def _legacy_user_value(section_name: str, key_name: str) -> Optional[str]:
+        if section_name == "Keybinds":
+            if has_legacy_keybinds and current_config.has_option("SCRIPT KEYBINDS", key_name):
+                return current_config.get("SCRIPT KEYBINDS", key_name)
+            return None
+        if section_name.endswith("GameObjects") and section_name != "GameObjects":
+            if has_flat_gameobjects and current_config.has_option("GameObjects", key_name):
+                return current_config.get("GameObjects", key_name)
+        if has_legacy_settings and current_config.has_option("SETTINGS", key_name):
+            return current_config.get("SETTINGS", key_name)
+        return None
 
     # Build the new config using the default as a template
     for section in default_order:
@@ -900,10 +900,23 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
 
         for key in default_order[section]:
             default_full_value = default_config_parser.get(section, key)
-            
+
             if current_config.has_option(section, key):
+                user_value_str: Optional[str] = current_config.get(section, key)
+            else:
+                user_value_str = _legacy_user_value(section, key)
+
+            # Existing user being upgraded shouldn't get the wizard.
+            if (
+                section == "Setup"
+                and key == "FirstRunComplete"
+                and user_value_str is None
+                and is_pre_wizard_existing_user
+            ):
+                user_value_str = "true"
+
+            if user_value_str is not None:
                 # Use user's value but update the description from default
-                user_value_str = current_config.get(section, key)
                 user_value_part = user_value_str.split('"')[0].strip()
 
                 default_desc = ""
@@ -912,11 +925,8 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
                     if default_desc.endswith('"'):
                         default_desc = default_desc[:-1]
 
-                # For empty-value keybinds (user_value_part == ""), we must
-                # not prepend a space — configparser strips leading spaces
-                # on read, so ``' "desc"'`` round-trips to ``'"desc"'`` and
-                # update_config would save every single call. Match the
-                # shape configparser actually stores when there's no value.
+                # configparser strips leading spaces, so a leading-space
+                # encoding round-trips differently — match its native form.
                 if user_value_part:
                     final_value = f'{user_value_part} "{default_desc}"'
                 else:

@@ -12,6 +12,7 @@ kept for backward compatibility with existing call sites in FA11y.py.
 from __future__ import annotations
 
 import threading
+import time
 from typing import Tuple
 
 import numpy as np
@@ -79,6 +80,9 @@ class HeightMonitor(BaseMonitor):
     def _monitor_loop(self) -> None:
         while not self.stop_event.is_set():
             try:
+                if self.wizard_paused():
+                    time.sleep(0.5)
+                    continue
                 structure_present = all(
                     _check_pixel_color(x, y, self.TARGET_COLOR)
                     for (x, y) in self.CHECK_POINTS

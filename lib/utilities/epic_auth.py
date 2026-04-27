@@ -1272,9 +1272,25 @@ def get_or_create_cosmetics_cache(force_refresh: bool = False, owned_only: bool 
     return auth.load_cosmetics_cache()
 
 
+_epic_auth_singleton: Optional[EpicAuth] = None
+_epic_auth_singleton_lock = threading.Lock()
+
+
 def get_epic_auth_instance() -> EpicAuth:
-    """Get or create Epic auth instance"""
-    return EpicAuth()
+    """Get or create the Epic auth singleton.
+
+    The instance was previously rebuilt every call — that meant each
+    locker / social / discovery open re-registered configs, reread the
+    cached auth JSON, and reset every transient field (EOS token,
+    refresh state, etc.). Cached EOS tokens were silently thrown away
+    on every GUI open. A process-lifetime singleton keeps that warm.
+    """
+    global _epic_auth_singleton
+    if _epic_auth_singleton is None:
+        with _epic_auth_singleton_lock:
+            if _epic_auth_singleton is None:
+                _epic_auth_singleton = EpicAuth()
+    return _epic_auth_singleton
 
 
 # ============================================================================

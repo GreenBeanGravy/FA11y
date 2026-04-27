@@ -184,6 +184,9 @@ class BackgroundMonitor(BaseMonitor):
         try:
             while not self.stop_event.is_set():
                 try:
+                    if self.wizard_paused():
+                        time.sleep(0.25)
+                        continue
                     if self.announce_map:
                         self.check_map_status()
                     if self.announce_inventory:
@@ -194,7 +197,6 @@ class BackgroundMonitor(BaseMonitor):
         except Exception:
             pass
         finally:
-            # Ensure cleanup on exit
             self.cleanup_mss()
 
     def stop_monitoring(self):

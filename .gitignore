@@ -27,11 +27,10 @@ __pycache__/
 # Claude Code session state (local only)
 /.claude/
 
-# Dev-tools capture corpus (user-generated minimap recordings)
-/dev_tools/captures/
-/dev_tools/position_accuracy_out/
-/dev_tools/clientsettings_diag/
-
 # Stray debug captures
 storm_debug.png
 /debug/
+
+# Per-install marker — written once after PowerShell Unblock-File so
+# subsequent launches can skip the DLL unblock dance.
+FakerInputWrapper.dll.unblocked

@@ -273,149 +273,128 @@ def messageBox(message, caption="", style=wx.OK, parent=None):
 
 
 def center_mouse_in_window(window):
-    """Center the mouse cursor in the given window"""
+    """Center the mouse cursor in the given window."""
     try:
         if not window:
             return
 
-        # Check if we're on the main thread - if not, schedule on main thread
+        # Never move the cursor while the first-run wizard is active.
+        try:
+            from lib.app import state
+            if state.wizard_open.is_set():
+                return
+        except Exception:
+            pass
+
         if not wx.IsMainThread():
             wx.CallAfter(center_mouse_in_window, window)
             return
 
-        # Get window position and size
         pos = window.GetPosition()
         size = window.GetSize()
-
-        # Calculate center point
         center_x = pos.x + size.width // 2
         center_y = pos.y + size.height // 2
-
-        # Move mouse to center using Windows API for precision
         ctypes.windll.user32.SetCursorPos(center_x, center_y)
 
     except Exception as e:
         print(f"Error centering mouse: {e}")
 
 
+# Dedupe key: id(window) -> last force_focus_window time.
+_last_focus_attempt: dict = {}
+_FORCE_FOCUS_DEDUPE_WINDOW_S = 0.5
+
+
 def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: Optional[Union[Callable, Any]] = None):
-    """Force focus on a window - robust version based on NVDA patterns"""
+    """Bring window to the foreground via every Win32 focus method."""
     try:
         if not window:
             return
 
-        # Check if we're on the main thread - if not, schedule on main thread
         if not wx.IsMainThread():
             wx.CallAfter(force_focus_window, window, speak_text, focus_widget)
             return
 
-        # Get window handle
-        hwnd = window.GetHandle()
-        
-        # Ensure window is shown first
-        window.Show(True)
-        
-        # Multiple attempts at forcing focus with increasing aggression
-        for attempt in range(8):
+        # Dedupe: a recent call did the full work; cheap nudge will do.
+        key = id(window)
+        now = time.time()
+        last = _last_focus_attempt.get(key, 0.0)
+        if now - last < _FORCE_FOCUS_DEDUPE_WINDOW_S:
             try:
-                # Progressive focus methods
-                if attempt == 0:
-                    # Gentle approach
-                    window.Raise()
-                    window.SetFocus()
-                elif attempt == 1:
-                    # More aggressive
-                    ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-                    ctypes.windll.user32.SetForegroundWindow(hwnd)
-                elif attempt == 2:
-                    # Even more aggressive
-                    ctypes.windll.user32.BringWindowToTop(hwnd)
-                    ctypes.windll.user32.SetActiveWindow(hwnd)
-                elif attempt == 3:
-                    # Force with AttachThreadInput
-                    foreground_hwnd = ctypes.windll.user32.GetForegroundWindow()
-                    if foreground_hwnd != hwnd:
-                        foreground_thread = ctypes.windll.user32.GetWindowThreadProcessId(foreground_hwnd, None)
-                        our_thread = ctypes.windll.kernel32.GetCurrentThreadId()
-                        if foreground_thread != our_thread:
-                            ctypes.windll.user32.AttachThreadInput(our_thread, foreground_thread, True)
-                            ctypes.windll.user32.SetForegroundWindow(hwnd)
-                            ctypes.windll.user32.AttachThreadInput(our_thread, foreground_thread, False)
-                else:
-                    # Nuclear option - use SetWindowPos with TOPMOST
-                    HWND_TOPMOST = -1
-                    HWND_NOTOPMOST = -2
-                    SWP_NOMOVE = 0x0002
-                    SWP_NOSIZE = 0x0001
-                    SWP_SHOWWINDOW = 0x0040
-                    
-                    # Set topmost temporarily
-                    ctypes.windll.user32.SetWindowPos(
-                        hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-                        SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
-                    )
-                    
-                    # Then remove topmost but keep on top
-                    ctypes.windll.user32.SetWindowPos(
-                        hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
-                        SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
-                    )
-                    
-                    ctypes.windll.user32.SetForegroundWindow(hwnd)
-                    ctypes.windll.user32.SetFocus(hwnd)
-                
-                # Also use wx methods
                 window.Raise()
                 window.SetFocus()
-                
-                # Check if we succeeded
-                current_foreground = ctypes.windll.user32.GetForegroundWindow()
-                if current_foreground == hwnd:
-                    break
-                    
-                # Progressive delay
-                time.sleep(0.02 * (attempt + 1))
-                
-            except Exception as e:
-                print(f"Focus attempt {attempt + 1} failed: {e}")
-                if attempt < 7:  # Don't sleep on last attempt
-                    time.sleep(0.05)
-        
-        # Ensure window style allows proper interaction
-        style = window.GetWindowStyleFlag()
-        if not (style & wx.STAY_ON_TOP):
-            window.SetWindowStyleFlag(style | wx.STAY_ON_TOP)
-            
-        # Remove stay on top after focus is established
-        wx.CallLater(200, lambda: _remove_stay_on_top(window))
-        
-        # Force refresh
-        window.Refresh()
-        window.Update()
-        
-        if speak_text:
-            # In a real implementation, you'd use your speech system here
+            except Exception:
+                pass
+            if focus_widget:
+                if callable(focus_widget):
+                    wx.CallAfter(focus_widget)
+                else:
+                    wx.CallAfter(focus_widget.SetFocus)
+            return
+        _last_focus_attempt[key] = now
+        # id() is recycled — prune so a recycled id can't false-dedupe.
+        if len(_last_focus_attempt) > 32:
+            cutoff = now - _FORCE_FOCUS_DEDUPE_WINDOW_S
+            _last_focus_attempt_keep = {
+                k: v for k, v in _last_focus_attempt.items() if v >= cutoff
+            }
+            _last_focus_attempt.clear()
+            _last_focus_attempt.update(_last_focus_attempt_keep)
+
+        hwnd = window.GetHandle()
+        window.Show(True)
+
+        try:
+            window.Raise()
+            window.SetFocus()
+            ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            HWND_TOPMOST = -1
+            HWND_NOTOPMOST = -2
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_SHOWWINDOW = 0x0040
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            )
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            )
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+            ctypes.windll.user32.BringWindowToTop(hwnd)
+            ctypes.windll.user32.SetActiveWindow(hwnd)
+
+            # AttachThreadInput bypasses Windows' foreground-lock when
+            # the active window is in another thread (e.g. Fortnite).
+            foreground_hwnd = ctypes.windll.user32.GetForegroundWindow()
+            if foreground_hwnd and foreground_hwnd != hwnd:
+                foreground_thread = ctypes.windll.user32.GetWindowThreadProcessId(foreground_hwnd, None)
+                our_thread = ctypes.windll.kernel32.GetCurrentThreadId()
+                if foreground_thread and foreground_thread != our_thread:
+                    ctypes.windll.user32.AttachThreadInput(our_thread, foreground_thread, True)
+                    try:
+                        ctypes.windll.user32.SetForegroundWindow(hwnd)
+                        ctypes.windll.user32.SetFocus(hwnd)
+                    finally:
+                        ctypes.windll.user32.AttachThreadInput(our_thread, foreground_thread, False)
+        except Exception as e:
+            logger.debug(f"force_focus_window: focus pass raised {e}")
+
+        try:
+            window.Refresh()
+            window.Update()
+        except Exception:
             pass
-        
+
         if focus_widget:
             if callable(focus_widget):
                 wx.CallAfter(focus_widget)
             else:
                 wx.CallAfter(focus_widget.SetFocus)
-                
+
     except Exception as e:
-        print(f"Error focusing window: {e}")
-
-
-def _remove_stay_on_top(window):
-    """Helper to remove stay on top flag"""
-    try:
-        if window and not window.IsBeingDeleted():
-            style = window.GetWindowStyleFlag() & ~wx.STAY_ON_TOP
-            window.SetWindowStyleFlag(style)
-            window.Refresh()
-    except:
-        pass
+        logger.debug(f"Error focusing window: {e}")
 
 
 def ensure_window_focus_and_center_mouse(window):
