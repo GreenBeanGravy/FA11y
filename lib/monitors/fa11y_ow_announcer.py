@@ -52,6 +52,7 @@ def _toggles() -> Dict[str, bool]:
     cfg = read_config()
     return {
         "teammate": get_config_boolean(cfg, "AnnounceTeammateEvents", True),
+        "killfeed": get_config_boolean(cfg, "AnnounceKillFeed", True),
         "equip": get_config_boolean(cfg, "AnnounceItemEquip", True),
         "pickup": get_config_boolean(cfg, "AnnounceItemPickup", True),
     }
@@ -78,6 +79,7 @@ class Fa11yOwAnnouncer:
         if self._registered:
             return
         ow_client.add_listener("teammateEvent", self._on_teammate_event)
+        ow_client.add_listener("killEvent", self._on_kill_event)
         ow_client.add_listener("itemEquipped", self._on_item_equipped)
         ow_client.add_listener("itemPickup", self._on_item_pickup)
         on_config_change(self._on_config_change)
@@ -87,11 +89,31 @@ class Fa11yOwAnnouncer:
         if not self._registered:
             return
         ow_client.remove_listener("teammateEvent", self._on_teammate_event)
+        ow_client.remove_listener("killEvent", self._on_kill_event)
         ow_client.remove_listener("itemEquipped", self._on_item_equipped)
         ow_client.remove_listener("itemPickup", self._on_item_pickup)
         self._registered = False
 
     # -- listeners -------------------------------------------------------
+
+    def _on_kill_event(self, ev: Optional[Dict[str, Any]]) -> None:
+        if not ev or not self._toggles.get("killfeed"):
+            return
+        # Teammate-involved kills are already announced by the teammate
+        # handler; don't double-speak them here.
+        if ev.get("isTeammateAttacker") or ev.get("isTeammateVictim"):
+            return
+        attacker = str(ev.get("attacker") or "").strip()
+        victim = str(ev.get("victim") or "").strip()
+        if not attacker or not victim:
+            return
+        if ev.get("isLocalAttacker"):
+            phrase = f"You eliminated {victim}"
+        elif ev.get("isLocalVictim"):
+            phrase = f"{attacker} eliminated you"
+        else:
+            phrase = f"{attacker} eliminated {victim}"
+        self._speak(phrase)
 
     def _on_teammate_event(self, ev: Optional[Dict[str, Any]]) -> None:
         if not ev or not self._toggles.get("teammate"):
@@ -136,13 +158,16 @@ class Fa11yOwAnnouncer:
         if not name:
             return
         rarity = str(item.get("rarity") or "").strip()
-        ammo = item.get("ammoCurrent")
+        ammo_mag = item.get("ammoCurrent")
+        ammo_reserve = item.get("ammoReserve")
         parts = [name]
         if rarity and rarity != "-":
             parts.insert(0, rarity)
         speech = " ".join(parts)
-        if isinstance(ammo, (int, float)) and ammo > 0:
-            speech = f"{speech}, {int(ammo)} rounds"
+        if isinstance(ammo_mag, (int, float)) and ammo_mag > 0:
+            speech = f"{speech}, {int(ammo_mag)} in mag"
+            if isinstance(ammo_reserve, (int, float)) and ammo_reserve > 0:
+                speech = f"{speech}, {int(ammo_reserve)} in reserves"
         self._speak(speech)
 
     def _on_item_pickup(self, item: Optional[Dict[str, Any]]) -> None:
