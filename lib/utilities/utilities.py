@@ -105,9 +105,50 @@ def migrate_config_files():
     if migrated_count > 0:
         print(f"Migration complete: {migrated_count} files moved to config/ folder")
 
+    _recover_lowercase_corrupted_config()
     _migrate_current_map_slug()
 
     return migrated_count > 0
+
+
+def _recover_lowercase_corrupted_config() -> bool:
+    """Restore config.txt from .premigration backup if a prior buggy slug
+    migration lowercased every option name (MouseKeys -> mousekeys, etc.).
+
+    The corruption signature: [Toggles] contains the lowercased form of a
+    well-known TitleCase key but not the TitleCase form itself. Returns True
+    if a restore was performed.
+    """
+    cfg_path = os.path.join('config', 'config.txt')
+    bak_path = f"{cfg_path}.premigration"
+    if not os.path.exists(cfg_path) or not os.path.exists(bak_path):
+        return False
+    try:
+        cur = configparser.ConfigParser(interpolation=None)
+        cur.optionxform = str
+        cur.read(cfg_path, encoding='utf-8')
+        if not cur.has_section('Toggles'):
+            return False
+        cur_opts = set(cur.options('Toggles'))
+        if 'MouseKeys' in cur_opts or 'mousekeys' not in cur_opts:
+            return False
+        # Looks corrupted. Verify backup is the uncorrupted source.
+        bak = configparser.ConfigParser(interpolation=None)
+        bak.optionxform = str
+        bak.read(bak_path, encoding='utf-8')
+        if not (bak.has_section('Toggles') and 'MouseKeys' in bak.options('Toggles')):
+            print("config recovery: backup is not a usable pre-corruption snapshot")
+            return False
+        import shutil
+        shutil.copy2(bak_path, cfg_path)
+        print(
+            f"Recovered config from {bak_path}: a prior buggy slug migration "
+            f"had lowercased every option name. Backup preserved."
+        )
+        return True
+    except Exception as e:
+        print(f"config recovery failed: {e}")
+        return False
 
 
 def _write_slug_migration_backup(src_path: str) -> None:
@@ -138,7 +179,12 @@ def _migrate_current_map_slug():
     cfg_path = os.path.join('config', 'config.txt')
     if os.path.exists(cfg_path):
         try:
+            # Must preserve key case — default ConfigParser lowercases all
+            # option names on write, which trashes every TitleCase key in the
+            # file (MouseKeys, Toggle Keybinds, etc.) and causes update_config
+            # to fall back to defaults for every value.
             cp = configparser.ConfigParser(interpolation=None)
+            cp.optionxform = str
             cp.read(cfg_path, encoding='utf-8')
             if cp.has_section('POI'):
                 raw = cp.get('POI', 'current_map', fallback='main')
@@ -368,6 +414,9 @@ AutoTurn = false "Toggles the automatic turning feature when navigating to a pos
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
 MousePassthrough = true "Toggles the mouse passthrough feature. When enabled, your configured mouse is captured and relayed through the FakerInput driver."
+AnnounceTeammateEvents = true "Toggles passive announcements when a teammate appears in the kill feed or message feed. Requires the FA11y-OW companion service to be running."
+AnnounceItemEquip = true "Toggles passive announcements when you equip a new item from your hotbar. Requires the FA11y-OW companion service."
+AnnounceItemPickup = true "Toggles passive announcements when you pick up an item. Requires the FA11y-OW companion service."
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."

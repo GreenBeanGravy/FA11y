@@ -94,6 +94,8 @@ from lib.monitors.resource_monitor import resource_monitor
 from lib.monitors.storm_monitor import storm_monitor
 from lib.monitors.bloom_monitor import bloom_monitor
 from lib.monitors.match_event_monitor import match_event_monitor
+from lib.monitors.fa11y_ow_announcer import announcer as fa11y_ow_announcer
+from lib.utilities.fa11y_ow_client import client as fa11y_ow_client
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
@@ -254,6 +256,8 @@ def signal_handler(signum, frame):
         bloom_monitor.stop_monitoring()
         match_event_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
+        fa11y_ow_announcer.stop()
+        fa11y_ow_client.stop()
 
         # Stop social manager
         if social_manager:
@@ -825,6 +829,12 @@ def main() -> None:
         bloom_monitor.start_monitoring()
         match_event_monitor.start_monitoring()
 
+        # FA11y-OW companion-service consumer (passive equip / pickup /
+        # teammate-feed announcements). The SSE client is idle when the
+        # helper isn't running, so this is safe to start unconditionally.
+        fa11y_ow_client.start()
+        fa11y_ow_announcer.start()
+
         # Start new game object system
         match_tracker.start_monitoring()
 
@@ -991,6 +1001,8 @@ def main() -> None:
             storm_monitor.stop_monitoring()
             match_event_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
+            fa11y_ow_announcer.stop()
+            fa11y_ow_client.stop()
 
             # Stop social manager
             if social_manager:
