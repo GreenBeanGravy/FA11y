@@ -644,8 +644,18 @@ def generate_poi_message(poi_name, player_angle, poi_info, player_location=None)
         return message
 
 def find_player_position():
-    """Find player position using the map (wrapper for PPI module) with automatic map check"""
-    # Always try PPI
+    """Find player position. Prefers FA11y-OW (when a calibration exists
+    for the current map and the helper is connected) over visual minimap
+    detection; falls back to PPI when calibration is missing, the helper
+    isn't running, or anything in the FA11y-OW pipeline raises."""
+    try:
+        from lib.utilities.fa11y_ow_calibration import get_position_from_ow
+        ow_pos = get_position_from_ow()
+        if ow_pos is not None:
+            return ow_pos
+    except Exception:
+        # Any failure in the OW path is a fall-through to visual.
+        pass
     return ppi_find_player_position()
 
 def find_closest_poi(icon_location, poi_list):

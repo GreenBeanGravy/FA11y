@@ -231,8 +231,12 @@ def calibrate_fa11y_ow_position() -> None:
     map_name = cfg.get('POI', 'current_map', fallback='main')
 
     # Visual position. PPI needs the full map open on-screen.
-    from lib.detection.player_position import find_player_position
-    fa11y_pos = find_player_position()
+    # Bypass the find_player_position() wrapper here on purpose: the
+    # wrapper short-circuits to the OW-derived position when a calibration
+    # already exists, which would make a recalibration just re-fit the old
+    # transform against itself. We always want fresh PPI samples.
+    from lib.detection.ppi import find_player_position as _ppi_find
+    fa11y_pos = _ppi_find()
     if not fa11y_pos:
         speaker.speak(
             "FA11y could not detect your position. Open the full map first, then press the keybind."
