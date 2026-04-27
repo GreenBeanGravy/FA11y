@@ -760,17 +760,91 @@ def check_unknown_item_rarity(slot_index):
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
             timer_thread.start()
 
+# Map FA11y-OW ammo-type names (after stripping the optional 'Athena'
+# prefix) to the friendly word the user wants to hear.
+_OW_AMMO_TYPE_LABELS = {
+    'AmmoDataBulletsMedium': 'medium',
+    'AmmoDataBulletsLight': 'light',
+    'AmmoDataBulletsHeavy': 'heavy',
+    'AmmoDataShells': 'shells',
+    'AmmoDataRockets': 'rockets',
+}
+# Stable label order so the announcement reads consistently every time.
+_OW_AMMO_LABEL_ORDER = ['medium', 'light', 'heavy', 'shells', 'rockets']
+
+
+def _try_announce_ammo_via_ow(simplify: bool) -> bool:
+    """Speak ammo summary using FA11y-OW state. Returns True if it spoke,
+    False if OW data isn't available / equipped item isn't an ammo weapon
+    so the caller should fall back to OCR."""
+    try:
+        from lib.utilities.fa11y_ow_client import client as ow_client
+    except Exception:
+        return False
+
+    if not ow_client.is_connected():
+        return False
+
+    state = ow_client.get_state() or {}
+    equipped = state.get('equippedItem')
+    if not equipped:
+        return False
+    ammo_type = equipped.get('ammoType')
+    if not ammo_type:
+        # Not an ammo weapon (pickaxe, consumable, gadget). Let OCR cover
+        # the consumable-uses path and any weapons we couldn't classify.
+        return False
+
+    mag = int(equipped.get('ammoCurrent') or 0)
+    reserve = int(equipped.get('ammoReserve') or 0)
+
+    # Sum each ammo-data item's count across the inventory.
+    totals = {label: 0 for label in _OW_AMMO_LABEL_ORDER}
+    for item in (state.get('inventory') or {}).values():
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get('name') or '')
+        if not name:
+            continue
+        normalized = name[6:] if name.startswith('Athena') else name
+        label = _OW_AMMO_TYPE_LABELS.get(normalized)
+        if label is None:
+            continue
+        try:
+            totals[label] += int(item.get('count') or 0)
+        except (TypeError, ValueError):
+            pass
+
+    if simplify:
+        parts = [f"{mag} mag {reserve} reserves"]
+        inv_parts = [f"{totals[l]} {l}" for l in _OW_AMMO_LABEL_ORDER if totals[l] > 0]
+        if inv_parts:
+            parts.append("inventory " + " ".join(inv_parts))
+        speaker.speak(", ".join(parts))
+    else:
+        inv_parts = [f"{totals[l]} {l}" for l in _OW_AMMO_LABEL_ORDER]
+        speech = (
+            f"{mag} ammo in mag and {reserve} in reserves. "
+            f"You have {', '.join(inv_parts[:-1])}, and {inv_parts[-1]}."
+        )
+        speaker.speak(speech)
+    return True
+
+
 def announce_ammo():
     """Announce current and reserve ammo counts or consumable counts with simplified speech if enabled."""
     if stop_event.is_set() or not ocr_manager.is_ready():
         return
-        
+
     config = read_config()
     simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
-    
+
+    if _try_announce_ammo_via_ow(simplify):
+        return
+
     with mss() as sct:
         current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
-    
+
     if consumable_count is not None:
         if simplify:
             speaker.speak(f"{consumable_count}")
@@ -790,10 +864,13 @@ def announce_ammo_manually():
     """Manually announce ammo counts or consumable counts with simplified speech if enabled."""
     config = read_config()
     simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
-    
+
+    if _try_announce_ammo_via_ow(simplify):
+        return
+
     sct = mss()
     current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
-    
+
     if consumable_count is not None:
         if simplify:
             speaker.speak(f"{consumable_count} uses")

@@ -35,6 +35,10 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 _FILE_PATH = os.path.join('config', 'fa11y_ow_calibration.json')
+# Bundled with FA11y so common maps work for users who haven't calibrated
+# themselves. User calibrations in _FILE_PATH override anything here on a
+# per-map basis.
+_DEFAULTS_PATH = os.path.join('lib', 'data', 'default_calibrations.json')
 _REQUIRED_SAMPLES = 3
 # Reject sample sets where the OW points are nearly colinear — the affine
 # matrix is well-defined mathematically (det ~= 0 still solves) but the
@@ -48,44 +52,61 @@ SamplePair = Tuple[Point2, Point2]   # (ow_xy, fa11y_xy)
 
 
 class CalibrationManager:
-    def __init__(self, file_path: str = _FILE_PATH):
+    def __init__(
+        self,
+        file_path: str = _FILE_PATH,
+        defaults_path: str = _DEFAULTS_PATH,
+    ):
         self._file_path = file_path
+        self._defaults_path = defaults_path
         self._lock = threading.RLock()
-        self._calibrations: Dict[str, dict] = self._load()
+        # Bundled defaults ship with FA11y so common maps work out of the
+        # box. User calibrations override per-map. Stored separately so a
+        # save() doesn't bake the bundled defaults into the user file —
+        # that would freeze them at the user's installed version even if
+        # we ship updated defaults later.
+        self._defaults: Dict[str, dict] = self._load_file(self._defaults_path)
+        self._user: Dict[str, dict] = self._load_file(self._file_path)
         # Pending samples are kept in memory only — we don't want a
         # half-finished calibration to survive a crash.
         self._pending: Dict[str, List[SamplePair]] = {}
 
     # --- persistence ----------------------------------------------------
 
-    def _load(self) -> Dict[str, dict]:
-        if not os.path.exists(self._file_path):
+    @staticmethod
+    def _load_file(path: str) -> Dict[str, dict]:
+        if not os.path.exists(path):
             return {}
         try:
-            with open(self._file_path, 'r', encoding='utf-8') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             return data if isinstance(data, dict) else {}
         except (OSError, json.JSONDecodeError) as e:
-            logger.warning("calibration: failed to load %s: %s", self._file_path, e)
+            logger.warning("calibration: failed to load %s: %s", path, e)
             return {}
 
-    def _save(self) -> None:
+    def _save_user(self) -> None:
         try:
             os.makedirs(os.path.dirname(self._file_path) or '.', exist_ok=True)
             with open(self._file_path, 'w', encoding='utf-8') as f:
-                json.dump(self._calibrations, f, indent=2)
+                json.dump(self._user, f, indent=2)
         except OSError as e:
             logger.warning("calibration: failed to save %s: %s", self._file_path, e)
+
+    def _resolve(self, map_name: str) -> Optional[dict]:
+        """User calibration wins; falls back to bundled default."""
+        return self._user.get(map_name) or self._defaults.get(map_name)
 
     # --- public API -----------------------------------------------------
 
     def has_calibration(self, map_name: str) -> bool:
         with self._lock:
-            return map_name in self._calibrations
+            return self._resolve(map_name) is not None
 
     def calibrated_maps(self) -> List[str]:
         with self._lock:
-            return list(self._calibrations.keys())
+            # De-dupe across user + defaults.
+            return sorted(set(self._user.keys()) | set(self._defaults.keys()))
 
     def pending_count(self, map_name: str) -> int:
         with self._lock:
@@ -99,12 +120,14 @@ class CalibrationManager:
                 self._pending.pop(map_name, None)
 
     def remove(self, map_name: str) -> bool:
+        """Remove the user override for ``map_name``. The bundled default,
+        if any, remains in effect afterwards."""
         with self._lock:
-            existed = map_name in self._calibrations
-            self._calibrations.pop(map_name, None)
+            existed = map_name in self._user
+            self._user.pop(map_name, None)
             self._pending.pop(map_name, None)
             if existed:
-                self._save()
+                self._save_user()
             return existed
 
     def add_sample(
@@ -147,14 +170,14 @@ class CalibrationManager:
                     "together. Try again with points spread out across the map."
                 )
 
-            self._calibrations[map_name] = {
+            self._user[map_name] = {
                 'matrix': matrix.tolist(),
                 'samples': [
                     {'ow': list(s[0]), 'fa11y': list(s[1])} for s in samples
                 ],
                 'calibrated_at': datetime.utcnow().isoformat() + 'Z',
             }
-            self._save()
+            self._save_user()
             self._pending[map_name] = []
             return n, True, f"Calibration complete for {map_name}."
 
@@ -166,7 +189,7 @@ class CalibrationManager:
         """Apply the saved affine to ``ow_pos`` and return ``(int, int)``
         FA11y minimap coords, or ``None`` if no calibration exists."""
         with self._lock:
-            entry = self._calibrations.get(map_name)
+            entry = self._resolve(map_name)
             if not entry:
                 return None
             matrix = np.array(entry['matrix'])

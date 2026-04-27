@@ -134,12 +134,13 @@ class PlayerPositionTracker:
         try:
             position = None
             angle = None
-            
-            # Always try PPI regardless of map check
-            position = ppi_find_player_position()
+
+            # Position via FA11y-OW when calibrated, falling back to PPI
+            # otherwise. Angle is always minimap-only — GEP doesn't expose
+            # player facing.
+            position = find_player_position()
             if position is not None:
                 self.last_position = position
-                # Get angle from minimap
                 _, angle = find_minimap_icon_direction()
             
             if angle is not None:
@@ -216,8 +217,8 @@ def handle_closed_map_ppi(poi_name, poi_coords):
         player_position = None
 
         for attempt in range(max_attempts):
-            # Always try PPI
-            player_position = ppi_find_player_position()
+            # Use OW-aware position; falls back to PPI when no calibration.
+            player_position = find_player_position()
             if player_position is not None:
                 break
             time.sleep(0.1)
@@ -1280,8 +1281,8 @@ def get_player_info_ppi():
     player_location = None
     player_angle = None
 
-    # Always try PPI regardless of map check
-    player_location = ppi_find_player_position()
+    # OW-aware position; PPI fallback handled inside find_player_position.
+    player_location = find_player_position()
     if player_location is not None:
         _, player_angle = find_minimap_icon_direction()
 
