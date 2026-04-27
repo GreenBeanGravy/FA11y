@@ -118,15 +118,20 @@ _RE_PARTY_MEMBER_REMOVED = re.compile(
 )
 
 
-# Inventory open/close, detected via Fortnite's UI input-router events.
-# Open: leaf-most node becomes [InventoryScreenContainer] when the
-# inventory screen is pushed onto the UI stack.
-# Close: input mode transitions back to ECommonInputMode::Game (the
-# in-match HUD is leaf-most again). The same close pattern fires for
-# any UI returning to gameplay, so we only treat it as an inventory
-# close when our open-state flag is set.
+# UI panel open/close, detected via Fortnite's UI input-router events.
+# Each panel pushes its leaf-most container node when shown; closing any
+# of them ultimately routes input back to ECommonInputMode::Game. The
+# same back-to-game line fires for whichever panel was on top, so we
+# track each panel's open-state flag independently and fire close events
+# only for the panels we know are open.
 _RE_INVENTORY_OPEN = re.compile(
     r'LogUIActionRouter:.*Applying input config for leaf-most node \[InventoryScreenContainer\]'
+)
+_RE_SIDEBAR_OPEN = re.compile(
+    r'LogUIActionRouter:.*Applying input config for leaf-most node \[WBP_Sidebar_C_\d+\]'
+)
+_RE_MAP_OPEN = re.compile(
+    r'LogUIActionRouter:.*Applying input config for leaf-most node \[MapScreenContainer\]'
 )
 _RE_BACK_TO_GAME = re.compile(
     r'LogUIActionRouter:.*InputMode:.*New \(ECommonInputMode::Game\)'
@@ -178,10 +183,11 @@ class MatchEventMonitor(BaseMonitor):
         # changes that happen while we're spectating should be announced.
         self._spectating = False
 
-        # Inventory open state, driven by UIActionRouter log lines.
-        # Stays in sync with BackgroundMonitor's inventory_open flag once
-        # the first log event fires.
+        # UI-panel open state, driven by UIActionRouter log lines. Stays
+        # in sync with BackgroundMonitor's flags once a log event fires.
         self._inventory_open = False
+        self._map_open = False
+        self._sidebar_open = False
 
         # Party-event state. _party_member_names maps MCP id -> display
         # name so we can announce "X left the party" when we only get an
@@ -220,6 +226,8 @@ class MatchEventMonitor(BaseMonitor):
         self.announce_placement = get_config_boolean(c, 'AnnouncePlacement', True)
         self.announce_final_countdown = get_config_boolean(c, 'AnnounceFinalCountdown', True)
         self.announce_inventory = get_config_boolean(c, 'AnnounceInventoryStatus', True)
+        self.announce_map = get_config_boolean(c, 'AnnounceMapStatus', True)
+        self.announce_sidebar = get_config_boolean(c, 'AnnounceSidebarStatus', True)
 
     def _on_config_change(self, config):
         self.config = config
@@ -328,13 +336,23 @@ class MatchEventMonitor(BaseMonitor):
         except Exception:
             pass
 
+    def _update_external_map_state(self, is_open: bool) -> None:
+        """Same dance for the full-screen map flag."""
+        try:
+            from lib.monitors.background_monitor import monitor as bg
+        except Exception:
+            return
+        try:
+            bg._external_map_source = True
+            bg.map_open = is_open
+        except Exception:
+            pass
+
     def _process_line(self, line: str):
-        # --- Inventory open / close (UIActionRouter) ---
+        # --- UI panel open / close (UIActionRouter) ---
         # Cheap fast-path: most lines aren't UIActionRouter at all, but the
-        # ones that are fire frequently when menus open/close, so do this
-        # before the heavier patterns. The "Applying input config" line is
-        # the first marker for both open and close cases — bail out for
-        # any non-UIActionRouter lines first.
+        # ones that are fire frequently when menus open/close, so handle
+        # them before the heavier patterns.
         if 'LogUIActionRouter:' in line:
             if _RE_INVENTORY_OPEN.search(line):
                 if not self._inventory_open:
@@ -343,12 +361,38 @@ class MatchEventMonitor(BaseMonitor):
                     if self.announce_inventory:
                         self._speak("Inventory opened")
                 return
-            if self._inventory_open and _RE_BACK_TO_GAME.search(line):
-                self._inventory_open = False
-                self._update_external_inventory_state(False)
-                if self.announce_inventory:
-                    self._speak("Inventory closed")
+            if _RE_MAP_OPEN.search(line):
+                if not self._map_open:
+                    self._map_open = True
+                    self._update_external_map_state(True)
+                    if self.announce_map:
+                        self._speak("Map opened")
                 return
+            if _RE_SIDEBAR_OPEN.search(line):
+                if not self._sidebar_open:
+                    self._sidebar_open = True
+                    if self.announce_sidebar:
+                        self._speak("Sidebar opened")
+                return
+            if _RE_BACK_TO_GAME.search(line):
+                # The same line fires for whichever panel was on top.
+                # Fire close events only for the panels we tracked open.
+                if self._inventory_open:
+                    self._inventory_open = False
+                    self._update_external_inventory_state(False)
+                    if self.announce_inventory:
+                        self._speak("Inventory closed")
+                if self._map_open:
+                    self._map_open = False
+                    self._update_external_map_state(False)
+                    if self.announce_map:
+                        self._speak("Map closed")
+                if self._sidebar_open:
+                    self._sidebar_open = False
+                    if self.announce_sidebar:
+                        self._speak("Sidebar closed")
+                # No early return — the back-to-game line shouldn't suppress
+                # any other matchers that might also key off it (none today).
 
         # --- Reload DBNO / respawn (user-requested core feature) ---
         if _RE_DBNO_KNOCKED.search(line):

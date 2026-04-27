@@ -413,6 +413,7 @@ CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA1
 AutoTurn = false "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
+AnnounceSidebarStatus = true "Toggles announcements when the in-game sidebar / pause menu is opened or closed."
 MousePassthrough = true "Toggles the mouse passthrough feature. When enabled, your configured mouse is captured and relayed through the FakerInput driver."
 AnnounceTeammateEvents = true "Toggles passive announcements when a teammate appears in the kill feed or message feed. Requires the FA11y-OW companion service to be running."
 AnnounceKillFeed = true "Toggles passive announcements for every elimination in the match kill feed (excluding teammate-involved kills, which AnnounceTeammateEvents already covers). Requires the FA11y-OW companion service."

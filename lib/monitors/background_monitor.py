@@ -29,6 +29,8 @@ class BackgroundMonitor(BaseMonitor):
         # — log-based detection is faster and avoids template-match flaps
         # from animations or cosmetic UI overlays.
         self._external_inventory_source = False
+        # Same pattern for the full-screen map.
+        self._external_map_source = False
         
         self.config = read_config()
         
@@ -137,11 +139,15 @@ class BackgroundMonitor(BaseMonitor):
 
     def check_map_status(self):
         """Check if the map is open/closed with throttling."""
+        if self._external_map_source:
+            # MatchEventMonitor is providing authoritative map state from
+            # Fortnite log events; skip the pixel scan.
+            return
         # Throttle map checks for performance
         current_time = time.time()
         if current_time - self.last_map_check < self.map_check_interval:
             return
-        
+
         self.last_map_check = current_time
         
         try:
