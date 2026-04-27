@@ -5,7 +5,7 @@ import re
 import threading
 import time
 import logging
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from accessible_output2.outputs.auto import Auto
 
@@ -119,11 +119,8 @@ _RE_PARTY_MEMBER_REMOVED = re.compile(
 
 
 # UI panel open/close, detected via Fortnite's UI input-router events.
-# Each panel pushes its leaf-most container node when shown; closing any
-# of them ultimately routes input back to ECommonInputMode::Game. The
-# same back-to-game line fires for whichever panel was on top, so we
-# track each panel's open-state flag independently and fire close events
-# only for the panels we know are open.
+# Each panel pushes its leaf-most container node when shown; closing
+# routes input back to a parent mode (Game in-match, All in lobby).
 _RE_INVENTORY_OPEN = re.compile(
     r'LogUIActionRouter:.*Applying input config for leaf-most node \[InventoryScreenContainer\]'
 )
@@ -133,9 +130,64 @@ _RE_SIDEBAR_OPEN = re.compile(
 _RE_MAP_OPEN = re.compile(
     r'LogUIActionRouter:.*Applying input config for leaf-most node \[MapScreenContainer\]'
 )
+# Inventory + map are in-match overlays, so they always close back to
+# Game. We don't match Menu->Game here (that's sidebar) — sidebar uses
+# its own close trigger below.
 _RE_BACK_TO_GAME = re.compile(
     r'LogUIActionRouter:.*InputMode:.*New \(ECommonInputMode::Game\)'
 )
+# The sidebar runs in Menu mode, opened either from in-match (Game) or
+# from the lobby (All). Whichever side we came from, leaving Menu mode
+# means it's closed. Catches both Menu->Game and Menu->All.
+_RE_LEAVING_MENU = re.compile(
+    r'LogUIActionRouter:.*InputMode:.*Previous \(ECommonInputMode::Menu\)'
+)
+
+# Match the leaf-most node from any "Applying input config" line so we
+# can dispatch by node name into _TAB_NAME_BY_NODE.
+_RE_APPLYING_LEAF = re.compile(
+    r'LogUIActionRouter:.*Applying input config for leaf-most node \[([^\]]+)\]'
+)
+
+
+# Map a leaf-most node container to the friendly tab name we speak.
+# Order matters: more specific entries first. Numeric instance suffixes
+# vary across runs (the trailing _2147482645 is the widget instance id),
+# but a few nodes use a literal string instead and aren't suffixed.
+_TAB_NAME_BY_NODE: List[Tuple[re.Pattern, str]] = [
+    # Sidebar tabs — covers the in-match WBP_Sidebar_C_* and the lobby
+    # WBP_Sidebar_C_*. The user lands on whichever was last selected,
+    # which is announced once the inner panel applies after the sidebar
+    # itself.
+    (re.compile(r'^WBP_Profile_LocalPlayer_C_\d+$'),         'Profile'),
+    (re.compile(r'^WBP_PartyAndGame_Controls_C_\d+$'),       'Social'),
+    (re.compile(r'^WBP_Social_Panel_C_\d+$'),                'Social'),
+    (re.compile(r'^WBP_Sidebar_ChatChannelsPanel_C_\d+$'),   'Chats'),
+    (re.compile(r'^WBP_AddFriends_Panel_C_\d+$'),            'Add Friends'),
+    (re.compile(r'^WBP_Settings_Panel_C_\d+$'),              'Menu'),
+    (re.compile(r'^WBP_Exit_Panel_C_\d+$'),                  'Exit'),
+
+    # Lobby tabs.
+    (re.compile(r'^WBP_MOTD_Full_List_C_\d+$'),              'News'),
+    (re.compile(r'^AthenaLobby$'),                           'Play'),
+    (re.compile(r'^WBP_MPItemShop_Screen_C_\d+$'),           'Shop'),
+    (re.compile(r'^MyLoadouts_Categories$'),                 'Locker'),
+    (re.compile(r'^WBP_SeasonPassScreen_C_AthenaTab$'),      'Passes'),
+    (re.compile(r'^WBP_QuestScreen_C_AthenaTab$'),           'Quests'),
+    (re.compile(r'^WBP_Calendar_C_AthenaTab$'),              'Compete'),
+    (re.compile(r'^WBP_CareerScreen_C_AthenaTab$'),          'Career'),
+    (re.compile(r'^WBP_VbucksStore_Content_C_\d+$'),         'V-Bucks'),
+
+    # Other in-game overlays we want to call out.
+    (re.compile(r'^WBP_EmotePicker_Screen_C_\d+$'),          'Emote Wheel'),
+]
+
+
+def _tab_name_for_leaf(node: str) -> Optional[str]:
+    for pat, name in _TAB_NAME_BY_NODE:
+        if pat.match(node):
+            return name
+    return None
 
 
 # Phase-step strings worth announcing. Filtered to high-signal events;
@@ -189,6 +241,11 @@ class MatchEventMonitor(BaseMonitor):
         self._map_open = False
         self._sidebar_open = False
 
+        # Last announced UI tab — used to dedupe the "Applying input
+        # config for leaf-most node [...]" lines that fire 2-3 times
+        # for some lobby tabs and would otherwise re-announce.
+        self._last_tab_name: Optional[str] = None
+
         # Party-event state. _party_member_names maps MCP id -> display
         # name so we can announce "X left the party" when we only get an
         # id in the removal line. Populated by LogParty: Verbose: Adding
@@ -228,6 +285,7 @@ class MatchEventMonitor(BaseMonitor):
         self.announce_inventory = get_config_boolean(c, 'AnnounceInventoryStatus', True)
         self.announce_map = get_config_boolean(c, 'AnnounceMapStatus', True)
         self.announce_sidebar = get_config_boolean(c, 'AnnounceSidebarStatus', True)
+        self.announce_ui_tabs = get_config_boolean(c, 'AnnounceUITabs', True)
 
     def _on_config_change(self, config):
         self.config = config
@@ -354,6 +412,11 @@ class MatchEventMonitor(BaseMonitor):
         # ones that are fire frequently when menus open/close, so handle
         # them before the heavier patterns.
         if 'LogUIActionRouter:' in line:
+            # Panel-specific opens. Don't `return` — the same line also
+            # triggers tab-name announcement below for inner panels (e.g.
+            # opening inventory should still announce 'Inventory opened';
+            # we'd just skip it from the tab table since 'InventoryScreenContainer'
+            # isn't in there).
             if _RE_INVENTORY_OPEN.search(line):
                 if not self._inventory_open:
                     self._inventory_open = True
@@ -374,9 +437,12 @@ class MatchEventMonitor(BaseMonitor):
                     if self.announce_sidebar:
                         self._speak("Sidebar opened")
                 return
+
+            # Closes:
+            #   - Inventory / map close on All -> Game.
+            #   - Sidebar can come from match (Menu -> Game) or lobby
+            #     (Menu -> All), so it uses _RE_LEAVING_MENU instead.
             if _RE_BACK_TO_GAME.search(line):
-                # The same line fires for whichever panel was on top.
-                # Fire close events only for the panels we tracked open.
                 if self._inventory_open:
                     self._inventory_open = False
                     self._update_external_inventory_state(False)
@@ -387,12 +453,22 @@ class MatchEventMonitor(BaseMonitor):
                     self._update_external_map_state(False)
                     if self.announce_map:
                         self._speak("Map closed")
-                if self._sidebar_open:
-                    self._sidebar_open = False
-                    if self.announce_sidebar:
-                        self._speak("Sidebar closed")
-                # No early return — the back-to-game line shouldn't suppress
-                # any other matchers that might also key off it (none today).
+            if self._sidebar_open and _RE_LEAVING_MENU.search(line):
+                self._sidebar_open = False
+                if self.announce_sidebar:
+                    self._speak("Sidebar closed")
+
+            # Tab-name announcements. Many lobby tabs fire the same
+            # 'Applying input config for leaf-most node [<NODE>]' line
+            # 2-3 times in quick succession (parent AthenaTabsScreen
+            # then the inner panel), so dedupe on the friendly name.
+            if self.announce_ui_tabs:
+                m = _RE_APPLYING_LEAF.search(line)
+                if m:
+                    name = _tab_name_for_leaf(m.group(1))
+                    if name and name != self._last_tab_name:
+                        self._last_tab_name = name
+                        self._speak(name)
 
         # --- Reload DBNO / respawn (user-requested core feature) ---
         if _RE_DBNO_KNOCKED.search(line):
