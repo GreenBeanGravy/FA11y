@@ -4,18 +4,15 @@ Health / Shield / Rarity (HSR) detection.
 Two-path strategy:
 
 1. **Fast path — FA11y-OW companion service**
-   If a loopback HTTP service is running at ``http://127.0.0.1:6767/api``
-   (the "FA11y-OW" helper, a separate optional project) it gets queried
-   first. The service reads Fortnite memory/log signals directly and
-   returns exact values, bypassing image analysis.
-
-   The 10 ms timeout below is intentional: if the service isn't up, we
-   fall through instantly rather than block the UI. No state is kept
-   between calls; every H / shield keypress hits the endpoint fresh.
+   If the FA11y-OW helper (an optional Electron + Overwolf companion app)
+   is running, it exposes a local HTTP+SSE API at ``127.0.0.1:6767``.
+   ``lib.utilities.fa11y_ow_client`` keeps a live cached state snapshot
+   by tailing the SSE stream on a daemon thread, so reading health/shield
+   here is just a dict lookup — no per-call HTTP, no timeout dance.
 
 2. **Fallback — visual bar scan**
-   When the service is unreachable (the common case), the functions below
-   walk the health/shield bars pixel-by-pixel against the calibrated
+   When the companion is unreachable (the common case), the functions
+   below walk the health/shield bars pixel-by-pixel against the calibrated
    ``health_decreases`` step pattern. This is what ships by default and is
    what the user's F9 settings actually tune.
 
@@ -26,14 +23,9 @@ from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean
 from lib.managers.hotbar_manager import get_last_detected_rarity
 from lib.detection.coordinate_config import get_health_shield_coords
-import requests
+from lib.utilities.fa11y_ow_client import get_client
 
 speaker = Auto()
-
-# Optional companion service (FA11y-OW). If not running, requests fail
-# instantly and we fall back to the visual bar scan below.
-API_BASE_URL = "http://127.0.0.1:6767/api"
-API_TIMEOUT = 0.01
 
 # Visual detection fallback settings
 health_color, shield_color = (247, 255, 26), (213, 255, 232)
@@ -66,31 +58,21 @@ def check_value_visual(pixels, start_x, y, decreases, color, tolerance, name, no
     speaker.speak(no_value_msg)
 
 def get_health_shield_from_api():
+    """Read health, shield, and overshield from the FA11y-OW cached state.
+
+    Returns (health, shield, overshield) when the companion is connected,
+    or (None, None, None) so the caller falls back to visual detection.
     """
-    Try to get health, shield, and overshield values from the FA11y-OW HTTP API.
-    Returns (health, shield, overshield) tuple if successful, or (None, None, None) if API is unavailable.
-    """
-    try:
-        # Get health
-        health_response = requests.get(f"{API_BASE_URL}/health", timeout=API_TIMEOUT)
-        health_data = health_response.json()
-        health = health_data.get('health')
-        
-        # Get shield and overshield (both in same endpoint)
-        shield_response = requests.get(f"{API_BASE_URL}/shield", timeout=API_TIMEOUT)
-        shield_data = shield_response.json()
-        shield = shield_data.get('shield')
-        overshield = shield_data.get('overShield')
-        
-        # Only return if health and shield are valid numbers
-        if health is not None and shield is not None:
-            return (health, shield, overshield or 0)
+    client = get_client()
+    if not client.is_connected:
         return (None, None, None)
-        
-    except (requests.RequestException, requests.Timeout, ValueError, KeyError) as e:
-        # API not available, connection failed, or invalid response
-        # Silently fall back to visual detection
+    health = client.get('health')
+    shield = client.get('shield')
+    overshield = client.get('overShield')
+    if health is None or shield is None:
         return (None, None, None)
+    return (health, shield, overshield or 0)
+
 
 def check_health_shields():
     """Check and announce health and shield values using API first, visual fallback."""
