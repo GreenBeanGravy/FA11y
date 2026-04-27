@@ -35,10 +35,12 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 _FILE_PATH = os.path.join('config', 'fa11y_ow_calibration.json')
-# Bundled with FA11y so common maps work for users who haven't calibrated
-# themselves. User calibrations in _FILE_PATH override anything here on a
-# per-map basis.
+# Bundled with FA11y so users have a working transform out of the box.
+# User calibrations in _FILE_PATH override per-map; ``_DEFAULT_KEY`` is
+# the catch-all entry — every Fortnite map shares the same screen scale
+# and rotation in FA11y's ROI, so one transform covers them all.
 _DEFAULTS_PATH = os.path.join('lib', 'data', 'default_calibrations.json')
+_DEFAULT_KEY = '_default'
 _REQUIRED_SAMPLES = 3
 # Reject sample sets where the OW points are nearly colinear — the affine
 # matrix is well-defined mathematically (det ~= 0 still solves) but the
@@ -94,8 +96,16 @@ class CalibrationManager:
             logger.warning("calibration: failed to save %s: %s", self._file_path, e)
 
     def _resolve(self, map_name: str) -> Optional[dict]:
-        """User calibration wins; falls back to bundled default."""
-        return self._user.get(map_name) or self._defaults.get(map_name)
+        """Lookup priority: user-specific -> bundled-specific ->
+        user-default -> bundled-default. The default entries
+        (``_DEFAULT_KEY``) act as a universal fallback because every
+        Fortnite map is rendered at the same scale / rotation."""
+        return (
+            self._user.get(map_name)
+            or self._defaults.get(map_name)
+            or self._user.get(_DEFAULT_KEY)
+            or self._defaults.get(_DEFAULT_KEY)
+        )
 
     # --- public API -----------------------------------------------------
 
@@ -132,18 +142,21 @@ class CalibrationManager:
 
     def add_sample(
         self,
-        map_name: str,
         ow_pos: Point2,
         fa11y_pos: Point2,
+        save_key: str = _DEFAULT_KEY,
     ) -> Tuple[int, bool, str]:
         """Record a calibration sample.
 
-        Returns ``(captured_count, complete, message)``. When
-        ``complete`` is True, the affine transform has been fitted and
-        persisted; ``self._pending`` for this map is cleared.
+        Saves to ``save_key`` once three samples have been captured.
+        Defaults to the universal ``_default`` slot — one calibration
+        covers every map. Pass a specific map name only if you want a
+        per-map override.
+
+        Returns ``(captured_count, complete, message)``.
         """
         with self._lock:
-            samples = self._pending.setdefault(map_name, [])
+            samples = self._pending.setdefault(save_key, [])
             samples.append((tuple(ow_pos), tuple(fa11y_pos)))
             n = len(samples)
 
@@ -157,20 +170,20 @@ class CalibrationManager:
             try:
                 matrix, det = self._fit(samples)
             except np.linalg.LinAlgError:
-                self._pending[map_name] = []
+                self._pending[save_key] = []
                 return n, False, (
                     "Calibration failed: the three positions were colinear. "
                     "Try again with points spread out across the map."
                 )
 
             if abs(det) < _MIN_DETERMINANT:
-                self._pending[map_name] = []
+                self._pending[save_key] = []
                 return n, False, (
                     "Calibration failed: the three positions were too close "
                     "together. Try again with points spread out across the map."
                 )
 
-            self._user[map_name] = {
+            self._user[save_key] = {
                 'matrix': matrix.tolist(),
                 'samples': [
                     {'ow': list(s[0]), 'fa11y': list(s[1])} for s in samples
@@ -178,8 +191,12 @@ class CalibrationManager:
                 'calibrated_at': datetime.utcnow().isoformat() + 'Z',
             }
             self._save_user()
-            self._pending[map_name] = []
-            return n, True, f"Calibration complete for {map_name}."
+            self._pending[save_key] = []
+            if save_key == _DEFAULT_KEY:
+                msg = "Calibration complete. Applies to every map."
+            else:
+                msg = f"Calibration complete for {save_key}."
+            return n, True, msg
 
     def transform_ow_to_fa11y(
         self,
@@ -250,9 +267,6 @@ def calibrate_fa11y_ow_position() -> None:
         )
         return
 
-    cfg = read_config()
-    map_name = cfg.get('POI', 'current_map', fallback='main')
-
     # Visual position. PPI needs the full map open on-screen.
     # Bypass the find_player_position() wrapper here on purpose: the
     # wrapper short-circuits to the OW-derived position when a calibration
@@ -277,14 +291,13 @@ def calibrate_fa11y_ow_position() -> None:
         fa11y_xy = fa11y_pos
 
     _, complete, message = calibration_manager.add_sample(
-        map_name,
         (float(ow_x), float(ow_y)),
         (float(fa11y_xy[0]), float(fa11y_xy[1])),
     )
     speaker.speak(message)
     logger.info(
-        "calibration sample for map=%s ow=%s fa11y=%s complete=%s",
-        map_name, (ow_x, ow_y), tuple(fa11y_xy), complete,
+        "calibration sample ow=%s fa11y=%s complete=%s",
+        (ow_x, ow_y), tuple(fa11y_xy), complete,
     )
 
 
