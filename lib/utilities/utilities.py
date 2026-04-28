@@ -419,6 +419,7 @@ AnnounceTeammateEvents = true "Toggles passive announcements when a teammate app
 AnnounceKillFeed = true "Toggles passive announcements for every elimination in the match kill feed (excluding teammate-involved kills, which AnnounceTeammateEvents already covers). Requires the FA11y-OW companion service."
 AnnounceItemEquip = true "Toggles passive announcements when you equip a new item from your hotbar. Requires the FA11y-OW companion service."
 AnnounceItemPickup = true "Toggles passive announcements when you pick up an item. Requires the FA11y-OW companion service."
+UseFA11yOWPosition = false "Use FA11y-OW's GEP location for player position (transformed via the calibration) instead of the visual minimap detection. Off by default because the bundled calibration can be unstable far from where it was sampled; turn on only if you have re-calibrated for your setup."
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."

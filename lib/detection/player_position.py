@@ -645,15 +645,18 @@ def generate_poi_message(poi_name, player_angle, poi_info, player_location=None)
         return message
 
 def find_player_position():
-    """Find player position. Prefers FA11y-OW (when a calibration exists
-    for the current map and the helper is connected) over visual minimap
-    detection; falls back to PPI when calibration is missing, the helper
-    isn't running, or anything in the FA11y-OW pipeline raises."""
+    """Find player position. When the ``UseFA11yOWPosition`` toggle is on,
+    prefer FA11y-OW (when a calibration exists for the current map and the
+    helper is connected) over visual minimap detection. Otherwise, and on
+    any failure in the OW pipeline, fall back to PPI."""
     try:
-        from lib.utilities.fa11y_ow_calibration import get_position_from_ow
-        ow_pos = get_position_from_ow()
-        if ow_pos is not None:
-            return ow_pos
+        from lib.utilities.utilities import read_config, get_config_boolean
+        cfg = read_config()
+        if get_config_boolean(cfg, 'UseFA11yOWPosition', False):
+            from lib.utilities.fa11y_ow_calibration import get_position_from_ow
+            ow_pos = get_position_from_ow()
+            if ow_pos is not None:
+                return ow_pos
     except Exception:
         # Any failure in the OW path is a fall-through to visual.
         pass
