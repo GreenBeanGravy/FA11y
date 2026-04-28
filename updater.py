@@ -81,6 +81,15 @@ def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="FA11y Updater")
     parser.add_argument('--monarch', action='store_true', help='Enable Monarch Mode for persistent download retries')
+    parser.add_argument(
+        '--branch',
+        default=GITHUB_BRANCH,
+        help=(
+            "GitHub branch to update from (default: %(default)s). "
+            "User config and data files are preserved across branch switches "
+            "(see IGNORED_FILES and EXCLUDED_FOLDERS)."
+        ),
+    )
     return parser.parse_args()
 
 def print_info(message):
@@ -770,16 +779,24 @@ def main():
     """
     Main function to run the updater script.
     """
-    global MONARCH_MODE
-    
+    global MONARCH_MODE, GITHUB_BRANCH
+
     # Parse command line arguments
     args = parse_arguments()
     if args.monarch:
         MONARCH_MODE = True
         print_info("Monarch Mode enabled - will retry failed downloads indefinitely.")
-    
+
+    # Override the target branch if the user passed --branch. User config
+    # files (config.txt, CUSTOM_POI.txt, FAVORITE_POIS.txt, auth caches,
+    # etc.) and the config/, sounds/, logs/ folders are preserved across
+    # branch switches via IGNORED_FILES and EXCLUDED_FOLDERS.
+    if args.branch and args.branch != GITHUB_BRANCH:
+        print_info(f"Branch override: {GITHUB_BRANCH} -> {args.branch}")
+        GITHUB_BRANCH = args.branch
+
     script_name = os.path.basename(__file__)
-    
+
     print_info("Starting FA11y updater...")
     print_info(f"Source: GitHub ({GITHUB_REPO}/{GITHUB_BRANCH})")
 
