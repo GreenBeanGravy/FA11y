@@ -940,7 +940,12 @@ class ConfigGUI(AccessibleDialog):
 
         self.original_capture_value = original_value
 
-        self._capture_armed = False
+        # Mouse-click activation: nothing is held, so arm immediately and
+        # let the first EVT_CHAR_HOOK keypress be captured (otherwise a
+        # quick tap finishes between polling ticks and is silently lost).
+        # Keyboard activation (Enter/Space still down): leave disarmed so
+        # the activator key isn't captured as the binding.
+        self._capture_armed = (get_pressed_key_combination() == "")
         self._start_capture_polling()
 
     def _start_capture_polling(self):
