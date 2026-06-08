@@ -1,6 +1,8 @@
 import os
 os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 import sys
+import shutil
+import tempfile
 import configparser
 import threading
 import time
@@ -530,6 +532,44 @@ def get_match_stats() -> None:
         print(f"Error getting match stats: {e}")
         speaker.speak("Error getting match statistics")
 
+def _atomic_write_lines(path: str, lines: List[str], make_backup: bool = False) -> None:
+    """Write ``lines`` to ``path`` atomically.
+
+    Writes to a temp file in the same directory, flushes it to disk, then
+    ``os.replace``s it into place. A crash or kill mid-write can therefore
+    never leave a truncated/0-byte file: readers always see either the
+    complete old file or the complete new one. (A plain ``open(path, 'w')``
+    truncates the live file the instant it opens, so an interrupted write
+    wipes the data -- which can blank a whole game-objects map.)
+
+    When ``make_backup`` is set, the existing file is copied to ``path + '.bak'``
+    before replacement, for recovery from logic errors (e.g. removing the wrong
+    line) as opposed to crashes.
+    """
+    directory = os.path.dirname(path) or '.'
+    os.makedirs(directory, exist_ok=True)
+
+    if make_backup and os.path.exists(path):
+        try:
+            shutil.copy2(path, path + '.bak')
+        except OSError as e:
+            print(f"Warning: could not back up {path}: {e}")
+
+    fd, tmp_path = tempfile.mkstemp(dir=directory, prefix='.tmp_', suffix='.txt')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
 def mark_last_reached_object_as_bad() -> None:
     """Mark the last reached game object as bad and remove it from the map"""
     try:
@@ -619,12 +659,11 @@ def mark_last_reached_object_as_bad() -> None:
             speaker.speak("Could not find matching game object in file")
             return
         
-        # Write updated source file
-        with open(source_file, 'w', encoding='utf-8') as f:
-            f.writelines(updated_lines)
-        
+        # Write updated source file (atomically, with a backup, so an
+        # interrupted write can never blank the map)
+        _atomic_write_lines(source_file, updated_lines, make_backup=True)
+
         # Add to bad objects file
-        os.makedirs('maps', exist_ok=True)
         bad_lines = []
         
         if os.path.exists(bad_file):
@@ -641,10 +680,9 @@ def mark_last_reached_object_as_bad() -> None:
         while bad_lines and not bad_lines[-1].strip():
             bad_lines.pop()
         bad_lines.append(line_removed + '\n')
-        
-        with open(bad_file, 'w', encoding='utf-8') as f:
-            f.writelines(bad_lines)
-        
+
+        _atomic_write_lines(bad_file, bad_lines)
+
         # Refresh game object data and remove from match tracking
         game_object_manager.reload_map_data(current_map)
         
