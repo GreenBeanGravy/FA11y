@@ -856,6 +856,21 @@ def main() -> None:
             # Validate auth token (checks if exists and if valid via API request)
             auth_valid = validate_epic_auth(epic_auth)
 
+            # The saved access token expires after a few hours, so on most
+            # launches it is already stale. Before falling back to any browser
+            # flow, mint a fresh access token from the saved refresh token.
+            # This is what makes a saved login actually persist across restarts
+            # instead of silently re-authenticating through the WebView every
+            # time (which looked like the credentials "never got saved").
+            if not auth_valid and epic_auth and epic_auth.refresh_token:
+                print("Restoring saved Epic Games session...")
+                if epic_auth.refresh_access_token():
+                    auth_valid = True
+                    print(f"Authenticated as {epic_auth.display_name}")
+                    logger.info("Epic auth restored from saved refresh token")
+                else:
+                    logger.debug("Saved refresh token invalid/expired; will try silent WebView")
+
             # Try silent WebView authentication before showing GUI
             if not auth_valid and epic_auth:
                 print("Attempting silent authentication...")

@@ -1,3 +1,6 @@
+6/15/2026 #1:
+- Fixed saved Epic Games logins not persisting across restarts. FA11y now restores the session from the saved refresh token on startup instead of re-running the browser login every launch, and no longer drops the refresh token when Epic doesn't rotate it.
+
 3/26/2026 #1:
 - Added mouse passthrough DPI as a configurable setting in the configuration GUI (Values tab). Removed the console DPI prompt during first-time setup.
 - Fixed configuration GUI window being too small and not properly filling out. Added minimum size and proper scrollbar support.

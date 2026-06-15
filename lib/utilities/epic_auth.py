@@ -93,7 +93,15 @@ class EpicAuth:
 
     def save_auth(self, access_token: str, account_id: str, display_name: str, expires_in: int,
                   refresh_token: str = None, refresh_token_expires_in: int = None):
-        """Save authentication data to cache"""
+        """Save authentication data to cache.
+
+        Epic does not always rotate the refresh token on a token refresh; the
+        response simply omits it and the previous refresh token stays valid.
+        In that case fall back to the refresh token we already hold so it is
+        never dropped from the cache. Previously an un-rotated refresh wiped
+        the refresh token from disk, so the next launch had nothing to restore
+        the session with and forced a fresh browser login every time.
+        """
         try:
             expires_at = datetime.now() + timedelta(seconds=expires_in)
             data = {
@@ -102,13 +110,22 @@ class EpicAuth:
                 'display_name': display_name,
                 'expires_at': expires_at.isoformat()
             }
-            if refresh_token:
-                data['refresh_token'] = refresh_token
-                self.refresh_token = refresh_token
+
+            # Keep the existing refresh token when Epic didn't issue a new one.
+            effective_refresh = refresh_token or self.refresh_token
+            if effective_refresh:
+                data['refresh_token'] = effective_refresh
+                self.refresh_token = effective_refresh
+
                 if refresh_token_expires_in:
-                    refresh_expires_at = datetime.now() + timedelta(seconds=refresh_token_expires_in)
-                    data['refresh_token_expires_at'] = refresh_expires_at.isoformat()
-                    self.refresh_token_expires_at = refresh_expires_at
+                    self.refresh_token_expires_at = (
+                        datetime.now() + timedelta(seconds=refresh_token_expires_in)
+                    )
+                # Persist whatever refresh-token expiry we currently know about
+                # so a preserved (un-rotated) token keeps its original expiry.
+                if self.refresh_token_expires_at:
+                    data['refresh_token_expires_at'] = self.refresh_token_expires_at.isoformat()
+
             config_manager.set('epic_auth', data=data)
             self.is_valid = True  # Mark auth as valid when saving
         except Exception as e:
