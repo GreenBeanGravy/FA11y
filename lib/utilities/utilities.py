@@ -420,6 +420,7 @@ AnnounceKillFeed = true "Toggles passive announcements for every elimination in 
 AnnounceItemEquip = true "Toggles passive announcements when you equip a new item from your hotbar. Requires the FA11y-OW companion service."
 AnnounceItemPickup = true "Toggles passive announcements when you pick up an item. Requires the FA11y-OW companion service."
 UseFA11yOWPosition = false "Use FA11y-OW's GEP location for player position (transformed via the calibration) instead of the visual minimap detection. Off by default because the bundled calibration can be unstable far from where it was sampled; turn on only if you have re-calibrated for your setup."
+DamageReader = false "Toggles the cumulative damage-number reader. When on, FA11y OCR-reads damage numbers near the center of the screen (GPU if available, otherwise CPU) at up to 10 fps and tracks each cumulative damage burst. Use the Speak Last Damage keybind to hear the most recent burst total."
 
 [Values]
 TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
@@ -486,6 +487,7 @@ Start Navigation = grave "Starts the player navigation process based on the play
 Toggle Continuous Ping = lalt+p "Toggles a continuous ping for the currently selected object."
 Toggle POI Favorite = lalt+lshift+f "Toggles the currently selected POI as a favorite."
 Check Health Shields = h "Announces the players Health and Shield values."
+Speak Last Damage = lalt+d "Speaks the most recent cumulative damage total recorded by the damage reader (requires the DamageReader toggle)."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."
 Announce Ammo = j "Announces the current ammo in the mag and reserves."
 Check Rarity = bracketleft "Announces the rarity of a selected item when the player is in the in-game inventory."

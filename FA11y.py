@@ -94,6 +94,7 @@ from lib.monitors.resource_monitor import resource_monitor
 from lib.monitors.storm_monitor import storm_monitor
 from lib.monitors.bloom_monitor import bloom_monitor
 from lib.monitors.match_event_monitor import match_event_monitor
+from lib.monitors.damage_monitor import damage_monitor
 from lib.monitors.fa11y_ow_announcer import announcer as fa11y_ow_announcer
 from lib.utilities.fa11y_ow_client import client as fa11y_ow_client
 from lib.utilities.fa11y_ow_calibration import calibrate_fa11y_ow_position
@@ -449,6 +450,7 @@ def reload_config() -> None:
             'recapture mouse': lambda: get_mouse_passthrough().recapture_mouse(),
             'toggle mouse passthrough': lambda: get_mouse_passthrough().toggle(),
             'calibrate fa11y-ow position': calibrate_fa11y_ow_position,
+            'speak last damage': damage_monitor.speak_last_damage,
             'read mode status': read_mode_status,
             'toggle fill': toggle_lobby_fill,
             'toggle ranked': toggle_ranked,
@@ -830,6 +832,7 @@ def main() -> None:
         storm_monitor.start_monitoring()
         bloom_monitor.start_monitoring()
         match_event_monitor.start_monitoring()
+        damage_monitor.start_monitoring()
 
         # FA11y-OW companion-service consumer (passive equip / pickup /
         # teammate-feed announcements). The SSE client is idle when the
@@ -1017,6 +1020,7 @@ def main() -> None:
             # dynamic_object_monitor.stop_monitoring()
             storm_monitor.stop_monitoring()
             match_event_monitor.stop_monitoring()
+            damage_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
             fa11y_ow_announcer.stop()
             fa11y_ow_client.stop()

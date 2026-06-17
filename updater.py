@@ -233,7 +233,14 @@ def install_required_modules():
         import win32api
     except ImportError:
         modules.append('pywin32')
-    
+
+    # Check for wxPython (hard requirement: the updater's GPU/CPU prompt and
+    # FA11y's GUIs depend on it).
+    try:
+        import wx
+    except ImportError:
+        modules.append('wxPython')
+
     if not modules:
         print_info("All required modules are already installed.")
         return
@@ -638,6 +645,38 @@ def check_legendary():
     
     return False
 
+def prompt_nvidia_gpu():
+    """Ask, via a wx dialog, whether the machine has an NVIDIA GPU so we can
+    pick the PaddleOCR backend (GPU vs CPU build). Returns True for GPU.
+
+    Defaults to CPU (False) if wxPython is unavailable or the dialog fails, so
+    a missing GUI never blocks the install.
+    """
+    try:
+        import wx
+    except ImportError:
+        print_info("wxPython unavailable; defaulting to CPU PaddleOCR build.")
+        return False
+    try:
+        app = wx.App(False)
+        dlg = wx.MessageDialog(
+            None,
+            "Does this computer have an NVIDIA GPU?\n\n"
+            "Yes: install the GPU build of the FA11y damage reader's OCR "
+            "(faster; requires an NVIDIA GPU + its CUDA runtime).\n"
+            "No: install the CPU build (works on any machine).",
+            "FA11y - Damage Reader OCR backend",
+            wx.YES_NO | wx.ICON_QUESTION,
+        )
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        app.Destroy()
+        return result == wx.ID_YES
+    except Exception as e:
+        print_info(f"GPU prompt failed ({e}); defaulting to CPU PaddleOCR build.")
+        return False
+
+
 def install_requirements():
     """
     Install dependencies listed in requirements.txt more efficiently.
@@ -671,6 +710,32 @@ def install_requirements():
     except Exception as e:
         print_info(f"Failed to read {requirements_file}: {e}")
         return False
+
+    # --- Pick the PaddleOCR backend (CPU default; GPU on request) ----------
+    # requirements.txt pins the CPU build. If paddle isn't installed yet, ask
+    # the user (wx dialog) whether they have an NVIDIA GPU; if so, swap in the
+    # GPU build plus its CUDA 11 / cuDNN 8 runtime packages. Once any paddle
+    # build is installed we leave the choice alone (no re-prompting).
+    def _is_paddle_req(req):
+        name = req.split('==')[0].split('>=')[0].strip().lower()
+        return name in ('paddlepaddle', 'paddlepaddle-gpu')
+
+    if any(_is_paddle_req(r) for r in requirements):
+        paddle_installed = (get_package_version('paddlepaddle')
+                            or get_package_version('paddlepaddle-gpu'))
+        requirements = [r for r in requirements if not _is_paddle_req(r)]
+        if not paddle_installed:
+            if prompt_nvidia_gpu():
+                print_info("NVIDIA GPU selected: installing GPU PaddleOCR build.")
+                requirements += [
+                    'paddlepaddle-gpu==2.6.2',
+                    'nvidia-cuda-runtime-cu11==11.8.89',
+                    'nvidia-cublas-cu11==11.11.3.6',
+                    'nvidia-cudnn-cu11==8.9.5.29',
+                ]
+            else:
+                print_info("No NVIDIA GPU: installing CPU PaddleOCR build.")
+                requirements.append('paddlepaddle==2.6.2')
 
     # Check what needs to be installed
     missing_packages = []
