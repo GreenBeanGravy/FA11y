@@ -384,15 +384,38 @@ class DamageMonitor(BaseMonitor):
         return None
 
     @staticmethod
-    def _warmup(ocr):
-        # Forces the predictor to actually run, surfacing runtime DLL issues
-        # (e.g. missing cuDNN on a GPU build) at init instead of every frame.
-        dummy = np.zeros((48, 160, 3), dtype=np.uint8)
-        dummy[12:36, 10:150] = 255
+    def _validate(ocr):
+        """Warm the predictor AND verify it returns CORRECT output.
+
+        A plain no-throw warmup misses the worst failure mode: a GPU build that
+        loads and runs without error but computes garbage (CUDA/cuDNN mismatch),
+        decoding every frame to the same phantom number. So OCR a synthetic
+        known number and confirm it reads back. Returns True if usable.
+        """
         try:
-            ocr.ocr(dummy, cls=False)
+            import cv2
+        except Exception:
+            # Can't render a probe image — fall back to a no-throw warmup.
+            dummy = np.zeros((48, 160, 3), dtype=np.uint8)
+            try:
+                ocr.ocr(dummy, cls=False)
+            except TypeError:
+                ocr.ocr(dummy)
+            return True
+        img = np.full((70, 240, 3), 255, dtype=np.uint8)
+        cv2.putText(img, "1234", (15, 52), cv2.FONT_HERSHEY_SIMPLEX,
+                    1.8, (0, 0, 0), 4)
+        try:
+            raw = ocr.ocr(img, cls=False)
         except TypeError:
-            ocr.ocr(dummy)
+            raw = ocr.ocr(img)
+        digits = ""
+        for line in (raw[0] if raw else []) or []:
+            try:
+                digits += "".join(c for c in line[1][0] if c.isdigit())
+            except Exception:
+                pass
+        return "1234" in digits
 
     def _ensure_ocr(self) -> bool:
         if self._ocr is not None:
@@ -431,7 +454,11 @@ class DamageMonitor(BaseMonitor):
                 if ocr is None:
                     print(f"DamageReader: construct failed on {device}.")
                     continue
-                self._warmup(ocr)        # may raise on bad GPU runtime
+                if not self._validate(ocr):  # loads+runs but garbage output?
+                    print(f"DamageReader: {device} produced INCORRECT OCR "
+                          f"output (likely a CUDA/cuDNN mismatch); trying next "
+                          f"device.")
+                    continue
             except Exception as e:  # noqa: BLE001
                 first = str(e).splitlines()[0] if str(e) else type(e).__name__
                 print(f"DamageReader: {device} unusable ({first}); "
