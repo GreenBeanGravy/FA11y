@@ -1,9 +1,3 @@
-6/17/2026 #3:
-- Added damage reader troubleshooting: it now saves the exact captured region to logs/damage_capture.png and logs the detected screen resolution and capture region, to diagnose setups where OCR reads the wrong part of the screen.
-
-6/17/2026 #2:
-- Fixed the damage reader not detecting on some setups by hardening the in-game focus check (Fortnite's window title can be hidden, so it now also checks the foreground process). Added diagnostic logging to the console to help troubleshoot detection issues.
-
 6/17/2026 #1:
 - Added a damage reader (off by default). When enabled, FA11y reads Fortnite's hit-damage numbers near the center of the screen and announces each engagement's total damage once the number stops counting up. Only runs during active gameplay, not in menus, the inventory, the map, or the lobby.
 - Added the Speak Last Damage keybind (Left Alt + D) to repeat the most recent damage total.

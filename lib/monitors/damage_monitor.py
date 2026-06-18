@@ -46,6 +46,9 @@ NUMBER_MAX = 9999
 NEW_BURST_MAX = 1000
 # Largest believable jump between consecutive readings of the same burst.
 MAX_STEP = 500
+# Minimum OCR confidence to trust a reading (drops low-confidence misreads,
+# e.g. the crosshair reticle reading as a phantom number).
+MIN_CONF = 0.60
 
 # Capture-rate cap and the central capture box (fraction of screen per side).
 TARGET_FPS = 10
@@ -211,14 +214,6 @@ class DamageMonitor(BaseMonitor):
         self._log_inode = None
         self._log_pending = b""
         self._gameplay = False
-
-        # Diagnostics: remember last-logged gate state so we only print on
-        # change (keeps the console quiet but shows why detection is/ isn't
-        # running).
-        self._dbg_focused = None
-        self._dbg_gameplay = None
-        self._last_numlog_t = 0.0
-        self._last_dump_t = 0.0
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -445,7 +440,6 @@ class DamageMonitor(BaseMonitor):
             self._ocr = ocr
             self._device = device
             print(f"DamageReader: PaddleOCR ready on {device}.")
-            print(f"DamageReader: screen={self._screen} region={self._region()}")
             return True
 
         print("DamageReader: PaddleOCR failed on all devices; disabling.")
@@ -453,7 +447,8 @@ class DamageMonitor(BaseMonitor):
         return False
 
     def _read_numbers(self, img):
-        vals = []
+        """Return [(value, confidence), ...] for in-range numeric detections."""
+        out = []
         try:
             try:
                 raw = self._ocr.ocr(img, cls=False)
@@ -461,21 +456,21 @@ class DamageMonitor(BaseMonitor):
                 raw = self._ocr.ocr(img)
         except Exception as e:  # noqa: BLE001
             print(f"DamageReader OCR error: {str(e).splitlines()[0]}")
-            return vals
+            return out
         if not raw:
-            return vals
+            return out
         page = raw[0]
         if not page:
-            return vals
+            return out
         for line in page:
             try:
-                text = line[1][0]
+                text, conf = line[1][0], float(line[1][1])
             except Exception:
                 continue
             v = _to_int(text)
             if v is not None and 0 <= v <= NUMBER_MAX:
-                vals.append(v)
-        return vals
+                out.append((v, conf))
+        return out
 
     # ------------------------------------------------------------------
     # Keybind handler — re-announce the last completed burst (always speaks).
@@ -533,46 +528,19 @@ class DamageMonitor(BaseMonitor):
                 # Gate: only read in active gameplay AND while Fortnite is
                 # focused. Reset so a tab-out / menu mid-burst leaves no stale
                 # state.
-                focused = self._game_focused()
-                gameplay = self._in_gameplay()
-                if focused != self._dbg_focused or gameplay != self._dbg_gameplay:
-                    print(f"DamageReader: gate focused={focused} "
-                          f"gameplay={gameplay}")
-                    self._dbg_focused = focused
-                    self._dbg_gameplay = gameplay
-                if not focused or not gameplay:
+                if not self._game_focused() or not self._in_gameplay():
                     self.tracker.reset()
                     if self.stop_event.wait(0.2):
                         return
                     continue
 
                 img = capture_region(self._region(), "bgr")
-
-                # Debug: periodically save exactly what we're OCR'ing so the
-                # captured region can be inspected (logs/damage_capture.png).
-                if img is not None:
-                    now_d = time.monotonic()
-                    if now_d - self._last_dump_t >= 2.0:
-                        self._last_dump_t = now_d
-                        try:
-                            import cv2
-                            os.makedirs("logs", exist_ok=True)
-                            cv2.imwrite(os.path.join("logs",
-                                                     "damage_capture.png"), img)
-                        except Exception:
-                            pass
-
-                vals = self._read_numbers(img) if img is not None else []
-                if vals:
-                    now_t = time.monotonic()
-                    if now_t - self._last_numlog_t >= 1.0:  # throttle to ~1/s
-                        print(f"DamageReader: numbers seen {vals}")
-                        self._last_numlog_t = now_t
+                dets = self._read_numbers(img) if img is not None else []
+                # Drop low-confidence misreads (e.g. the reticle phantom).
+                vals = [v for v, c in dets if c >= MIN_CONF]
 
                 _active, events = self.tracker.update(vals, time.monotonic())
                 for ev in events:
-                    print(f"Damage burst: {ev['peak']} "
-                          f"({ev['ticks']} ticks, {ev['duration']:.2f}s)")
                     self._announce(ev["peak"])
             except Exception as e:  # noqa: BLE001
                 print(f"Damage reader error: {e}")
