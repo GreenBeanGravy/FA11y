@@ -212,6 +212,13 @@ class DamageMonitor(BaseMonitor):
         self._log_pending = b""
         self._gameplay = False
 
+        # Diagnostics: remember last-logged gate state so we only print on
+        # change (keeps the console quiet but shows why detection is/ isn't
+        # running).
+        self._dbg_focused = None
+        self._dbg_gameplay = None
+        self._last_numlog_t = 0.0
+
     # ------------------------------------------------------------------
     @staticmethod
     def _screen_size():
@@ -238,8 +245,21 @@ class DamageMonitor(BaseMonitor):
 
     @staticmethod
     def _game_focused() -> bool:
+        # Title fast-path (Fortnite's title is usually "Fortnite  ").
         try:
-            return "fortnite" in (get_active_window_title() or "").lower()
+            if "fortnite" in (get_active_window_title() or "").lower():
+                return True
+        except Exception:
+            pass
+        # Fortnite's window title can be protected/empty, so fall back to the
+        # foreground window's process name (FortniteClient-Win64-Shipping.exe).
+        try:
+            import win32gui
+            import win32process
+            import psutil
+            hwnd = win32gui.GetForegroundWindow()
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            return "fortnite" in psutil.Process(pid).name().lower()
         except Exception:
             return False
 
@@ -511,7 +531,14 @@ class DamageMonitor(BaseMonitor):
                 # Gate: only read in active gameplay AND while Fortnite is
                 # focused. Reset so a tab-out / menu mid-burst leaves no stale
                 # state.
-                if not self._game_focused() or not self._in_gameplay():
+                focused = self._game_focused()
+                gameplay = self._in_gameplay()
+                if focused != self._dbg_focused or gameplay != self._dbg_gameplay:
+                    print(f"DamageReader: gate focused={focused} "
+                          f"gameplay={gameplay}")
+                    self._dbg_focused = focused
+                    self._dbg_gameplay = gameplay
+                if not focused or not gameplay:
                     self.tracker.reset()
                     if self.stop_event.wait(0.2):
                         return
@@ -519,6 +546,11 @@ class DamageMonitor(BaseMonitor):
 
                 img = capture_region(self._region(), "bgr")
                 vals = self._read_numbers(img) if img is not None else []
+                if vals:
+                    now_t = time.monotonic()
+                    if now_t - self._last_numlog_t >= 1.0:  # throttle to ~1/s
+                        print(f"DamageReader: numbers seen {vals}")
+                        self._last_numlog_t = now_t
 
                 _active, events = self.tracker.update(vals, time.monotonic())
                 for ev in events:
