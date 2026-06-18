@@ -1,3 +1,6 @@
+6/17/2026 #3:
+- Added damage reader troubleshooting: it now saves the exact captured region to logs/damage_capture.png and logs the detected screen resolution and capture region, to diagnose setups where OCR reads the wrong part of the screen.
+
 6/17/2026 #2:
 - Fixed the damage reader not detecting on some setups by hardening the in-game focus check (Fortnite's window title can be hidden, so it now also checks the foreground process). Added diagnostic logging to the console to help troubleshoot detection issues.
 

@@ -218,6 +218,7 @@ class DamageMonitor(BaseMonitor):
         self._dbg_focused = None
         self._dbg_gameplay = None
         self._last_numlog_t = 0.0
+        self._last_dump_t = 0.0
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -444,6 +445,7 @@ class DamageMonitor(BaseMonitor):
             self._ocr = ocr
             self._device = device
             print(f"DamageReader: PaddleOCR ready on {device}.")
+            print(f"DamageReader: screen={self._screen} region={self._region()}")
             return True
 
         print("DamageReader: PaddleOCR failed on all devices; disabling.")
@@ -545,6 +547,21 @@ class DamageMonitor(BaseMonitor):
                     continue
 
                 img = capture_region(self._region(), "bgr")
+
+                # Debug: periodically save exactly what we're OCR'ing so the
+                # captured region can be inspected (logs/damage_capture.png).
+                if img is not None:
+                    now_d = time.monotonic()
+                    if now_d - self._last_dump_t >= 2.0:
+                        self._last_dump_t = now_d
+                        try:
+                            import cv2
+                            os.makedirs("logs", exist_ok=True)
+                            cv2.imwrite(os.path.join("logs",
+                                                     "damage_capture.png"), img)
+                        except Exception:
+                            pass
+
                 vals = self._read_numbers(img) if img is not None else []
                 if vals:
                     now_t = time.monotonic()
