@@ -406,6 +406,18 @@ class MatchEventMonitor(BaseMonitor):
         except Exception:
             pass
 
+    def _reset_match_tracker(self) -> None:
+        """Signal the match tracker that a new match has begun so it clears
+        the per-match visited-objects cache (and announces "New match
+        started" when AnnounceNewMatch is on). This replaces the old
+        height-indicator detection. Lazy import avoids any startup import
+        cycle and keeps this monitor importable on its own."""
+        try:
+            from lib.detection.match_tracker import match_tracker
+            match_tracker.start_new_match()
+        except Exception as e:
+            logger.info(f"MatchEventMonitor: match tracker reset failed: {e}")
+
     def _process_line(self, line: str):
         # --- UI panel open / close (UIActionRouter) ---
         # Cheap fast-path: most lines aren't UIActionRouter at all, but the
@@ -526,6 +538,12 @@ class MatchEventMonitor(BaseMonitor):
                 if phase in ('Setup', 'Warmup'):
                     self._spectating = False
                     self._last_spectate_target = None
+                # A fresh Warmup is the authoritative "new match" signal that
+                # replaces the removed height-indicator detection: reset the
+                # per-match visited-objects tracker. Fires once per match
+                # (deduped by self._last_phase above).
+                if phase == 'Warmup':
+                    self._reset_match_tracker()
                 if self.announce_phase:
                     spoken = {
                         'Warmup': 'Warmup',

@@ -4,6 +4,11 @@ Height indicator monitor (skydiving altitude).
 Polls a few pixels of the skydive HUD every 2.5 s; when the indicator bar
 is visible, interpolates its y-pixel into meters and speaks the value.
 
+Scoped to the Fortnite OG map (``POI.current_map == "o_g"``): the modern
+BR mode's height bar isn't reliable, so outside OG this monitor idles. It
+no longer drives new-match detection — that now comes from the game log
+(see ``match_event_monitor``).
+
 This used to be a bare ``start_height_monitor()`` function. It's now a
 ``BaseMonitor`` subclass so shutdown goes through the same lifecycle as
 the other monitors, but a module-level ``start_height_monitor()`` shim is
@@ -20,8 +25,15 @@ from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
 
 from lib.monitors.base import BaseMonitor
+from lib.utilities.map_rotation import normalize_map_slug
+from lib.utilities.utilities import on_config_change, read_config
 
 speaker = Auto()
+
+# FA11y's canonical slug for the Fortnite OG map (data/maps/map_o_g_*). The
+# skydive altitude callouts run only on this map; the modern BR mode's height
+# bar is unreliable, and match-start detection now comes from the game log.
+_OG_MAP_SLUG = "o_g"
 
 # Shared state indicating if the height indicator is currently visible.
 _height_indicator_visible = False
@@ -77,11 +89,40 @@ class HeightMonitor(BaseMonitor):
     MIN_Y, MAX_Y = 47, 299
     POLL_INTERVAL_S = 2.5
 
+    def __init__(self) -> None:
+        super().__init__()
+        # Altitude callouts are scoped to the Fortnite OG map via
+        # POI.current_map, mirroring how the ammo/health game-object
+        # detection is map-gated. Cache the slug; refresh on config change.
+        self._current_map = self._read_current_map(read_config())
+        on_config_change(self._on_config_change)
+
+    @staticmethod
+    def _read_current_map(config) -> str:
+        return normalize_map_slug(
+            config.get('POI', 'current_map', fallback='main')
+        )
+
+    def _on_config_change(self, config) -> None:
+        self._current_map = self._read_current_map(config)
+
+    def _is_og_mode(self) -> bool:
+        return self._current_map == _OG_MAP_SLUG
+
     def _monitor_loop(self) -> None:
         while not self.stop_event.is_set():
             try:
                 if self.wizard_paused():
                     time.sleep(0.5)
+                    continue
+                # Altitude callouts are Fortnite-OG only; the modern mode's
+                # height bar isn't reliable. Idle elsewhere, and clear the
+                # shared flag so it never sticks "visible" across maps.
+                if not self._is_og_mode():
+                    if is_height_indicator_visible():
+                        _set_height_visible(False)
+                    if self.stop_event.wait(timeout=self.POLL_INTERVAL_S):
+                        return
                     continue
                 structure_present = all(
                     _check_pixel_color(x, y, self.TARGET_COLOR)

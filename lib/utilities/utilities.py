@@ -457,7 +457,7 @@ ContinuousPingMaxInterval = 2.0 "The maximum interval in seconds for the continu
 ContinuousPingDistanceExponent = 1.5 "The exponent for the distance-based speed increase of the continuous ping."
 
 [GameObjects]
-AnnounceNewMatch = true "Announce when a new match starts (detected by height indicator)."
+AnnounceNewMatch = true "Announce when a new match starts (detected from the game log's Warmup phase)."
 AnnounceObjectVisits = true "Announce when visiting game objects."
 PositionUpdateInterval = 0.5 "Interval in seconds for updating player position for match tracking."
 MaxInstancesForGameObjectPositioning = 20 "Maximum number of instances of an object type to use detailed game object positioning information instead of standard directional info."

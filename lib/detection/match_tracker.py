@@ -39,14 +39,7 @@ class MatchTracker:
         self.monitoring_active = False
         self.monitor_thread = None
         self.stop_event = threading.Event()
-        
-        # Height indicator state tracking with stability
-        self.height_indicator_was_visible = False
-        self.height_indicator_check_interval = 0.1
-        self.last_height_check = 0
-        self.height_stable_count = 0
-        self.height_stability_threshold = 3  # Require 3 consecutive checks for state change
-        
+
         # Thread safety
         self.match_lock = threading.RLock()
         
@@ -89,12 +82,7 @@ class MatchTracker:
         while not self.stop_event.is_set():
             try:
                 current_time = time.time()
-                
-                # Check for height indicator state changes
-                if current_time - self.last_height_check >= self.height_indicator_check_interval:
-                    self._check_height_indicator_transition()
-                    self.last_height_check = current_time
-                
+
                 # Update position at configured interval
                 if current_time - self.last_position_update >= self.get_position_update_interval():
                     self._update_player_position()
@@ -108,38 +96,6 @@ class MatchTracker:
             except Exception as e:
                 print(f"Error in match tracker loop: {e}")
                 time.sleep(1.0)
-    
-    def _check_height_indicator_transition(self):
-        """Check for height indicator visibility transitions with stability checking"""
-        try:
-            from lib.monitors.height_monitor import is_height_indicator_visible
-            
-            current_visible = is_height_indicator_visible()
-            
-            # Only process state changes if we have a stable reading
-            if current_visible == self.height_indicator_was_visible:
-                # State is stable, reset counter
-                self.height_stable_count = 0
-                return
-            
-            # State has changed, increment stability counter
-            self.height_stable_count += 1
-            
-            # Only act on state change if we've had enough consecutive different readings
-            if self.height_stable_count >= self.height_stability_threshold:
-                # Detect transition from visible to not visible
-                if self.height_indicator_was_visible and not current_visible:
-                    print("Height indicator disappeared - starting new match")
-                    self._start_new_match()
-                elif not self.height_indicator_was_visible and current_visible:
-                    print("Height indicator appeared")
-                
-                # Update state
-                self.height_indicator_was_visible = current_visible
-                self.height_stable_count = 0
-            
-        except Exception as e:
-            print(f"Error checking height indicator transition: {e}")
     
     def _is_height_indicator_visible(self):
         """Safe wrapper for height indicator visibility check"""

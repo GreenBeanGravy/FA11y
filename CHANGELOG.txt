@@ -1,3 +1,7 @@
+6/22/2026 #1:
+- New match detection now reads Fortnite's game log instead of the on-screen skydive height bar, which had become unreliable. Visited game objects now reset reliably at the start of every match.
+- The skydive altitude callouts ("X meters high") now run only in Fortnite OG, where the height bar is still dependable.
+
 6/17/2026 #1:
 - Added a damage reader (off by default). When enabled, FA11y reads Fortnite's hit-damage numbers near the center of the screen and announces each engagement's total damage once the number stops counting up. Only runs during active gameplay, not in menus, the inventory, the map, or the lobby.
 - Added the Speak Last Damage keybind (Left Alt + D) to repeat the most recent damage total.
