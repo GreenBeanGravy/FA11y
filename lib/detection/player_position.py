@@ -236,6 +236,48 @@ def handle_closed_map_ppi(poi_name, poi_coords):
         print(f"Error handling closed map PPI: {e}")
         return None
 
+def get_player_position_for_poi_creation():
+    """Return the player's position for custom POI creation using the same
+    robust pipeline as navigation.
+
+    PPI feature-matching reads the minimap, so the minimap must be visible
+    (i.e. the full-screen map closed). This mirrors ``start_icon_detection``:
+
+    - Minimap present (map closed): read PPI directly.
+    - Full map open: briefly close the map to expose the minimap, read PPI,
+      then reopen the map so the user is left exactly where they started.
+    - Neither detected: fall back to a direct PPI read.
+
+    Using PPI in every case keeps custom POI creation as accurate as
+    navigation, regardless of whether the map is open or closed.
+    """
+    try:
+        minimap_present = check_for_minimap()
+        full_map_open = check_for_full_map()
+
+        if full_map_open and not minimap_present:
+            # Close the map so the minimap is visible, read PPI, reopen it.
+            pyautogui.press('m')
+            time.sleep(0.15)
+
+            position = None
+            for _ in range(5):
+                position = find_player_position()
+                if position is not None:
+                    break
+                time.sleep(0.1)
+
+            pyautogui.press('m')
+            time.sleep(0.1)
+            return position
+
+        # Minimap present (map closed) or indeterminate state — PPI directly.
+        return find_player_position()
+
+    except Exception as e:
+        print(f"Error getting player position for POI creation: {e}")
+        return None
+
 def find_triangle_tip(contour, center_mass):
     """Find the tip of a triangular shape (player direction indicator)"""
     triangle = cv2.minEnclosingTriangle(contour)[1]

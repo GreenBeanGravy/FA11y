@@ -62,22 +62,18 @@ def handle_custom_poi_gui(use_ppi: bool = False) -> None:
     def _do_custom_poi_gui():
         state.custom_poi_gui_open.set()
         try:
-            from lib.detection.player_position import check_for_pixel
+            from lib.detection.player_position import get_player_position_for_poi_creation
             from lib.guis.custom_poi_gui import launch_custom_poi_creator
 
             current_map = read_config().get('POI', 'current_map', fallback='main')
-            use_ppi_flag = check_for_pixel()
 
             class PlayerDetector:
-                def get_player_position(self, use_ppi_flag):
-                    from lib.detection.player_position import (
-                        find_player_position as find_map_player_pos,
-                        find_player_icon_location,
-                    )
-                    return (find_map_player_pos() if use_ppi_flag
-                            else find_player_icon_location())
+                def get_player_position(self, use_ppi_flag=True):
+                    # Custom POI always uses the robust PPI pipeline (same as
+                    # navigation), handling map open/closed automatically.
+                    return get_player_position_for_poi_creation()
 
-            launch_custom_poi_creator(use_ppi_flag, PlayerDetector(), current_map)
+            launch_custom_poi_creator(True, PlayerDetector(), current_map)
 
         except Exception as e:
             print(f"Error opening custom POI GUI: {e}")

@@ -1,3 +1,9 @@
+6/27/2026 #1:
+- Fixed custom POI creation never finding the player's location. It now uses the same robust PPI pipeline as navigation, so it works whether the full-screen map is open or closed (when the map is open, it briefly closes it to read the minimap, then reopens it). The default keybind is now Left Alt + C.
+
+6/24/2026 #1:
+- Added the Check Display Mode keybind (Left Alt + R). It reads Fortnite's game log and announces the current window mode (Fullscreen, Windowed Fullscreen, or Windowed) followed by the render resolution.
+
 6/22/2026 #1:
 - New match detection now reads Fortnite's game log instead of the on-screen skydive height bar, which had become unreliable. Visited game objects now reset reliably at the start of every match.
 - The skydive altitude callouts ("X meters high") now run only in Fortnite OG, where the height bar is still dependable.

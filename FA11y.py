@@ -451,6 +451,7 @@ def reload_config() -> None:
             'toggle mouse passthrough': lambda: get_mouse_passthrough().toggle(),
             'calibrate fa11y-ow position': calibrate_fa11y_ow_position,
             'speak last damage': damage_monitor.speak_last_damage,
+            'check display mode': announce_display_mode,
             'read mode status': read_mode_status,
             'toggle fill': toggle_lobby_fill,
             'toggle ranked': toggle_ranked,
@@ -517,6 +518,8 @@ from lib.app.keybind_actions import (
     _refresh_poi_selector_after_favorite_toggle,
     toggle_favorite_poi,
 )
+
+from lib.app.display_actions import announce_display_mode
 
 
 def key_listener() -> None:

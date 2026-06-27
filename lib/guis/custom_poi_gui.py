@@ -348,32 +348,14 @@ class CustomPOIGUI(AccessibleDialog):
 
 def launch_custom_poi_creator(use_ppi: bool = False, player_detector=None, current_map: str = "main") -> bool:
     try:
-        coordinates = None
-        
-        if player_detector:
-            try:
-                coordinates = player_detector.get_player_position(use_ppi)
-            except Exception as e:
-                logger.error(f"Error using player detector: {e}")
-        
-        if not coordinates:
-            try:
-                from lib.guis.coordinate_utils import get_current_coordinates
-                coordinates = get_current_coordinates()
-            except ImportError:
-                logger.error("No coordinate utilities available")
-            except Exception as e:
-                logger.error(f"Error using coordinate utilities: {e}")
-        
-        if not coordinates:
-            logger.error("Unable to determine player location for custom POI")
-            speaker.speak("Unable to determine player location for custom POI")
-            return False
-        
         app = wx.GetApp()
         if app is None:
             app = wx.App(False)
-        
+
+        # CustomPOIGUI.__init__ performs the position detection (via the
+        # robust PPI pipeline) and displays its own error if it fails, so we
+        # don't pre-fetch here — doing so would detect the position twice and
+        # toggle the map twice when it's open.
         dlg = CustomPOIGUI(None, use_ppi, player_detector, current_map)
         
         if dlg and hasattr(dlg, 'coordinates') and dlg.coordinates:
