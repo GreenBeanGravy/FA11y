@@ -37,10 +37,3 @@ wxPython
 PyQt6
 numpy==1.26.4
 cloudscraper
-# Damage reader OCR (DamageReader toggle). 2.7.3 is the last numpy<2 / non-paddlex
-# line and works with FA11y's pinned numpy==1.26.4. The CPU paddle build is the
-# default below. The updater asks (via a wx dialog) whether you have an NVIDIA
-# GPU when paddle isn't installed yet; if you say yes it installs
-# paddlepaddle-gpu==2.6.2 plus the CUDA 11 / cuDNN 8 runtime packages instead.
-paddleocr==2.7.3
-paddlepaddle==2.6.2

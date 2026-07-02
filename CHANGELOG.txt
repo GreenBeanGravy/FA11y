@@ -1,3 +1,6 @@
+7/1/2026 #1:
+- Removed the damage reader and its PaddleOCR text-recognition dependencies. The DamageReader setting and the Speak Last Damage keybind are gone, and the installer no longer asks whether you have an NVIDIA GPU.
+
 6/27/2026 #1:
 - Fixed custom POI creation never finding the player's location. It now uses the same robust PPI pipeline as navigation, so it works whether the full-screen map is open or closed (when the map is open, it briefly closes it to read the minimap, then reopens it). The default keybind is now Left Alt + C.
 
