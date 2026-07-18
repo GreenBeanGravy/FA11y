@@ -1,3 +1,7 @@
+7/17/2026 #2:
+- The inventory item checker now works in Reload and Blitz: added per-map loot lists for all five Reload maps (Venture, Oasis, Slurp Rush, Surf City, Elite Stronghold) and both Blitz maps (Starfall, Stranger Things), including map-exclusive items like the Cube Rifle and Cube Splitter SMG on Elite Stronghold, or the Flint-Knock Pistol and Double Barrel Shotgun on Venture.
+- Hotbar item name detection now works on any map that ships a loot list file, instead of only the main Battle Royale map.
+
 7/17/2026 #1:
 - Added the new seasons items, including Sprites, to the main map loot list.
 - Hopefully fixed keybinds sometimes not being captured when configuring them: the first key you pressed after activating a keybind button could be silently ignored if pressed too quickly.

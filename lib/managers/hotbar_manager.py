@@ -19,30 +19,46 @@ from queue import Queue
 from lib.managers.ocr_manager import get_ocr_manager
 from lib.detection.coordinate_config import get_hotbar_coords
 
-# OCR region for item name text (main map)
-MAIN_MAP_OCR_REGION = {'left': 1131, 'top': 984, 'width': 1297 - 1131, 'height': 1004 - 984}
+# OCR region for item name text (shared BR-style HUD position)
+ITEM_NAME_OCR_REGION = {'left': 1131, 'top': 984, 'width': 1297 - 1131, 'height': 1004 - 984}
 
-# Item names loaded from config file for OCR fuzzy matching
-_main_map_items_cache = None
-_main_map_items_lower_cache = None
+# Per-map item lists loaded from data/maps/map_<map>_loot.txt for OCR fuzzy
+# matching. A map is cached as None when it has no loot file, which routes
+# detection down the legacy image-matching path instead.
+_loot_items_cache = {}
 
-def _get_main_map_items():
-    """Load and cache the main map item list from config/main_loot.txt."""
-    global _main_map_items_cache, _main_map_items_lower_cache
-    if _main_map_items_cache is not None:
-        return _main_map_items_cache, _main_map_items_lower_cache
+def _normalize_map_slug(raw):
+    """Fold a current_map config value to the canonical file slug
+    (lowercase, underscores) so 'reload venture' finds map_reload_venture_loot.txt."""
+    if not raw:
+        return "main"
+    return raw.strip().lower().replace(" ", "_") or "main"
+
+def _get_map_items(map_name):
+    """Load and cache the item list for a map from data/maps/map_<map>_loot.txt.
+
+    Returns:
+        tuple: (items, items_lower), or (None, None) if the map has no loot file.
+    """
+    map_name = _normalize_map_slug(map_name)
+    if map_name in _loot_items_cache:
+        return _loot_items_cache[map_name]
+    loot_file = os.path.join("data", "maps", f"map_{map_name}_loot.txt")
     try:
-        loot_file = os.path.join("data", "maps", "map_main_loot.txt")
         with open(loot_file, 'r', encoding='utf-8') as f:
             items = [line.strip() for line in f if line.strip()]
-        _main_map_items_cache = items
-        _main_map_items_lower_cache = [item.lower() for item in items]
-        logger.info(f"Loaded {len(items)} items from main_loot.txt")
+        _loot_items_cache[map_name] = (items, [item.lower() for item in items])
+        logger.info(f"Loaded {len(items)} items from map_{map_name}_loot.txt")
+    except FileNotFoundError:
+        _loot_items_cache[map_name] = (None, None)
     except Exception as e:
-        logger.error(f"Failed to load main_loot.txt: {e}")
-        _main_map_items_cache = []
-        _main_map_items_lower_cache = []
-    return _main_map_items_cache, _main_map_items_lower_cache
+        logger.error(f"Failed to load map_{map_name}_loot.txt: {e}")
+        _loot_items_cache[map_name] = (None, None)
+    return _loot_items_cache[map_name]
+
+def _map_has_loot_file(map_name):
+    """True if this map ships a map_<map>_loot.txt list (OCR-based detection)."""
+    return _get_map_items(map_name)[0] is not None
 
 # Screen coordinates for weapon slots - now loaded dynamically based on current map
 def get_slot_coords():
@@ -467,18 +483,18 @@ def detect_rarity_for_slot(slot_coord):
     
     return None
 
-def _ocr_detect_item_name():
+def _ocr_detect_item_name(current_map='main'):
     """
-    OCR-based item name detection for main map.
+    OCR-based item name detection for any map with a loot list file.
     Captures the item name region, filters to near-white pixels with 2px dilation,
-    upscales 2x, runs EasyOCR, and fuzzy-matches against the known item list.
+    upscales 2x, runs EasyOCR, and fuzzy-matches against that map's item list.
 
     Returns:
         str or None: Best matching item name, or None if detection fails.
     """
     try:
         with mss() as sct:
-            screenshot_rgba = np.array(sct.grab(MAIN_MAP_OCR_REGION))
+            screenshot_rgba = np.array(sct.grab(ITEM_NAME_OCR_REGION))
 
         # Convert to BGR
         if screenshot_rgba.shape[2] == 4:
@@ -523,8 +539,10 @@ def _ocr_detect_item_name():
         if not raw_text:
             return None
 
-        # Fuzzy match against item list
-        items, items_lower = _get_main_map_items()
+        # Fuzzy match against this map's item list
+        items, items_lower = _get_map_items(current_map)
+        if not items:
+            return None
         raw_lower = raw_text.lower()
         matches = difflib.get_close_matches(raw_lower, items_lower, n=1, cutoff=0.5)
         if matches:
@@ -588,13 +606,15 @@ def detect_hotbar_item_thread(slot_index):
     current_map = config.get('POI', 'current_map', fallback='main')
     announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
 
-    # Main map: OCR-based detection with 0.5s delay
-    if current_map == 'main':
+    # Any map with a map_<map>_loot.txt list (main BR, Reload maps, Blitz
+    # maps): OCR-based detection. Maps without a loot file fall through to
+    # the legacy image-based detection below.
+    if _map_has_loot_file(current_map):
         time.sleep(0.75)
         if stop_event.is_set():
             return
 
-        item_name = _ocr_detect_item_name()
+        item_name = _ocr_detect_item_name(current_map)
         if item_name and not stop_event.is_set():
             speaker.speak(item_name)
             last_detected_item = item_name
