@@ -1,3 +1,7 @@
+7/17/2026 #3:
+- Updated the OG map to Season 9: new map image, Neo Tilted replaces Tilted Towers, Mega Mall replaces Retail Row, and Pressure Plant, Haunted Hills, Polar Peak, and Frosty Flights are now named POIs (20 total).
+- Regenerated OG game objects from the current map: chests, ammo boxes, ziplines, driftboards, quadcrashers, vending machines, ballers, cannons, rifts, reboot vans, and sky platforms.
+
 7/17/2026 #2:
 - The inventory item checker now works in Reload and Blitz: added per-map loot lists for all five Reload maps (Venture, Oasis, Slurp Rush, Surf City, Elite Stronghold) and both Blitz maps (Starfall, Stranger Things), including map-exclusive items like the Cube Rifle and Cube Splitter SMG on Elite Stronghold, or the Flint-Knock Pistol and Double Barrel Shotgun on Venture.
 - Hotbar item name detection now works on any map that ships a loot list file, instead of only the main Battle Royale map.
