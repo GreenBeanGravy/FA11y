@@ -1,3 +1,7 @@
+7/17/2026 #1:
+- Added the new seasons items, including Sprites, to the main map loot list.
+- Hopefully fixed keybinds sometimes not being captured when configuring them: the first key you pressed after activating a keybind button could be silently ignored if pressed too quickly.
+
 7/1/2026 #1:
 - Removed the damage reader and its PaddleOCR text-recognition dependencies. The DamageReader setting and the Speak Last Damage keybind are gone, and the installer no longer asks whether you have an NVIDIA GPU.
 

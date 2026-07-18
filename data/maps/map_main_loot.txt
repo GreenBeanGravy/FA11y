@@ -1,68 +1,98 @@
-Nemesis AR
-Combat Assault Rifle
-Chaos Reloader Shotgun
-Iron Pump Shotgun
-hammer revolver
-Super Shredder
-Reaper Sniper Rifle 
-Twin Hammer Shotguns
-Thunder Burst SMG
-Twin Mag SMG
-Pistol
-Vector 7 DMR
-Bouncing Boomstick
-Seven Power Gloves
+Chaos Exploder Rifle
+Surgical Burst Rifle
+Modular Warforged Assault Rifle 
+Extending Focus Shotgun
+Striker Pump Shotgun
+Maven Auto Shotgun
+Modular Ranger Pistol
+Lancehead Pistol
+9mm Baba  Yaga Pistol
+Where We Droppin Pistol
+Bank Shot Pistol
+Rapid fire Smg
+Flex smg
+Stinger smg
+Hunting Rifle
+Heavy Impact Sniper Rifle
+Mythic Mighty Impact Sniper Rifle 
+Shieldbreaker EMP
+Earth Sprite
+Fire Sprite
+Water Sprite
+Demon Sprite
+Duck Sprite
+Ghost Sprite
+King Sprite
+Dream Sprite
+Punk Sprite
+Zero Point Sprite
+Burnt Peanut Sprite
+Fishy Sprite
+Striker Sprite
+Aura Sprite
+Boss Sprite
+Grim Sprite
+Air Sprite
+Seven Sprite
+Batman Sprite
+Vini Jr. Sprite
+Pollo Sprite
 Bandage
-Med Kit
+Medkit
+Small Shield
+Guzzle Juice
 Shield Potion
-Small Shield Potion
-Chug Jug
-Chug Splash
-FlowBerry Mist Grenade
-Slapperoni Pizza
-Self-Revive Device
-Overdrive Grenade
-Skyline Deployer
-Fishing Rod
-Pro Fishing Rod
-Harpoon Gun
-Port-A-Bunker
-Shield Bubble Jr.
-Cabbage
+Lil Whips Special Serve
+Slapberry Fizz
 Corn
 Banana
-Coconut
+Golden Apple
 Apple
-Shield Mushroom
-Unstable Element
-Ice King's Gauntlets
-Dark Voyager's Obliterator
-Squibbly's Combat Assault Rifle
-Slurpfish
-Lawful Explosive Mammoth Pistol
-Lawful Heavy Impact Tracking Rifle
-Lawful Shockwave Rocket Launcher
-Brute Nemesis AR
-Brutus' Twin Hammer Shotguns
-Pinpoint Iron Pump Shotgun
-Small Fry
+Pepper
+Chug Jug
+Cabbage
+Coconut
 Flopper
-Shield Fish
-Jellyfish
-Spicy Fish
-Cuddle Fish
-Vendetta Flopper
-Midas Flopper
+Small Fry
+Slurp Fish
+Shock Rock
+Quack Snack
+Mushroom
+Slurp Mushroom
+Cluster Clinger
+Overdrive Grenade
+Sven Sliders
+Business Turret
+Pulse Scanner
+Limitless Seven Sliders
+Rift To Go
+Pocket Shockwave
+Pocket MMedmist Smoke Grenade
+Pocket Shield Bubble Jr. 
+Pocket Crashpad Jr. 
+Pocket Port-a-cover
+Smoke Cloud
+Port-a-bunker
+Guardian Shield
+Bush
+Fishing Rod
+Big Bush Bomb
+Pro Fishing Rod
+Harpoon Gun
+Flair Gun
+Enhanced Harpoon Gun
 Mythic Goldfish
-Baron's Double Down Pistol
-Thorne's Vampiric Blade
-O.X.R Rifle
-Havoc Pump Shotgun 
-Explosive Repeater Rifle
-Leadspitter 3000
-Wrecker Revolver
-Sticky Grenade Launcher
-Thunderbolt of Zeus
-Boom Sniper Rifle
-Eradicator O.X.r. Rifle
-Eradicator  Marksman Wrecker Revolver
+Vault Key
+Unstable Element
+Ice Kings Vault
+Self Revive Device
+Batman Grapnel Gun 
+Portable Extractor
+Extraction Sight Booster
+Sprite locator
+Catwoman's Rapid Fire Smg
+Poison Ivy's Ranger Pistol
+Friendzone Bubble
+The Voidblades' Surgical Burst Rifle
+Reacher Extending Shotgun
+Wolf's maven Auto Shotgun

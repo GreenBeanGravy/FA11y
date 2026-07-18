@@ -26,8 +26,9 @@ from lib.utilities.utilities import (
     get_game_objects_config_order
 )
 from lib.utilities.input import (
-    VK_KEYS, is_mouse_button, get_pressed_key_combination, parse_key_combination, 
-    validate_key_combination, get_supported_modifiers, is_modifier_key
+    VK_KEYS, is_mouse_button, get_pressed_key_combination, parse_key_combination,
+    validate_key_combination, get_supported_modifiers, is_modifier_key,
+    get_pressed_main_keys, is_key_pressed
 )
 
 logger = logging.getLogger(__name__)
@@ -83,9 +84,10 @@ class ConfigGUI(AccessibleDialog):
 
         # Polling timer picks up mouse buttons (EVT_CHAR_HOOK can't see them).
         self._capture_timer: Optional[wx.Timer] = None
-        # Arms after a no-keys-pressed tick so the capture activator
-        # (Enter/Space/click) isn't sampled as the user's binding.
-        self._capture_armed = False
+        # Keys already held when capture starts (e.g. the Enter that
+        # activated the button) — ignored until physically released so the
+        # activator is never sampled as the user's binding.
+        self._capture_ignore_keys: set = set()
 
         self.setupDialog()
 
@@ -940,12 +942,12 @@ class ConfigGUI(AccessibleDialog):
 
         self.original_capture_value = original_value
 
-        # Mouse-click activation: nothing is held, so arm immediately and
-        # let the first EVT_CHAR_HOOK keypress be captured (otherwise a
-        # quick tap finishes between polling ticks and is silently lost).
-        # Keyboard activation (Enter/Space still down): leave disarmed so
-        # the activator key isn't captured as the binding.
-        self._capture_armed = (get_pressed_key_combination() == "")
+        # Snapshot whatever is held right now (e.g. the Enter that activated
+        # this button). Those keys are excluded from capture until released,
+        # so the activator can't become the binding — but the user's first
+        # real keypress is captured immediately, even if it lands before an
+        # all-keys-up polling tick.
+        self._capture_ignore_keys = get_pressed_main_keys()
         self._start_capture_polling()
 
     def _start_capture_polling(self):
@@ -987,13 +989,14 @@ class ConfigGUI(AccessibleDialog):
         if not self.capturing_key:
             return
 
-        # Wait for a no-keys-pressed tick before sampling.
-        if not self._capture_armed:
-            if get_pressed_key_combination() == "":
-                self._capture_armed = True
-            return
+        # Ignored keys stay excluded only while continuously held; once
+        # released, a re-press is a genuine capture attempt.
+        if self._capture_ignore_keys:
+            self._capture_ignore_keys = {
+                k for k in self._capture_ignore_keys if is_key_pressed(k)
+            }
 
-        new_key = get_pressed_key_combination()
+        new_key = get_pressed_key_combination(exclude_keys=self._capture_ignore_keys)
 
         if new_key:
             if validate_key_combination(new_key):

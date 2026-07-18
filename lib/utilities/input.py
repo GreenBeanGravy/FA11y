@@ -304,51 +304,83 @@ def get_pressed_key():
             
     return None
 
-def get_pressed_key_combination() -> str:
+def get_pressed_main_keys() -> Set[str]:
+    """
+    Get every non-modifier key or mouse button that is currently held down.
+
+    Returns:
+        Set of key name strings (e.g. {'enter', 'g'}), empty if none.
+    """
+    pressed: Set[str] = set()
+    mouse_buttons = ['middle mouse', 'mouse 4', 'mouse 5']
+    for button_name in mouse_buttons:
+        if is_key_pressed(button_name):
+            pressed.add(button_name)
+    for key_name, vk_code in VK_KEYS.items():
+        if key_name in mouse_buttons or key_name in MODIFIER_KEYS:
+            continue
+        if win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0:
+            pressed.add(key_name)
+    for i in range(ord('A'), ord('Z') + 1):
+        if win32api.GetAsyncKeyState(i) & 0x8000 != 0:
+            pressed.add(chr(i).lower())
+    for i in range(ord('0'), ord('9') + 1):
+        if win32api.GetAsyncKeyState(i) & 0x8000 != 0:
+            pressed.add(chr(i))
+    return pressed
+
+def get_pressed_key_combination(exclude_keys: Optional[Set[str]] = None) -> str:
     """
     Get the currently pressed key combination including modifiers.
-    
+
+    Args:
+        exclude_keys: Main keys to skip when scanning (e.g. keys that were
+            already held when a capture started). Modifiers are unaffected.
+
     Returns:
         String representation like "lshift+a" or just "a" if no modifiers
     """
+    if exclude_keys is None:
+        exclude_keys = set()
+
     # Get currently pressed modifiers
     pressed_modifiers = []
     for modifier, vk_code in MODIFIER_KEYS.items():
         if win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0:
             pressed_modifiers.append(modifier)
-    
+
     # Get main key
     main_key = None
-    
+
     # Check mouse buttons first
     mouse_buttons = ['middle mouse', 'mouse 4', 'mouse 5']
     for button_name in mouse_buttons:
-        if is_key_pressed(button_name):
+        if button_name not in exclude_keys and is_key_pressed(button_name):
             main_key = button_name
             break
-    
+
     if not main_key:
         # Check special keys (excluding modifiers)
         for key_name, vk_code in VK_KEYS.items():
-            if key_name not in mouse_buttons and key_name not in MODIFIER_KEYS:
+            if key_name not in mouse_buttons and key_name not in MODIFIER_KEYS and key_name not in exclude_keys:
                 if win32api.GetAsyncKeyState(vk_code) & 0x8000 != 0:
                     main_key = key_name
                     break
-    
+
     if not main_key:
         # Check A-Z
         for i in range(ord('A'), ord('Z') + 1):
-            if win32api.GetAsyncKeyState(i) & 0x8000 != 0:
+            if chr(i).lower() not in exclude_keys and win32api.GetAsyncKeyState(i) & 0x8000 != 0:
                 main_key = chr(i).lower()
                 break
-    
+
     if not main_key:
         # Check 0-9
         for i in range(ord('0'), ord('9') + 1):
-            if win32api.GetAsyncKeyState(i) & 0x8000 != 0:
+            if chr(i) not in exclude_keys and win32api.GetAsyncKeyState(i) & 0x8000 != 0:
                 main_key = chr(i)
                 break
-    
+
     if not main_key:
         return ""
     
