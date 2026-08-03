@@ -185,12 +185,22 @@ class POIData:
         """Discover available maps without loading their data."""
         self.maps["main"] = MapData("Main Map", [])
 
+        # Maps on disk but absent from the downloadable available-maps
+        # list are hidden (allowed is None -> no list -> offer everything).
+        try:
+            from lib.utilities.available_maps import read_local_available_maps
+            allowed = read_local_available_maps()
+        except Exception:
+            allowed = None
+
         maps_dir = os.path.join("data", "maps")
         if os.path.exists(maps_dir):
             for filename in os.listdir(maps_dir):
                 if filename.startswith("map_") and filename.endswith("_pois.txt"):
                     map_name = filename[4:-9]
                     if map_name != "main":
+                        if allowed is not None and map_name not in allowed:
+                            continue
                         display_name = map_name.replace('_', ' ')
                         self.maps[map_name] = MapData(
                             name=display_name.title(),

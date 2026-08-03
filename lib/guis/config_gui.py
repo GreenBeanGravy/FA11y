@@ -136,8 +136,8 @@ class ConfigGUI(AccessibleDialog):
             if self._prebuild_queue:
                 wx.CallLater(50, self._prebuild_next)
         except Exception as e:
-            logger.error(f"Error populating widgets: {e}")
-            speaker.speak("Error loading configuration")
+            logger.exception(f"Error populating widgets: {e}")
+            speaker.speak(f"Error loading configuration: {e}")
 
     def _prebuild_next(self) -> None:
         """Build the next queued tab, then reschedule."""
@@ -1587,7 +1587,7 @@ def launch_config_gui(config_obj: 'Config',
         dlg.Destroy()
         
     except Exception as e:
-        logger.error(f"Error launching configuration GUI: {e}")
+        logger.exception(f"Error launching configuration GUI: {e}")
         error = DisplayableError(
             f"Error launching configuration GUI: {str(e)}",
             "Application Error"

@@ -1,10 +1,13 @@
 """GUI launchers (config, custom POI, gamemode, locker)."""
 from __future__ import annotations
 
+import logging
 from typing import Callable, Optional
 
 from lib.app import state
 from lib.utilities.window_utils import focus_window
+
+logger = logging.getLogger(__name__)
 
 
 def open_config_gui(reload_config: Optional[Callable] = None) -> None:
@@ -40,8 +43,11 @@ def open_config_gui(reload_config: Optional[Callable] = None) -> None:
             launch_config_gui(config_instance, update_callback)
 
         except Exception as e:
+            # Full traceback to the log; speak the actual error so bug
+            # reports carry something actionable instead of a generic line.
+            logger.exception("Error opening config GUI")
             print(f"Error opening config GUI: {e}")
-            speaker.speak("Error opening configuration GUI")
+            speaker.speak(f"Error opening configuration GUI: {e}")
         finally:
             state.config_gui_open.clear()
 

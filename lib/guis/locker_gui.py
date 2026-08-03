@@ -31,6 +31,25 @@ logger = logging.getLogger(__name__)
 # Global speaker instance
 speaker = Auto()
 
+def apply_favorite_flags(cosmetics: List[dict], favorite_ids) -> int:
+    """Stamp Epic-side favorite status onto cosmetic dicts.
+
+    favorite_ids is the set fetch_owned_cosmetics collects from the athena
+    profile (bare lowercase cosmetic IDs). None means favorites haven't
+    been fetched this session, so existing flags are left untouched.
+    Returns the number of favorites marked.
+    """
+    if favorite_ids is None:
+        return 0
+    count = 0
+    for cosmetic in cosmetics:
+        fav = cosmetic.get("id", "").lower() in favorite_ids
+        cosmetic["favorite"] = fav
+        if fav:
+            count += 1
+    return count
+
+
 # Map backend types to friendly names and slot info
 COSMETIC_TYPE_MAP = {
     # Character cosmetics
@@ -1216,6 +1235,14 @@ class LockerGUI(AccessibleDialog):
 
                     logger.info(f"Added {len(missing_ids)} placeholder entries")
 
+                # Pre-mark favorites from the same profile fetch so items
+                # show their star immediately on load
+                fav_count = apply_favorite_flags(
+                    self.cosmetics_data,
+                    getattr(self.auth, "favorite_cosmetic_ids", None))
+                if fav_count:
+                    logger.info(f"Pre-marked {fav_count} favorite cosmetics")
+
                 # Enable the owned button
                 if hasattr(self, 'owned_btn'):
                     self.owned_btn.Enable(True)
@@ -1403,6 +1430,11 @@ class LockerGUI(AccessibleDialog):
                 fresh_data = get_or_create_cosmetics_cache(force_refresh=True)
 
                 if fresh_data:
+                    # Fresh dicts from the API cache have no favorite flags;
+                    # re-stamp from the last profile fetch
+                    apply_favorite_flags(
+                        fresh_data,
+                        getattr(self.auth, "favorite_cosmetic_ids", None))
                     self.cosmetics_data = fresh_data
                     self.filtered_cosmetics = fresh_data.copy()
                     self.stats = self._calculate_stats()
@@ -2273,6 +2305,11 @@ class LockerGUI(AccessibleDialog):
                                     "favorite": False
                                 }
                                 self.cosmetics_data.append(placeholder)
+
+                        # Pre-mark favorites from the same profile fetch
+                        apply_favorite_flags(
+                            self.cosmetics_data,
+                            getattr(self.auth, "favorite_cosmetic_ids", None))
                     else:
                         speaker.speak("Failed to fetch owned cosmetics list")
                         messageBox(

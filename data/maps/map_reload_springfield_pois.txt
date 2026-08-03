@@ -1,0 +1,14 @@
+Burd-E-Mart,838,742
+Globex Model Home,654,472
+Springfield Gorge,842,506
+Springfield Park,765,728
+The Springfield Tire Fire,733,637
+Burns Manor,1218,564
+Cletus' Corn Hole,833,357
+Corruption Corners,1204,734
+Donut District,842,844
+Evergreen Terrace,731,514
+Kamp Krusty,1024,451
+Springfield Nuclear Power Plant,1151,323
+Springfield Slurpworks,681,734
+Springfield Town Square,959,663

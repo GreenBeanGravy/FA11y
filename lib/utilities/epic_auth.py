@@ -969,8 +969,12 @@ class EpicAuth:
                 profile_data = response.json()
                 items = profile_data.get("profileChanges", [{}])[0].get("profile", {}).get("items", {})
 
-                # Extract template IDs (these are the cosmetic IDs)
+                # Extract template IDs (these are the cosmetic IDs).
+                # Favorite status rides along in the same profile response,
+                # so collect it here too — the locker GUI uses it to
+                # pre-mark favorites on load.
                 owned_ids = []
+                favorite_ids = set()
                 for item_id, item_data in items.items():
                     template_id = item_data.get("templateId", "")
                     if template_id:
@@ -979,7 +983,10 @@ class EpicAuth:
                         if ":" in template_id:
                             cosmetic_id = template_id.split(":")[1]
                             owned_ids.append(cosmetic_id)
+                            if item_data.get("attributes", {}).get("favorite"):
+                                favorite_ids.add(cosmetic_id.lower())
 
+                self.favorite_cosmetic_ids = favorite_ids
                 return owned_ids
             elif response.status_code == 401:
                 # Token expired or invalid

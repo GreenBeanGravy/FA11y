@@ -1,3 +1,10 @@
+8/3/2026 #1:
+- Added the Reload Springfield map from the Simpsons collab: full object navigation with 1,825 game objects (chests, ammo boxes, bushes, campfires, and ice machines) plus all 14 named POIs, from Springfield Town Square to the Nuclear Power Plant.
+- FA11y now downloads a list of currently-available maps at startup and hides maps that have rotated out of the game (currently main, OG, Elite Stronghold, Slurp Rush, Springfield, and Blitz Starfall). When the list changes, FA11y announces that a new map list is available and that restarting will pull it - map updates no longer require a FA11y release.
+- Fixed the Reload map rotation announcer breaking when fortnite.gg changes their page layout, and added the Springfield arena to it. The announcer now ships with a default keybind: Left Alt + Left Shift + R.
+- The locker now pre-marks your favorited cosmetics with a star when it opens, matching your real in-game favorites, instead of only remembering favorites toggled during the current session.
+- If the configuration menu fails to open, FA11y now speaks the actual error and writes the full details to the log file.
+
 7/17/2026 #3:
 - Updated the OG map to Season 9: new map image, Neo Tilted replaces Tilted Towers, Mega Mall replaces Retail Row, and Pressure Plant, Haunted Hills, Polar Peak, and Frosty Flights are now named POIs (20 total).
 - Regenerated OG game objects from the current map: chests, ammo boxes, ziplines, driftboards, quadcrashers, vending machines, ballers, cannons, rifts, reboot vans, and sky platforms.

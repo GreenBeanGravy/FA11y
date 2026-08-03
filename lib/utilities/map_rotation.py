@@ -62,11 +62,14 @@ DISPLAY_TO_FA11Y_MAP = {
     "Slurp Rush":   "reload_slurp_rush",
     "Surf City":    "reload_surfcity",
     "Elite Stronghold": "reload_elite_stronghold",
+    "Springfield":  "reload_springfield",   # The Simpsons collab arena
     "Stranger Things": "blitz_stranger_things",
     "Squid Grounds": None,                  # No FA11y file yet
+    "Nitemare Island": None,                # No FA11y file yet
     "PunchBerry":   "reload_oasis",         # codename fallback
     "BlastBerry":   "reload_venture",
     "DashBerry":    "reload_slurp_rush",
+    "RopeSmile":    "reload_springfield",
 }
 
 
@@ -126,7 +129,12 @@ def _cache_path() -> Path:
 
 
 def _fetch_rotation_html(timeout: float = 10.0) -> Optional[str]:
-    """Fetch the fortnite.gg/map-rotation HTML with a real UA."""
+    """Fetch the fortnite.gg/map-rotation HTML with a real UA.
+
+    Tries urllib first (stdlib, no hard dependency), then falls back to
+    ``requests`` — Cloudflare has intermittently rejected one HTTP client
+    while accepting the other.
+    """
     req = urllib.request.Request(
         FORTNITE_GG_URL,
         headers={"User-Agent": USER_AGENT, "Accept": "text/html"},
@@ -135,7 +143,18 @@ def _fetch_rotation_html(timeout: float = 10.0) -> Optional[str]:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read().decode("utf-8", errors="replace")
     except Exception as e:
-        logger.warning("fortnite.gg/map-rotation fetch failed: %s", e)
+        logger.warning("fortnite.gg/map-rotation urllib fetch failed: %s", e)
+
+    try:
+        import requests
+        resp = requests.get(
+            FORTNITE_GG_URL, timeout=timeout,
+            headers={"User-Agent": USER_AGENT, "Accept": "text/html"},
+        )
+        resp.raise_for_status()
+        return resp.text
+    except Exception as e:
+        logger.warning("fortnite.gg/map-rotation requests fetch failed: %s", e)
         return None
 
 
@@ -158,6 +177,37 @@ def _extract_rotation_json(html: str) -> Optional[dict]:
         return None
 
 
+_MAP_NAME_RE = re.compile(r"class=['\"]map-name['\"]>([^<]+)<")
+
+# Every rotation fortnite.gg has published splits one hour evenly.
+DEFAULT_CYCLE_SECONDS = 3600
+
+
+def _extract_rotation_from_cards(html: str) -> Optional[dict]:
+    """Fallback for page variants that ship without the JS blob.
+
+    In mid-2026 fortnite.gg briefly served this page client-rendered with
+    no ``MapRotation`` global. The static HTML still lists one
+    ``map-name`` div per arena in cycle order, so recover the map set from
+    those and assume an evenly split cycle.
+    """
+    names: List[str] = []
+    for m in _MAP_NAME_RE.finditer(html):
+        name = m.group(1).strip()
+        if name and name != "-" and name not in names:
+            names.append(name)
+    if not names:
+        return None
+    duration = DEFAULT_CYCLE_SECONDS // len(names)
+    logger.info("MapRotation blob missing; recovered %d maps from HTML cards",
+                len(names))
+    return {
+        "maps": [{"name": n, "duration": duration} for n in names],
+        "cycle": DEFAULT_CYCLE_SECONDS,
+        "_source": "html-cards-fallback",
+    }
+
+
 def _load_or_refresh_rotation() -> Optional[dict]:
     """Return cached rotation or refresh from fortnite.gg. Always best-effort."""
     cache = _cache_path()
@@ -171,17 +221,19 @@ def _load_or_refresh_rotation() -> Optional[dict]:
         logger.warning("Cache read failed: %s", e)
 
     html = _fetch_rotation_html()
-    if not html:
-        # Fall back to stale cache if available
+    data = None
+    if html:
+        data = _extract_rotation_json(html)
+        if not data:
+            data = _extract_rotation_from_cards(html)
+    if not data:
+        # Fall back to stale cache (any age) if available
         try:
             if cache.exists():
                 with cache.open("r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception:
             pass
-        return None
-    data = _extract_rotation_json(html)
-    if not data:
         return None
     try:
         with cache.open("w", encoding="utf-8") as f:

@@ -178,6 +178,10 @@ from lib.app.updater_check import (
     get_version as _get_version_ext,
     parse_version as _parse_version_ext,
 )
+from lib.utilities.available_maps import (
+    sync_local_from_remote as _sync_available_maps_ext,
+    check_for_map_list_updates as _check_map_list_updates_ext,
+)
 from lib.app.auth_watcher import (
     check_auth_expiration as _check_auth_expiration_ext,
     get_legendary_username as _get_legendary_username_ext,
@@ -734,6 +738,9 @@ def parse_version(version: str) -> tuple:
 def check_for_updates() -> None:
     _check_for_updates_ext(speaker, _shutdown_requested, update_sound)
 
+def check_for_map_list_updates() -> None:
+    _check_map_list_updates_ext(speaker, _shutdown_requested, update_sound)
+
 def check_auth_expiration() -> None:
     _check_auth_expiration_ext(_shutdown_requested, _on_auth_success)
 
@@ -797,6 +804,14 @@ def main() -> None:
         if get_config_boolean(temp_config, 'CreateDesktopShortcut', True):
             create_desktop_shortcut()
 
+        # Refresh the downloadable available-maps list (best-effort). The
+        # auto-updater only syncs repo files on version bumps, so this call
+        # is what actually pulls a changed map list in on restart.
+        try:
+            _sync_available_maps_ext(timeout=5.0)
+        except Exception as e:
+            print(f"Available-maps list sync failed: {e}")
+
         # Initialize core systems
         reload_config()
 
@@ -816,6 +831,10 @@ def main() -> None:
         # Start update checker thread as daemon
         update_thread = threading.Thread(target=check_for_updates, daemon=True)
         update_thread.start()
+
+        # Start available-maps list watcher thread as daemon
+        map_list_thread = threading.Thread(target=check_for_map_list_updates, daemon=True)
+        map_list_thread.start()
 
         # Start auth expiration checker thread as daemon
         auth_check_thread = threading.Thread(target=check_auth_expiration, daemon=True)

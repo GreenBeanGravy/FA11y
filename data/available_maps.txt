@@ -1,0 +1,14 @@
+# FA11y available-maps list.
+# One FA11y map slug per line; '#' comments and blank lines are ignored.
+# Slugs match the data/maps file names: map_<slug>_pois.txt.
+#
+# FA11y re-downloads this file from GitHub at every startup and, while
+# running, announces when the remote copy changes so the user knows a
+# restart will pull the up-to-date list. Maps on disk but absent from
+# this list are hidden from map selection.
+main
+o_g
+reload_elite_stronghold
+reload_slurp_rush
+reload_springfield
+blitz_starfall
