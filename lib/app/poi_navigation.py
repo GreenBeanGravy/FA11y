@@ -25,14 +25,20 @@ from typing import List, Tuple
 
 from lib.app import state
 from lib.app.constants import (
+    BOSS_CLOSEST_TYPES,
+    BOSS_FIXED_TYPES,
+    MAIN_VAULTS,
+    POI_CATEGORY_BOSS,
     POI_CATEGORY_CUSTOM,
     POI_CATEGORY_FAVORITE,
     POI_CATEGORY_GAMEOBJECT,
     POI_CATEGORY_LANDMARK,
     POI_CATEGORY_REGULAR,
     POI_CATEGORY_SPECIAL,
+    POI_CATEGORY_VAULT,
     SPECIAL_POI_CLOSEST,
     SPECIAL_POI_CLOSEST_LANDMARK,
+    SPECIAL_POI_CLOSEST_VAULT,
     SPECIAL_POI_SAFEZONE,
 )
 from lib.detection.player_position import (
@@ -56,10 +62,57 @@ from lib.utilities.utilities import (
 # ---------------------------------------------------------------------------
 
 
+# Names (lowercased) that belong to the Boss Spawns category: the fixed bosses
+# by direct name plus the "Closest <Type>" surfacing of the rift-boss pools.
+_BOSS_FIXED_LOWER = {t.lower() for t in BOSS_FIXED_TYPES}
+_BOSS_CLOSEST_LOWER = {f"closest {t.lower()}" for t in BOSS_CLOSEST_TYPES}
+_BOSS_ALL_TYPES_LOWER = {t.lower() for t in BOSS_FIXED_TYPES + BOSS_CLOSEST_TYPES}
+
+
+def _is_boss_poi_name(poi_name: str) -> bool:
+    """True if this selector entry belongs to the Boss Spawns category."""
+    n = (poi_name or '').strip().lower()
+    return n in _BOSS_FIXED_LOWER or n in _BOSS_CLOSEST_LOWER
+
+
+def _boss_types_present(current_map: str) -> set:
+    """Boss game-object types (fixed + rift) actually present on this map."""
+    try:
+        available = {
+            t.lower(): t
+            for t in game_object_manager.get_available_object_types(current_map)
+        }
+    except Exception:
+        return set()
+    return {available[t] for t in _BOSS_ALL_TYPES_LOWER if t in available}
+
+
+# Main-map vaults are a hand-maintained list (not game objects), so they are
+# never marked visited and stay re-navigable after looting.
+_VAULT_NAMES_LOWER = {n.lower() for n, _x, _y in MAIN_VAULTS}
+
+
+def _is_vault_poi_name(poi_name: str) -> bool:
+    """True if this selector entry belongs to the Main Vaults category."""
+    n = (poi_name or '').strip().lower()
+    return n in _VAULT_NAMES_LOWER or n == SPECIAL_POI_CLOSEST_VAULT.lower()
+
+
+def _has_vaults(current_map: str) -> bool:
+    """Vaults currently only exist on the main map."""
+    return current_map == 'main' and bool(MAIN_VAULTS)
+
+
 def get_poi_category(poi_name: str) -> str:
     """Determine which category a POI belongs to."""
     config = read_config()
     current_map = config.get('POI', 'current_map', fallback='main')
+
+    # Vaults and boss spawns take precedence over the generic classification.
+    if _is_vault_poi_name(poi_name):
+        return POI_CATEGORY_VAULT
+    if _is_boss_poi_name(poi_name):
+        return POI_CATEGORY_BOSS
 
     n = (poi_name or '').strip().lower()
     if n.startswith('closest '):
@@ -131,9 +184,39 @@ def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
     if category == POI_CATEGORY_CUSTOM:
         return load_custom_pois(current_map)
 
+    if category == POI_CATEGORY_VAULT:
+        if not _has_vaults(current_map):
+            return []
+        entries: List[Tuple[str, str, str]] = [
+            (name, str(x), str(y)) for name, x, y in MAIN_VAULTS
+        ]
+        # Closest-vault helper always resolves to the nearest by distance (no
+        # visited tracking) so the exit stays findable after looting.
+        entries.append((SPECIAL_POI_CLOSEST_VAULT.title(), "0", "0"))
+        return entries
+
+    if category == POI_CATEGORY_BOSS:
+        present = _boss_types_present(current_map)
+        entries: List[Tuple[str, str, str]] = []
+        # Fixed bosses first, in declared order, as direct-navigation entries.
+        for t in BOSS_FIXED_TYPES:
+            if t in present:
+                objs = game_object_manager.get_objects_of_type(current_map, t)
+                if objs:
+                    _name, x, y = objs[0]
+                    entries.append((t, str(x), str(y)))
+        # Rift bosses as "Closest <Type>" (closest-unvisited + visited tracking).
+        for t in BOSS_CLOSEST_TYPES:
+            if t in present:
+                entries.append((f"Closest {t}", "0", "0"))
+        return entries
+
     if category == POI_CATEGORY_GAMEOBJECT:
         available_types = game_object_manager.get_available_object_types(current_map)
-        ordered_types = sorted(available_types)
+        # Boss types live in their own Boss Spawns category.
+        ordered_types = sorted(
+            t for t in available_types if t.lower() not in _BOSS_ALL_TYPES_LOWER
+        )
         return [(f"Closest {t}", "0", "0") for t in ordered_types]
 
     poi_data = state.get_poi_data()
@@ -155,7 +238,8 @@ def get_pois_by_category(category: str) -> List[Tuple[str, str, str]]:
 def get_display_poi_name(poi_name: str) -> str:
     """Strip ``"Closest "`` prefix from game-object names for announcements."""
     poi_category = get_poi_category(poi_name)
-    if poi_category == POI_CATEGORY_GAMEOBJECT and poi_name.startswith("Closest "):
+    if (poi_category in (POI_CATEGORY_GAMEOBJECT, POI_CATEGORY_BOSS)
+            and poi_name.startswith("Closest ")):
         return poi_name[8:]
     return poi_name
 
@@ -193,6 +277,10 @@ def sort_pois_by_position(
     if first in (SPECIAL_POI_CLOSEST.lower(),
                  SPECIAL_POI_SAFEZONE.lower(),
                  SPECIAL_POI_CLOSEST_LANDMARK.lower()):
+        return pois
+
+    # Boss Spawns / Main Vaults keep their declared order.
+    if _is_boss_poi_name(pois[0][0]) or _is_vault_poi_name(pois[0][0]):
         return pois
 
     if all(poi[1] == "0" and poi[2] == "0" for poi in pois):
@@ -239,6 +327,10 @@ def get_poi_categories(include_empty: bool = False) -> List[str]:
     if current_map == 'main':
         categories.append(POI_CATEGORY_LANDMARK)
 
+    if include_empty or _has_vaults(current_map):
+        categories.append(POI_CATEGORY_VAULT)
+    if include_empty or _boss_types_present(current_map):
+        categories.append(POI_CATEGORY_BOSS)
     if include_empty or get_pois_by_category(POI_CATEGORY_GAMEOBJECT):
         categories.append(POI_CATEGORY_GAMEOBJECT)
     if include_empty or get_pois_by_category(POI_CATEGORY_FAVORITE):
@@ -260,6 +352,8 @@ CATEGORY_DISPLAY_NAMES = {
     POI_CATEGORY_FAVORITE: "Favorite",
     POI_CATEGORY_CUSTOM: "Custom",
     POI_CATEGORY_GAMEOBJECT: "Game Object",
+    POI_CATEGORY_BOSS: "Boss Spawns",
+    POI_CATEGORY_VAULT: "Main Vaults",
 }
 
 

@@ -1,3 +1,8 @@
+8/7/2026 #1:
+- Added a Boss Spawns POI category: fixed bosses (currently Harley Quinn, Catwoman, and Poison Ivy) are navigated to directly by name, and rift-spawned bosses appear as "Closest Boss Rift Spawn" with the usual closest-unvisited tracking. Boss types no longer appear in the generic Game Object category.
+- Added a Main Vaults POI category with the main map's 10 underground keycard vaults, plus a "Closest Vault" entry that always picks the nearest vault by distance. Vaults are never marked as visited, so you can navigate back to the same vault to find the exit portapotty after looting.
+- Regenerated the main map's game objects from current fortnite.gg data. This adds all boss spawn points, a new Rare Chests object type, and updates the chest, ammo box, fishing hole, and fishing rod locations.
+
 8/3/2026 #1:
 - Added the Reload Springfield map from the Simpsons collab: full object navigation with 1,825 game objects (chests, ammo boxes, bushes, campfires, and ice machines) plus all 14 named POIs, from Springfield Town Square to the Nuclear Power Plant.
 - FA11y now downloads a list of currently-available maps at startup and hides maps that have rotated out of the game (currently main, OG, Elite Stronghold, Slurp Rush, Springfield, and Blitz Starfall). When the list changes, FA11y announces that a new map list is available and that restarting will pull it - map updates no longer require a FA11y release.

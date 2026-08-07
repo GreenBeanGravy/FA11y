@@ -856,6 +856,25 @@ def handle_poi_selection(selected_poi_name_from_config, center_mass_screen, use_
 
     poi_name_lower = selected_poi_name_from_config.lower()
 
+    # Main vaults: resolved from a fixed list (NOT the game-object system) so the
+    # spot is always navigable — a looter needs to return to the same vault to
+    # reach the exit portapotty. "Closest Vault" picks the nearest by distance
+    # every time, with no visited tracking. Handle before the generic
+    # "closest <type>" game-object branch below.
+    from lib.app.constants import MAIN_VAULTS, SPECIAL_POI_CLOSEST_VAULT
+    if poi_name_lower == SPECIAL_POI_CLOSEST_VAULT.lower():
+        if center_mass_screen and current_map_id == 'main' and MAIN_VAULTS:
+            px, py = center_mass_screen
+            name, vx, vy = min(
+                MAIN_VAULTS,
+                key=lambda v: (v[1] - px) ** 2 + (v[2] - py) ** 2,
+            )
+            return name, (int(vx), int(vy))
+        return SPECIAL_POI_CLOSEST_VAULT.title(), None
+    for vname, vx, vy in MAIN_VAULTS:
+        if poi_name_lower == vname.lower():
+            return vname, (int(vx), int(vy))
+
     if poi_name_lower == 'safe zone':
         # Use new storm monitor system
         from lib.monitors.storm_monitor import storm_monitor
