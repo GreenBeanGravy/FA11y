@@ -4,7 +4,7 @@ Development rules for FA11y. Follow these for every change, whether you're a mai
 
 ## Always update the changelog for user-visible changes
 
-`CHANGELOG.txt` is not just a dev log — FA11y downloads it and offers to open it every time a user receives an update (`lib/app/updater_check.py`). Blind and low-vision users read it with a screen reader to learn what changed.
+`CHANGELOG.txt` is not a dev log - FA11y downloads it and offers to open it every time a user receives an update (`lib/app/updater_check.py`).
 
 **If a user would notice the change, it goes in the changelog.** That includes:
 
@@ -17,7 +17,7 @@ Rules for entries:
 
 - Add a new block at the **top** of `CHANGELOG.txt`, formatted `M/D/YYYY #N:` (N counts multiple releases on the same day, starting at 1)
 - One `- ` bullet per change
-- Write in plain language describing what the **user** experiences — not internals. Say "Added the Check Display Mode keybind (Left Alt + R)", not "Refactored display detection module"
+- Write in plain language describing what the **user** experiences - not internals. Say "Added the Check Display Mode keybind (Left Alt + R)", not "Refactored display detection module"
 - Mention default keybinds and setting names so users can find them
 - Purely internal changes (refactors, test changes, CI) do **not** need an entry
 
@@ -31,7 +31,7 @@ The updater detects updates by comparing the local `VERSION` file against the on
 ## Settings and keybinds
 
 - All default settings and keybinds live in `lib/utilities/utilities.py`, each with a quoted description string
-- The description is read aloud by screen readers in the configuration menu — write it as a clear, complete sentence
+- The description is read aloud by screen readers in the configuration menu - write it as a clear, complete sentence
 - Never rename or remove a setting/keybind without checking the key listener handles the stale name gracefully (unknown actions in a user's existing config are skipped, so removal is safe)
 
 ## Accessibility first
@@ -39,7 +39,7 @@ The updater detects updates by comparing the local `VERSION` file against the on
 FA11y exists for screen-reader users. For any change:
 
 - Every user-visible event needs spoken feedback
-- New GUIs must use the existing accessible wxPython patterns (see `AccessibleDialog` usage in `FortniteManager.py`) — full keyboard navigation, no mouse-only interactions
+- New GUIs must use the existing accessible wxPython patterns (see `AccessibleDialog` usage in `FortniteManager.py`) - full keyboard navigation, no mouse-only interactions
 - Never rely on color or visuals alone to convey information
 
 ## Dependencies
