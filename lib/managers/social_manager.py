@@ -467,15 +467,8 @@ class SocialManager:
 
     def _get_ranked_mode_name(self, ranking_type: str) -> str:
         """Get friendly name for ranked mode"""
-        mode_names = {
-            'ranked-br-combined': 'Battle Royale',
-            'ranked_blastberry_build': 'Reload',
-            'ranked_blastberry_nobuild': 'Reload Zero Build',
-            'ranked-figment-build': 'OG',
-            'ranked-figment-nobuild': 'OG Zero Build',
-            'ranked-squareclub': 'Arena Box Fights'
-        }
-        return mode_names.get(ranking_type, ranking_type)
+        from lib.utilities.ranked_modes import ranked_mode_name
+        return ranked_mode_name(ranking_type)
 
     def _check_ranked_progress(self):
         """Check for ranked progress changes and announce promotions/demotions"""
@@ -1677,5 +1670,4 @@ def get_social_manager(epic_auth_instance=None) -> SocialManager:
             _social_manager.social_api = EpicSocial(epic_auth_instance)
 
     return _social_manager
-
 

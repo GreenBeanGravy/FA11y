@@ -41,7 +41,10 @@ from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
-FORTNITE_GG_URL = "https://fortnite.gg/map-rotation"
+FORTNITE_GG_RANKED_URL = "https://fortnite.gg/map-rotation"
+FORTNITE_GG_UNRANKED_URL = (
+    "https://fortnite.gg/map-rotation/reload/unranked"
+)
 
 # Fortnite.gg 403s known bot UAs — use a real browser UA.
 USER_AGENT = (
@@ -120,23 +123,25 @@ class CurrentReloadMap:
 # ---------------------------------------------------------------------------
 
 
-def _cache_path() -> Path:
+def _cache_path(ranked: Optional[bool]) -> Path:
     """Where we stash the fetched rotation payload on disk."""
     project_root = Path(__file__).resolve().parents[2]
     cache_dir = project_root / 'config'
     cache_dir.mkdir(exist_ok=True)
-    return cache_dir / 'map_rotation_cache.json'
+    mode = "ranked" if ranked is True else "unranked" if ranked is False else "unknown"
+    return cache_dir / f'map_rotation_cache_{mode}.json'
 
 
-def _fetch_rotation_html(timeout: float = 10.0) -> Optional[str]:
+def _fetch_rotation_html(ranked: Optional[bool], timeout: float = 10.0) -> Optional[str]:
     """Fetch the fortnite.gg/map-rotation HTML with a real UA.
 
     Tries urllib first (stdlib, no hard dependency), then falls back to
     ``requests`` — Cloudflare has intermittently rejected one HTTP client
     while accepting the other.
     """
+    url = FORTNITE_GG_UNRANKED_URL if ranked is False else FORTNITE_GG_RANKED_URL
     req = urllib.request.Request(
-        FORTNITE_GG_URL,
+        url,
         headers={"User-Agent": USER_AGENT, "Accept": "text/html"},
     )
     try:
@@ -148,7 +153,7 @@ def _fetch_rotation_html(timeout: float = 10.0) -> Optional[str]:
     try:
         import requests
         resp = requests.get(
-            FORTNITE_GG_URL, timeout=timeout,
+            url, timeout=timeout,
             headers={"User-Agent": USER_AGENT, "Accept": "text/html"},
         )
         resp.raise_for_status()
@@ -178,6 +183,7 @@ def _extract_rotation_json(html: str) -> Optional[dict]:
 
 
 _MAP_NAME_RE = re.compile(r"class=['\"]map-name['\"]>([^<]+)<")
+_CURRENT_NAME_RE = re.compile(r"class=['\"]current-name['\"]>([^<]+)<")
 
 # Every rotation fortnite.gg has published splits one hour evenly.
 DEFAULT_CYCLE_SECONDS = 3600
@@ -197,20 +203,29 @@ def _extract_rotation_from_cards(html: str) -> Optional[dict]:
         if name and name != "-" and name not in names:
             names.append(name)
     if not names:
+        # Fortnite.gg's Unranked Reload page currently exposes a single
+        # always-active arena instead of a timed list.
+        current = _CURRENT_NAME_RE.search(html)
+        if current:
+            name = current.group(1).strip()
+            if name and name != "-":
+                names.append(name)
+    if not names:
         return None
-    duration = DEFAULT_CYCLE_SECONDS // len(names)
+    cycle = 86400 if len(names) == 1 else DEFAULT_CYCLE_SECONDS
+    duration = cycle // len(names)
     logger.info("MapRotation blob missing; recovered %d maps from HTML cards",
                 len(names))
     return {
         "maps": [{"name": n, "duration": duration} for n in names],
-        "cycle": DEFAULT_CYCLE_SECONDS,
+        "cycle": cycle,
         "_source": "html-cards-fallback",
     }
 
 
-def _load_or_refresh_rotation() -> Optional[dict]:
+def _load_or_refresh_rotation(ranked: Optional[bool]) -> Optional[dict]:
     """Return cached rotation or refresh from fortnite.gg. Always best-effort."""
-    cache = _cache_path()
+    cache = _cache_path(ranked)
     try:
         if cache.exists():
             mtime = cache.stat().st_mtime
@@ -220,7 +235,7 @@ def _load_or_refresh_rotation() -> Optional[dict]:
     except Exception as e:
         logger.warning("Cache read failed: %s", e)
 
-    html = _fetch_rotation_html()
+    html = _fetch_rotation_html(ranked)
     data = None
     if html:
         data = _extract_rotation_json(html)
@@ -310,9 +325,57 @@ def _compute_rotation(now_unix: int, data: dict) -> Optional[CurrentReloadMap]:
 # ---------------------------------------------------------------------------
 
 
-def current_reload_map() -> Optional[CurrentReloadMap]:
+_RANKED_SETTING_RE = re.compile(
+    r"/Fortnite\.com/Matchmaking:Ranked \[(Ranked|Unranked)\]"
+)
+
+
+def _latest_fortnite_log() -> Optional[Path]:
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if not local_appdata:
+        return None
+    log_dir = Path(local_appdata) / "FortniteGame" / "Saved" / "Logs"
+    candidates = list(log_dir.glob("FortniteGame*.log"))
+    return max(candidates, key=lambda p: p.stat().st_mtime) if candidates else None
+
+
+def detect_reload_ranked_state(log_path: Optional[Path] = None) -> Optional[bool]:
+    """Return the latest Reload selection's ranked flag from Fortnite's log."""
+    path = Path(log_path) if log_path else _latest_fortnite_log()
+    if not path or not path.exists():
+        return None
+    try:
+        latest = None
+        in_selected_island = False
+        selected_reload = False
+        with path.open("r", encoding="utf-8", errors="replace") as log:
+            for raw_line in log:
+                stripped = raw_line.strip()
+                if stripped == "Selected Island:":
+                    in_selected_island = True
+                    selected_reload = False
+                    continue
+                if in_selected_island and raw_line.startswith("["):
+                    in_selected_island = False
+                if not in_selected_island:
+                    continue
+                if "experience_reload" in stripped.lower():
+                    selected_reload = True
+                if selected_reload:
+                    match = _RANKED_SETTING_RE.search(stripped)
+                    if match:
+                        latest = match.group(1) == "Ranked"
+        return latest
+    except OSError as e:
+        logger.warning("Could not inspect Fortnite log for Reload rank state: %s", e)
+        return None
+
+
+def current_reload_map(ranked: Optional[bool] = None) -> Optional[CurrentReloadMap]:
     """Return current + next Reload map with timing info, or None if fetch fails."""
-    data = _load_or_refresh_rotation()
+    if ranked is None:
+        ranked = detect_reload_ranked_state()
+    data = _load_or_refresh_rotation(ranked)
     if not data:
         return None
     return _compute_rotation(int(time.time()), data)
@@ -325,18 +388,23 @@ def fa11y_map_for_display(display_name: Optional[str]) -> Optional[str]:
     return DISPLAY_TO_FA11Y_MAP.get(display_name.strip())
 
 
-def speech_announcement() -> str:
+def speech_announcement(ranked: Optional[bool] = None) -> str:
     """One-line TTS-friendly summary for an FA11y keybind."""
-    state = current_reload_map()
+    if ranked is None:
+        ranked = detect_reload_ranked_state()
+    state = current_reload_map(ranked)
     if state is None:
         return "Reload map rotation data unavailable."
     cur = state.current
     nxt = state.next
+    mode = "Ranked" if ranked is True else "Unranked" if ranked is False else "Reload"
+    if len(state.all_rotation) == 1:
+        return f"Current {mode} Reload map: {cur.name}. This is the only active map."
     cur_rem = cur.time_until_end_seconds
     cur_rem_min = cur_rem // 60
     cur_rem_sec = cur_rem % 60
     return (
-        f"Current Reload map: {cur.name}. "
+        f"Current {mode} Reload map: {cur.name}. "
         f"{cur_rem_min} minutes {cur_rem_sec} seconds remaining. "
         f"Next: {nxt.name}."
     )

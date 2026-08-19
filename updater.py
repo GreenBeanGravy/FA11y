@@ -7,6 +7,7 @@ from functools import lru_cache
 import winreg
 import warnings
 import argparse
+from pathlib import Path
 
 # Suppress pkg_resources deprecation warnings from external libraries
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*", category=UserWarning)
@@ -82,6 +83,10 @@ def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="FA11y Updater")
     parser.add_argument('--monarch', action='store_true', help='Enable Monarch Mode for persistent download retries')
+    parser.add_argument(
+        '--run-by-fa11y', action='store_true',
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument(
         '--branch',
         default=GITHUB_BRANCH,
@@ -778,7 +783,7 @@ def check_version():
     try:
         local_v = parse_version(local_version)
         repo_v = parse_version(repo_version)
-        return local_v != repo_v  # Update if local version is not equal to repo version
+        return local_v < repo_v
     except ValueError:
         print_info("Invalid version format. Treating as update required.")
         return True
@@ -788,6 +793,11 @@ def main():
     Main function to run the updater script.
     """
     global MONARCH_MODE, GITHUB_BRANCH
+
+    # All update and cleanup paths are relative. Anchor them to the updater's
+    # own installation directory so a shortcut or external launcher cannot
+    # make cleanup operate on the caller's working directory.
+    os.chdir(Path(__file__).resolve().parent)
 
     # Parse command line arguments
     args = parse_arguments()
@@ -809,9 +819,19 @@ def main():
     print_info(f"Source: GitHub ({GITHUB_REPO}/{GITHUB_BRANCH})")
 
     if update_script(script_name):
-        print_info("Please restart the updater for updates. Closing in 5 seconds.")
-        time.sleep(5)
-        sys.exit(0)
+        restart_count = int(os.environ.get('UPDATER_RESTART_COUNT', 0))
+        if restart_count >= MAX_RESTARTS:
+            print_info(f"Unable to restart updated updater after {MAX_RESTARTS} attempts.")
+            sys.exit(2)
+        print_info("Restarting the updated updater...")
+        restart_env = os.environ.copy()
+        restart_env['UPDATER_RESTART_COUNT'] = str(restart_count + 1)
+        result = subprocess.run(
+            [sys.executable, os.path.abspath(script_name), *sys.argv[1:]],
+            cwd=os.getcwd(),
+            env=restart_env,
+        )
+        sys.exit(result.returncode)
 
     install_required_modules_and_whls()
     

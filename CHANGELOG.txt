@@ -1,3 +1,8 @@
+8/19/2026 #2:
+- Fixed automatic updates launched by FA11y failing before they started because the updater rejected FA11y's command-line flag. Updates now run from the installation directory, restart automatically after updating the updater itself, report failures, and never downgrade a newer local version.
+- Reload map announcements now detect Ranked or Unranked from Fortnite's matchmaking log, query the matching Fortnite.gg rotation, keep separate caches, and explicitly announce which mode's map is active.
+- Fixed Reload ranks disappearing after Epic replaced the separate Build and Zero Build tracks with `ranked-blastberry-combined`. FA11y now discovers active supported ranking tracks, displays combined Reload correctly, and logs ranking-service failures.
+
 8/19/2026 #1:
 - Fixed social features reporting as enabled at startup while the friends list remained unavailable until manually logging in. Startup now publishes the authenticated social manager and discovery API to the shared application state used by social keybinds.
 

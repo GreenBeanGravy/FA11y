@@ -134,13 +134,23 @@ def _open_path(path: str, speaker) -> None:
 
 def run_updater(speaker) -> bool:
     """Run the updater script and surface the changelog on a real update."""
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)
+    )))
+    updater_path = os.path.join(project_root, 'updater.py')
     result = subprocess.run(
-        [sys.executable, 'updater.py', '--run-by-fa11y'],
+        [sys.executable, updater_path],
+        cwd=project_root,
         capture_output=True, text=True,
     )
     update_performed = result.returncode == 1
     if update_performed:
         handle_update_with_changelog(speaker)
+    elif result.returncode != 0:
+        details = (result.stderr or result.stdout or "unknown updater error").strip()
+        logger.error("FA11y updater failed with code %s: %s",
+                     result.returncode, details)
+        print(f"FA11y updater failed: {details}")
     return update_performed
 
 

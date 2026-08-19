@@ -233,15 +233,8 @@ class SocialDialog(AccessibleDialog):
 
     def _get_ranked_mode_name(self, ranking_type: str) -> str:
         """Get friendly name for ranked mode"""
-        mode_names = {
-            'ranked-br-combined': 'Battle Royale',
-            'ranked_blastberry_build': 'Reload',
-            'ranked_blastberry_nobuild': 'Reload Zero Build',
-            'ranked-figment-build': 'OG',
-            'ranked-figment-nobuild': 'OG Zero Build',
-            'ranked-squareclub': 'Arena Box Fights'
-        }
-        return mode_names.get(ranking_type, ranking_type)
+        from lib.utilities.ranked_modes import ranked_mode_name
+        return ranked_mode_name(ranking_type)
 
     def load_account_info(self):
         """Load account information from Epic Games API into 3 separate boxes"""
@@ -363,38 +356,36 @@ class SocialDialog(AccessibleDialog):
                 ranked_lines.append("Play ranked matches to see your progress here.")
             else:
                 # Show each ranked mode with current rank and progress
-                for ranking_type in ['ranked-br-combined', 'ranked_blastberry_build',
-                                      'ranked_blastberry_nobuild', 'ranked-figment-build', 'ranked-figment-nobuild',
-                                      'ranked-squareclub']:
-                    if ranking_type in ranked_data:
-                        mode_data = ranked_data[ranking_type]
-                        mode_name = self._get_ranked_mode_name(ranking_type)
-                        current_div = mode_data.get('currentDivision', 0)
-                        highest_div = mode_data.get('highestDivision', 0)
-                        progress = mode_data.get('promotionProgress', 0.0)
+                from lib.utilities.ranked_modes import ordered_ranking_types
+                for ranking_type in ordered_ranking_types(ranked_data):
+                    mode_data = ranked_data[ranking_type]
+                    mode_name = self._get_ranked_mode_name(ranking_type)
+                    current_div = mode_data.get('currentDivision', 0)
+                    highest_div = mode_data.get('highestDivision', 0)
+                    progress = mode_data.get('promotionProgress', 0.0)
 
-                        # API uses 0-indexed divisions for ranked tiers
-                        # Division 1 = Bronze II, Division 2 = Bronze III, etc.
-                        # Add 1 to get the display rank.
-                        # lastUpdated lets the mapping fall back to the pre-
-                        # 2026-04-16 ladder for stale pre-expansion records.
-                        last_updated = mode_data.get('lastUpdated')
-                        current_rank = self._division_to_rank_name(current_div + 1, last_updated)
-                        highest_rank = self._division_to_rank_name(highest_div + 1, last_updated)
+                    # API uses 0-indexed divisions for ranked tiers
+                    # Division 1 = Bronze II, Division 2 = Bronze III, etc.
+                    # Add 1 to get the display rank.
+                    # lastUpdated lets the mapping fall back to the pre-
+                    # 2026-04-16 ladder for stale pre-expansion records.
+                    last_updated = mode_data.get('lastUpdated')
+                    current_rank = self._division_to_rank_name(current_div + 1, last_updated)
+                    highest_rank = self._division_to_rank_name(highest_div + 1, last_updated)
 
-                        # Format: "Battle Royale: Bronze II (20% to Bronze III)"
-                        if current_div > 0:
-                            # Show next rank
-                            next_div = current_div + 2  # +1 for offset, +1 for next tier
-                            next_rank = self._division_to_rank_name(next_div, last_updated)
-                            progress_pct = int(progress * 100)
-                            ranked_lines.append(f"{mode_name}: {current_rank} ({progress_pct}% to {next_rank})")
-                        else:
-                            ranked_lines.append(f"{mode_name}: {current_rank}")
+                    # Format: "Battle Royale: Bronze II (20% to Bronze III)"
+                    if current_div > 0:
+                        # Show next rank
+                        next_div = current_div + 2  # +1 for offset, +1 for next tier
+                        next_rank = self._division_to_rank_name(next_div, last_updated)
+                        progress_pct = int(progress * 100)
+                        ranked_lines.append(f"{mode_name}: {current_rank} ({progress_pct}% to {next_rank})")
+                    else:
+                        ranked_lines.append(f"{mode_name}: {current_rank}")
 
-                        # Show highest rank if different from current
-                        if highest_div > current_div:
-                            ranked_lines.append(f"  Peak: {highest_rank}")
+                    # Show highest rank if different from current
+                    if highest_div > current_div:
+                        ranked_lines.append(f"  Peak: {highest_rank}")
 
             self.ranked_stats_text.SetValue("\n".join(ranked_lines))
             self.ranked_stats_text.SetInsertionPoint(0)

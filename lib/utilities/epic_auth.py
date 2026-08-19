@@ -12,9 +12,13 @@ import base64
 import urllib.parse
 import threading
 from typing import Optional, Dict, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from lib.config.config_manager import config_manager
+from lib.utilities.ranked_modes import (
+    FALLBACK_RANKING_TYPES,
+    is_supported_ranking_type,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -878,20 +882,57 @@ class EpicAuth:
                 "Content-Type": "application/json"
             }
 
-            # Ranking types to query (excluding Ballistic, Rocket Racing, Getaway)
-            ranking_types = [
-                'ranked-br-combined',           # Battle Royale (Build + Zero Build combined)
-                'ranked_blastberry_build',      # Reload Build
-                'ranked_blastberry_nobuild',    # Reload Zero Build
-                'ranked-figment-build',         # OG Build
-                'ranked-figment-nobuild',       # OG Zero Build
-                'ranked-squareclub'             # Arena Box Fights
-            ]
-
             # Use current date as endsAfter to only get current/active season data
             # This filters out old season ranks
-            from datetime import datetime
-            current_date = datetime.utcnow().isoformat() + 'Z'
+            current_date = datetime.now(timezone.utc).isoformat().replace(
+                "+00:00", "Z"
+            )
+
+            # Discover the identifiers Epic currently has active. This caught
+            # Reload's migration from the two underscored BlastBerry tracks to
+            # ``ranked-blastberry-combined`` at the 2026-08 season boundary.
+            # Keep a known-good fallback so a transient discovery failure does
+            # not remove every rank from the UI.
+            ranking_types = list(FALLBACK_RANKING_TYPES)
+            try:
+                tracks_response = requests.get(
+                    "https://fn-service-habanero-live-public.ogs.live.on.epicgames.com/api/v1/games/fortnite/tracks/query",
+                    headers=headers,
+                    params={"endsAfter": current_date},
+                    timeout=10,
+                )
+                if tracks_response.status_code == 200:
+                    active_types = []
+                    for track in tracks_response.json():
+                        ranking_type = track.get("rankingType")
+                        if (is_supported_ranking_type(ranking_type)
+                                and ranking_type not in active_types):
+                            active_types.append(ranking_type)
+                    if active_types:
+                        ranking_types = active_types
+                        logger.debug(
+                            "Discovered active ranked modes: %s",
+                            ", ".join(ranking_types),
+                        )
+                    else:
+                        logger.warning(
+                            "Active ranked-track discovery returned no supported modes; "
+                            "using fallback identifiers"
+                        )
+                elif tracks_response.status_code == 401:
+                    logger.warning("Authentication expired while discovering ranked tracks")
+                    self.invalidate_auth()
+                    return None
+                else:
+                    logger.warning(
+                        "Ranked-track discovery failed with HTTP %s; using fallback identifiers",
+                        tracks_response.status_code,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Ranked-track discovery failed: %s; using fallback identifiers",
+                    e,
+                )
 
             ranked_data = {}
 
@@ -927,12 +968,18 @@ class EpicAuth:
                         self.invalidate_auth()
                         return None
                     else:
-                        # No ranked data for this type, continue with others
-                        pass
+                        logger.warning(
+                            "Ranked progress request for %s failed with HTTP %s",
+                            ranking_type,
+                            response.status_code,
+                        )
 
                 except Exception as e:
-                    # Continue with other ranking types
-                    pass
+                    logger.warning(
+                        "Ranked progress request for %s failed: %s",
+                        ranking_type,
+                        e,
+                    )
 
             return ranked_data if ranked_data else {}
 
