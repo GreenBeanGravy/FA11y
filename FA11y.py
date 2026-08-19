@@ -101,8 +101,6 @@ from lib.utilities.fa11y_ow_calibration import calibrate_fa11y_ow_position
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
 from lib.detection.match_tracker import match_tracker
-from lib.managers.social_manager import get_social_manager
-
 from lib.utilities.input import (
     is_key_pressed, get_pressed_key, is_numlock_on, VK_KEYS,
     is_key_combination_pressed, parse_key_combination, get_pressed_key_combination, is_key_combination_pressed_ignore_extra_mods
@@ -933,10 +931,14 @@ def main() -> None:
 
             # Start social manager, discovery API, and other Epic auth-dependent features
             if epic_auth and epic_auth.access_token:
-                from lib.utilities.epic_discovery import EpicDiscovery
-
-                social_manager = get_social_manager(epic_auth)
-                social_manager.start_monitoring()
+                # Use the same initialization path as manual re-authentication.
+                # Social actions read these instances from lib.app.state, so
+                # assigning only FA11y's legacy module globals made startup say
+                # social features were enabled while the friends-list keybind
+                # still saw no manager until the user logged in manually.
+                _on_auth_success(epic_auth)
+                social_manager = _app_state.get_social_manager()
+                discovery_api = _app_state.get_discovery_api()
 
                 # Wire MatchEventMonitor's party-id resolver to the social
                 # manager's cache so it can turn partial Fortnite-log ids
@@ -945,8 +947,6 @@ def main() -> None:
                 match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
                 match_event_monitor.local_account_id = epic_auth.account_id
 
-                # Initialize discovery API
-                discovery_api = EpicDiscovery(epic_auth)
                 logger.debug("Discovery API initialized at startup")
 
                 print(f"Social features enabled for {epic_auth.display_name}")

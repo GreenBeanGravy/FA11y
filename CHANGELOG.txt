@@ -1,3 +1,6 @@
+8/19/2026 #1:
+- Fixed social features reporting as enabled at startup while the friends list remained unavailable until manually logging in. Startup now publishes the authenticated social manager and discovery API to the shared application state used by social keybinds.
+
 8/7/2026 #1:
 - Added a Boss Spawns POI category: fixed bosses (currently Harley Quinn, Catwoman, and Poison Ivy) are navigated to directly by name, and rift-spawned bosses appear as "Closest Boss Rift Spawn" with the usual closest-unvisited tracking. Boss types no longer appear in the generic Game Object category.
 - Added a Main Vaults POI category with the main map's 10 underground keycard vaults, plus a "Closest Vault" entry that always picks the nearest vault by distance. Vaults are never marked as visited, so you can navigate back to the same vault to find the exit portapotty after looting.
