@@ -1,24 +1,16 @@
-Suppressed Pistol
-Tactical Shotgun
-Thunder Shotgun
-Ranger Shotgun
-Compact SMG
-Machine SMG
-Striker AR
-Suppressed Assault Rifle
-Infantry Rifle
-Bandage
-Med Kit
-Med-Mist
+Assault Rifle
+Ranger Assault Rifle
+Minigun
+Tactical Pistol
+Drum Gun
+8-Bit Shotgun
+Pump Shotgun
+Oni Shotgun
+Flare Gun
+Chug Splash
 Small Shield Potion
 Shield Potion
 Chug Jug
-Flopper
-Shield Fish
-Apple
-Shield Mushroom
-Slurp Mushroom
-Firefly Jar
-Shockwave Grenade
-Crash Pad Jr.
-Port-A-Bunker
+Med Kit
+Bandage
+Midas Flopper

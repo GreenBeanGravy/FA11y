@@ -1,3 +1,7 @@
+8/20/2026 #2:
+- Corrected the Chapter 7 Season 4 Override loot list to the live 16-item pool, including all weapons and healing items and excluding Sprites.
+- Replaced the incorrect generic current-season composite list released in 18.11.0.
+
 8/20/2026 #1:
 - Updated the main Battle Royale map for Fortnite v42.00 with 13 current named locations and 24 landmarks derived from the game files and cross-checked against Fortnite.gg.
 - Main-map POIs and landmarks now load locally instead of depending on the stale Fortnite-API.com map response.

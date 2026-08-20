@@ -46,25 +46,21 @@ def test_main_map_loot_has_current_items_and_no_sprites():
     )
 
     assert not any("sprite" in item.lower() for item in loot)
-    assert {
-        "Suppressed Pistol",
-        "Tactical Shotgun",
-        "Thunder Shotgun",
-        "Ranger Shotgun",
-        "Compact SMG",
-        "Machine SMG",
-        "Striker AR",
-        "Suppressed Assault Rifle",
-        "Infantry Rifle",
-        "Bandage",
-        "Med Kit",
-        "Med-Mist",
+    assert loot == {
+        "Assault Rifle",
+        "Ranger Assault Rifle",
+        "Minigun",
+        "Tactical Pistol",
+        "Drum Gun",
+        "8-Bit Shotgun",
+        "Pump Shotgun",
+        "Oni Shotgun",
+        "Flare Gun",
+        "Chug Splash",
         "Small Shield Potion",
         "Shield Potion",
         "Chug Jug",
-        "Flopper",
-        "Shield Fish",
-        "Apple",
-        "Shield Mushroom",
-        "Slurp Mushroom",
-    } <= loot
+        "Med Kit",
+        "Bandage",
+        "Midas Flopper",
+    }
