@@ -9,6 +9,6 @@
 main
 o_g
 reload_oasis
-reload_slurp_rush
 reload_springfield
+reload_mini_venture
 blitz_starfall
