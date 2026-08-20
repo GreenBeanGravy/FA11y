@@ -5,8 +5,6 @@ Provides interface for selecting points of interest for navigation
 import os
 import logging
 import json
-import re
-import requests
 import numpy as np
 import threading
 import time
@@ -133,10 +131,7 @@ class POIData:
                     if self.coordinate_system is None:
                         self.coordinate_system = CoordinateSystem()
                     
-                    if self.coordinate_system.REFERENCE_PAIRS:
-                        self._fetch_and_process_pois()
-                    else:
-                        self._load_local_pois()
+                    self._load_local_pois()
                     
                     self._api_loaded = True
         except Exception as e:
@@ -206,51 +201,37 @@ class POIData:
             if os.path.exists(filename):
                 self.maps[map_name].pois = self._load_map_pois(filename)
     
-    def _fetch_and_process_pois(self) -> None:
+    def _load_world_coordinate_file(self, path: str) -> List[Tuple[str, str, str]]:
+        locations = []
         try:
-            response = requests.get('https://fortnite-api.com/v1/map', params={'language': 'en'}, timeout=10)
-            response.raise_for_status()
-            
-            self.api_data = response.json().get('data', {}).get('pois', [])
-
-            self.main_pois = []
-            self.landmarks = []
-
-            for poi in self.api_data:
-                name = poi['name']
-                world_x = float(poi['location']['x'])
-                world_y = float(poi['location']['y'])
-                screen_x, screen_y = self.coordinate_system.world_to_screen(world_x, world_y)
-                
-                if re.match(r'Athena\.Location\.POI\.Generic\.(?:EE\.)?\d+', poi['id']):
-                    self.main_pois.append((name, str(screen_x), str(screen_y)))
-                elif re.match(r'Athena\.Location\.UnNamedPOI\.(Landmark|GasStation)\.\d+', poi['id']):
-                    self.landmarks.append((name, str(screen_x), str(screen_y)))
-
-            self.maps["main"].pois = self.main_pois
-
-        except requests.RequestException as e:
-            print(f"Error fetching POIs from API: {e}")
-            self._load_local_pois()
-    
-    def _load_local_pois(self):
-        try:
-            with open(os.path.join('data', 'maps', 'map_main_pois.txt'), 'r', encoding='utf-8') as f:
-                for line in f:
+            with open(path, 'r', encoding='utf-8') as location_file:
+                for line in location_file:
+                    if not line.strip() or line.lstrip().startswith('#'):
+                        continue
                     parts = line.strip().split('|')
-                    if len(parts) == 3:
-                        name = parts[0]
-                        coords = parts[1].split(',')
-                        if len(coords) == 2:
-                            x, y = coords[0], coords[1]
-                            self.main_pois.append((name, x, y))
-            
-            self.maps["main"].pois = self.main_pois
-            
+                    if len(parts) != 3:
+                        continue
+                    name = parts[0].strip()
+                    world_x, world_y = map(float, parts[2].split(','))
+                    screen_x, screen_y = self.coordinate_system.world_to_screen(
+                        world_x, world_y
+                    )
+                    locations.append((name, str(screen_x), str(screen_y)))
         except FileNotFoundError:
-            pass
+            logger.warning(f"Main-map location file not found at {path}")
         except Exception as e:
-            print(f"Error loading main POIs from file: {e}")
+            logger.error(f"Error loading locations from {path}: {e}")
+        return locations
+
+    def _load_local_pois(self):
+        maps_dir = os.path.join('data', 'maps')
+        self.main_pois = self._load_world_coordinate_file(
+            os.path.join(maps_dir, 'map_main_pois.txt')
+        )
+        self.landmarks = self._load_world_coordinate_file(
+            os.path.join(maps_dir, 'map_main_landmarks.txt')
+        )
+        self.maps["main"].pois = self.main_pois
     
     def get_current_map(self):
         try:

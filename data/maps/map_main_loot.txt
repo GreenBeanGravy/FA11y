@@ -1,98 +1,24 @@
-Chaos Exploder Rifle
-Surgical Burst Rifle
-Modular Warforged Assault Rifle 
-Extending Focus Shotgun
-Striker Pump Shotgun
-Maven Auto Shotgun
-Modular Ranger Pistol
-Lancehead Pistol
-9mm Baba  Yaga Pistol
-Where We Droppin Pistol
-Bank Shot Pistol
-Rapid fire Smg
-Flex smg
-Stinger smg
-Hunting Rifle
-Heavy Impact Sniper Rifle
-Mythic Mighty Impact Sniper Rifle 
-Shieldbreaker EMP
-Earth Sprite
-Fire Sprite
-Water Sprite
-Demon Sprite
-Duck Sprite
-Ghost Sprite
-King Sprite
-Dream Sprite
-Punk Sprite
-Zero Point Sprite
-Burnt Peanut Sprite
-Fishy Sprite
-Striker Sprite
-Aura Sprite
-Boss Sprite
-Grim Sprite
-Air Sprite
-Seven Sprite
-Batman Sprite
-Vini Jr. Sprite
-Pollo Sprite
+Suppressed Pistol
+Tactical Shotgun
+Thunder Shotgun
+Ranger Shotgun
+Compact SMG
+Machine SMG
+Striker AR
+Suppressed Assault Rifle
+Infantry Rifle
 Bandage
-Medkit
-Small Shield
-Guzzle Juice
+Med Kit
+Med-Mist
+Small Shield Potion
 Shield Potion
-Lil Whips Special Serve
-Slapberry Fizz
-Corn
-Banana
-Golden Apple
-Apple
-Pepper
 Chug Jug
-Cabbage
-Coconut
 Flopper
-Small Fry
-Slurp Fish
-Shock Rock
-Quack Snack
-Mushroom
+Shield Fish
+Apple
+Shield Mushroom
 Slurp Mushroom
-Cluster Clinger
-Overdrive Grenade
-Sven Sliders
-Business Turret
-Pulse Scanner
-Limitless Seven Sliders
-Rift To Go
-Pocket Shockwave
-Pocket MMedmist Smoke Grenade
-Pocket Shield Bubble Jr. 
-Pocket Crashpad Jr. 
-Pocket Port-a-cover
-Smoke Cloud
-Port-a-bunker
-Guardian Shield
-Bush
-Fishing Rod
-Big Bush Bomb
-Pro Fishing Rod
-Harpoon Gun
-Flair Gun
-Enhanced Harpoon Gun
-Mythic Goldfish
-Vault Key
-Unstable Element
-Ice Kings Vault
-Self Revive Device
-Batman Grapnel Gun 
-Portable Extractor
-Extraction Sight Booster
-Sprite locator
-Catwoman's Rapid Fire Smg
-Poison Ivy's Ranger Pistol
-Friendzone Bubble
-The Voidblades' Surgical Burst Rifle
-Reacher Extending Shotgun
-Wolf's maven Auto Shotgun
+Firefly Jar
+Shockwave Grenade
+Crash Pad Jr.
+Port-A-Bunker
