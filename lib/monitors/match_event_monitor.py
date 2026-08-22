@@ -296,9 +296,6 @@ class MatchEventMonitor(BaseMonitor):
         self.announce_map = get_config_boolean(c, 'AnnounceMapStatus', True)
         self.announce_sidebar = get_config_boolean(c, 'AnnounceSidebarStatus', True)
         self.announce_ui_tabs = get_config_boolean(c, 'AnnounceUITabs', True)
-        self.announce_admin_panel = get_config_boolean(
-            c, 'AnnounceAdminPanelStatus', True
-        )
 
     def _on_config_change(self, config):
         self.config = config
@@ -440,13 +437,13 @@ class MatchEventMonitor(BaseMonitor):
         if _RE_ADMIN_PANEL_OPEN.search(line):
             if not self._admin_panel_open:
                 self._admin_panel_open = True
-                if self.announce_admin_panel:
+                if self.announce_ui_tabs:
                     self._speak("Admin Panel opened")
             return
         if _RE_ADMIN_PANEL_CLOSE.search(line):
             if self._admin_panel_open:
                 self._admin_panel_open = False
-                if self.announce_admin_panel:
+                if self.announce_ui_tabs:
                     self._speak("Admin Panel closed")
             return
 

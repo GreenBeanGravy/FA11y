@@ -414,7 +414,6 @@ AnnounceMapStatus = true "Toggles announcements when the map is opened or closed
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
 AnnounceSidebarStatus = true "Toggles announcements when the in-game sidebar / pause menu is opened or closed."
 AnnounceUITabs = true "Toggles announcing the active UI tab as you navigate the lobby (Play, Shop, Locker, Quests, Career, etc.) and the in-game sidebar (Profile, Social, Chats, Add Friends, Menu, Exit)."
-AnnounceAdminPanelStatus = true "Toggles announcements when the Override Admin Panel is opened or closed."
 MousePassthrough = true "Toggles the mouse passthrough feature. When enabled, your configured mouse is captured and relayed through the FakerInput driver."
 AnnounceTeammateEvents = true "Toggles passive announcements when a teammate appears in the kill feed or message feed. Requires the FA11y-OW companion service to be running."
 AnnounceKillFeed = true "Toggles passive announcements for every elimination in the match kill feed (excluding teammate-involved kills, which AnnounceTeammateEvents already covers). Requires the FA11y-OW companion service."
