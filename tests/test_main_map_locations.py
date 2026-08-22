@@ -46,7 +46,7 @@ def test_main_map_loot_has_current_items_and_no_sprites():
     )
 
     assert not any("sprite" in item.lower() for item in loot)
-    assert loot == {
+    assert {
         "Assault Rifle",
         "Ranger Assault Rifle",
         "Minigun",
@@ -63,4 +63,33 @@ def test_main_map_loot_has_current_items_and_no_sprites():
         "Med Kit",
         "Bandage",
         "Midas Flopper",
+        "Sonic Power Sneakers",
+        "Midas' Masterpiece",
+        "Mega Buster",
+    } <= loot
+
+    stale_mythics = {
+        "Bigfoot's Flex SMG",
+        "9mm Baba Yaga",
+        "Striker Pump Shotgun",
+        "Stinger SMG",
+        "Hunting Rifle",
+        "Wolfe's Maven Auto Shotgun",
+        "The Voidblade's Burst Rifle",
+        "Dark Voyager's Chaos Rifle",
+        "Reacher Extending Shotgun",
+        "Poison Ivy's Ranger Pistol",
+        "Dark Voyager's Obliterator",
     }
+    assert loot.isdisjoint(stale_mythics)
+
+
+def test_removed_boss_and_vault_objects_are_not_shipped():
+    game_objects = (
+        MAPS_DIR / "map_main_gameobjects.txt"
+    ).read_text(encoding="utf-8")
+
+    assert "Boss Rift Spawn" not in game_objects
+    assert "Harley Quinn," not in game_objects
+    assert "Catwoman," not in game_objects
+    assert "Poison Ivy," not in game_objects

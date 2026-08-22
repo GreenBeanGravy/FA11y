@@ -143,6 +143,15 @@ _RE_LEAVING_MENU = re.compile(
     r'LogUIActionRouter:.*InputMode:.*Previous \(ECommonInputMode::Menu\)'
 )
 
+# Override season Admin Panel. Unlike the regular lobby tabs, this modal is
+# surfaced by DynamicUI scene lifecycle events rather than UIActionRouter.
+_RE_ADMIN_PANEL_OPEN = re.compile(
+    r'LogDynamicUI: Adding scene: UIScene_HackSystemFrontendIUI_CheatCode'
+)
+_RE_ADMIN_PANEL_CLOSE = re.compile(
+    r'LogDynamicUI: Removing scene: UIScene_HackSystemFrontendIUI_CheatCode'
+)
+
 # Match the leaf-most node from any "Applying input config" line so we
 # can dispatch by node name into _TAB_NAME_BY_NODE.
 _RE_APPLYING_LEAF = re.compile(
@@ -240,6 +249,7 @@ class MatchEventMonitor(BaseMonitor):
         self._inventory_open = False
         self._map_open = False
         self._sidebar_open = False
+        self._admin_panel_open = False
 
         # Last announced UI tab — used to dedupe the "Applying input
         # config for leaf-most node [...]" lines that fire 2-3 times
@@ -286,6 +296,9 @@ class MatchEventMonitor(BaseMonitor):
         self.announce_map = get_config_boolean(c, 'AnnounceMapStatus', True)
         self.announce_sidebar = get_config_boolean(c, 'AnnounceSidebarStatus', True)
         self.announce_ui_tabs = get_config_boolean(c, 'AnnounceUITabs', True)
+        self.announce_admin_panel = get_config_boolean(
+            c, 'AnnounceAdminPanelStatus', True
+        )
 
     def _on_config_change(self, config):
         self.config = config
@@ -340,6 +353,7 @@ class MatchEventMonitor(BaseMonitor):
             self._last_spectate_target = None
             self._last_final_countdown = None
             self._spectating = False
+            self._admin_panel_open = False
             # Party cache is per-Fortnite-session: new game means Fortnite
             # will re-emit Adding events for any existing party members.
             self._party_member_names.clear()
@@ -419,6 +433,23 @@ class MatchEventMonitor(BaseMonitor):
             logger.info(f"MatchEventMonitor: match tracker reset failed: {e}")
 
     def _process_line(self, line: str):
+        # --- Override Admin Panel open / close (DynamicUI) ---
+        # The scene lifecycle is emitted exactly once per transition in real
+        # Fortnite logs. Keep explicit state anyway so replayed or duplicated
+        # lines cannot result in repeated speech.
+        if _RE_ADMIN_PANEL_OPEN.search(line):
+            if not self._admin_panel_open:
+                self._admin_panel_open = True
+                if self.announce_admin_panel:
+                    self._speak("Admin Panel opened")
+            return
+        if _RE_ADMIN_PANEL_CLOSE.search(line):
+            if self._admin_panel_open:
+                self._admin_panel_open = False
+                if self.announce_admin_panel:
+                    self._speak("Admin Panel closed")
+            return
+
         # --- UI panel open / close (UIActionRouter) ---
         # Cheap fast-path: most lines aren't UIActionRouter at all, but the
         # ones that are fire frequently when menus open/close, so handle

@@ -14,14 +14,12 @@ from __future__ import annotations
 
 from lib.app import state
 from lib.app.constants import (
-    POI_CATEGORY_BOSS,
     POI_CATEGORY_CUSTOM,
     POI_CATEGORY_FAVORITE,
     POI_CATEGORY_GAMEOBJECT,
     POI_CATEGORY_LANDMARK,
     POI_CATEGORY_REGULAR,
     POI_CATEGORY_SPECIAL,
-    POI_CATEGORY_VAULT,
     SPECIAL_POI_CLOSEST,
     SPECIAL_POI_CLOSEST_LANDMARK,
     SPECIAL_POI_SAFEZONE,
@@ -176,13 +174,6 @@ def toggle_favorite_poi() -> None:
         if current_cat == POI_CATEGORY_GAMEOBJECT:
             speaker.speak("Cannot favorite game object locators.")
             return
-        if current_cat == POI_CATEGORY_BOSS:
-            speaker.speak("Cannot favorite boss spawns.")
-            return
-        if current_cat == POI_CATEGORY_VAULT:
-            speaker.speak("Cannot favorite vaults.")
-            return
-
         state.get_poi_data()  # ensure lazy init
 
         from lib.managers.poi_data_manager import get_favorites_manager

@@ -1241,36 +1241,6 @@ Ziplines,353.927196,332.067029
 Ziplines,333.324453,347.933509
 Ziplines,537.102160,855.463539
 Ziplines,561.849134,855.463539
-# --- C7S3 boss spawns (Boss Spawns category) — appended 2026-07-18 ---
-# Fixed FossilMeal event bosses (one spawn each; direct navigation):
-Harley Quinn,268.111652,648.643990
-Catwoman,620.410977,404.925313
-Poison Ivy,342.509012,252.031799
-# Rift-encounter boss spawn pool (Wolfe / The Voidblade / Skeletor share these 23; closest-unvisited):
-Boss Rift Spawn,546.283124,467.114946
-Boss Rift Spawn,527.660202,567.292135
-Boss Rift Spawn,661.908291,630.768682
-Boss Rift Spawn,637.416858,551.387625
-Boss Rift Spawn,582.602538,519.814427
-Boss Rift Spawn,563.541668,518.001966
-Boss Rift Spawn,683.182486,426.789382
-Boss Rift Spawn,555.769764,232.131790
-Boss Rift Spawn,462.870761,269.189534
-Boss Rift Spawn,451.645801,350.288723
-Boss Rift Spawn,559.037535,351.299389
-Boss Rift Spawn,591.206544,468.742118
-Boss Rift Spawn,418.813132,439.038651
-Boss Rift Spawn,334.986402,439.325007
-Boss Rift Spawn,200.212775,414.489580
-Boss Rift Spawn,199.559221,329.064742
-Boss Rift Spawn,231.772025,471.009378
-Boss Rift Spawn,177.523669,655.957841
-Boss Rift Spawn,131.286404,735.820648
-Boss Rift Spawn,245.129457,759.220929
-Boss Rift Spawn,402.834746,226.903279
-Boss Rift Spawn,254.407229,588.627289
-Boss Rift Spawn,454.037675,537.464020
-
 # --- container spawns replaced with file-extracted (game-truth) coords 2026-07-18 ---
 Chests,147.190372,659.615946
 Chests,111.411926,621.940570
