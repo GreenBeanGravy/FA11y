@@ -66,6 +66,7 @@ DISPLAY_TO_FA11Y_MAP = {
     "Surf City":    "reload_surfcity",
     "Elite Stronghold": "reload_elite_stronghold",
     "Springfield":  "reload_springfield",   # The Simpsons collab arena
+    "Mini-Venture": "reload_mini_venture",  # Reload variant of Blitz - Venture
     "Stranger Things": "blitz_stranger_things",
     "Squid Grounds": None,                  # No FA11y file yet
     "Nitemare Island": None,                # No FA11y file yet

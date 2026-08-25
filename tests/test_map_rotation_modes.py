@@ -68,3 +68,7 @@ def test_announcement_names_mode_and_single_active_map(monkeypatch):
 
 def test_mode_caches_are_distinct():
     assert map_rotation._cache_path(True) != map_rotation._cache_path(False)
+
+
+def test_mini_venture_resolves_to_its_reload_map():
+    assert map_rotation.fa11y_map_for_display("Mini-Venture") == "reload_mini_venture"
