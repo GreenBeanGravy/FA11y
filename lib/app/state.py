@@ -27,6 +27,7 @@ social_gui_open: threading.Event = threading.Event()
 discovery_gui_open: threading.Event = threading.Event()
 locker_gui_open: threading.Event = threading.Event()
 gamemode_gui_open: threading.Event = threading.Event()
+match_options_busy: threading.Event = threading.Event()
 visited_objects_gui_open: threading.Event = threading.Event()
 custom_poi_gui_open: threading.Event = threading.Event()
 

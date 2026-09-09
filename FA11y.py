@@ -108,6 +108,7 @@ from lib.utilities.input import (
 
 from lib.managers.poi_data_manager import POIData
 from lib.detection.exit_match import exit_match
+from lib.app.match_options_actions import open_match_options
 from lib.detection.lobby_reader import (
     read_mode_status,
     toggle_lobby_fill,
@@ -427,6 +428,7 @@ def reload_config() -> None:
             'sync current map to reload rotation': sync_current_map_to_reload_rotation,
             'open configuration menu': open_config_gui,
             'exit match': exit_match,
+            'open match options': open_match_options,
             'create custom p o i': handle_custom_poi_gui,
             'announce ammo': announce_ammo_manually,
             'toggle keybinds': toggle_keybinds,
@@ -546,14 +548,14 @@ def key_listener() -> None:
     _cached_mouse_keys = True
     _cached_ignore_numlock = False
     # Cache GUI titles tuple (immutable, allocated once)
-    gui_titles = ("Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login")
+    gui_titles = ("FA11y Match Options", "Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login")
 
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
         if _shutdown_requested.is_set():
             break
 
-        if _app_state.wizard_open.is_set():
+        if _app_state.wizard_open.is_set() or _app_state.match_options_busy.is_set():
             time.sleep(0.05)
             continue
 

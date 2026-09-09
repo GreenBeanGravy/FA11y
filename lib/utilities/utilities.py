@@ -494,6 +494,7 @@ Open Locker Selector = bracketright "Opens the Locker Selector menu, used for eq
 Announce Reload Map Rotation = lalt+lshift+r "Queries fortnite.gg for the current Reload map rotation and announces which map is live now, how much time is left, and which map is next."
 Sync Current Map To Reload Rotation =  "Queries fortnite.gg for the current Reload map and automatically sets FA11y's current_map to the matching POI data file. Use just before queuing into Reload."
 Create Custom P O I = lalt+c "Creates a custom P O I at the players current position and prompts the user for a name. Works whether the full-screen map is open or closed."
+Open Match Options = lalt+o "Open the accessible settings for the current Fortnite match options screen. Supports Battle Royale, Reload, Fortnite OG, and Blitz Royale, showing only the settings available in that mode."
 Open Gamemode Selector = apostrophe "Opens the Gamemode Selector GUI, used for selecting which gamemode the user wants to play."
 Open Configuration Menu = f9 "Opens the FA11y configuration menu for changing these settings."
 Exit Match = f12 "Exits the current match while the in-game quick-menu is open."
