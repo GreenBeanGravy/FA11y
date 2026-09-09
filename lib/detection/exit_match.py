@@ -1,40 +1,123 @@
+"""Leave a match using the September 2026 Fortnite sidebar layout."""
+import logging
+from functools import lru_cache
+from pathlib import Path
+import threading
 import time
-import traceback
+
+import cv2
+import numpy as np
 from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
-from lib.utilities.mouse import instant_click, pixel
+from lib.utilities.mouse import instant_click, press_key
+from lib.utilities.window_utils import get_active_window_title
 
 speaker = Auto()
+logger = logging.getLogger(__name__)
+_ASSETS = Path(__file__).resolve().parents[2] / "assets" / "exit_match"
+_action_lock = threading.Lock()
+# Reference coordinates are for the observed 1920 x 1080 fullscreen layout.
+_REGIONS = {
+    "menu_tab": (1635, 35, 1720, 110),
+    "settings_tab": (1515, 35, 1600, 110),
+    "return_to_lobby": (1380, 130, 1740, 210),
+}
 
-def _log(msg):
-    """Log to console and speak via accessible output for debugging."""
-    print(f"[exit_match] {msg}")
-    speaker.speak(f"{msg}")
 
-def check_pixel_color(x, y, target_rgb, tolerance=10):
-    pixel_color = pixel(x, y)
-    _log(f"check_pixel_color({x}, {y}) => {pixel_color}, target={target_rgb}, tol={tolerance}")
-    return all(abs(a - b) <= tolerance for a, b in zip(pixel_color, target_rgb))
+@lru_cache(maxsize=3)
+def _template(name):
+    image = cv2.imread(str(_ASSETS / (name + ".png")), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise RuntimeError("Missing leave-match reference: " + name)
+    return image
+
+
+def _find(frame, name):
+    """Match a control in its own region, including inverted hover/selected colors."""
+    x1, y1, x2, y2 = _REGIONS[name]
+    template = _template(name)
+    scores = cv2.matchTemplate(frame[y1:y2, x1:x2], template, cv2.TM_CCOEFF_NORMED)
+    _, score, _, location = cv2.minMaxLoc(np.abs(scores))
+    if score < .85:
+        return None
+    return (x1 + location[0] + template.shape[1] // 2,
+            y1 + location[1] + template.shape[0] // 2)
+
+
+def _sidebar(frame):
+    return _find(frame, "menu_tab") is not None and _find(frame, "settings_tab") is not None
+
+
+def _require_fortnite():
+    if get_active_window_title().strip().lower() != "fortnite":
+        raise RuntimeError("Fortnite must be the active window to leave a match.")
+
+
+def _capture():
+    _require_fortnite()
+    image = ImageGrab.grab()
+    width, height = image.size
+    if abs(width / height - 16 / 9) > .02:
+        raise RuntimeError("Leave match requires Fortnite fullscreen at a 16 by 9 resolution.")
+    gray = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2GRAY)
+    return cv2.resize(gray, (1920, 1080)), (width / 1920, height / 1080)
+
+
+def _wait_for(predicate, timeout=3.):
+    deadline = time.monotonic() + timeout
+    while True:
+        frame, scale = _capture()
+        result = predicate(frame)
+        if result:
+            return result, scale
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(.1)
+
+
+def _click(point, scale):
+    _require_fortnite()
+    instant_click(round(point[0] * scale[0]), round(point[1] * scale[1]))
+
 
 def exit_match():
-    """Exit match - mirrors original: pyautogui.click(x,y) + sleep(0.1) between each."""
-    _log("exit_match() called")
-    try:
-        white_check = check_pixel_color(1847, 74, (255, 255, 255))
-        black_check = check_pixel_color(1847, 74, (0, 0, 0))
-        _log(f"Pixel checks: white={white_check}, black={black_check}")
+    """Open the sidebar if needed, select Menu, then Return to lobby once.
 
-        if white_check or black_check:
-            _log("Quick menu detected, starting leave sequence...")
-            instant_click(1834, 76)
-            time.sleep(0.1)
-            instant_click(1573, 255)
-            time.sleep(0.1)
-            instant_click(1579, 924)
-            _log("Leave sequence complete")
-        else:
-            _log("Quick menu NOT detected")
-            speaker.speak("Open your quick menu before attempting to leave a match. Press Escape to open your quick menu, and try again.")
-    except Exception as e:
-        _log(f"ERROR in exit_match: {e}")
-        _log(traceback.format_exc())
+    Each click requires a recognized control. The current flow has no final
+    confirmation button; never send the obsolete third click into the lobby.
+    """
+    if not _action_lock.acquire(blocking=False):
+        return False
+    try:
+        frame, scale = _capture()
+        if not _sidebar(frame):
+            _require_fortnite()
+            press_key("escape")
+            if not _wait_for(_sidebar):
+                speaker.speak("Could not find the Fortnite sidebar. Match was not left.")
+                return False
+        frame, scale = _capture()
+        target = _find(frame, "return_to_lobby")
+        if target is None:
+            menu = _find(frame, "menu_tab")
+            if menu is None:
+                speaker.speak("Could not find the sidebar menu tab. Match was not left.")
+                return False
+            _click(menu, scale)
+            result = _wait_for(lambda frame: _find(frame, "return_to_lobby"))
+            if result is None:
+                speaker.speak("Return to lobby was not found. You may already be in the lobby.")
+                return False
+            target, scale = result
+        _click(target, scale)
+        if _wait_for(lambda frame: not _sidebar(frame)):
+            speaker.speak("Returning to lobby.")
+            return True
+        speaker.speak("Return to lobby was selected, but the menu is still open. Please check the game.")
+        return False
+    except Exception as error:
+        logger.exception("Could not leave match")
+        speaker.speak(str(error))
+        return False
+    finally:
+        _action_lock.release()
