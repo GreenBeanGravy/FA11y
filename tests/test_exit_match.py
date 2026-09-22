@@ -1,6 +1,8 @@
 """Leave-match control recognition and guarded input sequencing."""
 from unittest.mock import Mock
+from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 
@@ -49,8 +51,8 @@ def driver(monkeypatch, images, scale=(1., 1.)):
 def test_opens_sidebar_only_if_needed_and_never_sends_third_click(monkeypatch, already_open):
     social = frame('menu_tab', 'settings_tab')
     menu = frame('menu_tab', 'settings_tab', 'return_to_lobby')
-    images = ([social, social, menu, frame()] if already_open
-              else [frame(), social, social, menu, frame()])
+    images = ([social, social, social, social, menu, menu, frame()] if already_open
+              else [frame(), social, social, social, menu, menu, frame()])
     click, key, speech = driver(monkeypatch, images)
     assert exit_ui.exit_match() is True
     assert key.call_count == (0 if already_open else 1)
@@ -60,7 +62,7 @@ def test_opens_sidebar_only_if_needed_and_never_sends_third_click(monkeypatch, a
 
 def test_already_on_menu_clicks_return_once_and_scales_coordinates(monkeypatch):
     menu = frame('menu_tab', 'settings_tab', 'return_to_lobby')
-    click, key, _ = driver(monkeypatch, [menu, menu, frame()], scale=(.5, .5))
+    click, key, _ = driver(monkeypatch, [menu, menu, menu, menu, frame()], scale=(.5, .5))
     assert exit_ui.exit_match() is True
     target = exit_ui._find(menu, 'return_to_lobby')
     click.assert_called_once_with(round(target[0]*.5), round(target[1]*.5))
@@ -94,3 +96,47 @@ def test_focus_loss_prevents_all_input(monkeypatch):
     click.assert_not_called()
     key.assert_not_called()
     assert 'active window' in speech.call_args.args[0]
+
+
+def observed_frame(header, row=None):
+    """Anonymous crops from the September 21 live UI, at original positions."""
+    image = frame()
+    fixtures = Path(__file__).parent / 'fixtures' / 'exit_match'
+    image[35:110, 1515:1780] = cv2.imread(str(fixtures / (header + '.png')), 0)
+    if row:
+        image[130:210, 1380:1740] = cv2.imread(str(fixtures / (row + '.png')), 0)
+    return image
+
+
+@pytest.mark.parametrize('header', ['social_header', 'selected_header'])
+def test_observed_shifted_sidebar_and_return_label(header):
+    image = observed_frame(header, 'return_row')
+    assert exit_ui._sidebar(image)
+    assert exit_ui._find(image, 'menu_tab') == pytest.approx((1690, 71), abs=1)
+    assert exit_ui._find(image, 'settings_tab') == pytest.approx((1595, 71), abs=1)
+    assert exit_ui._find(image, 'return_to_lobby') == (1562, 172)
+
+
+def test_observed_close_fortnite_is_never_clicked(monkeypatch):
+    image = observed_frame('selected_header', 'close_row')
+    assert exit_ui._find(image, 'return_to_lobby') is None
+    click, _, _ = driver(monkeypatch, [image])
+    assert exit_ui.exit_match() is False
+    click.assert_called_once_with(1690, 71)  # Only Menu, never Close Fortnite.
+
+
+def test_waits_for_sidebar_animation_to_settle(monkeypatch):
+    settled = observed_frame('social_header')
+    moving = np.roll(settled, 45, axis=1)
+    click, _, _ = driver(monkeypatch, [moving, settled, settled])
+    controls, _ = exit_ui._wait_for(exit_ui._sidebar_controls, stable=True)
+    assert controls == ((1691, 71), (1596, 71))
+    click.assert_not_called()
+
+
+def test_sidebar_that_keeps_moving_times_out_without_clicks(monkeypatch):
+    settled = observed_frame('social_header')
+    moving = np.roll(settled, 45, axis=1)
+    click, _, _ = driver(monkeypatch, [moving, settled] * 10)
+    assert exit_ui.exit_match() is False
+    click.assert_not_called()

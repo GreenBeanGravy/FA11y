@@ -18,8 +18,8 @@ _ASSETS = Path(__file__).resolve().parents[2] / "assets" / "exit_match"
 _action_lock = threading.Lock()
 # Reference coordinates are for the observed 1920 x 1080 fullscreen layout.
 _REGIONS = {
-    "menu_tab": (1635, 35, 1720, 110),
-    "settings_tab": (1515, 35, 1600, 110),
+    "menu_tab": (1635, 35, 1780, 110),
+    "settings_tab": (1515, 35, 1680, 110),
     "return_to_lobby": (1380, 130, 1740, 210),
 }
 
@@ -45,7 +45,13 @@ def _find(frame, name):
 
 
 def _sidebar(frame):
-    return _find(frame, "menu_tab") is not None and _find(frame, "settings_tab") is not None
+    return bool(_sidebar_controls(frame))
+
+
+def _sidebar_controls(frame):
+    menu = _find(frame, "menu_tab")
+    settings = _find(frame, "settings_tab")
+    return (menu, settings) if menu is not None and settings is not None else None
 
 
 def _require_fortnite():
@@ -63,13 +69,15 @@ def _capture():
     return cv2.resize(gray, (1920, 1080)), (width / 1920, height / 1080)
 
 
-def _wait_for(predicate, timeout=3.):
+def _wait_for(predicate, timeout=3., stable=False):
     deadline = time.monotonic() + timeout
+    previous = None
     while True:
         frame, scale = _capture()
         result = predicate(frame)
-        if result:
+        if result and (not stable or result == previous):
             return result, scale
+        previous = result
         if time.monotonic() >= deadline:
             return None
         time.sleep(.1)
@@ -93,9 +101,11 @@ def exit_match():
         if not _sidebar(frame):
             _require_fortnite()
             press_key("escape")
-            if not _wait_for(_sidebar):
-                speaker.speak("Could not find the Fortnite sidebar. Match was not left.")
-                return False
+        # The sidebar slides horizontally while opening. Recognize the icons at
+        # the same positions in consecutive frames before targeting a control.
+        if not _wait_for(_sidebar_controls, stable=True):
+            speaker.speak("Could not find the Fortnite sidebar. Match was not left.")
+            return False
         frame, scale = _capture()
         target = _find(frame, "return_to_lobby")
         if target is None:
@@ -104,7 +114,7 @@ def exit_match():
                 speaker.speak("Could not find the sidebar menu tab. Match was not left.")
                 return False
             _click(menu, scale)
-            result = _wait_for(lambda frame: _find(frame, "return_to_lobby"))
+            result = _wait_for(lambda frame: _find(frame, "return_to_lobby"), stable=True)
             if result is None:
                 speaker.speak("Return to lobby was not found. You may already be in the lobby.")
                 return False
