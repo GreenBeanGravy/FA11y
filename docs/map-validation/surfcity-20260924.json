@@ -1,0 +1,249 @@
+{
+  "source_map": "surfcity2",
+  "reference_size": [
+    866,
+    926
+  ],
+  "alignment": {
+    "sx": 0.24657553925379938,
+    "sy": 0.24657553925379938,
+    "tx": 21.837795356970794,
+    "ty": -64.45238903079824,
+    "rotation_deg": -0.017127044478474875,
+    "affine_matrix": [
+      [
+        0.24657552823740236,
+        7.370717705737322e-05,
+        21.837795356970794
+      ],
+      [
+        -7.370717705737322e-05,
+        0.24657552823740236,
+        -64.45238903079824
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "feature_matches": 682,
+  "inliers_under_3px": 579,
+  "median_inlier_error_px": 0.4103927889853689,
+  "p95_inlier_error_px": 1.7856118149609017,
+  "object_counts": {
+    "Ammo Boxes": 613,
+    "Bushes": 46,
+    "Chests": 521,
+    "Ice Machines": 1,
+    "Slurp Barrels": 48
+  },
+  "dropped": [],
+  "cooked_crosscheck": {
+    "Ammo Boxes": {
+      "cooked": 613,
+      "source": 613,
+      "max_pixel_error": 0.027905439536683292
+    },
+    "Chests": {
+      "cooked": 521,
+      "source": 521,
+      "max_pixel_error": 0.027161222641991983
+    },
+    "Slurp Barrels": {
+      "cooked": 48,
+      "source": 48,
+      "max_pixel_error": 0.023669743370522564
+    },
+    "Bushes": {
+      "cooked": 50,
+      "source": 46,
+      "max_pixel_error": 0.025228414959790283,
+      "excluded_outside_map": [
+        {
+          "position": {
+            "X": 110756.28,
+            "Y": 129552.945,
+            "Z": 2308.6304
+          },
+          "image": [
+            -221.9935071352719,
+            1081.0720789823474
+          ]
+        },
+        {
+          "position": {
+            "X": 111702.55,
+            "Y": 135125.8,
+            "Z": 1922.405
+          },
+          "image": [
+            -254.21768951665985,
+            1086.5536922511367
+          ]
+        },
+        {
+          "position": {
+            "X": 118741.48,
+            "Y": 126795.266,
+            "Z": 1902.419
+          },
+          "image": [
+            -206.03328853210292,
+            1127.2428194824906
+          ]
+        },
+        {
+          "position": {
+            "X": 121200.17,
+            "Y": 122615.68,
+            "Z": 758.57214
+          },
+          "image": [
+            -181.8600885865383,
+            1141.4532794307495
+          ]
+        }
+      ]
+    },
+    "Ice Machines": {
+      "cooked": 1,
+      "source": 1,
+      "max_pixel_error": 0.021523606513612795,
+      "excluded_outside_map": []
+    }
+  },
+  "pois": [
+    {
+      "name": "SWEATY SHORES",
+      "world": {
+        "X": -19568.0,
+        "Y": 21080.0,
+        "Z": 480.0
+      },
+      "image": [
+        405.0446085026248,
+        327.26549484384776
+      ],
+      "screen": [
+        929,
+        411
+      ]
+    },
+    {
+      "name": "SUS STUDIOS",
+      "world": {
+        "X": 15388.0,
+        "Y": -44572.0,
+        "Z": 480.0
+      },
+      "image": [
+        784.7455890754891,
+        529.2894368371049
+      ],
+      "screen": [
+        1309,
+        613
+      ]
+    },
+    {
+      "name": "HEATWAVE HARBOR",
+      "world": {
+        "X": -29492.0,
+        "Y": -32052.0,
+        "Z": 480.0
+      },
+      "image": [
+        712.2707460525162,
+        269.7863389220497
+      ],
+      "screen": [
+        1236,
+        354
+      ]
+    },
+    {
+      "name": "CASHMERE CLIFFS",
+      "world": {
+        "X": 19116.0,
+        "Y": 27416.0,
+        "Z": 480.0
+      },
+      "image": [
+        368.4715477017065,
+        550.972099560721
+      ],
+      "screen": [
+        892,
+        635
+      ]
+    },
+    {
+      "name": "SQUIBBLY SHORES",
+      "world": {
+        "X": 44236.0,
+        "Y": -10200.0,
+        "Z": 480.0
+      },
+      "image": [
+        586.0338453971281,
+        696.1666808837283
+      ],
+      "screen": [
+        1110,
+        780
+      ]
+    },
+    {
+      "name": "BATTLEWOOD BOULEVARD",
+      "world": {
+        "X": 3976.0,
+        "Y": -7628.0,
+        "Z": 480.0
+      },
+      "image": [
+        571.0925104832696,
+        463.36210319489555
+      ],
+      "screen": [
+        1095,
+        547
+      ]
+    }
+  ],
+  "world_to_tiles": [
+    [
+      0.023451782451013405,
+      -3.0922687545227744e-08
+    ],
+    [
+      -1.2047943953596985e-07,
+      0.023451795718085866
+    ],
+    [
+      2048.0015475037203,
+      2048.0009493677844
+    ]
+  ],
+  "verified_date": "2026-09-24",
+  "game_build": "Release-42.20+cl58003952",
+  "mappings_build": "42.20-CL-58011042",
+  "object_source": "https://fortnite.gg/data/surfcity.js",
+  "poi_source": "PiperBoot_FrontEndMapMarkers and PiperBoot FortPoiVolume world roots",
+  "screen_offset": [
+    524,
+    84
+  ],
+  "files_sha256": {
+    "map_reload_surfcity_gameobjects.txt": "bd8cb134e020e99b61ee850e56c4fcb45a7ae397eb5cc22541ea1f85f1bea432",
+    "map_reload_surfcity_pois.txt": "82b16b4bc9a943d49ac9adac76daa80789f5c746a72bd67d9a1411d814d7ee0f",
+    "reload_surfcity.png": "b8066de71ae8f987b0b422ca6d9c7e9bfcebebf96f7ef3ed02bd56f12d46c8ca"
+  },
+  "notes": [
+    "Object positions are candidate locations; a spawn is not guaranteed in every match.",
+    "All six POI names and world roots agree between the current game marker table and named-location actors.",
+    "Four additional cooked bushes lie outside the captured map and are excluded.",
+    "Image alignment is measured against 579 terrain feature inliers; not a live navigation acceptance test."
+  ]
+}

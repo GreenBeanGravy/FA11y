@@ -1,3 +1,8 @@
+9/24/2026:
+- Updated Surf City with a newly captured map and 1,229 aligned game-object locations.
+- Corrected all six Surf City POIs using the current game data, including Heatwave Harbor, Squibbly Shores, and Cashmere Cliffs.
+- Updated the available Reload maps to Surf City, Oasis, and Springfield.
+
 9/8/2026 #2:
 - Extended Left Alt+O match options to Fortnite OG, Reload, and Blitz Royale, including Six Stack. Each mode shows its own available controls and team sizes.
 - Added an accessible Battle Royale match-options dialog on Left Alt+O, with Build/Zero Build, Ranked, available team sizes, and Team Fill. Changes are verified against the game; locked controls are disabled.
