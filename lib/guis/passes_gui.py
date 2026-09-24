@@ -68,8 +68,10 @@ class PassesDialog(wx.Dialog):
         self.quests_button=wx.Button(self,label='View selected &pass quests')
         self.quests_button.Bind(wx.EVT_BUTTON,lambda evt:self.open_quests())
         footer.Add(self.quests_button,0,wx.ALL,5)
-        self.message = wx.StaticText(self, label='Loading account status...')
-        footer.Add(self.message, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.message = wx.TextCtrl(self, value='Loading account status...',
+                                   style=wx.TE_MULTILINE | wx.TE_READONLY,
+                                   size=(-1,110), name='Pass operation result')
+        footer.Add(self.message, 1, wx.ALL | wx.EXPAND, 5)
         close = wx.Button(self, wx.ID_CANCEL, '&Close')
         close.Bind(wx.EVT_BUTTON, self.on_close)
         footer.Add(close, 0, wx.ALL, 5)
@@ -83,8 +85,7 @@ class PassesDialog(wx.Dialog):
         wx.CallAfter(self.refresh)
 
     def say(self, message):
-        self.message.SetLabel(message)
-        self.message.Wrap(max(200,self.GetClientSize().width-250))
+        self.message.ChangeValue(message)
         self.Layout()
         self.speaker.speak(message)
 

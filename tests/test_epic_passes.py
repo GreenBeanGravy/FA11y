@@ -189,3 +189,30 @@ def test_queries_retry_login_but_mutations_never_retry(setup):
     api.session.request.reset_mock();api.session.request.side_effect=[response({},401)]
     with pytest.raises(PassError):api._request('POST','https://example.test',mutation=True,json={})
     assert api.session.request.call_count==1
+
+
+def test_rejection_exposes_reason_redacts_secrets_and_lists_pending_requirements(setup):
+    api,snap,definition,athena,common,store=setup
+    action=api.prepare('br','claim',['A','B'],snap)
+    rejection=dict(errorCode='errors.com.epicgames.requirements_not_met',
+                   errorMessage='Need page rewards for account-test; secret-test',
+                   debug='do not display this field')
+    api.session.request.side_effect=[response(profile_body(athena)),response(profile_body(common)),response(store),
+        response(rejection,400),response(profile_body(athena)),response(profile_body(common)),response(store)]
+    _,message=api.execute(action)
+    assert 'requirements_not_met' in message and 'Need page rewards' in message
+    assert 'account-test' not in message and 'secret-test' not in message
+    assert 'do not display' not in message
+    assert 'Still unclaimed: A, B' in message
+    assert 'Other rewards not yet claimed: A' in message
+    assert '0 of 2' in message
+    assert sum(c.args[1].endswith('/ExchangeGameCurrencyForSeasonPassOffer') for c in api.session.request.call_args_list)==1
+
+
+def test_non_json_error_is_explained_without_echoing_body(setup):
+    api,*_=setup
+    result=response({},400);result.json.side_effect=ValueError('private body')
+    api.session.request.return_value=result
+    with pytest.raises(PassError,match='no detailed reason') as exc:
+        api._request('POST','https://example.test',mutation=True)
+    assert 'private body' not in str(exc.value)

@@ -7,6 +7,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import re
 from pathlib import Path
 import threading
 import time
@@ -28,6 +29,62 @@ CURRENCY_NAMES = {
 
 class PassError(Exception):
     """Account-safe message suitable for display; never includes raw responses."""
+
+
+def rejection_detail(response, auth):
+    """Expose bounded error fields, never the raw response or account secrets."""
+    try:
+        data=response.json()
+    except ValueError:
+        return ''
+    if not isinstance(data,dict):
+        return ''
+    fields=[]
+    for key in ('errorCode','errorMessage'):
+        value=data.get(key)
+        if not isinstance(value,str):
+            continue
+        for attr in ('access_token','refresh_token','account_id'):
+            secret=getattr(auth,attr,None)
+            if isinstance(secret,str) and secret:
+                value=value.replace(secret,'[redacted]')
+        value=re.sub(r'(?i)Bearer\s+\S+', '[redacted]', value)
+        value=re.sub(r'\b[A-Za-z0-9_-]{60,}\b', '[redacted]', value)
+        value=' '.join(value.split())[:800]
+        if value:fields.append(value)
+    return 'Epic reason: '+'; '.join(fields) if fields else ''
+
+
+def claim_diagnostics(definition, action, snapshot):
+    state=snapshot['passes'][action.pass_key]
+    pending=set(action.offer_ids)-state['claimed']
+    selected=[(c,p,r) for c,p in pages(definition) for r in p['rewards']
+              if r['kind']=='reward' and r['id'] in pending]
+    if not selected:return ''
+    lines=['Still unclaimed: '+', '.join(r['name'] or r['item_id'] for c,p,r in selected)+'.',
+           'Known requirements (these do not by themselves identify the server rejection):']
+    for category,page,reward in selected:
+        text=requirement_text(reward)
+        if text:
+            lines.append((reward['name'] or reward['item_id'])+': '+text)
+        req=reward.get('requirements',{})
+        pool=(rewards(category) if req.get('bRequireAllOtherCategoryRewards') else
+              [r for r in page['rewards'] if r['kind']=='reward'] if req.get('bRequireAllOtherPageRewards') else [])
+        missing=[r['name'] or r['item_id'] for r in pool if r['id']!=reward['id'] and r['id'] not in state['claimed']]
+        if missing:lines.append('Other rewards not yet claimed: '+', '.join(missing)+'.')
+    costs=Counter()
+    for c,p,r in selected:costs[r['currency']]+=r['cost']
+    lines.append('Remaining selection cost: '+costs_text(costs)+'. Available: '+costs_text({k:snapshot['balances'].get(k,0) for k in costs})+'.')
+    seen=set()
+    for category,page,reward in selected:
+        if category['id'] in seen:continue
+        seen.add(category['id'])
+        for quest_page in category['pages']:
+            for q in quest_page['rewards']:
+                if q['kind']=='quest':
+                    lines.append('Linked quest reward (not confirmed as a claim blocker): '+pass_quest_status(q,snapshot.get('quests'))+'.')
+    lines.append('The request was not retried. Epic may provide no more specific reason.')
+    return '\n'.join(lines)
 
 
 def load_pass_catalog():
@@ -166,13 +223,14 @@ class EpicPassAPI:
             if response.status_code != 200:
                 message = {401: 'Your Epic login expired. Sign in again.',
                            429: 'Epic limited these requests. Try again later.'}.get(response.status_code)
-                raise PassError(message or f'Epic rejected the request (HTTP {response.status_code}). Refresh to check requirements and balances.')
+                detail=rejection_detail(response,self.auth)
+                raise PassError((message or f'Epic rejected the request (HTTP {response.status_code}).')+' '+(detail or 'Epic supplied no detailed reason.'))
             try:
                 result = response.json()
             except ValueError:
                 raise PassError('Epic returned an unreadable response. Refresh before trying again.') from None
             if not isinstance(result, dict) or result.get('errorCode'):
-                raise PassError('Epic did not accept the operation. Refresh to check the current pass requirements.')
+                raise PassError('Epic did not accept the operation. '+(rejection_detail(response,self.auth) or 'Epic supplied no detailed reason.'))
             return result
 
     def _url(self, operation):
@@ -306,4 +364,6 @@ class EpicPassAPI:
                 message = f'{count} of {len(action.offer_ids)} selected offers confirmed ' + ('unlocked.' if action.kind=='unlock' else 'claimed.')
             if not complete:
                 message += ' ' + (failure or 'Epic has not confirmed the rest. Check the displayed requirements before trying again.')
+            if not complete and action.kind=='claim':
+                message += '\n\n'+claim_diagnostics(definition,action,after)
             return after, message
