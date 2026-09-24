@@ -1,3 +1,6 @@
+9/24/2026 #3 (18.11.9):
+- Fixed the passes quest button opening all account quests. It now filters to the selected pass and automatically selects its quest category.
+
 9/24/2026 #2 (18.11.8):
 - Added Battle Passes in the Locker: Battle Royale, OG, Festival, and LEGO tabs, Page Up/Down navigation, bonus rewards, descriptions, and linked quest progress.
 - Added confirmed individual/page/set reward claims and supported pass/set unlocks with current account eligibility and price checks.

@@ -40,8 +40,9 @@ Select a quest-reward entry and choose **View reward quests** to open the existi
 quest browser scoped to its exact quest and linked reward bundle. It shows both
 active and completed quests initially, objective counters, and claimed status.
 Pass-only hidden quests are admitted only in that explicitly linked context;
-missing account records are not inferred to be completed. **View available
-quests** opens the normal browser across all modes. Both views use the existing
+missing account records are not inferred to be completed. **View selected pass quests** opens only quests explicitly linked to the selected
+pass and its rewards, with that pass category selected automatically. A pass
+without linked quests shows an empty list rather than unrelated account quests. Both views use the existing
 account reader. This release does not include or require a packet decoder.
 
 The general Left Alt+Q browser now respects the game's explicit bundle

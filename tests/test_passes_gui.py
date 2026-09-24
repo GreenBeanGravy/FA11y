@@ -82,11 +82,31 @@ def test_scoped_quest_dialog_keeps_active_and_completed_item_quests(dialog):
     catalog={tid:dict(name='Complete the item task',hidden=True,objectives=[dict(key='obj0',required=3)])}
     q=normalize_quest('instance',dict(templateId=tid,attributes=dict(quest_state='Claimed',completion_obj0=3)),catalog,100)
     store=QuestStore();store.replace_api(dict(quests=[q],updated_at=100))
-    child=QuestDialog(dialog,None,store=store,autoload=False,quest_templates={tid},heading='Selected reward',initial_mode='All modes')
+    child=QuestDialog(dialog,None,store=store,autoload=False,quest_templates={tid},heading='Selected reward',initial_mode='All modes',scope_label='Battle Royale Pass quests')
     try:
         assert child.filter.GetStringSelection()=='All'
+        assert child.category.GetStringSelection()=='Battle Royale Pass quests'
         assert len(child.rows)==1
         assert '3 of 3' in child.details.GetValue()
         assert 'Completed (reward claimed)' in child.details.GetValue()
     finally:
         child._closed=True;child.Destroy()
+
+
+def test_pass_button_scopes_to_selected_tab_including_empty_pass(dialog, monkeypatch):
+    import lib.guis.quest_gui as quests
+    from lib.utilities.pass_quests import related_templates
+    constructor=Mock()
+    monkeypatch.setattr(quests,'QuestDialog',constructor)
+    for index,tab in enumerate(dialog.tabs):
+        dialog.notebook.SetSelection(index)
+        dialog.open_quests()
+        kwargs=constructor.call_args.kwargs
+        expected=set()
+        for category,page in tab['pages']:
+            for reward in page['rewards']:
+                if reward['kind']=='quest':
+                    expected.update(related_templates(reward,None))
+        assert kwargs['quest_templates']==expected
+        assert kwargs['quest_templates'] is not None
+        assert kwargs['scope_label']==tab['definition']['name']+' quests'

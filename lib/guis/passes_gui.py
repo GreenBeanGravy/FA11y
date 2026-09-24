@@ -65,7 +65,7 @@ class PassesDialog(wx.Dialog):
         self.refresh_button = wx.Button(self, label='&Refresh passes')
         self.refresh_button.Bind(wx.EVT_BUTTON, self.refresh)
         footer.Add(self.refresh_button, 0, wx.ALL, 5)
-        self.quests_button=wx.Button(self,label='View &available quests')
+        self.quests_button=wx.Button(self,label='View selected &pass quests')
         self.quests_button.Bind(wx.EVT_BUTTON,lambda evt:self.open_quests())
         footer.Add(self.quests_button,0,wx.ALL,5)
         self.message = wx.StaticText(self, label='Loading account status...')
@@ -259,9 +259,20 @@ class PassesDialog(wx.Dialog):
         quest_snapshot=self.snapshot.get('quests') if self.snapshot else None
         if quest_snapshot:
             quest_store.replace_api(quest_snapshot)
-        allowed=related_templates(reward,quest_snapshot) if reward else None
-        heading=('Quests for '+self.display_name(reward)) if reward else 'Available account quests — XP can progress your active passes.'
-        dialog=QuestDialog(self,self.api.auth,quest_templates=allowed,heading=heading,initial_mode='All modes')
+        definition=self.tabs[self.notebook.GetSelection()]['definition']
+        scope=definition['name']+' quests'
+        if reward:
+            allowed=related_templates(reward,quest_snapshot)
+            heading='Quests for '+self.display_name(reward)
+        else:
+            allowed=set()
+            for category in definition['categories']:
+                for page in category['pages']:
+                    for entry in page['rewards']:
+                        if entry['kind']=='quest':
+                            allowed.update(related_templates(entry,quest_snapshot))
+            heading=scope+' - quests linked to this pass and its rewards.'
+        dialog=QuestDialog(self,self.api.auth,quest_templates=allowed,heading=heading,initial_mode='All modes',scope_label=scope)
         try:dialog.ShowModal()
         finally:dialog.Destroy()
 

@@ -12,7 +12,7 @@ from lib.utilities.quest_presentation import (prepare_quests, filter_quests, nat
 
 class QuestDialog(wx.Dialog):
     def __init__(self, parent, auth, api=None, store=None, autoload=True,
-                 quest_templates=None, heading=None, initial_mode=None):
+                 quest_templates=None, heading=None, initial_mode=None, scope_label=None):
         super().__init__(parent, title='FA11y Locker Pass Quests' if heading else 'Fortnite Quests', size=(920, 680),
                          style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.api = api or EpicQuestAPI(auth)
@@ -22,6 +22,7 @@ class QuestDialog(wx.Dialog):
         self._revision = -1
         self._error = None
         self._initial_mode = initial_mode is None
+        self.scope_label = scope_label
         self.quest_templates = set(quest_templates) if quest_templates is not None else None
         self.rows = []
         layout = wx.BoxSizer(wx.VERTICAL)
@@ -154,7 +155,11 @@ class QuestDialog(wx.Dialog):
             self._initial_mode = False
         mode = self.mode.GetStringSelection()
         categories = {q['category'] for q in rows if matches_mode(q, mode)}
-        self._choices(self.category, ['All categories'] + sorted(categories, key=natural_key))
+        if self.scope_label:
+            rows=[dict(q, category=self.scope_label) for q in rows]
+            self._choices(self.category, [self.scope_label])
+        else:
+            self._choices(self.category, ['All categories'] + sorted(categories, key=natural_key))
         self.rows = filter_quests(rows, mode=mode, category=self.category.GetStringSelection(),
                                   status=self.filter.GetStringSelection(), query=self.search.GetValue(),
                                   expired=self.expired.GetValue())
