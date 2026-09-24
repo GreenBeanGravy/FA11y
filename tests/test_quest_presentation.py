@@ -132,3 +132,21 @@ def test_exclusion_query_does_not_add_br_to_another_mode():
     from lib.utilities.quest_presentation import compatible_modes
     metadata = dict(product_query=dict(TagDictionary=[dict(TagName='Product.BR')], QueryTokenStream=[0, 1, 3, 1, 0]))
     assert 'Battle Royale' not in compatible_modes([], metadata, group_catalog())
+
+
+def test_geno_reward_trackers_have_actual_cosmetic_names_and_unknown_progress():
+    from lib.utilities.epic_quests import normalize_quest,quest_catalog
+    from lib.utilities.quest_presentation import pass_reward_names,prepare_quests,list_labels,details_text
+    templates={key for key in pass_reward_names() if 'sheerwill' in key}
+    assert len(templates)==7
+    quests=[normalize_quest(str(i),dict(templateId=t,attributes={'quest_state':'Active'}),quest_catalog(),100) for i,t in enumerate(sorted(templates))]
+    rows,_,_=prepare_quests(quests,contextual_templates=templates)
+    labels=list_labels(rows,True)
+    assert len(labels)==len(set(labels))==7
+    assert any('Ordered Conduits of Power reward' in label for label in labels)
+    assert all('Unlock progress unavailable' in label for label in labels)
+    assert not any('Selected pass reward quest' in label or 'Separate quest' in label or 'target 1' in label for label in labels)
+    assert 'not a playable quest' in details_text(rows[0])
+    quests[0]['state']='Claimed'
+    rows,_,_=prepare_quests(quests,contextual_templates=templates)
+    assert any('Reward claimed' in label for label in list_labels(rows))

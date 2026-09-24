@@ -54,7 +54,10 @@ class PassesDialog(wx.Dialog):
                 button.Bind(wx.EVT_BUTTON, lambda evt, t=tab, a=action: self.on_action(t,a))
                 tab['buttons'][action] = button
                 buttons.Add(button, 0, wx.ALL, 3)
+            tab['set_notice']=wx.StaticText(panel,label='Cannot claim full set, please claim full page')
+            tab['set_notice'].Hide()
             layout.Add(buttons, 0, wx.EXPAND | wx.ALL, 3)
+            layout.Add(tab['set_notice'],0,wx.ALL,5)
             panel.SetSizer(layout)
             self.tabs.append(tab)
             self.notebook.AddPage(panel, definition['name'])
@@ -192,7 +195,11 @@ class PassesDialog(wx.Dialog):
         tab['details'].ChangeValue(text)
         tab['buttons']['reward'].Enable(usable and bool(reward) and reward['kind']=='reward' and reward['id'] not in state['claimed'])
         tab['buttons']['page'].Enable(usable and any(r['kind']=='reward' and r['id'] not in state['claimed'] for r in page['rewards']))
-        tab['buttons']['set'].Enable(usable and definition['key']=='br' and any(r['id'] not in state['claimed'] for r in rewards(category)))
+        page_only=definition['key']=='br' and category['id']=='Set_SheerWill'
+        tab['buttons']['set'].Show(not page_only)
+        tab['set_notice'].Show(page_only)
+        tab['panel'].Layout()
+        tab['buttons']['set'].Enable(not page_only and usable and definition['key']=='br' and any(r['id'] not in state['claimed'] for r in rewards(category)))
         tab['buttons']['unlock'].Enable(usable and any(r['id'] not in state['claimed'] for r in category['unlock_offers']))
         tab['buttons']['purchase'].Enable(usable and not state['purchased'])
         tab['buttons']['quests'].Enable(not self.busy and bool(reward) and reward['kind']=='quest' and bool(related_templates(reward,self.snapshot.get('quests') if self.snapshot else None)))
@@ -217,6 +224,9 @@ class PassesDialog(wx.Dialog):
         event.Skip()
 
     def on_action(self,tab,kind):
+        if kind=='set' and self.current(tab)[0]['id']=='Set_SheerWill':
+            self.say('Cannot claim full set, please claim full page. Claim page 15 before page 16.')
+            return
         if kind=='quests':
             category,page=self.current(tab)
             index=tab['list'].GetSelection()

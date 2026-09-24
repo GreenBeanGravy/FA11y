@@ -1,0 +1,117 @@
+{
+  "source": "Release 42.20 explicit quest reward references and variant ItemName",
+  "rows": {
+    "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q01": {
+      "name": "Ordered Conduits of Power",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/SheerWill/Quest_S42_Story_SheerWill_BonusGoals_Cosmetic_Q01"
+    },
+    "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q02": {
+      "name": "Void's Wrath",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/SheerWill/Quest_S42_Story_SheerWill_BonusGoals_Cosmetic_Q02"
+    },
+    "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q03": {
+      "name": "Steps of the Void",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/SheerWill/Quest_S42_Story_SheerWill_BonusGoals_Cosmetic_Q03"
+    },
+    "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q04": {
+      "name": "Voided Rift Breaker",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/SheerWill/Quest_S42_Story_SheerWill_BonusGoals_Cosmetic_Q04"
+    },
+    "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q05": {
+      "name": "Ordered Geno",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/SheerWill/Quest_S42_Story_SheerWill_BonusGoals_Cosmetic_Q05"
+    },
+    "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q06": {
+      "name": "Void Master Geno",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/SheerWill/Quest_S42_Story_SheerWill_BonusGoals_Cosmetic_Q06"
+    },
+    "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q07": {
+      "name": "Void Conduits of Power",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/SheerWill/Quest_S42_Story_SheerWill_BonusGoals_Cosmetic_Q07"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_aerial": {
+      "name": "Aerial Assault Trooper",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Aerial"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_cuddle": {
+      "name": "Cuddle Team Leader",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Cuddle"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_aura": {
+      "name": "Aura",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Aura"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_hope": {
+      "name": "Hope",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Hope"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_luxe": {
+      "name": "Luxe",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Luxe"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_lynx": {
+      "name": "Lynx",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Lynx"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_ruby": {
+      "name": "Ruby",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Ruby"
+    },
+    "quest:quest_s42_story_blockstack_bonusgoals_cosmetic_q01": {
+      "name": "Ziggy",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStack/Quest_S42_Story_BlockStack_BonusGoals_Cosmetic_Q01"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_drift": {
+      "name": "Drift",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Drift"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_ghoul": {
+      "name": "Ghoul Trooper",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Ghoul"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_jones": {
+      "name": "Jonesy",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Jones"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_peely": {
+      "name": "Peely",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Peely"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_skull": {
+      "name": "Skull Ranger",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Skull"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_ziggy": {
+      "name": "Ziggy",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Ziggy"
+    },
+    "quest:quest_s42_bp_br_a_bonus_01": {
+      "name": "Ice-Touched Mantle",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/FoundKelp/Quest_S42_BP_BR_A_Bonus_01"
+    },
+    "quest:quest_s42_bp_br_a_bonus_02": {
+      "name": "Ice-Touched Plasma Spike",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/FoundKelp/Quest_S42_BP_BR_A_Bonus_02"
+    },
+    "quest:quest_s42_bp_br_a_bonus_03": {
+      "name": "Ice-Touched Plasmaboard",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/FoundKelp/Quest_S42_BP_BR_A_Bonus_03"
+    },
+    "quest:quest_s42_bp_br_a_bonus_04": {
+      "name": "Ice-Touched Foundation",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/FoundKelp/Quest_S42_BP_BR_A_Bonus_04"
+    },
+    "quest:quest_s42_bp_br_a_bonus_05": {
+      "name": "Icebreaker Foundation",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/FoundKelp/Quest_S42_BP_BR_A_Bonus_05"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_fishsticks": {
+      "name": "Fishstick",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Fishsticks"
+    },
+    "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_meowscles": {
+      "name": "Meowscles",
+      "asset": "/BattlePassS42_PassQuestPrereqs/Items/QuestItems/BR/BlockStackCosmetics/Quest_S42_BlockStackCosmetics_BonusGoals_Cosmetic_Meowscles"
+    }
+  }
+}

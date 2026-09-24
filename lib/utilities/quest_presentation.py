@@ -121,6 +121,14 @@ def matches_mode(row, mode):
     return mode == 'All modes' or mode in row.get('modes', [row['mode']]) or mode == row['mode']
 
 
+@lru_cache(maxsize=1)
+def pass_reward_names():
+    try:
+        return json.loads((Path(__file__).resolve().parents[1]/'data/pass_quest_rewards_4220.json').read_text(encoding='utf-8'))['rows']
+    except (OSError,ValueError,KeyError):
+        return {}
+
+
 def prepare_quests(quests, catalog=None, groups=None, contextual_templates=None):
     catalog = quest_catalog() if catalog is None else catalog
     groups = group_catalog() if groups is None else groups
@@ -139,7 +147,8 @@ def prepare_quests(quests, catalog=None, groups=None, contextual_templates=None)
                 or any('Hidden' in tag.split('.') for tag in tags)))):
             hidden += 1
             continue
-        name = clean_text(quest.get('name'))
+        tracker=pass_reward_names().get(quest.get('template','').lower()) if contextual else None
+        name = tracker['name']+' reward' if tracker else clean_text(quest.get('name'))
         if contextual and (not readable(name) or 'dummy reward token' in name.lower()):
             name='Selected pass reward quest'
         if not quest.get('metadata_available') or not readable(name):
@@ -149,6 +158,9 @@ def prepare_quests(quests, catalog=None, groups=None, contextual_templates=None)
         row = dict(quest, name=name, description=description if readable(description) else '',
                    mode=mode_text(tags, metadata, groups), modes=compatible_modes(tags, metadata, groups),
                    category=category_text(tags, groups))
+        if tracker:
+            row['reward_tracker']=True
+            row['description']='Reward unlock tracker for '+tracker['name']+'. This is an internal reward record, not a playable quest. Epic has not supplied quest instructions for this record. Missing progress does not mean zero progress.'
         rows.append(row)
     return rows, hidden, unresolved
 
@@ -193,6 +205,12 @@ def objective_progress(objective):
 
 
 def list_label(quest, include_mode=False):
+    if quest.get('reward_tracker'):
+        status={'claimed':'Reward claimed','completed':'Completion confirmed'}.get(quest['state'].lower())
+        if not status:
+            counters=[o for o in quest['objectives'] if o.get('achieved') is not None]
+            status='; '.join(objective_progress(o) for o in counters) if counters else 'Unlock progress unavailable'
+        return quest['name']+' - '+status
     prefix = f"{quest['mode']} / " if include_mode else ''
     objectives = [o for o in quest['objectives'] if not o.get('hidden')]
     progress = '; '.join((f'Objective {i}: ' if len(objectives) > 1 else '') + objective_progress(o)

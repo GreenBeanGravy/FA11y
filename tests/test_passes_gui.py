@@ -110,3 +110,19 @@ def test_pass_button_scopes_to_selected_tab_including_empty_pass(dialog, monkeyp
         assert kwargs['quest_templates']==expected
         assert kwargs['quest_templates'] is not None
         assert kwargs['scope_label']==tab['definition']['name']+' quests'
+
+
+def test_geno_pages_replace_full_set_button_with_instruction(dialog):
+    tab=dialog.tabs[0]
+    for index in (14,15):
+        tab['choice'].SetSelection(index);dialog.render_page(tab)
+        assert dialog.current(tab)[0]['id']=='Set_SheerWill'
+        assert not tab['buttons']['set'].IsShown()
+        assert not tab['buttons']['set'].IsEnabled()
+        assert tab['set_notice'].IsShown()
+        assert tab['set_notice'].GetLabel()=='Cannot claim full set, please claim full page'
+        dialog.on_action(tab,'set')
+        dialog.api.prepare.assert_not_called()
+    tab['choice'].SetSelection(0);dialog.render_page(tab)
+    assert tab['buttons']['set'].IsShown()
+    assert not tab['set_notice'].IsShown()

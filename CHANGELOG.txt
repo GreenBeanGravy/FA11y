@@ -1,3 +1,7 @@
+9/24/2026 #5 (18.11.11):
+- Replaced Claim full set on Geno pages 15 and 16 with an instruction to claim full pages in order.
+- Named 28 pass reward trackers using their actual cosmetic rewards; missing progress now reads Unlock progress unavailable.
+
 9/24/2026 #4 (18.11.10):
 - Pass claim failures now include Epic error reasons, unclaimed rewards, known prerequisites, balances, and linked quest status. Results can be reviewed and copied in a read-only text field.
 
