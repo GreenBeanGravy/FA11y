@@ -94,6 +94,8 @@ from lib.monitors.resource_monitor import resource_monitor
 from lib.monitors.storm_monitor import storm_monitor
 from lib.monitors.bloom_monitor import bloom_monitor
 from lib.monitors.match_event_monitor import match_event_monitor
+from lib.monitors.quest_account_monitor import quest_account_monitor
+from lib.app.quest_actions import open_quest_browser
 from lib.monitors.fa11y_ow_announcer import announcer as fa11y_ow_announcer
 from lib.utilities.fa11y_ow_client import client as fa11y_ow_client
 from lib.utilities.fa11y_ow_calibration import calibrate_fa11y_ow_position
@@ -259,6 +261,7 @@ def signal_handler(signum, frame):
         storm_monitor.stop_monitoring()
         bloom_monitor.stop_monitoring()
         match_event_monitor.stop_monitoring()
+        quest_account_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
         fa11y_ow_announcer.stop()
         fa11y_ow_client.stop()
@@ -423,6 +426,7 @@ def reload_config() -> None:
             'check rarity': check_rarity,
             'open gamemode selector': open_gamemode_selector,
             'open locker selector': open_locker_selector,
+            'open quest browser': open_quest_browser,
             'open locker viewer': open_locker_viewer,
             'announce reload map rotation': announce_reload_map_rotation,
             'sync current map to reload rotation': sync_current_map_to_reload_rotation,
@@ -548,7 +552,7 @@ def key_listener() -> None:
     _cached_mouse_keys = True
     _cached_ignore_numlock = False
     # Cache GUI titles tuple (immutable, allocated once)
-    gui_titles = ("FA11y Match Options", "Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login")
+    gui_titles = ("Fortnite Quests", "FA11y Match Options", "Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login")
 
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
@@ -852,6 +856,7 @@ def main() -> None:
         storm_monitor.start_monitoring()
         bloom_monitor.start_monitoring()
         match_event_monitor.start_monitoring()
+        quest_account_monitor.start_monitoring()
 
         # FA11y-OW companion-service consumer (passive equip / pickup /
         # teammate-feed announcements). The SSE client is idle when the
@@ -1041,6 +1046,7 @@ def main() -> None:
             # dynamic_object_monitor.stop_monitoring()
             storm_monitor.stop_monitoring()
             match_event_monitor.stop_monitoring()
+            quest_account_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
             fa11y_ow_announcer.stop()
             fa11y_ow_client.stop()

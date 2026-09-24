@@ -1,0 +1,58 @@
+{
+  "source": "Cooked FortChallengeBundleItemDefinition.SuppressedQuestDefs",
+  "bundles": {
+    "challengebundle:questbundle_s42_narrowflea_loosequests": [
+      "quest:quest_s42_narrowflea_suppressed"
+    ],
+    "challengebundle:missionbundle_s42_week_01": [
+      "quest:quest_s42_weekly_w01_q03",
+      "quest:quest_s42_weekly_w01_q07",
+      "quest:quest_s42_weekly_w01_q08",
+      "quest:quest_s42_weekly_w01_suppressed"
+    ],
+    "challengebundle:missionbundle_s42_week_02": [
+      "quest:quest_s42_weekly_w02_suppressed"
+    ],
+    "challengebundle:missionbundle_s42_week_03": [
+      "quest:quest_s42_weekly_w03_suppressed"
+    ],
+    "challengebundle:missionbundle_s42_week_04": [
+      "quest:quest_s42_weekly_w04_suppressed"
+    ],
+    "challengebundle:missionbundle_s42_week_05": [
+      "quest:quest_s42_weekly_w05_suppressed"
+    ],
+    "challengebundle:missionbundle_s42_week_06": [
+      "quest:quest_s42_weekly_w06_suppressed"
+    ],
+    "challengebundle:questbundle_s42_birthday_01": [
+      "quest:quest_s42_fncsbirthday_suppressed01",
+      "quest:quest_s42_fncsbirthday_suppressed02"
+    ],
+    "challengebundle:figment_s10_kickstart_bundle_p01": [
+      "quest:quest_figment_s10_kickstart_p01_suppressed",
+      "quest:quest_figment_s10_kickstart_p01_suppressed_02"
+    ],
+    "challengebundle:figment_s10_weekly_bundle_w01": [
+      "quest:quest_figment_s10_weekly_w01_suppressed"
+    ],
+    "challengebundle:figment_s10_weekly_bundle_w02": [
+      "quest:quest_figment_s10_weekly_w02_suppressed"
+    ],
+    "challengebundle:figment_s10_weekly_bundle_w03": [
+      "quest:quest_figment_s10_weekly_w03_suppressed"
+    ],
+    "challengebundle:figment_s10_weekly_bundle_w04": [
+      "quest:quest_figment_s10_weekly_w04_suppressed"
+    ],
+    "challengebundle:questbundle_squareclub_s02": [
+      "quest:quest_squareclub_s02_q11",
+      "quest:quest_squareclub_s02_q12",
+      "quest:quest_squareclub_s02_q13"
+    ],
+    "challengebundle:questbundle_ropesmile_mapspecific_kickstart": [
+      "quest:quest_ropesmile_mapspecific_kickstart_suppressed_q01",
+      "quest:quest_ropesmile_mapspecific_kickstart_suppressed_q02"
+    ]
+  }
+}

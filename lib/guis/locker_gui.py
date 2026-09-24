@@ -1356,6 +1356,10 @@ class LockerGUI(AccessibleDialog):
 
             sizer.addItem(loadout_sizer)
 
+        self.passes_btn = wx.Button(self, label="Battle &Passes")
+        self.passes_btn.Bind(wx.EVT_BUTTON, self.on_passes)
+        sizer.addItem(self.passes_btn)
+
         # Bottom buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -1379,6 +1383,14 @@ class LockerGUI(AccessibleDialog):
             return
 
         event.Skip()
+
+    def on_passes(self, event):
+        from lib.guis.passes_gui import PassesDialog
+        dialog = PassesDialog(self, self.auth, self.cosmetics_data)
+        try:
+            dialog.ShowModal()
+        finally:
+            dialog.Destroy()
 
     def on_category_selected(self, category_name: str):
         """Handle category button click - open category view"""

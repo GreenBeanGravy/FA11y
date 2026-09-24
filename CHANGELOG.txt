@@ -1,3 +1,9 @@
+9/24/2026 #2 (18.11.8):
+- Added Battle Passes in the Locker: Battle Royale, OG, Festival, and LEGO tabs, Page Up/Down navigation, bonus rewards, descriptions, and linked quest progress.
+- Added confirmed individual/page/set reward claims and supported pass/set unlocks with current account eligibility and price checks.
+- Added Left Alt+Q quests with mode/category/search/status filters and account progress announcements every 15 seconds, without a packet decoder.
+- Filtered explicitly suppressed quests, including inactive Birthday placeholders; missing counters remain unknown.
+
 9/24/2026:
 - Updated Surf City with a newly captured map and 1,229 aligned game-object locations.
 - Corrected all six Surf City POIs using the current game data, including Heatwave Harbor, Squibbly Shores, and Cashmere Cliffs.
