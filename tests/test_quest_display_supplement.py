@@ -36,12 +36,14 @@ def test_daily_pool_quests_are_covered_before_they_are_drawn():
         assert quest and quest['mode'] == mode and 'Rewards: ' in details_text(quest), template
 
 
-def test_game_disabled_and_placeholder_quests_were_not_added():
+def test_game_disabled_and_placeholder_quests_were_not_added_from_display_data():
     catalog = quest_catalog()
-    # Sprite Mastery tiers are hidden by the game itself; Epic ships "Quest Name" placeholders.
-    assert 'quest:quest_s42_spritemastery_8bit_05' not in catalog
+    # Game-hidden records never come from the display-data pass (Sprite Mastery has its own builder);
+    # Epic ships "Quest Name" placeholders.
+    assert all(not ('spritemastery' in key or 'progressiontrack' in key)
+               for key, row in catalog.items() if row.get('source') == 'QuestDisplayData')
+    assert 'quest:quest_s42_progressiontrack_20' not in catalog
     assert 'quest:quest_sparksspotlight_s15_event03_q01' not in catalog
-    assert shown('quest_s42_spritemastery_8bit_05') == (None, 0, 1)
 
 
 def test_newer_category_copy_replaces_the_older_one():

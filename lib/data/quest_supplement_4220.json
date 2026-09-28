@@ -25416,6 +25416,6166 @@
         }
       ],
       "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_spritemastery_8bit": {
+      "name": "Sprite Mastery - 8-Bit",
+      "description": "Extract an 8-Bit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_8Bit.Quest_S42_SpriteMastery_8Bit",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.8bit"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_8bit_obj0",
+          "required": 1,
+          "description": "Extract an 8-Bit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_8bit_01": {
+      "name": "Sprite Mastery - Cheat Master 8-Bit",
+      "description": "Extract a Cheat Master 8-Bit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_8Bit_01.Quest_S42_SpriteMastery_8Bit_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.8bit"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_8bit_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master 8-Bit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_8bit_02": {
+      "name": "Sprite Mastery - Gold 8-Bit",
+      "description": "Extract a Gold 8-Bit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_8Bit_02.Quest_S42_SpriteMastery_8Bit_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.8bit"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_8bit_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold 8-Bit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bushranger": {
+      "name": "Sprite Mastery - Bush",
+      "description": "Extract a Bush Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Bushranger.Quest_S42_SpriteMastery_Bushranger",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bushranger"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bushranger_obj0",
+          "required": 1,
+          "description": "Extract a Bush Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bushranger_01": {
+      "name": "Sprite Mastery - Cheat Master Bush",
+      "description": "Extract a Cheat Master Bush Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Bushranger_01.Quest_S42_SpriteMastery_Bushranger_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bushranger"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bushranger_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Bush Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bushranger_02": {
+      "name": "Sprite Mastery - Gold Bush",
+      "description": "Extract a Gold Bush Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Bushranger_02.Quest_S42_SpriteMastery_Bushranger_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bushranger"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bushranger_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Bush Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_crown": {
+      "name": "Sprite Mastery - Crown",
+      "description": "Extract a Crown Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Crown.Quest_S42_SpriteMastery_Crown",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.crown"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_crown_obj0",
+          "required": 1,
+          "description": "Extract a Crown Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_crown_01": {
+      "name": "Sprite Mastery - Cheat Master Crown",
+      "description": "Extract a Cheat Master Crown Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Crown_01.Quest_S42_SpriteMastery_Crown_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.crown"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_crown_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Crown Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_crown_02": {
+      "name": "Sprite Mastery - Gold Crown",
+      "description": "Extract a Gold Crown Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Crown_02.Quest_S42_SpriteMastery_Crown_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.crown"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_crown_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Crown Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_doublejump": {
+      "name": "Sprite Mastery - Jackrabbit",
+      "description": "Extract a Jackrabbit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_DoubleJump.Quest_S42_SpriteMastery_DoubleJump",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.doublejump"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_doublejump_obj0",
+          "required": 1,
+          "description": "Extract a Jackrabbit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_doublejump_01": {
+      "name": "Sprite Mastery - Cheat Master Jackrabbit",
+      "description": "Extract a Cheat Master Jackrabbit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_DoubleJump_01.Quest_S42_SpriteMastery_DoubleJump_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.doublejump"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_doublejump_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Jackrabbit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_doublejump_02": {
+      "name": "Sprite Mastery - Gold Jackrabbit",
+      "description": "Extract a Gold Jackrabbit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_DoubleJump_02.Quest_S42_SpriteMastery_DoubleJump_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.doublejump"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_doublejump_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Jackrabbit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_dwarf": {
+      "name": "Sprite Mastery - Adventure",
+      "description": "Extract an Adventure Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Dwarf.Quest_S42_SpriteMastery_Dwarf",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.dwarf"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_dwarf_obj0",
+          "required": 1,
+          "description": "Extract an Adventure Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_dwarf_01": {
+      "name": "Sprite Mastery - Cheat Master Adventure",
+      "description": "Extract a Cheat Master Adventure Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Dwarf_01.Quest_S42_SpriteMastery_Dwarf_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.dwarf"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_dwarf_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Adventure Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_dwarf_02": {
+      "name": "Sprite Mastery - Gold Adventure",
+      "description": "Extract a Gold Adventure Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Dwarf_02.Quest_S42_SpriteMastery_Dwarf_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.dwarf"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_dwarf_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Adventure Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_jonesy": {
+      "name": "Sprite Mastery - Jonesy",
+      "description": "Extract a Jonesy Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Jonesy.Quest_S42_SpriteMastery_Jonesy",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_jonesy_obj0",
+          "required": 1,
+          "description": "Extract a Jonesy Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_jonesy_01": {
+      "name": "Sprite Mastery - Cheat Master Jonesy",
+      "description": "Extract a Cheat Master Jonesy Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Jonesy_01.Quest_S42_SpriteMastery_Jonesy_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_jonesy_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Jonesy Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_jonesy_02": {
+      "name": "Sprite Mastery - Gold Jonesy",
+      "description": "Extract a Gold Jonesy Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Jonesy_02.Quest_S42_SpriteMastery_Jonesy_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_jonesy_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Jonesy Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_killswitch": {
+      "name": "Sprite Mastery - Killswitch",
+      "description": "Extract a Killswitch Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Killswitch.Quest_S42_SpriteMastery_Killswitch",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.killswitch"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_killswitch_obj0",
+          "required": 1,
+          "description": "Extract a Killswitch Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_killswitch_01": {
+      "name": "Sprite Mastery - Cheat Master Killswitch",
+      "description": "Extract a Cheat Master Killswitch Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Killswitch_01.Quest_S42_SpriteMastery_Killswitch_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.killswitch"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_killswitch_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Killswitch Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_killswitch_02": {
+      "name": "Sprite Mastery - Gold Killswitch",
+      "description": "Extract a Gold Killswitch Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Killswitch_02.Quest_S42_SpriteMastery_Killswitch_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.killswitch"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_killswitch_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Killswitch Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_klombo": {
+      "name": "Sprite Mastery - Klombo",
+      "description": "Extract a Klombo Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Klombo.Quest_S42_SpriteMastery_Klombo",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.klombo"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_klombo_obj0",
+          "required": 1,
+          "description": "Extract a Klombo Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_klombo_01": {
+      "name": "Sprite Mastery - Cheat Master Klombo",
+      "description": "Extract a Cheat Master Klombo Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Klombo_01.Quest_S42_SpriteMastery_Klombo_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.klombo"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_klombo_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Klombo Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_klombo_02": {
+      "name": "Sprite Mastery - Gold Klombo",
+      "description": "Extract a Gold Klombo Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Klombo_02.Quest_S42_SpriteMastery_Klombo_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.klombo"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_klombo_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Klombo Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowflea": {
+      "name": "Sprite Mastery - Sonic",
+      "description": "Extract a Sonic Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_NarrowFlea.Quest_S42_SpriteMastery_NarrowFlea",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowflea"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowflea_obj0",
+          "required": 1,
+          "description": "Extract a Sonic Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowflea_01": {
+      "name": "Sprite Mastery - Cheat Master Sonic",
+      "description": "Extract a Cheat Master Sonic Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_NarrowFlea_01.Quest_S42_SpriteMastery_NarrowFlea_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowflea"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowflea_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Sonic Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowflea_02": {
+      "name": "Sprite Mastery - Gold Sonic",
+      "description": "Extract a Gold Sonic Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_NarrowFlea_02.Quest_S42_SpriteMastery_NarrowFlea_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowflea"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowflea_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Sonic Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowfleamonkey": {
+      "name": "Sprite Mastery - Tails",
+      "description": "Extract a Tails Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_NarrowFleaMonkey.Quest_S42_SpriteMastery_NarrowFleaMonkey",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowfleamonkey_obj0",
+          "required": 1,
+          "description": "Extract a Tails Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowfleamonkey_01": {
+      "name": "Sprite Mastery - Cheat Master Tails",
+      "description": "Extract a Cheat Master Tails Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_NarrowFleaMonkey_01.Quest_S42_SpriteMastery_NarrowFleaMonkey_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowfleamonkey_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Tails Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowfleamonkey_02": {
+      "name": "Sprite Mastery - Gold Tails",
+      "description": "Extract a Gold Tails Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_NarrowFleaMonkey_02.Quest_S42_SpriteMastery_NarrowFleaMonkey_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowfleamonkey_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Tails Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_overshield": {
+      "name": "Sprite Mastery - Overshield",
+      "description": "Extract an Overshield Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Overshield.Quest_S42_SpriteMastery_Overshield",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.overshield"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_overshield_obj0",
+          "required": 1,
+          "description": "Extract an Overshield Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_overshield_01": {
+      "name": "Sprite Mastery - Cheat Master Overshield",
+      "description": "Extract a Cheat Master Overshield Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Overshield_01.Quest_S42_SpriteMastery_Overshield_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.overshield"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_overshield_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Overshield Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_overshield_02": {
+      "name": "Sprite Mastery - Gold Overshield",
+      "description": "Extract a Gold Overshield Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Overshield_02.Quest_S42_SpriteMastery_Overshield_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.overshield"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_overshield_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Overshield Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_reloadovertime": {
+      "name": "Sprite Mastery - Shadow",
+      "description": "Extract a Shadow Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_ReloadOverTime.Quest_S42_SpriteMastery_ReloadOverTime",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.reloadovertime"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_reloadovertime_obj0",
+          "required": 1,
+          "description": "Extract a Shadow Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_reloadovertime_01": {
+      "name": "Sprite Mastery - Cheat Master Shadow",
+      "description": "Extract a Cheat Master Shadow Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_ReloadOverTime_01.Quest_S42_SpriteMastery_ReloadOverTime_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.reloadovertime"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_reloadovertime_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Shadow Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_reloadovertime_02": {
+      "name": "Sprite Mastery - Gold Shadow",
+      "description": "Extract a Gold Shadow Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_ReloadOverTime_02.Quest_S42_SpriteMastery_ReloadOverTime_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.reloadovertime"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_reloadovertime_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Shadow Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_squibbly": {
+      "name": "Sprite Mastery - Squibbly",
+      "description": "Extract a Squibbly Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Squibbly.Quest_S42_SpriteMastery_Squibbly",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.squibbly"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_squibbly_obj0",
+          "required": 1,
+          "description": "Extract a Squibbly Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_squibbly_01": {
+      "name": "Sprite Mastery - Cheat Master Squibbly",
+      "description": "Extract a Cheat Master Squibbly Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Squibbly_01.Quest_S42_SpriteMastery_Squibbly_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.squibbly"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_squibbly_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Squibbly Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_squibbly_02": {
+      "name": "Sprite Mastery - Gold Squibbly",
+      "description": "Extract a Gold Squibbly Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_Squibbly_02.Quest_S42_SpriteMastery_Squibbly_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.squibbly"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_squibbly_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Squibbly Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_stormscout": {
+      "name": "Sprite Mastery - Storm Scout",
+      "description": "Extract a Storm Scout Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_StormScout.Quest_S42_SpriteMastery_StormScout",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.stormscout"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_stormscout_obj0",
+          "required": 1,
+          "description": "Extract a Storm Scout Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_stormscout_01": {
+      "name": "Sprite Mastery - Cheat Master Storm Scout",
+      "description": "Extract a Cheat Master Storm Scout Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_StormScout_01.Quest_S42_SpriteMastery_StormScout_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.stormscout"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_stormscout_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Storm Scout Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_stormscout_02": {
+      "name": "Sprite Mastery - Gold Storm Scout",
+      "description": "Extract a Gold Storm Scout Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P01/Quest_S42_SpriteMastery_StormScout_02.Quest_S42_SpriteMastery_StormScout_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.stormscout"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_stormscout_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Storm Scout Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_8bit_03": {
+      "name": "Sprite Mastery - Loot Hacker 8-Bit",
+      "description": "Extract a Loot Hacker 8-Bit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_8Bit_03.Quest_S42_SpriteMastery_8Bit_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.8bit"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_8bit_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker 8-Bit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_8bit_04": {
+      "name": "Sprite Mastery - Gummy 8-Bit",
+      "description": "Extract a Gummy 8-Bit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_8Bit_04.Quest_S42_SpriteMastery_8Bit_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.8bit"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_8bit_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy 8-Bit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bodyslam": {
+      "name": "Sprite Mastery - Crash Bandicoot",
+      "description": "Extract a Crash Bandicoot Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_BodySlam.Quest_S42_SpriteMastery_BodySlam",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bodyslam"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bodyslam_obj0",
+          "required": 1,
+          "description": "Extract a Crash Bandicoot Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bodyslam_01": {
+      "name": "Sprite Mastery - Cheat Master Crash Bandicoot",
+      "description": "Extract a Cheat Master Crash Bandicoot Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_BodySlam_01.Quest_S42_SpriteMastery_BodySlam_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bodyslam"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bodyslam_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Crash Bandicoot Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bodyslam_02": {
+      "name": "Sprite Mastery - Gold Crash Bandicoot",
+      "description": "Extract a Gold Crash Bandicoot Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_BodySlam_02.Quest_S42_SpriteMastery_BodySlam_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bodyslam"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bodyslam_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Crash Bandicoot Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bodyslam_03": {
+      "name": "Sprite Mastery - Loot Hacker Crash Bandicoot",
+      "description": "Extract a Loot Hacker Crash Bandicoot Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_BodySlam_03.Quest_S42_SpriteMastery_BodySlam_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bodyslam"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bodyslam_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Crash Bandicoot Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bodyslam_04": {
+      "name": "Sprite Mastery - Gummy Crash Bandicoot",
+      "description": "Extract a Gummy Crash Bandicoot Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_BodySlam_04.Quest_S42_SpriteMastery_BodySlam_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bodyslam"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bodyslam_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Crash Bandicoot Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bushranger_03": {
+      "name": "Sprite Mastery - Loot Hacker Bush",
+      "description": "Extract a Loot Hacker Bush Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Bushranger_03.Quest_S42_SpriteMastery_Bushranger_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bushranger"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bushranger_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Bush Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bushranger_04": {
+      "name": "Sprite Mastery - Gummy Bush",
+      "description": "Extract a Gummy Bush Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Bushranger_04.Quest_S42_SpriteMastery_Bushranger_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bushranger"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bushranger_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Bush Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_crown_03": {
+      "name": "Sprite Mastery - Loot Hacker Crown",
+      "description": "Extract a Loot Hacker Crown Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Crown_03.Quest_S42_SpriteMastery_Crown_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.crown"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_crown_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Crown Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_crown_04": {
+      "name": "Sprite Mastery - Gummy Crown",
+      "description": "Extract a Gummy Crown Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Crown_04.Quest_S42_SpriteMastery_Crown_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.crown"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_crown_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Crown Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_doublejump_03": {
+      "name": "Sprite Mastery - Loot Hacker Jackrabbit",
+      "description": "Extract a Loot Hacker Jackrabbit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_DoubleJump_03.Quest_S42_SpriteMastery_DoubleJump_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.doublejump"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_doublejump_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Jackrabbit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_doublejump_04": {
+      "name": "Sprite Mastery - Gummy Jackrabbit",
+      "description": "Extract a Gummy Jackrabbit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_DoubleJump_04.Quest_S42_SpriteMastery_DoubleJump_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.doublejump"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_doublejump_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Jackrabbit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_dwarf_03": {
+      "name": "Sprite Mastery - Loot Hacker Adventure",
+      "description": "Extract a Loot Hacker Adventure Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Dwarf_03.Quest_S42_SpriteMastery_Dwarf_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.dwarf"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_dwarf_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Adventure Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_dwarf_04": {
+      "name": "Sprite Mastery - Gummy Adventure",
+      "description": "Extract a Gummy Adventure Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Dwarf_04.Quest_S42_SpriteMastery_Dwarf_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.dwarf"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_dwarf_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Adventure Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_improvedslide": {
+      "name": "Sprite Mastery - Mega Man",
+      "description": "Extract a Mega Man Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_ImprovedSlide.Quest_S42_SpriteMastery_ImprovedSlide",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.improvedslide"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_improvedslide_obj0",
+          "required": 1,
+          "description": "Extract a Mega Man Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_improvedslide_01": {
+      "name": "Sprite Mastery - Cheat Master Mega Man",
+      "description": "Extract a Cheat Master Mega Man Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_ImprovedSlide_01.Quest_S42_SpriteMastery_ImprovedSlide_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.improvedslide"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_improvedslide_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Mega Man Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_improvedslide_02": {
+      "name": "Sprite Mastery - Gold Mega Man",
+      "description": "Extract a Gold Mega Man Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_ImprovedSlide_02.Quest_S42_SpriteMastery_ImprovedSlide_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.improvedslide"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_improvedslide_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Mega Man Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_improvedslide_03": {
+      "name": "Sprite Mastery - Loot Hacker Mega Man",
+      "description": "Extract a Loot Hacker Mega Man Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_ImprovedSlide_03.Quest_S42_SpriteMastery_ImprovedSlide_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.improvedslide"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_improvedslide_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Mega Man Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_improvedslide_04": {
+      "name": "Sprite Mastery - Gummy Mega Man",
+      "description": "Extract a Gummy Mega Man Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_ImprovedSlide_04.Quest_S42_SpriteMastery_ImprovedSlide_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.improvedslide"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_improvedslide_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Mega Man Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_jonesy_03": {
+      "name": "Sprite Mastery - Loot Hacker Jonesy",
+      "description": "Extract a Loot Hacker Jonesy Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Jonesy_03.Quest_S42_SpriteMastery_Jonesy_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_jonesy_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Jonesy Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_jonesy_04": {
+      "name": "Sprite Mastery - Gummy Jonesy",
+      "description": "Extract a Gummy Jonesy Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Jonesy_04.Quest_S42_SpriteMastery_Jonesy_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_jonesy_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Jonesy Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_killswitch_03": {
+      "name": "Sprite Mastery - Loot Hacker Killswitch",
+      "description": "Extract a Loot Hacker Killswitch Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Killswitch_03.Quest_S42_SpriteMastery_Killswitch_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.killswitch"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_killswitch_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Killswitch Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_killswitch_04": {
+      "name": "Sprite Mastery - Gold Killswitch",
+      "description": "Extract a Gold Killswitch Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Killswitch_04.Quest_S42_SpriteMastery_Killswitch_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.killswitch"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_killswitch_04_obj0",
+          "required": 1,
+          "description": "Extract a Gold Killswitch Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_klombo_03": {
+      "name": "Sprite Mastery - Loot Hacker Klombo",
+      "description": "Extract a Loot Hacker Klombo Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Klombo_03.Quest_S42_SpriteMastery_Klombo_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.klombo"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_klombo_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Klombo Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_klombo_04": {
+      "name": "Sprite Mastery - Gummy Klombo",
+      "description": "Extract a Gummy Klombo Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Klombo_04.Quest_S42_SpriteMastery_Klombo_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.klombo"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_klombo_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Klombo Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowflea_03": {
+      "name": "Sprite Mastery - Loot Hacker Sonic",
+      "description": "Extract a Loot Hacker Sonic Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_NarrowFlea_03.Quest_S42_SpriteMastery_NarrowFlea_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowflea"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowflea_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Sonic Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowflea_04": {
+      "name": "Sprite Mastery - Gummy Sonic",
+      "description": "Extract a Gummy Sonic Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_NarrowFlea_04.Quest_S42_SpriteMastery_NarrowFlea_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowflea"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowflea_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Sonic Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowfleamonkey_03": {
+      "name": "Sprite Mastery - Loot Hacker Tails",
+      "description": "Extract a Loot Hacker Tails Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_NarrowFleaMonkey_03.Quest_S42_SpriteMastery_NarrowFleaMonkey_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowfleamonkey_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Tails Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowfleamonkey_04": {
+      "name": "Sprite Mastery - Gummy Tails",
+      "description": "Extract a Gummy Tails Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_NarrowFleaMonkey_04.Quest_S42_SpriteMastery_NarrowFleaMonkey_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowfleamonkey_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Tails Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_overshield_03": {
+      "name": "Sprite Mastery - Loot Hacker Overshield",
+      "description": "Extract a Loot Hacker Overshield Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Overshield_03.Quest_S42_SpriteMastery_Overshield_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.overshield"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_overshield_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Overshield Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_overshield_04": {
+      "name": "Sprite Mastery - Gummy Overshield",
+      "description": "Extract a Gummy Overshield Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Overshield_04.Quest_S42_SpriteMastery_Overshield_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.overshield"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_overshield_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Overshield Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_reloadovertime_03": {
+      "name": "Sprite Mastery - Loot Hacker Shadow",
+      "description": "Extract a Loot Hacker Shadow Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_ReloadOverTime_03.Quest_S42_SpriteMastery_ReloadOverTime_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.reloadovertime"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_reloadovertime_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Shadow Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_reloadovertime_04": {
+      "name": "Sprite Mastery - Gummy Shadow",
+      "description": "Extract a Gummy Shadow Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_ReloadOverTime_04.Quest_S42_SpriteMastery_ReloadOverTime_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.reloadovertime"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_reloadovertime_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Shadow Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_squibbly_03": {
+      "name": "Sprite Mastery - Loot Hacker Squibbly",
+      "description": "Extract a Loot Hacker Squibbly Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Squibbly_03.Quest_S42_SpriteMastery_Squibbly_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.squibbly"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_squibbly_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Squibbly Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_squibbly_04": {
+      "name": "Sprite Mastery - Gummy Squibbly",
+      "description": "Extract a Gummy Squibbly Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_Squibbly_04.Quest_S42_SpriteMastery_Squibbly_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.squibbly"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_squibbly_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Squibbly Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_stormscout_03": {
+      "name": "Sprite Mastery - Loot Hacker Storm Scout",
+      "description": "Extract a Loot Hacker Storm Scout Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_StormScout_03.Quest_S42_SpriteMastery_StormScout_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.stormscout"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_stormscout_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Storm Scout Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_stormscout_04": {
+      "name": "Sprite Mastery - Gummy Storm Scout",
+      "description": "Extract a Gummy Storm Scout Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_StormScout_04.Quest_S42_SpriteMastery_StormScout_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.stormscout"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_stormscout_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Storm Scout Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnera": {
+      "name": "Sprite Mastery - Pond",
+      "description": "Extract a Pond Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerA.Quest_S42_SpriteMastery_WinnerA",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnera"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnera_obj0",
+          "required": 1,
+          "description": "Extract a Pond Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnera_01": {
+      "name": "Sprite Mastery - Cheat Master Pond",
+      "description": "Extract a Cheat Master Pond Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerA_01.Quest_S42_SpriteMastery_WinnerA_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnera"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnera_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Pond Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnera_02": {
+      "name": "Sprite Mastery - Gold Pond",
+      "description": "Extract a Gold Pond Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerA_02.Quest_S42_SpriteMastery_WinnerA_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnera"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnera_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Pond Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnera_03": {
+      "name": "Sprite Mastery - Loot Hacker Pond",
+      "description": "Extract a Loot Hacker Pond Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerA_03.Quest_S42_SpriteMastery_WinnerA_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnera"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnera_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Pond Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnera_04": {
+      "name": "Sprite Mastery - Gummy Pond",
+      "description": "Extract a Gummy Pond Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerA_04.Quest_S42_SpriteMastery_WinnerA_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnera"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnera_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Pond Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerb": {
+      "name": "Sprite Mastery - X-Ray",
+      "description": "Extract a X-Ray Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerB.Quest_S42_SpriteMastery_WinnerB",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerb"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerb_obj0",
+          "required": 1,
+          "description": "Extract a X-Ray Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerb_01": {
+      "name": "Sprite Mastery - Cheat Master X-Ray",
+      "description": "Extract a Cheat Master X-Ray Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerB_01.Quest_S42_SpriteMastery_WinnerB_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerb"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerb_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master X-Ray Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerb_02": {
+      "name": "Sprite Mastery - Gold X-Ray",
+      "description": "Extract a Gold X-Ray Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerB_02.Quest_S42_SpriteMastery_WinnerB_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerb"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerb_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold X-Ray Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerb_03": {
+      "name": "Sprite Mastery - Loot Hacker X-Ray",
+      "description": "Extract a Loot Hacker X-Ray Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerB_03.Quest_S42_SpriteMastery_WinnerB_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerb"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerb_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker X-Ray Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerb_04": {
+      "name": "Sprite Mastery - Gummy X-Ray",
+      "description": "Extract a Gummy X-Ray Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerB_04.Quest_S42_SpriteMastery_WinnerB_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerb"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerb_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy X-Ray Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerc": {
+      "name": "Sprite Mastery - Onigiri",
+      "description": "Extract an Onigiri Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerC.Quest_S42_SpriteMastery_WinnerC",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerc"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerc_obj0",
+          "required": 1,
+          "description": "Extract an Onigiri Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerc_01": {
+      "name": "Sprite Mastery - Cheat Master Onigiri",
+      "description": "Extract a Cheat Master Onigiri Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerC_01.Quest_S42_SpriteMastery_WinnerC_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerc"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerc_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Onigiri Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerc_02": {
+      "name": "Sprite Mastery - Gold Onigiri",
+      "description": "Extract a Gold Onigiri Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerC_02.Quest_S42_SpriteMastery_WinnerC_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerc"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerc_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Onigiri Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerc_03": {
+      "name": "Sprite Mastery - Loot Hacker Onigiri",
+      "description": "Extract a Loot Hacker Onigiri Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerC_03.Quest_S42_SpriteMastery_WinnerC_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerc"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerc_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Onigiri Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerc_04": {
+      "name": "Sprite Mastery - Gummy Onigiri",
+      "description": "Extract a Gummy Onigiri Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P02/Quest_S42_SpriteMastery_WinnerC_04.Quest_S42_SpriteMastery_WinnerC_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerc"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerc_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Onigiri Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_8bit_05": {
+      "name": "Sprite Mastery - Holofoil 8-Bit",
+      "description": "Extract a Holofoil 8-Bit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_8Bit_05.Quest_S42_SpriteMastery_8Bit_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.8bit"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_8bit_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil 8-Bit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_8bit_06": {
+      "name": "Sprite Mastery - Bounty Hunter 8-Bit",
+      "description": "Extract a Bounty Hunter 8-Bit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_8Bit_06.Quest_S42_SpriteMastery_8Bit_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.8bit"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_8bit_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter 8-Bit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_birthday": {
+      "name": "Sprite Mastery - Birthday",
+      "description": "Extract a Birthday Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Birthday.Quest_S42_SpriteMastery_Birthday",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.birthday"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_birthday_obj0",
+          "required": 1,
+          "description": "Extract a Birthday Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_birthday_01": {
+      "name": "Sprite Mastery - Cheat Master Birthday",
+      "description": "Extract a Cheat Master Birthday Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Birthday_01.Quest_S42_SpriteMastery_Birthday_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.birthday"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_birthday_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Birthday Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_birthday_02": {
+      "name": "Sprite Mastery - Gold Birthday",
+      "description": "Extract a Gold Birthday Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Birthday_02.Quest_S42_SpriteMastery_Birthday_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.birthday"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_birthday_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Birthday Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_birthday_03": {
+      "name": "Sprite Mastery - Loot Hacker Birthday",
+      "description": "Extract a Loot Hacker Birthday Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Birthday_03.Quest_S42_SpriteMastery_Birthday_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.birthday"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_birthday_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Birthday Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_birthday_04": {
+      "name": "Sprite Mastery - Gummy Birthday",
+      "description": "Extract a Gummy Birthday Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Birthday_04.Quest_S42_SpriteMastery_Birthday_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.birthday"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_birthday_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Birthday Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_birthday_05": {
+      "name": "Sprite Mastery - Holofoil Birthday",
+      "description": "Extract a Holofoil Birthday Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Birthday_05.Quest_S42_SpriteMastery_Birthday_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.birthday"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_birthday_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Birthday Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_birthday_06": {
+      "name": "Sprite Mastery - Bounty Hunter Birthday",
+      "description": "Extract a Bounty Hunter Birthday Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Birthday_06.Quest_S42_SpriteMastery_Birthday_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.birthday"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_birthday_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Birthday Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bodyslam_05": {
+      "name": "Sprite Mastery - Holofoil Crash Bandicoot",
+      "description": "Extract a Holofoil Crash Bandicoot Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_BodySlam_05.Quest_S42_SpriteMastery_BodySlam_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bodyslam"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bodyslam_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Crash Bandicoot Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bodyslam_06": {
+      "name": "Sprite Mastery - Bounty Hunter Crash Bandicoot",
+      "description": "Extract a Bounty Hunter Crash Bandicoot Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_BodySlam_06.Quest_S42_SpriteMastery_BodySlam_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bodyslam"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bodyslam_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Crash Bandicoot Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bushranger_05": {
+      "name": "Sprite Mastery - Holofoil Bush",
+      "description": "Extract a Holofoil Bush Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Bushranger_05.Quest_S42_SpriteMastery_Bushranger_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bushranger"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bushranger_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Bush Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_bushranger_06": {
+      "name": "Sprite Mastery - Bounty Hunter Bush",
+      "description": "Extract a Bounty Hunter Bush Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Bushranger_06.Quest_S42_SpriteMastery_Bushranger_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.bushranger"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_bushranger_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Bush Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_crown_05": {
+      "name": "Sprite Mastery - Holofoil Crown",
+      "description": "Extract a Holofoil Crown Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Crown_05.Quest_S42_SpriteMastery_Crown_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.crown"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_crown_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Crown Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_crown_06": {
+      "name": "Sprite Mastery - Bounty Hunter Crown",
+      "description": "Extract a Bounty Hunter Crown Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Crown_06.Quest_S42_SpriteMastery_Crown_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.crown"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_crown_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Crown Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_doublejump_05": {
+      "name": "Sprite Mastery - Holofoil Jackrabbit",
+      "description": "Extract a Holofoil Jackrabbit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_DoubleJump_05.Quest_S42_SpriteMastery_DoubleJump_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.doublejump"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_doublejump_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Jackrabbit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_doublejump_06": {
+      "name": "Sprite Mastery - Bounty Hunter Jackrabbit",
+      "description": "Extract a Bounty Hunter Jackrabbit Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_DoubleJump_06.Quest_S42_SpriteMastery_DoubleJump_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.doublejump"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_doublejump_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Jackrabbit Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_dwarf_05": {
+      "name": "Sprite Mastery - Holofoil Adventure",
+      "description": "Extract a Holofoil Adventure Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Dwarf_05.Quest_S42_SpriteMastery_Dwarf_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.dwarf"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_dwarf_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Adventure Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_dwarf_06": {
+      "name": "Sprite Mastery - Bounty Hunter Adventure",
+      "description": "Extract a Bounty Hunter Adventure Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Dwarf_06.Quest_S42_SpriteMastery_Dwarf_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.dwarf"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_dwarf_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Adventure Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_improvedslide_05": {
+      "name": "Sprite Mastery - Holofoil Mega Man",
+      "description": "Extract a Holofoil Mega Man Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_ImprovedSlide_05.Quest_S42_SpriteMastery_ImprovedSlide_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.improvedslide"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_improvedslide_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Mega Man Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_improvedslide_06": {
+      "name": "Sprite Mastery - Bounty Hunter Mega Man",
+      "description": "Extract a Bounty Hunter Mega Man Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_ImprovedSlide_06.Quest_S42_SpriteMastery_ImprovedSlide_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.improvedslide"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_improvedslide_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Mega Man Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_increaseheals": {
+      "name": "Sprite Mastery - Morgana",
+      "description": "Extract a Morgana Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_IncreaseHeals.Quest_S42_SpriteMastery_IncreaseHeals",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.increaseheals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_increaseheals_obj0",
+          "required": 1,
+          "description": "Extract a Morgana Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_increaseheals_01": {
+      "name": "Sprite Mastery - Cheat Master Morgana",
+      "description": "Extract a Cheat Master Morgana Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_IncreaseHeals_01.Quest_S42_SpriteMastery_IncreaseHeals_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.increaseheals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_increaseheals_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Morgana Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_increaseheals_02": {
+      "name": "Sprite Mastery - Gold Morgana",
+      "description": "Extract a Gold Morgana Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_IncreaseHeals_02.Quest_S42_SpriteMastery_IncreaseHeals_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.increaseheals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_increaseheals_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Morgana Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_increaseheals_03": {
+      "name": "Sprite Mastery - Loot Hacker Morgana",
+      "description": "Extract a Loot Hacker Morgana Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_IncreaseHeals_03.Quest_S42_SpriteMastery_IncreaseHeals_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.increaseheals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_increaseheals_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Morgana Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_increaseheals_04": {
+      "name": "Sprite Mastery - Gummy Morgana",
+      "description": "Extract a Gummy Morgana Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_IncreaseHeals_04.Quest_S42_SpriteMastery_IncreaseHeals_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.increaseheals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_increaseheals_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Morgana Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_increaseheals_05": {
+      "name": "Sprite Mastery - Holofoil Morgana",
+      "description": "Extract a Holofoil Morgana Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_IncreaseHeals_05.Quest_S42_SpriteMastery_IncreaseHeals_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.increaseheals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_increaseheals_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Morgana Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_increaseheals_06": {
+      "name": "Sprite Mastery - Bounty Hunter Morgana",
+      "description": "Extract a Bounty Hunter Morgana Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_IncreaseHeals_06.Quest_S42_SpriteMastery_IncreaseHeals_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.increaseheals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_increaseheals_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Morgana Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_jonesy_05": {
+      "name": "Sprite Mastery - Holofoil Jonesy",
+      "description": "Extract a Holofoil Jonesy Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Jonesy_05.Quest_S42_SpriteMastery_Jonesy_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_jonesy_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Jonesy Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_jonesy_06": {
+      "name": "Sprite Mastery - Bounty Hunter Jonesy",
+      "description": "Extract a Bounty Hunter Jonesy Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Jonesy_06.Quest_S42_SpriteMastery_Jonesy_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_jonesy_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Jonesy Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_killswitch_05": {
+      "name": "Sprite Mastery - Holofoil Killswitch",
+      "description": "Extract a Holofoil Killswitch Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Killswitch_05.Quest_S42_SpriteMastery_Killswitch_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.killswitch"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_killswitch_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Killswitch Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_killswitch_06": {
+      "name": "Sprite Mastery - Bounty Hunter Killswitch",
+      "description": "Extract a Bounty Hunter Killswitch Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Killswitch_06.Quest_S42_SpriteMastery_Killswitch_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.killswitch"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_killswitch_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Killswitch Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_klombo_05": {
+      "name": "Sprite Mastery - Holofoil Klombo",
+      "description": "Extract a Holofoil Klombo Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Klombo_05.Quest_S42_SpriteMastery_Klombo_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.klombo"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_klombo_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Klombo Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_klombo_06": {
+      "name": "Sprite Mastery - Bounty Hunter Klombo",
+      "description": "Extract a Bounty Hunter Klombo Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Klombo_06.Quest_S42_SpriteMastery_Klombo_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.klombo"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_klombo_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Klombo Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowflea_05": {
+      "name": "Sprite Mastery - Holofoil Sonic",
+      "description": "Extract a Holofoil Sonic Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_NarrowFlea_05.Quest_S42_SpriteMastery_NarrowFlea_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowflea"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowflea_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Sonic Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowflea_06": {
+      "name": "Sprite Mastery - Bounty Hunter Sonic",
+      "description": "Extract a Bounty Hunter Sonic Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_NarrowFlea_06.Quest_S42_SpriteMastery_NarrowFlea_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowflea"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowflea_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Sonic Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowfleamonkey_05": {
+      "name": "Sprite Mastery - Holofoil Tails",
+      "description": "Extract a Holofoil Tails Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_NarrowFleaMonkey_05.Quest_S42_SpriteMastery_NarrowFleaMonkey_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowfleamonkey_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Tails Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_narrowfleamonkey_06": {
+      "name": "Sprite Mastery - Bounty Hunter Tails",
+      "description": "Extract a Bounty Hunter Tails Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_NarrowFleaMonkey_06.Quest_S42_SpriteMastery_NarrowFleaMonkey_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_narrowfleamonkey_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Tails Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_overshield_05": {
+      "name": "Sprite Mastery - Holofoil Overshield",
+      "description": "Extract a Holofoil Overshield Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Overshield_05.Quest_S42_SpriteMastery_Overshield_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.overshield"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_overshield_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Overshield Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_overshield_06": {
+      "name": "Sprite Mastery - Bounty Hunter Overshield",
+      "description": "Extract a Bounty Hunter Overshield Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Overshield_06.Quest_S42_SpriteMastery_Overshield_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.overshield"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_overshield_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Overshield Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_reloadovertime_05": {
+      "name": "Sprite Mastery - Holofoil Shadow",
+      "description": "Extract a Holofoil Shadow Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_ReloadOverTime_05.Quest_S42_SpriteMastery_ReloadOverTime_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.reloadovertime"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_reloadovertime_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Shadow Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_reloadovertime_06": {
+      "name": "Sprite Mastery - Bounty Hunter Shadow",
+      "description": "Extract a Bounty Hunter Shadow Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_ReloadOverTime_06.Quest_S42_SpriteMastery_ReloadOverTime_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.reloadovertime"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_reloadovertime_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Shadow Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_squibbly_05": {
+      "name": "Sprite Mastery - Holofoil Squibbly",
+      "description": "Extract a Holofoil Squibbly Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Squibbly_05.Quest_S42_SpriteMastery_Squibbly_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.squibbly"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_squibbly_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Squibbly Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_squibbly_06": {
+      "name": "Sprite Mastery - Bounty Hunter Squibbly",
+      "description": "Extract a Bounty Hunter Squibbly Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_Squibbly_06.Quest_S42_SpriteMastery_Squibbly_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.squibbly"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_squibbly_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Squibbly Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_stormscout_05": {
+      "name": "Sprite Mastery - Holofoil Storm Scout",
+      "description": "Extract a Holofoil Storm Scout Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_StormScout_05.Quest_S42_SpriteMastery_StormScout_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.stormscout"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_stormscout_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Storm Scout Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_stormscout_06": {
+      "name": "Sprite Mastery - Bounty Hunter Storm Scout",
+      "description": "Extract a Bounty Hunter Storm Scout Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_StormScout_06.Quest_S42_SpriteMastery_StormScout_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.stormscout"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_stormscout_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Storm Scout Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnera_05": {
+      "name": "Sprite Mastery - Holofoil Pond",
+      "description": "Extract a Holofoil Pond Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerA_05.Quest_S42_SpriteMastery_WinnerA_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnera"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnera_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Pond Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnera_06": {
+      "name": "Sprite Mastery - Bounty Hunter Pond",
+      "description": "Extract a Bounty Hunter Pond Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerA_06.Quest_S42_SpriteMastery_WinnerA_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnera"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnera_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Pond Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerb_05": {
+      "name": "Sprite Mastery - Holofoil X-Ray",
+      "description": "Extract a Holofoil X-Ray Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerB_05.Quest_S42_SpriteMastery_WinnerB_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerb"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerb_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil X-Ray Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerb_06": {
+      "name": "Sprite Mastery - Bounty Hunter X-Ray",
+      "description": "Extract a Bounty Hunter X-Ray Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerB_06.Quest_S42_SpriteMastery_WinnerB_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerb"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerb_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter X-Ray Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerc_05": {
+      "name": "Sprite Mastery - Holofoil Onigiri",
+      "description": "Extract a Holofoil Onigiri Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerC_05.Quest_S42_SpriteMastery_WinnerC_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerc"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerc_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Onigiri Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerc_06": {
+      "name": "Sprite Mastery - Bounty Hunter Onigiri",
+      "description": "Extract a Bounty Hunter Onigiri Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerC_06.Quest_S42_SpriteMastery_WinnerC_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerc"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerc_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Onigiri Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerd": {
+      "name": "Sprite Mastery - Dumpster Dive",
+      "description": "Extract a Dumpster Dive Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerD.Quest_S42_SpriteMastery_WinnerD",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerd"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 0,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerd_obj0",
+          "required": 1,
+          "description": "Extract a Dumpster Dive Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerd_01": {
+      "name": "Sprite Mastery - Cheat Master Dumpster Dive",
+      "description": "Extract a Cheat Master Dumpster Dive Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerD_01.Quest_S42_SpriteMastery_WinnerD_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerd"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerd_01_obj0",
+          "required": 1,
+          "description": "Extract a Cheat Master Dumpster Dive Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerd_02": {
+      "name": "Sprite Mastery - Gold Dumpster Dive",
+      "description": "Extract a Gold Dumpster Dive Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerD_02.Quest_S42_SpriteMastery_WinnerD_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerd"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerd_02_obj0",
+          "required": 1,
+          "description": "Extract a Gold Dumpster Dive Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerd_03": {
+      "name": "Sprite Mastery - Loot Hacker Dumpster Dive",
+      "description": "Extract a Loot Hacker Dumpster Dive Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerD_03.Quest_S42_SpriteMastery_WinnerD_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerd"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerd_03_obj0",
+          "required": 1,
+          "description": "Extract a Loot Hacker Dumpster Dive Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerd_04": {
+      "name": "Sprite Mastery - Gummy Dumpster Dive",
+      "description": "Extract a Gummy Dumpster Dive Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerD_04.Quest_S42_SpriteMastery_WinnerD_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerd"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerd_04_obj0",
+          "required": 1,
+          "description": "Extract a Gummy Dumpster Dive Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerd_05": {
+      "name": "Sprite Mastery - Holofoil Dumpster Dive",
+      "description": "Extract a Holofoil Dumpster Dive Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerD_05.Quest_S42_SpriteMastery_WinnerD_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerd"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerd_05_obj0",
+          "required": 1,
+          "description": "Extract a Holofoil Dumpster Dive Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_spritemastery_winnerd_06": {
+      "name": "Sprite Mastery - Bounty Hunter Dumpster Dive",
+      "description": "Extract a Bounty Hunter Dumpster Dive Sprite to master it.",
+      "asset": "/BattlePassS42_Quests/Items/QuestItems/BattlePassQuests/SpriteMastery/P03/Quest_S42_SpriteMastery_WinnerD_06.Quest_S42_SpriteMastery_WinnerD_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.winnerd"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_spritemastery_winnerd_06_obj0",
+          "required": 1,
+          "description": "Extract a Bounty Hunter Dumpster Dive Sprite",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
     }
   },
   "sources": [
@@ -28262,6 +34422,126 @@
       ],
       "exclude": [],
       "headers": []
+    },
+    {
+      "asset": "/FA11y/SpriteMastery",
+      "name": "Sprite Mastery",
+      "tags": [
+        "QuestCategory.FA11y.SpriteMastery"
+      ],
+      "exclude": [],
+      "headers": [
+        {
+          "name": "8-Bit",
+          "tag": "QuestCategory.FA11y.SpriteMastery.8bit",
+          "description": ""
+        },
+        {
+          "name": "Adventure",
+          "tag": "QuestCategory.FA11y.SpriteMastery.dwarf",
+          "description": ""
+        },
+        {
+          "name": "Birthday",
+          "tag": "QuestCategory.FA11y.SpriteMastery.birthday",
+          "description": ""
+        },
+        {
+          "name": "Bush",
+          "tag": "QuestCategory.FA11y.SpriteMastery.bushranger",
+          "description": ""
+        },
+        {
+          "name": "Crash Bandicoot",
+          "tag": "QuestCategory.FA11y.SpriteMastery.bodyslam",
+          "description": ""
+        },
+        {
+          "name": "Crown",
+          "tag": "QuestCategory.FA11y.SpriteMastery.crown",
+          "description": ""
+        },
+        {
+          "name": "Dumpster Dive",
+          "tag": "QuestCategory.FA11y.SpriteMastery.winnerd",
+          "description": ""
+        },
+        {
+          "name": "Jackrabbit",
+          "tag": "QuestCategory.FA11y.SpriteMastery.doublejump",
+          "description": ""
+        },
+        {
+          "name": "Jonesy",
+          "tag": "QuestCategory.FA11y.SpriteMastery.jonesy",
+          "description": ""
+        },
+        {
+          "name": "Killswitch",
+          "tag": "QuestCategory.FA11y.SpriteMastery.killswitch",
+          "description": ""
+        },
+        {
+          "name": "Klombo",
+          "tag": "QuestCategory.FA11y.SpriteMastery.klombo",
+          "description": ""
+        },
+        {
+          "name": "Mega Man",
+          "tag": "QuestCategory.FA11y.SpriteMastery.improvedslide",
+          "description": ""
+        },
+        {
+          "name": "Morgana",
+          "tag": "QuestCategory.FA11y.SpriteMastery.increaseheals",
+          "description": ""
+        },
+        {
+          "name": "Onigiri",
+          "tag": "QuestCategory.FA11y.SpriteMastery.winnerc",
+          "description": ""
+        },
+        {
+          "name": "Overshield",
+          "tag": "QuestCategory.FA11y.SpriteMastery.overshield",
+          "description": ""
+        },
+        {
+          "name": "Pond",
+          "tag": "QuestCategory.FA11y.SpriteMastery.winnera",
+          "description": ""
+        },
+        {
+          "name": "Shadow",
+          "tag": "QuestCategory.FA11y.SpriteMastery.reloadovertime",
+          "description": ""
+        },
+        {
+          "name": "Sonic",
+          "tag": "QuestCategory.FA11y.SpriteMastery.narrowflea",
+          "description": ""
+        },
+        {
+          "name": "Squibbly",
+          "tag": "QuestCategory.FA11y.SpriteMastery.squibbly",
+          "description": ""
+        },
+        {
+          "name": "Storm Scout",
+          "tag": "QuestCategory.FA11y.SpriteMastery.stormscout",
+          "description": ""
+        },
+        {
+          "name": "Tails",
+          "tag": "QuestCategory.FA11y.SpriteMastery.narrowfleamonkey",
+          "description": ""
+        },
+        {
+          "name": "X-Ray",
+          "tag": "QuestCategory.FA11y.SpriteMastery.winnerb",
+          "description": ""
+        }
+      ]
     }
   ],
   "display_supplement": {

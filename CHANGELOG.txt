@@ -1,3 +1,7 @@
+9/28/2026 #3 (18.11.14):
+- Sprite Mastery quests now appear in Left Alt+Q quests under Battle Royale, in a Sprite Mastery category with one heading per sprite. All seven tiers are named after the sprite to extract, from base through Cheat Master, Gold, Loot Hacker, Gummy, Holofoil, and Bounty Hunter, including the new Birthday, Crash Bandicoot, Morgana, and Dumpster Dive sprites.
+- Three sprites Fortnite hasn't named yet are left out until they have names.
+
 9/28/2026 #2 (18.11.13):
 - Left Alt+Q quests now include 364 current quests that were missing from the list, such as the new Reload Map Mastery tiers (Map Mastery / Oasis Mastery), Battle Royale weeks 4 to 6, the Gotta Go Fast! questline, OG weeks 3 and 4, and full daily quest pools for Reload, OG, Blitz Royale, Festival, LEGO, and Arenas.
 - Quests Fortnite itself hides, such as Sprite Mastery tiers and internal granters, are still left out.
