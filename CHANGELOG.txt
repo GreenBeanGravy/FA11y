@@ -1,3 +1,7 @@
+9/28/2026 #2 (18.11.13):
+- Left Alt+Q quests now include 364 current quests that were missing from the list, such as the new Reload Map Mastery tiers (Map Mastery / Oasis Mastery), Battle Royale weeks 4 to 6, the Gotta Go Fast! questline, OG weeks 3 and 4, and full daily quest pools for Reload, OG, Blitz Royale, Festival, LEGO, and Arenas.
+- Quests Fortnite itself hides, such as Sprite Mastery tiers and internal granters, are still left out.
+
 9/28/2026 #1 (18.11.12):
 - Quest details in Left Alt+Q quests now list each quest's rewards before you earn them: XP, cosmetics, styles, sidekick items, LEGO builds and decor, and Override rewards, matching Fortnite's own quest screen.
 - Rewards that need the Battle Pass or another unlock are marked as a Battle Pass or premium bonus, and quests that unlock other quests name them.

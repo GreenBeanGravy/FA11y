@@ -31,7 +31,10 @@ def group_catalog():
         groups = json.loads((Path(__file__).resolve().parents[1] / 'data/quest_groups_4210.json').read_text(encoding='utf-8'))
         supplement = Path(__file__).resolve().parents[1] / 'data/quest_supplement_4220.json'
         if supplement.exists():
-            groups['categories'].extend(json.loads(supplement.read_text(encoding='utf-8')).get('categories', []))
+            newer = json.loads(supplement.read_text(encoding='utf-8')).get('categories', [])
+            # A newer copy of the same category asset (for example with added week headers) replaces the old one.
+            replaced = {c.get('asset') for c in newer}
+            groups['categories'] = [c for c in groups['categories'] if c.get('asset') not in replaced] + newer
         return groups
     except (OSError, ValueError):
         return dict(categories=[], products={})

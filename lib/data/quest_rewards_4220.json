@@ -26,7 +26,31 @@
     "quantity": 1000
    }
   ],
+  "quest:q_juno_nxs_sandbox_daily_build_guidedalpine": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_sandbox_daily_build_guideddryvalley": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_guidedgrasslands": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_guidedlostisle": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_guidedvillage": [
    {
     "type": "xp",
     "quantity": 3000
@@ -38,7 +62,31 @@
     "quantity": 1000
    }
   ],
+  "quest:q_juno_nxs_sandbox_daily_build_remodelalpine": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_sandbox_daily_build_remodeldryvalley": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_remodelgrasslands": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_remodellostisle": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_vehicle": [
    {
     "type": "xp",
     "quantity": 3000
@@ -50,10 +98,22 @@
     "quantity": 3000
    }
   ],
+  "quest:q_juno_nxs_sandbox_daily_craft_dynamicplatform": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_sandbox_daily_damage_any": [
    {
     "type": "xp",
     "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_travel_klombo": [
+   {
+    "type": "xp",
+    "quantity": 3000
    }
   ],
   "quest:q_juno_nxs_sandbox_daily_travel_vehicle": [
@@ -68,10 +128,22 @@
     "quantity": 3000
    }
   ],
+  "quest:q_juno_nxs_sandbox_daily_use_thrusters": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_sandbox_daily_use_toys": [
    {
     "type": "xp",
     "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_village_alpine": [
+   {
+    "type": "xp",
+    "quantity": 3000
    }
   ],
   "quest:q_juno_nxs_sandbox_daily_village_desert": [
@@ -80,7 +152,31 @@
     "quantity": 3000
    }
   ],
+  "quest:q_juno_nxs_sandbox_daily_village_grasslands": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_sandbox_daily_village_jungle": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_village_recruitnpc": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_build_addtovehicle": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_build_anyguidedbuild": [
    {
     "type": "xp",
     "quantity": 3000
@@ -98,7 +194,25 @@
     "quantity": 1000
    }
   ],
+  "quest:q_juno_nxs_survival_daily_collect_bones": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_survival_daily_collect_essence": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_craft_ammo": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_craft_dynamite": [
    {
     "type": "xp",
     "quantity": 3000
@@ -116,7 +230,25 @@
     "quantity": 3000
    }
   ],
+  "quest:q_juno_nxs_survival_daily_damage_flintknock": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_survival_daily_damage_melee": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_damage_ranged": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_damage_runes": [
    {
     "type": "xp",
     "quantity": 3000
@@ -128,7 +260,43 @@
     "quantity": 1000
    }
   ],
+  "quest:q_juno_nxs_survival_daily_fish_caves": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_fish_night": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_harvest_cacti": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_survival_daily_harvest_gold": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_bandit": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_cannon": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_caves": [
    {
     "type": "xp",
     "quantity": 3000
@@ -146,7 +314,31 @@
     "quantity": 1000
    }
   ],
+  "quest:q_juno_nxs_survival_daily_hunt_pests": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_pirate": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_runes": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_survival_daily_hunt_skeleton": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_npc_pet": [
    {
     "type": "xp",
     "quantity": 3000
@@ -158,10 +350,28 @@
     "quantity": 1000
    }
   ],
+  "quest:q_juno_nxs_survival_daily_use_toys_driving": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:q_juno_nxs_survival_daily_village_collect": [
    {
     "type": "xp",
     "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_village_recruitnpc": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_visit_driving": [
+   {
+    "type": "xp",
+    "quantity": 3000
    }
   ],
   "quest:q_sprout_daily_punchcard_01": [
@@ -330,7 +540,229 @@
     "cosmetic_category": "Companion"
    }
   ],
+  "quest:quest_daily_blastberry_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_09": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_12": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_13": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_14": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_15": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_16": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_17": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:quest_daily_blastberry_18": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_19": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_20": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_21": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_22": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_23": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_24": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_25": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_26": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_27": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_28": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_29": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_30": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_31": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_32": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_33": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_34": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_35": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_36": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_37": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_38": [
    {
     "type": "xp",
     "quantity": 1000
@@ -342,7 +774,67 @@
     "quantity": 1000
    }
   ],
+  "quest:quest_daily_blastberry_40": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:quest_daily_blastberry_41": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_42": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_43": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_44": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_45": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_46": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_47": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_48": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_49": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_50": [
    {
     "type": "xp",
     "quantity": 1000
@@ -1164,6 +1656,24 @@
     "quantity": 1000
    }
   ],
+  "quest:quest_daily_supressed_blastberry_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_supressed_blastberry_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_supressed_blastberry_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:quest_daily_tougher_09": [
    {
     "type": "xp",
@@ -1323,7 +1833,49 @@
     "quantity": 5000
    }
   ],
+  "quest:quest_ff_daily_combat_collect_elim_item": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_collect_elim_weapon": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_crack": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_damage": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_damage_ar": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_damage_melee": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:quest_ff_daily_combat_damage_nearby": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_damage_pistol": [
    {
     "type": "xp",
     "quantity": 1000
@@ -1335,7 +1887,187 @@
     "quantity": 1000
    }
   ],
+  "quest:quest_ff_daily_combat_damage_smg": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_ar": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_epic": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_legendary": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_melee": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_pistol": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_rare": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_shotgun": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_elim_smg": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_hit_ar": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_hit_melee": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_hit_pistol": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_hit_shotgun": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_hit_smg": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_collect_weapon_epic": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_collect_weapon_legendary": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_collect_weapon_rare": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_destroy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_destroy_slurp": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_heal_shield": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_outlast": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_purchase_mending": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_search_chest_rare": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_survive_storm": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:quest_ff_daily_noncombat_travel": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_travel_slide": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_travel_sprint": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_collect_ammo": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_collect_traps": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_collect_weapons_chests": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_ads": [
    {
     "type": "xp",
     "quantity": 1000
@@ -1347,13 +2079,577 @@
     "quantity": 1000
    }
   ],
+  "quest:quest_figment_daily_damage_flushfactorymire": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_greasyanarchy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_hipfire": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_lodgesprings": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_miretomatotown": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_neomall": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_paradiselinks": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_pistols": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_pleasantfields": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_pressurepeak": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_retaillake": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:quest_figment_daily_damage_shotguns": [
    {
     "type": "xp",
     "quantity": 1000
    }
   ],
+  "quest:quest_figment_daily_damage_smgs": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_sniperrifles": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_snobbyfields": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_springsanarchy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_tiltedrow": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_wailingdepot": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_destroy_structures": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_elim_assaultriflesmg": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_elim_pistolsmg": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_elim_shotgunsniper": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_differentmatches": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_flushfactorymire": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_greasyanarchy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_hauntedfactory": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_hauntedhamlet": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_lodgesprings": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_lonelyjunction": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_luckylanding": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_megalake": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_miretomatotown": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_neoshores": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_paradiselinks": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_pleasantfields": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_retaillake": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_riskylanding": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_shiftyacres": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_snobbyfields": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_springsanarchy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_tiltedshores": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_gainshields_wailingdepot": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_headshot_scopedweapons": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_flushfactorymire": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_greasyanarchy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_hauntedmall": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_hauntedrow": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_junkgrove": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_junkpeak": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_lodgesprings": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_miretomatotown": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_neolodge": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_paradiselinks": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_pleasantfields": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_pressurelanding": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_retaillake": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_shiftylake": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_snobbymire": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_springsanarchy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_tiltedlodge": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_landbus_wailingdepot": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_restorehealth_differentmatches": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_anarchy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_dustydepot": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_fields": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_flushfactory": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_frostyflights": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_greasy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_happyhamlet": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_hauntedhills": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_junkjunction": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_links": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_lodge": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_lootlake": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_luckylanding": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_megamall": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_moisty": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_neotilted": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_paradise": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_pleasant": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_polarpeak": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_retail": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_riskyreels": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_saltysprings": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_shiftyshafts": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_snobbyshores": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_supplydrops": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_tiltedtowers": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_tomatotown": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:quest_figment_daily_search_woods": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_traveldistance_crouchslide": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_unvault_backfill_eliminate": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_unvault_backfill_searchchests": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_unvault_collect_bush": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_unvault_traveldistance_bush": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_unvault_use_slurpjuice": [
    {
     "type": "xp",
     "quantity": 1000
@@ -1401,7 +2697,19 @@
     "quantity": 5000
    }
   ],
+  "quest:quest_figment_milestone_eliminateopponents": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
   "quest:quest_figment_milestone_gainshields": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_headshotopponents": [
    {
     "type": "xp",
     "quantity": 5000
@@ -1413,7 +2721,31 @@
     "quantity": 5000
    }
   ],
+  "quest:quest_figment_milestone_outlastplayers": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_searchchestsammoboxes": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
   "quest:quest_figment_milestone_survivestormcircles": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_thankbusdriver": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_traveldistance": [
    {
     "type": "xp",
     "quantity": 5000
@@ -1582,6 +2914,60 @@
    }
   ],
   "quest:quest_figment_s10_weekly_w01_q04": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w03_q01": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w03_q02": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w03_q03": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w03_q04": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w03_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w04_q01": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w04_q02": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w04_q03": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w04_q04": [
    {
     "type": "xp",
     "quantity": 8000
@@ -2297,6 +3683,13 @@
     "category": "LEGO decor"
    }
   ],
+  "quest:quest_junotabasco_krakenevent_krakentrophy": [
+   {
+    "type": "item",
+    "name": "The Trophy From Beneath",
+    "category": "LEGO decor"
+   }
+  ],
   "quest:quest_mapmastery_03_blastberry_q01": [
    {
     "type": "xp",
@@ -2376,6 +3769,12 @@
    }
   ],
   "quest:quest_mapmastery_03_punchberry_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_punchberry_q02": [
    {
     "type": "xp",
     "quantity": 10000
@@ -2627,10 +4026,238 @@
     "quantity": 1000
    }
   ],
+  "quest:quest_s40_ff_ev_collect_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_collect_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_collect_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_collect_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_collect_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_collect_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q08": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_damage_q09": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:quest_s40_ff_ev_elims_q04": [
    {
     "type": "xp",
     "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q08": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q09": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q11": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q12": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_emote_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_emote_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_emote_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_emote_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_emote_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_emote_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
    }
   ],
   "quest:quest_s40_ff_ev_hit_q07": [
@@ -2639,10 +4266,124 @@
     "quantity": 1000
    }
   ],
+  "quest:quest_s40_ff_ev_hit_q08": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q09": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_outlast_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_outlast_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_outlast_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_outlast_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_outlast_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_outlast_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
   "quest:quest_s40_ff_ev_search_q01": [
    {
     "type": "xp",
     "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_search_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_search_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_search_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_search_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_search_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_travel_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_travel_q02": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_travel_q03": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:quest_s40_ff_ev_travel_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_travel_q05": [
+   {
+    "type": "xp",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s40_ff_ev_travel_q06": [
+   {
+    "type": "xp",
+    "quantity": 3000
    }
   ],
   "quest:quest_s40_sparrow_01": [
@@ -3245,6 +4986,55 @@
     "quantity": 5000
    }
   ],
+  "quest:quest_s42_narrowflea_bonus_q03": [
+   {
+    "type": "item",
+    "name": "Take it to the End Zone",
+    "category": "Loading Screen"
+   }
+  ],
+  "quest:quest_s42_narrowflea_hidden": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_s42_narrowflea_q02": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_s42_narrowflea_q03": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_s42_narrowflea_q04": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_s42_narrowflea_q05": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_s42_narrowflea_q06": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_s42_narrowflea_q07": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
   "quest:quest_s42_previousseason_spritedust": [
    {
     "type": "item",
@@ -3404,6 +5194,20 @@
     "type": "item",
     "name": "Llama Streamers",
     "category": "Contrail"
+   }
+  ],
+  "quest:quest_s42_spritebackbling_br_q01": [
+   {
+    "type": "item",
+    "name": "Pixel Sprite Trainer",
+    "category": "Back Bling"
+   }
+  ],
+  "quest:quest_s42_spritebackbling_uefn_q01": [
+   {
+    "type": "item",
+    "name": "Banner Icon",
+    "category": "Banner Icon"
    }
   ],
   "quest:quest_s42_spritemastery_8bit": [
@@ -4533,6 +6337,60 @@
     "quantity": 20000
    }
   ],
+  "quest:quest_s42_weekly_w04_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w04_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w05_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w05_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w05_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w06_q02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w06_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w06_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w06_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
   "quest:quest_scrollvessel_progression_q01": [
    {
     "type": "quest",
@@ -4569,6 +6427,12 @@
     "category": "Emote",
     "cosmetic": "Louis",
     "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_sizetribe_progression_q01": [
+   {
+    "type": "quest",
+    "name": "Earn Sidekick Points with Tails"
    }
   ],
   "quest:quest_spheredaily_progression_q01": [
@@ -4610,6 +6474,54 @@
    }
   ],
   "quest:quest_squareclub_daily_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q09": [
    {
     "type": "xp",
     "quantity": 1000
@@ -4751,6 +6663,13 @@
     "quantity": 1
    }
   ],
+  "quest:quest_tofugarden_firstwinfriends": [
+   {
+    "type": "resource",
+    "name": "Victory Wings Bonus Win",
+    "quantity": 1
+   }
+  ],
   "quest:quest_tofugarden_firstwinmobile": [
    {
     "type": "resource",
@@ -4814,6 +6733,12 @@
    }
   ],
   "quest:quest_weeklycreative_v1_fs_category_co_q06": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_co_q11": [
    {
     "type": "xp",
     "quantity": 5000
@@ -4891,13 +6816,127 @@
     "quantity": 20000
    }
   ],
+  "quest:quest_weeklycreative_v1_fullseason_bonusgoal_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_dailybass_earnpoints": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailybass_emote": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailybass_overdriveattack": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailybass_playnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailybass_playnotestreak": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailybass_playperfectnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailybass_scoremultiplier": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailybass_songaccuracy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:sparksquest_dailybass_songmissnotes": [
    {
     "type": "xp",
     "quantity": 1000
    }
   ],
+  "quest:sparksquest_dailybass_songperfectaccuracy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_earnpoints": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:sparksquest_dailydrums_emote": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_overdriveattack": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_playnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_playnotestreak": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_playperfectnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_scoremultiplier": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_songaccuracy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_songmissnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_songperfectaccuracy": [
    {
     "type": "xp",
     "quantity": 1000
@@ -4921,6 +6960,60 @@
     "quantity": 1000
    }
   ],
+  "quest:sparksquest_dailylead_earnpoints": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_emote": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_overdriveattack": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_playnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_playnotestreak": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_playperfectnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_scoremultiplier": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_songaccuracy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_songmissnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
   "quest:sparksquest_dailylead_songperfectaccuracy": [
    {
     "type": "xp",
@@ -4934,6 +7027,60 @@
    }
   ],
   "quest:sparksquest_dailyvocals_earnpoints": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_emote": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_overdriveattack": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_playnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_playnotestreak": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_playperfectnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_scoremultiplier": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_songaccuracy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_songmissnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_songperfectaccuracy": [
    {
     "type": "xp",
     "quantity": 1000
@@ -5054,6 +7201,24 @@
    }
   ],
   "quest:sparksquest_s15_weeklychallenge_w05": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w06": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w07": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w08": [
    {
     "type": "xp",
     "quantity": 30000
