@@ -122,6 +122,66 @@ def matches_mode(row, mode):
 
 
 @lru_cache(maxsize=1)
+def quest_rewards():
+    """Rewards Fortnite shows for each quest template, built by tools/build_quest_rewards.py."""
+    try:
+        return json.loads((Path(__file__).resolve().parents[1] / 'data/quest_rewards_4220.json').read_text(encoding='utf-8'))['rows']
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
+def _with_category(name, category):
+    # "Yeddy outfit", but not "Banner Icon banner icon"; acronyms such as LEGO keep their case.
+    if not category or category.casefold() in name.casefold():
+        return name
+    return name + ' ' + ' '.join(w if w.isupper() and len(w) > 1 else w.lower() for w in category.split())
+
+
+def reward_text(reward):
+    kind = reward.get('type')
+    if kind == 'xp':
+        return f"{format(reward.get('quantity') or 0, ',')} XP"
+    if kind == 'resource':
+        quantity = reward.get('quantity')
+        return f"{format(quantity, ',')} {reward['name']}" if isinstance(quantity, int) and quantity > 1 else reward['name']
+    if kind == 'style':
+        # A style tagged with its cosmetic's own type ("Ziggy" outfit for the Wrixel outfit)
+        # is still a style of that cosmetic; other unlock types (companion emotes) keep theirs.
+        category = reward.get('category')
+        if not category or category.casefold() == (reward.get('cosmetic_category') or '').casefold():
+            category = 'Style'
+        text = _with_category(reward['name'], category)
+        if reward.get('cosmetic'):
+            text += ' for ' + _with_category(reward['cosmetic'], reward.get('cosmetic_category'))
+        return text
+    if kind == 'quest':
+        return 'unlocks the quest ' + reward['name'] if readable(reward.get('name')) else 'unlocks another quest'
+    if kind == 'premium':
+        inner = ', '.join(reward_text(r) for r in reward.get('rewards', []))
+        return (f"{reward['requires']} bonus: " if reward.get('requires') else 'Premium bonus: ') + inner
+    if kind == 'item':
+        text = _with_category(reward['name'], reward.get('category'))
+        quantity = reward.get('quantity')
+        return f"{format(quantity, ',')} {text}" if isinstance(quantity, int) and quantity > 1 else text
+    return ''
+
+
+def rewards_text(template, rewards=None):
+    """'1,000 XP; Yeddy outfit', or '' when Fortnite lists no visible reward."""
+    rewards = quest_rewards().get((template or '').lower(), []) if rewards is None else rewards
+    unlocks = [r for r in rewards if r.get('type') == 'quest']
+    parts = [reward_text(r) for r in rewards if r.get('type') != 'quest']
+    if len(unlocks) > 1:
+        # One phrase for several unlocked quests instead of repeating "unlocks the quest".
+        names = [r['name'] for r in unlocks if readable(r.get('name'))]
+        text = f'unlocks {len(unlocks)} quests'
+        parts.append(text + (': ' + ', '.join(names) if len(names) == len(unlocks) else ''))
+    elif unlocks:
+        parts.append(reward_text(unlocks[0]))
+    return '; '.join(part for part in parts if part)
+
+
+@lru_cache(maxsize=1)
 def pass_reward_names():
     try:
         return json.loads((Path(__file__).resolve().parents[1]/'data/pass_quest_rewards_4220.json').read_text(encoding='utf-8'))['rows']
@@ -261,6 +321,9 @@ def details_text(quest):
         lines.extend(['', f'{label}: {objective_progress(objective)}'])
     if not objectives:
         lines.append('No objective counter reported.')
+    rewards = rewards_text(quest.get('template'))
+    if rewards:
+        lines.extend(['', 'Rewards: ' + rewards])
     expiry = quest.get('expiry')
     if expiry:
         try:

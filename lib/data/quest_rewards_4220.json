@@ -1,0 +1,5099 @@
+{
+ "build": "Release-42.20-CL-58011042",
+ "source": "QuestDisplayData RewardInfo (standard and premium rewards; hidden rewards excluded), quest definition reward components as fallback, names from item definitions",
+ "rows": {
+  "quest:q_juno_nxs_daily_punchcard_01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:q_juno_nxs_daily_punchcard_02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:q_juno_nxs_daily_punchcard_03": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_guided": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_guideddryvalley": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_remodel": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_build_remodeldryvalley": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_craft_balloons": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_damage_any": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_travel_vehicle": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_use_activatedballoons": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_use_toys": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_village_desert": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_sandbox_daily_village_jungle": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_build_remodel_nxs": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_collect_any": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_collect_essence": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_craft_tools": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_craft_weapon": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_damage_melee": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_fish_any": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_harvest_gold": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_creature_temp": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_minifigs": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_hunt_skeleton": [
+   {
+    "type": "xp",
+    "quantity": 3000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_use_toys": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_juno_nxs_survival_daily_village_collect": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_sprout_daily_punchcard_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_sprout_daily_punchcard_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:q_sprout_daily_punchcard_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_briskimp_progression_q01": [
+   {
+    "type": "quest",
+    "name": "Earn Sidekick Points with any Ice Prince"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q01": [
+   {
+    "type": "item",
+    "name": "Icy Domain",
+    "category": "Loading Screen"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q02": [
+   {
+    "type": "item",
+    "name": "Ice Cold Heart",
+    "category": "Reaction"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q03": [
+   {
+    "type": "style",
+    "name": "Shirt (Prince's Doublet)",
+    "category": "Style",
+    "cosmetic": "Ice Prince",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q04": [
+   {
+    "type": "item",
+    "name": "Prince's Flake",
+    "category": "Emoticon"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q05": [
+   {
+    "type": "style",
+    "name": "Shirt (Ice Skull)",
+    "category": "Style",
+    "cosmetic": "Ice Prince",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q06": [
+   {
+    "type": "item",
+    "name": "Banner Icon",
+    "category": "Banner Icon"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q07": [
+   {
+    "type": "style",
+    "name": "Shirt (Punk Red Heart)",
+    "category": "Style",
+    "cosmetic": "Ice Prince",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_briskimp_vopunchcard_q08": [
+   {
+    "type": "style",
+    "name": "Prince's Challenge",
+    "category": "Emote",
+    "cosmetic": "Ice Prince",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_carriershade_progression_q02": [
+   {
+    "type": "quest",
+    "name": "Earn Sidekick Points with any Empress"
+   }
+  ],
+  "quest:quest_carriershade_vopunchcard_q01": [
+   {
+    "type": "style",
+    "name": "Glam (Amethyst Queen)",
+    "category": "Style",
+    "cosmetic": "Empress",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_carriershade_vopunchcard_q02": [
+   {
+    "type": "item",
+    "name": "Empress Cut Heart",
+    "category": "Reaction"
+   }
+  ],
+  "quest:quest_carriershade_vopunchcard_q03": [
+   {
+    "type": "style",
+    "name": "Glam (Emerald Queen)",
+    "category": "Style",
+    "cosmetic": "Empress",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_carriershade_vopunchcard_q04": [
+   {
+    "type": "style",
+    "name": "Shady Tea",
+    "category": "Emote",
+    "cosmetic": "Empress",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_cosmohound_progression_q01": [
+   {
+    "type": "quest",
+    "name": "Earn Sidekick Points with any The Bark Voyager"
+   }
+  ],
+  "quest:quest_cosmohound_vopunchcard_q01": [
+   {
+    "type": "item",
+    "name": "Hearts of Barkness",
+    "category": "Loading Screen"
+   }
+  ],
+  "quest:quest_cosmohound_vopunchcard_q02": [
+   {
+    "type": "item",
+    "name": "Chaos Cube Heart",
+    "category": "Reaction"
+   }
+  ],
+  "quest:quest_cosmohound_vopunchcard_q03": [
+   {
+    "type": "style",
+    "name": "The Bark Voyager (Helmet on)",
+    "category": "Style",
+    "cosmetic": "The Bark Voyager",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_cosmohound_vopunchcard_q04": [
+   {
+    "type": "style",
+    "name": "Voyager's Bone",
+    "category": "Emote",
+    "cosmetic": "The Bark Voyager",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_daily_blastberry_18": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_39": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_blastberry_41": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_09": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_12": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_13": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_14": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_15": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_16": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_17": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_18": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_19": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_20": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_21": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_22": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_23": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_24": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_25": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_26": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_combat_27": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_elim_br": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_12": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_13": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_28": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_29": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_30": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_31": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_35": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_gameplay_39": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_09": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_12": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_13": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_14": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_15": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_16": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_17": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_18": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_19": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_20": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_21": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_22": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_23": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_24": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_25": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_26": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_27": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_28": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_location_29": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_09": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_12": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_13": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_14": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_15": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_16": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_17": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_18": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_19": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_20": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_21": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_22": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_23": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_24": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_25": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_26": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_32": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_34": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_mapmarker_35": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_09": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_12": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_13": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_14": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_15": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_16": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_17": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_18": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_19": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_20": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_21": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_22": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_23": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_24": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_25": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_26": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_27": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_28": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_29": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_noncombat_30": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_place_br": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_playmatches_br": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_s42_spriteextvendingpurchasegate": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_daily_supressed_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_supressed_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_supressed_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_09": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_12": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_13": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_14": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_15": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_16": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_19": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_daily_tougher_25": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_dailychase_br_s42_mm_q01": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": ""
+   }
+  ],
+  "quest:quest_dailychase_br_s42_mm_q02": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": ""
+   }
+  ],
+  "quest:quest_dailychase_br_s42_mm_q03": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": ""
+   }
+  ],
+  "quest:quest_dailychase_br_s42_q01": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": ""
+   }
+  ],
+  "quest:quest_dailychase_br_s42_q02": [
+   {
+    "type": "item",
+    "name": "Spicy Taco",
+    "category": "",
+    "quantity": 10
+   }
+  ],
+  "quest:quest_dailychase_br_s42_q03": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": ""
+   }
+  ],
+  "quest:quest_dailychase_br_s42_q04": [
+   {
+    "type": "item",
+    "name": "Llama Supply Drop",
+    "category": ""
+   }
+  ],
+  "quest:quest_dailychase_br_s42_q05": [
+   {
+    "type": "item",
+    "name": "Extraction Accelerator",
+    "category": ""
+   }
+  ],
+  "quest:quest_ecosystem_dailybonusgoal_01": [
+   {
+    "type": "xp",
+    "quantity": 25000
+   }
+  ],
+  "quest:quest_ecosystem_dailybonusgoal_02": [
+   {
+    "type": "xp",
+    "quantity": 25000
+   }
+  ],
+  "quest:quest_ecosystem_dailybonusgoal_03": [
+   {
+    "type": "xp",
+    "quantity": 25000
+   }
+  ],
+  "quest:quest_ev_dailybonusgoal_01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_ev_dailybonusgoal_02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_ev_dailybonusgoal_03": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_ev_dailybonusgoal_04": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_ff_daily_combat_damage_nearby": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_combat_damage_shotgun": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_ff_daily_noncombat_travel": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_assaultrifles": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_damage_shotguns": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_daily_search_woods": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_figment_hidden_boogiebomb": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_figment_hidden_chugjug": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_figment_hidden_ringdoorbell": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_figment_hidden_umbrellamine": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_figment_hidden_visitmotel": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_figment_milestone_collectitems": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_damageopponents": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_gainshields": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_hitweakpoints": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_milestone_survivestormcircles": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q01": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q02": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q03": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q04": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q05": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q06": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q07": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q08": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q09": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_q10": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_kickstart_p01_suppressed_02": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q05": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q06": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q07": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q08": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q09": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q10": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q11": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q12": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_bonusgoal_q13": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w01_q01": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w01_q02": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w01_q03": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_figment_s10_weekly_w01_q04": [
+   {
+    "type": "xp",
+    "quantity": 8000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q01": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q01_hidden": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q02": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q03": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q04": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q05": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q06": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q07": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q08": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q09": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_forbiddenfruit_02_kickstart_q10": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_juno_highstakes_dv_01": [
+   {
+    "type": "quest",
+    "name": "Interact with level 10 Dry Valley Village"
+   }
+  ],
+  "quest:quest_juno_highstakes_dv_bonusgoal_01": [
+   {
+    "type": "item",
+    "name": "Dry Valley Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_highstakes_fl_01": [
+   {
+    "type": "quest",
+    "name": "Interact with level 10 Frostlands Village"
+   }
+  ],
+  "quest:quest_juno_highstakes_fl_bonusgoal_01": [
+   {
+    "type": "item",
+    "name": "Frostlands Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_highstakes_gl_01": [
+   {
+    "type": "quest",
+    "name": "Interact with level 10 Grasslands Village"
+   }
+  ],
+  "quest:quest_juno_highstakes_gl_bonusgoal_01": [
+   {
+    "type": "item",
+    "name": "Grasslands Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_highstakes_li_01": [
+   {
+    "type": "quest",
+    "name": "Interact with level 10 Lost Isles Village"
+   }
+  ],
+  "quest:quest_juno_highstakes_li_bonusgoal_01": [
+   {
+    "type": "item",
+    "name": "Lost Isles Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_highstakes_shatterdragon_01": [
+   {
+    "type": "item",
+    "name": "Elite Shatter Spawn Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_highstakes_sk_01": [
+   {
+    "type": "quest",
+    "name": "Defeat the Storm King"
+   }
+  ],
+  "quest:quest_juno_highstakes_sk_bonusgoal_01": [
+   {
+    "type": "item",
+    "name": "Storm King Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_highstakes_tabasco_01": [
+   {
+    "type": "item",
+    "name": "Dragon Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_highstakes_tabascopart2_01": [
+   {
+    "type": "item",
+    "name": "ICE Dragon Trophy",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_juno_potions_daily_craftmeals_01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_potions_weekly_heroskillkills_01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_potions_weekly_killhorde_01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_potions_weekly_unlockskills_01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_potions_weekly_usepotions_01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_tabascopart2_weekly_combat_fireninjaskills": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_tabascopart2_weekly_combat_katanakills": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_tabascopart2_weekly_combat_scythekills": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_tabascopart2_weekly_explore_collectallfireninjaskills": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_juno_vitalinventor_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_juno_vitalinventor_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_juno_vitalinventor_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_juno_vitalinventor_04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_juno_vitalinventor_bonusgoal": [
+   {
+    "type": "item",
+    "name": "Trailblazer Tai",
+    "category": "Outfit"
+   },
+   {
+    "type": "item",
+    "name": "Skullder",
+    "category": "Back Bling"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l02": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l03": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l04": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Stables",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Wookiee Sleeping Platform",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l05": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Stables",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Galactic Lodge",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Wookiee Sleeping Platform",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Exhaust",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l06": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Stables",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Galactic Lodge",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Workshop",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Wookiee Sleeping Platform",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Exhaust",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Vent and Squadron Circular Wall Vent",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l07": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Stables",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Galactic Lodge",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Workshop",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Castle",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Wookiee Sleeping Platform",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Exhaust",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Vent and Squadron Circular Wall Vent",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Satellite Dish - Medium",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l08": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Stables",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Galactic Lodge",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Workshop",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Castle",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Lookout",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Wookiee Sleeping Platform",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Exhaust",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Vent and Squadron Circular Wall Vent",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Satellite Dish - Medium",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Carbonite Fridge",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l09": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Stables",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Galactic Lodge",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Workshop",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Castle",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Lookout",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Castle",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Wookiee Sleeping Platform",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Exhaust",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Vent and Squadron Circular Wall Vent",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Satellite Dish - Medium",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Carbonite Fridge",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Cantina Stage",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_junoosiris_rebeltowncenter_interact_l10": [
+   {
+    "type": "item",
+    "name": "Rebel Farm",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Outpost",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Stables",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Galactic Lodge",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Workshop",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Castle",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Lookout",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Imperial Castle",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Rebel Command Center",
+    "category": "LEGO build"
+   },
+   {
+    "type": "item",
+    "name": "Oil Bath",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cockpit Chair",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Wookiee Sleeping Platform",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Exhaust",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Wall Vent and Squadron Circular Wall Vent",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Satellite Dish - Medium",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Carbonite Fridge",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Cantina Stage",
+    "category": "LEGO decor"
+   },
+   {
+    "type": "item",
+    "name": "Squadron Cantina Tables",
+    "category": "LEGO decor"
+   }
+  ],
+  "quest:quest_mapmastery_03_blastberry_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_bonusgoal_q01": [
+   {
+    "type": "item",
+    "name": "The Evil Dozen",
+    "category": "Spray"
+   }
+  ],
+  "quest:quest_mapmastery_03_bonusgoal_q02": [
+   {
+    "type": "item",
+    "name": "Red Eyes",
+    "category": "Emoticon"
+   }
+  ],
+  "quest:quest_mapmastery_03_bonusgoal_q03": [
+   {
+    "type": "item",
+    "name": "Fishy Tagger",
+    "category": "Spray"
+   }
+  ],
+  "quest:quest_mapmastery_03_bonusgoal_q04": [
+   {
+    "type": "item",
+    "name": "Menacing Maracas",
+    "category": "Emoticon"
+   }
+  ],
+  "quest:quest_mapmastery_03_bonusgoal_q05": [
+   {
+    "type": "item",
+    "name": "Red Eyes",
+    "category": "Wrap"
+   }
+  ],
+  "quest:quest_mapmastery_03_bonusgoal_q06": [
+   {
+    "type": "item",
+    "name": "The Evil Dozen",
+    "category": "Back Bling"
+   }
+  ],
+  "quest:quest_mapmastery_03_dashberry_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_dashberry_q02": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_jumpbear_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_matchmist_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_piperboot_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_punchberry_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_ropesmile_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_ropesmile_q02": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_ropesmile_q03": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_ropesmile_q04": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_sourspawn_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mapmastery_03_timberstake_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_mobile_clevergeyser_bonusgoal_q01": [
+   {
+    "type": "item",
+    "name": "Yeddy",
+    "category": "Outfit"
+   }
+  ],
+  "quest:quest_ranked_loosequest_emote": [
+   {
+    "type": "item",
+    "name": "Ranker's Flourish",
+    "category": "Emote"
+   }
+  ],
+  "quest:quest_ranked_loosequest_gauntletunlock": [
+   {
+    "type": "quest",
+    "name": "Complete Ranked Gauntlet quests"
+   },
+   {
+    "type": "quest",
+    "name": "Win a Victory Royale with 15 eliminations or more while ranked Elite or higher"
+   },
+   {
+    "type": "quest",
+    "name": "Get eliminations before Rebooting while ranked Elite or higher"
+   },
+   {
+    "type": "quest",
+    "name": "Win Victory Royales while in a squad while ranked Elite or higher"
+   },
+   {
+    "type": "quest",
+    "name": "Win a Victory Royales with 10 or more eliminations while ranked Elite or higher"
+   }
+  ],
+  "quest:quest_ropesmile_kickstart_hidden_q01": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_kickstart_hidden_q02": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_kickstart_hidden_q04": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_kickstart_hidden_q05": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_kickstart_hidden_q06": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_kickstart_hidden_q07": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_kickstart_hidden_q08": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_bonusgoal_q01": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_bonusgoal_q02": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_bonusgoal_q03": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q05": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q06": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q07": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q08": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q09": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q10": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q11": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q12": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q13": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_q14": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_suppressed_q01": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_ropesmile_mapspecific_kickstart_suppressed_q02": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_s33_dailycreative_discoverxp_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s33_dailycreative_discoverxp_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s33_dailycreative_discoverxp_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_elims_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_hit_q07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_ff_ev_search_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s40_sparrow_01": [
+   {
+    "type": "item",
+    "name": "THE GAMBIT",
+    "category": "Loading Screen"
+   }
+  ],
+  "quest:quest_s40_sparrow_02": [
+   {
+    "type": "item",
+    "name": "Forsworn Trooper",
+    "category": "Outfit"
+   }
+  ],
+  "quest:quest_s41_ranked_reload_bonusgoal_01": [
+   {
+    "type": "item",
+    "name": "Banner Icon",
+    "category": "Banner Icon"
+   }
+  ],
+  "quest:quest_s41_ranked_reload_bonusgoal_02": [
+   {
+    "type": "item",
+    "name": "Blue Creche",
+    "category": "Back Bling"
+   }
+  ],
+  "quest:quest_s41_ranked_reload_bonusgoal_03": [
+   {
+    "type": "item",
+    "name": "Combat Ready Zadie",
+    "category": "Spray"
+   }
+  ],
+  "quest:quest_s41_ranked_reload_bonusgoal_04": [
+   {
+    "type": "item",
+    "name": "Cel-Shaded Chaos",
+    "category": "Pickaxe"
+   }
+  ],
+  "quest:quest_s41_ranked_reload_bonusgoal_05": [
+   {
+    "type": "item",
+    "name": "Derezz'd",
+    "category": "Wrap"
+   }
+  ],
+  "quest:quest_s41_ranked_reload_bonusgoal_06": [
+   {
+    "type": "item",
+    "name": "The De-Rezz Unrealizer",
+    "category": "Pickaxe"
+   }
+  ],
+  "quest:quest_s42_audiologs_s4200_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_aerial": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Aerial Assault Trooper",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_aura": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Aura",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_cuddle": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cuddle Team Leader",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_drift": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Drift",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_fishsticks": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Fishstick",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_ghoul": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Ghoul Trooper",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_hope": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Hope",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_jones": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Jonesy",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_luxe": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Luxe",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_lynx": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Lynx",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_meowscles": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Meowscles",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_peely": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Peely",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_ruby": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Ruby",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_skull": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Skull Ranger",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_blockstackcosmetics_bonusgoals_cosmetic_ziggy": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Ziggy",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_championsroad_26_elim_01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_championsroad_26_elim_02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_championsroad_26_elim_03": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_championsroad_26_elim_04": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q02": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q08": [
+   {
+    "type": "item",
+    "name": "Cheat Master Jonesy Sprite",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q11": [
+   {
+    "type": "item",
+    "name": "Wrixel's Hero Portrait",
+    "category": "Spray"
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q15": [
+   {
+    "type": "item",
+    "name": "Extraction Accelerator",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q24": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q26": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 2000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q29": [
+   {
+    "type": "item",
+    "name": "Extraction Accelerator",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q31": [
+   {
+    "type": "item",
+    "name": "Spicy Taco",
+    "category": "",
+    "quantity": 4
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q32": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q35": [
+   {
+    "type": "item",
+    "name": "Cheat Master X-Ray Sprite",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q36": [
+   {
+    "type": "item",
+    "name": "Cheat Master Onigiri Sprite",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_00_promo_q37": [
+   {
+    "type": "item",
+    "name": "Loot Hacker Jonesy Sprite",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_endpoint_daily": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_bonusgoal_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_bonusgoal_q02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q04": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q05": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q06": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q07": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_repeatable_q08": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_tutorial_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_s42_cosmicthunder_tutorial_q02": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_s42_crownspriteprogression_00_acquire_cheatmaster": [
+   {
+    "type": "item",
+    "name": "Cheat Master Crown Sprite",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_crownspriteprogression_00_acquire_gold": [
+   {
+    "type": "item",
+    "name": "Gold Crown Sprite",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_crownspriteprogression_10_acquire_loothacker": [
+   {
+    "type": "item",
+    "name": "Loot Hacker Crown Sprite",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_03": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_04": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_05": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_06": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_07": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_08": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_09": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_bonus_q01": [
+   {
+    "type": "item",
+    "name": "Choco-9 Cake",
+    "category": "Back Bling"
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_bonus_q02": [
+   {
+    "type": "item",
+    "name": "Cake Crusher",
+    "category": "Pickaxe"
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_bonus_q03": [
+   {
+    "type": "item",
+    "name": "FNCS Sentry",
+    "category": "Back Bling"
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_hidden_q01": [
+   {
+    "type": "item",
+    "name": "9th Birthday Sprite",
+    "category": "Spray"
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_suppressed01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_fncsbirthday_suppressed02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_previousseason_spritedust": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 10
+   }
+  ],
+  "quest:quest_s42_progressiontrack_01": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_02": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_progressiontrack_03": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_04": [
+   {
+    "type": "item",
+    "name": "Spicy Taco",
+    "category": "",
+    "quantity": 4
+   }
+  ],
+  "quest:quest_s42_progressiontrack_05": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_06": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_07": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_progressiontrack_08": [
+   {
+    "type": "item",
+    "name": "Extraction Accelerator",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_progressiontrack_09": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_10": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_progressiontrack_11": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_12": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_progressiontrack_13": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_14": [
+   {
+    "type": "item",
+    "name": "Llama Supply Drop",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_ranked_br_bonusgoal_01": [
+   {
+    "type": "item",
+    "name": "Phantom Spray",
+    "category": "Spray"
+   }
+  ],
+  "quest:quest_s42_ranked_br_bonusgoal_02": [
+   {
+    "type": "item",
+    "name": "Override Counter",
+    "category": "Back Bling"
+   }
+  ],
+  "quest:quest_s42_ranked_br_bonusgoal_03": [
+   {
+    "type": "item",
+    "name": "Beastly Battle Bus",
+    "category": "Loading Screen"
+   }
+  ],
+  "quest:quest_s42_ranked_br_bonusgoal_04": [
+   {
+    "type": "item",
+    "name": "The Hack 'n Slasher",
+    "category": "Pickaxe"
+   }
+  ],
+  "quest:quest_s42_ranked_br_bonusgoal_05": [
+   {
+    "type": "item",
+    "name": "Overridden",
+    "category": "Wrap"
+   }
+  ],
+  "quest:quest_s42_ranked_br_bonusgoal_06": [
+   {
+    "type": "item",
+    "name": "Unreal Override",
+    "category": "Pickaxe"
+   }
+  ],
+  "quest:quest_s42_ranked_loosequest_01": [
+   {
+    "type": "item",
+    "name": "Llama Streamers",
+    "category": "Contrail"
+   }
+  ],
+  "quest:quest_s42_spritemastery_8bit": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "8-Bit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_8bit_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master 8-Bit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_8bit_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold 8-Bit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_8bit_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker 8-Bit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_bushranger": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Bush Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_bushranger_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Bush Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_bushranger_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Bush Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_bushranger_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Bush Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_crown": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Crown Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_crown_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Crown Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_crown_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Crown Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_crown_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Crown Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_doublejump": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Jackrabbit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_doublejump_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Jackrabbit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_doublejump_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Jackrabbit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_doublejump_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Jackrabbit Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_dwarf": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Adventure Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_dwarf_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Adventure Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_dwarf_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Adventure Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_dwarf_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Adventure Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_improvedslide": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Mega Man Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_jonesy": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Jonesy Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_jonesy_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Jonesy Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_jonesy_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Jonesy Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_jonesy_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Jonesy Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_killswitch": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Killswitch Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_killswitch_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Killswitch Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_killswitch_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Killswitch Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_killswitch_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Killswitch Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_klombo": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Klombo Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_klombo_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Klombo Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_klombo_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Klombo Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_klombo_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Klombo Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowflea": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Sonic Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowflea_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Sonic Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowflea_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Sonic Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowflea_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Sonic Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowfleamonkey": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Tails Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowfleamonkey_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Tails Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowfleamonkey_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Tails Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_narrowfleamonkey_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Tails Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_overshield": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Overshield Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_overshield_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Overshield Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_overshield_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Overshield Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_overshield_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Overshield Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_reloadovertime": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Shadow Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_reloadovertime_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Shadow Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_reloadovertime_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Shadow Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_reloadovertime_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Shadow Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerb": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "X-Ray Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerb_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master X-Ray Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerb_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold X-Ray Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerb_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker X-Ray Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerc": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Onigiri Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerc_01": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Cheat Master Onigiri Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerc_02": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Gold Onigiri Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_spritemastery_winnerc_03": [
+   {
+    "type": "premium",
+    "requires": "",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Loot Hacker Onigiri Sprite Trainer",
+      "category": "Style",
+      "cosmetic": "Pixel Sprite Trainer",
+      "cosmetic_category": "Back Bling"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_story_blockstack_bonusgoals_cosmetic_q01": [
+   {
+    "type": "premium",
+    "requires": "Battle Pass",
+    "rewards": [
+     {
+      "type": "style",
+      "name": "Ziggy",
+      "category": "Outfit",
+      "cosmetic": "Wrixel",
+      "cosmetic_category": "Outfit"
+     }
+    ]
+   }
+  ],
+  "quest:quest_s42_story_blockstack_bonusgoals_q01": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": ""
+   }
+  ],
+  "quest:quest_s42_story_blockstack_bonusgoals_q03": [
+   {
+    "type": "item",
+    "name": "Llama Supply Drop",
+    "category": ""
+   }
+  ],
+  "quest:quest_s42_story_blockstack_bonusgoals_q06": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": ""
+   }
+  ],
+  "quest:quest_s42_story_blockstack_p01_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q01": [
+   {
+    "type": "style",
+    "name": "Ordered Conduits of Power",
+    "category": "Style",
+    "cosmetic": "Conduits of Power",
+    "cosmetic_category": "Back Bling"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q02": [
+   {
+    "type": "style",
+    "name": "Void's Wrath",
+    "category": "Style",
+    "cosmetic": "Geno's Wrath",
+    "cosmetic_category": "Pickaxe"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q03": [
+   {
+    "type": "style",
+    "name": "Steps of the Void",
+    "category": "Style",
+    "cosmetic": "Steps of the Regent",
+    "cosmetic_category": "Glider"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q04": [
+   {
+    "type": "style",
+    "name": "Voided Rift Breaker",
+    "category": "Contrail",
+    "cosmetic": "Rift Rift Wrecker",
+    "cosmetic_category": "Contrail"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q05": [
+   {
+    "type": "style",
+    "name": "Ordered Geno",
+    "category": "Style",
+    "cosmetic": "Geno",
+    "cosmetic_category": "Outfit"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q06": [
+   {
+    "type": "style",
+    "name": "Void Master Geno",
+    "category": "Style",
+    "cosmetic": "Geno",
+    "cosmetic_category": "Outfit"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_cosmetic_q07": [
+   {
+    "type": "style",
+    "name": "Void Conduits of Power",
+    "category": "Style",
+    "cosmetic": "Conduits of Power",
+    "cosmetic_category": "Back Bling"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_q01": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": ""
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_q03": [
+   {
+    "type": "item",
+    "name": "Llama Supply Drop",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_bonusgoals_q07": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_p01_cheatcode_granter": [
+   {
+    "type": "quest",
+    "name": "Enter YourThoughtsAreMine in the Admin Panel to claim your reward"
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_p01_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_s42_story_sheerwill_p01_q02": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q05": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q06": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q07": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_q08": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w01_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w02_q01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w02_q02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w02_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w02_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w02_q05": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w02_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w03_q01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w03_q02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w03_q03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w03_q04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w03_q05": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_s42_weekly_w03_suppressed": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_scrollvessel_progression_q01": [
+   {
+    "type": "quest",
+    "name": "Earn Sidekick Points with Louis"
+   }
+  ],
+  "quest:quest_scrollvessel_vopunchcard_q01": [
+   {
+    "type": "item",
+    "name": "Take Over",
+    "category": "Emoticon"
+   }
+  ],
+  "quest:quest_scrollvessel_vopunchcard_q02": [
+   {
+    "type": "item",
+    "name": "CouRageous Heart",
+    "category": "Reaction"
+   }
+  ],
+  "quest:quest_scrollvessel_vopunchcard_q03": [
+   {
+    "type": "style",
+    "name": "Bandana (CouRageous Plaid)",
+    "category": "Style",
+    "cosmetic": "Louis",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_scrollvessel_vopunchcard_q04": [
+   {
+    "type": "style",
+    "name": "Crowned",
+    "category": "Emote",
+    "cosmetic": "Louis",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_spheredaily_progression_q01": [
+   {
+    "type": "quest",
+    "name": "Earn Sidekick Points with Dog (Pen & Ink)"
+   }
+  ],
+  "quest:quest_spheredaily_vopunchcard_q01": [
+   {
+    "type": "item",
+    "name": "Good Dog",
+    "category": "Emoticon"
+   }
+  ],
+  "quest:quest_spheredaily_vopunchcard_q02": [
+   {
+    "type": "item",
+    "name": "Heart of Gold",
+    "category": "Reaction"
+   }
+  ],
+  "quest:quest_spheredaily_vopunchcard_q03": [
+   {
+    "type": "style",
+    "name": "Dog (Gradient)",
+    "category": "Style",
+    "cosmetic": "Dog (Pen & Ink)",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_spheredaily_vopunchcard_q04": [
+   {
+    "type": "style",
+    "name": "Agility Training",
+    "category": "Emote",
+    "cosmetic": "Dog (Pen & Ink)",
+    "cosmetic_category": "Companion"
+   }
+  ],
+  "quest:quest_squareclub_daily_q01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q10": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_daily_q11": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_squareclub_s02_bonusgoal_q01": [
+   {
+    "type": "item",
+    "name": "Box Up",
+    "category": "Emoticon"
+   }
+  ],
+  "quest:quest_squareclub_s02_bonusgoal_q02": [
+   {
+    "type": "item",
+    "name": "Crankin' 90s",
+    "category": "Spray"
+   }
+  ],
+  "quest:quest_squareclub_s02_bonusgoal_q03": [
+   {
+    "type": "item",
+    "name": "The Blueprint Pick",
+    "category": "Pickaxe"
+   }
+  ],
+  "quest:quest_squareclub_s02_q01": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q02": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q03": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q04": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q05": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q06": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q07": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q08": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q09": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q10": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q11": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q12": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_squareclub_s02_q13": [
+   {
+    "type": "xp",
+    "quantity": 15000
+   }
+  ],
+  "quest:quest_stw_daily_earnxp_01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_stw_daily_earnxp_02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_stw_daily_earnxp_03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:quest_tofugarden_firstwin": [
+   {
+    "type": "resource",
+    "name": "Victory Wings Bonus Win",
+    "quantity": 1
+   }
+  ],
+  "quest:quest_tofugarden_firstwinmobile": [
+   {
+    "type": "resource",
+    "name": "Victory Wings Bonus Win",
+    "quantity": 1
+   }
+  ],
+  "quest:quest_tofugarden_grantemote": [
+   {
+    "type": "item",
+    "name": "Wings of Renown",
+    "category": "Emote"
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_ad_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_br_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_br_q02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_co_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_co_q02": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_co_q03": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_co_q04": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_co_q05": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_co_q06": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_dr_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_ho_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_mu_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_pa_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_pl_q01_fix": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_ro_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_rp_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_st_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_su_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fs_category_ty_q01": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fullseason_bonusgoal_q01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:quest_weeklycreative_v1_fullseason_bonusgoal_q02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_dailybass_songmissnotes": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailydrums_emote": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyjam_xp01": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyjam_xp02": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyjam_xp03": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailylead_songperfectaccuracy": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailysetlist_playsetlist": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_dailyvocals_earnpoints": [
+   {
+    "type": "xp",
+    "quantity": 1000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_05": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_06": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_07": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_08": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_09": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_bonusgoal_10": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_milestone_completedaily": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:sparksquest_milestone_completesetlist": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:sparksquest_milestone_earnstars": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:sparksquest_milestone_overdrive": [
+   {
+    "type": "xp",
+    "quantity": 5000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w00": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w01": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w02": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w03": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w04": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_s15_weeklychallenge_w05": [
+   {
+    "type": "xp",
+    "quantity": 30000
+   }
+  ],
+  "quest:sparksquest_weekly_featured_00": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_weekly_kickstart_01": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_weekly_kickstart_02": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_weekly_kickstart_03": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_weekly_kickstart_04": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ],
+  "quest:sparksquest_weekly_kickstart_05": [
+   {
+    "type": "xp",
+    "quantity": 20000
+   }
+  ]
+ }
+}

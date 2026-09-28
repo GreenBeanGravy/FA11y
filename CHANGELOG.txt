@@ -1,3 +1,7 @@
+9/28/2026 #1 (18.11.12):
+- Quest details in Left Alt+Q quests now list each quest's rewards before you earn them: XP, cosmetics, styles, sidekick items, LEGO builds and decor, and Override rewards, matching Fortnite's own quest screen.
+- Rewards that need the Battle Pass or another unlock are marked as a Battle Pass or premium bonus, and quests that unlock other quests name them.
+
 9/24/2026 #5 (18.11.11):
 - Replaced Claim full set on Geno pages 15 and 16 with an instruction to claim full pages in order.
 - Named 28 pass reward trackers using their actual cosmetic rewards; missing progress now reads Unlock progress unavailable.
