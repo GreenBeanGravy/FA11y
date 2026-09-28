@@ -31576,6 +31576,1756 @@
         }
       ],
       "source": "SpriteMastery"
+    },
+    "quest:quest_s42_blockstackcosmetics_aerial_q01": {
+      "name": "Enter Aerial Assault's Cheat Code at Shaken Sanctuary",
+      "description": "Enter Aerial Assault's Cheat Code at Shaken Sanctuary",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_aerial_q01.QuestDisplayData_quest_s42_blockstackcosmetics_aerial_q01",
+      "categories": [
+        "QuestCategory.BR.S42.BlockStackCosmetics.Aerial"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "AutoDescription": " ALL( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_blockstackcosmetics_aerial_q01_obj0",
+          "required": 1,
+          "description": "Enter Aerial Assault's Cheat Code at Shaken Sanctuary",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_blockstackcosmetics_aura_q01": {
+      "name": "Enter Aura's Cheat Code at Wonkeeland",
+      "description": "Enter Aura's Cheat Code at Wonkeeland",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_aura_q01.QuestDisplayData_quest_s42_blockstackcosmetics_aura_q01",
+      "categories": [
+        "QuestCategory.BR.S42.BlockStackCosmetics.Aura"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "AutoDescription": " ALL( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_blockstackcosmetics_aura_q01_obj0",
+          "required": 1,
+          "description": "Enter Aura's Cheat Code at Wonkeeland",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_blockstackcosmetics_blockstack_q08": {
+      "name": "Complete Wrixel (Ziggy's) Story quests",
+      "description": "Complete Wrixel (Ziggy's) Story quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_blockstack_q08.QuestDisplayData_quest_s42_blockstackcosmetics_blockstack_q08",
+      "categories": [
+        "QuestCategory.BR.S42.BlockStackCosmetics.Ziggy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "AutoDescription": " ALL( Product.BR )"
+      },
+      "sort_priority": 8,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_blockstackcosmetics_blockstack_q08_obj0",
+          "required": 9,
+          "description": "Complete Wrixel (Ziggy's) Story quests",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_blockstackcosmetics_hope_q01": {
+      "name": "Ask Hope about her Wrixel outfit",
+      "description": "Ask Hope about her Wrixel outfit",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_hope_q01.QuestDisplayData_quest_s42_blockstackcosmetics_hope_q01",
+      "categories": [
+        "QuestCategory.BR.S42.BlockStackCosmetics.Hope"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "AutoDescription": " ALL( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_blockstackcosmetics_hope_q01_obj0",
+          "required": 1,
+          "description": "Ask Hope about her Wrixel outfit",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_blockstackcosmetics_jones_q01": {
+      "name": "Ask Jones about his Wrixel outfit",
+      "description": "Ask Jones about his Wrixel outfit",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_jones_q01.QuestDisplayData_quest_s42_blockstackcosmetics_jones_q01",
+      "categories": [
+        "QuestCategory.BR.S42.BlockStackCosmetics.Jonesy"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "AutoDescription": " ALL( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_blockstackcosmetics_jones_q01_obj0",
+          "required": 1,
+          "description": "Ask Jones about his Wrixel outfit",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_blockstack_bonusgoals_q01": {
+      "name": "Complete Wrixel (Ziggy) quests",
+      "description": "Complete Wrixel (Ziggy) quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q01.QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q01",
+      "categories": [
+        "QuestCategory.BR.S42.Story.BlockStack.BonusGoals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_blockstack_bonusgoals_q01_obj0",
+          "required": 1,
+          "description": "",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_blockstack_bonusgoals_q03": {
+      "name": "Complete Wrixel (Ziggy) quests",
+      "description": "Complete Wrixel (Ziggy) quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q03.QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q03",
+      "categories": [
+        "QuestCategory.BR.S42.Story.BlockStack.BonusGoals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_blockstack_bonusgoals_q03_obj0",
+          "required": 3,
+          "description": "",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_blockstack_bonusgoals_q06": {
+      "name": "Complete Wrixel (Ziggy) quests",
+      "description": "Complete Wrixel (Ziggy) quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q06.QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q06",
+      "categories": [
+        "QuestCategory.BR.S42.Story.BlockStack.BonusGoals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_blockstack_bonusgoals_q06_obj0",
+          "required": 6,
+          "description": "",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_blockstack_bonusgoals_q07": {
+      "name": "Complete Wrixel (Ziggy) quests",
+      "description": "Complete Wrixel (Ziggy) quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q07.QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q07",
+      "categories": [
+        "QuestCategory.BR.S42.Story.BlockStack.BonusGoals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 7,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_blockstack_bonusgoals_q07_obj0",
+          "required": 9,
+          "description": "",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_blockstack_p01_q01": {
+      "name": "Talk to Wrixel (Ziggy) at Pixel Polys about Geno's threat",
+      "description": "Talk to Wrixel (Ziggy) at Pixel Polys about Geno's threat",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_p01_q01.QuestDisplayData_quest_s42_story_blockstack_p01_q01",
+      "categories": [
+        "QuestCategory.BR.S42.Story.BlockStack.P01"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": false,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_blockstack_p01_q01_obj0",
+          "required": 1,
+          "description": "Stage 1 of 5: Talk to Wrixel (Ziggy) at Pixel Polys about Geno's threat",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_heroictale_bonusgoals_q01": {
+      "name": "Complete Bastian quests",
+      "description": "Complete Bastian quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q01.QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q01",
+      "categories": [
+        "QuestCategory.BR.S42.Story.HeroicTale.BonusGoals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_heroictale_bonusgoals_q01_obj0",
+          "required": 1,
+          "description": "TBD",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_heroictale_bonusgoals_q02": {
+      "name": "Complete Bastian quests",
+      "description": "Complete Bastian quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q02.QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q02",
+      "categories": [
+        "QuestCategory.BR.S42.Story.HeroicTale.BonusGoals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_heroictale_bonusgoals_q02_obj0",
+          "required": 6,
+          "description": "TBD",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_heroictale_bonusgoals_q03": {
+      "name": "Complete Bastian quests",
+      "description": "Complete Bastian quests",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q03.QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q03",
+      "categories": [
+        "QuestCategory.BR.S42.Story.HeroicTale.BonusGoals"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": true,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_heroictale_bonusgoals_q03_obj0",
+          "required": 9,
+          "description": "TBD",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_story_heroictale_q01": {
+      "name": "Talk to Bastian about countering Geno's threat with magic",
+      "description": "Talk to Bastian about countering Geno's threat with magic",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_q01.QuestDisplayData_quest_s42_story_heroictale_q01",
+      "categories": [
+        "QuestCategory.BR.S42.Story.HeroicTale.P01"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {
+        "bIsVisibleWhenActive": true,
+        "bIsVisibleWhenClaimed": false,
+        "bIsVisibleWhenCompleted": true,
+        "bIsVisibleWhenExpired": false
+      },
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_story_heroictale_q01_obj0",
+          "required": 1,
+          "description": "",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "QuestDisplayData"
+    },
+    "quest:quest_s42_progressiontrack_01": {
+      "name": "Mastered 1 Sprite",
+      "description": "Master 1 Sprite this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_01.QuestDisplayData_quest_s42_progressiontrack_01",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 1,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_01_obj0",
+          "required": 1,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_02": {
+      "name": "Mastered 2 Sprites",
+      "description": "Master 2 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_02.QuestDisplayData_quest_s42_progressiontrack_02",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 2,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_02_obj0",
+          "required": 2,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_03": {
+      "name": "Mastered 3 Sprites",
+      "description": "Master 3 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_03.QuestDisplayData_quest_s42_progressiontrack_03",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 3,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_03_obj0",
+          "required": 3,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_04": {
+      "name": "Mastered 4 Sprites",
+      "description": "Master 4 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_04.QuestDisplayData_quest_s42_progressiontrack_04",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 4,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_04_obj0",
+          "required": 4,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_05": {
+      "name": "Mastered 5 Sprites",
+      "description": "Master 5 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_05.QuestDisplayData_quest_s42_progressiontrack_05",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 5,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_05_obj0",
+          "required": 5,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_06": {
+      "name": "Mastered 6 Sprites",
+      "description": "Master 6 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_06.QuestDisplayData_quest_s42_progressiontrack_06",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 6,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_06_obj0",
+          "required": 6,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_07": {
+      "name": "Mastered 7 Sprites",
+      "description": "Master 7 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_07.QuestDisplayData_quest_s42_progressiontrack_07",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 7,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_07_obj0",
+          "required": 7,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_08": {
+      "name": "Mastered 8 Sprites",
+      "description": "Master 8 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_08.QuestDisplayData_quest_s42_progressiontrack_08",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 8,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_08_obj0",
+          "required": 8,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_09": {
+      "name": "Mastered 9 Sprites",
+      "description": "Master 9 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_09.QuestDisplayData_quest_s42_progressiontrack_09",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 9,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_09_obj0",
+          "required": 9,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_10": {
+      "name": "Mastered 10 Sprites",
+      "description": "Master 10 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_10.QuestDisplayData_quest_s42_progressiontrack_10",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 10,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_10_obj0",
+          "required": 10,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_11": {
+      "name": "Mastered 11 Sprites",
+      "description": "Master 11 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_11.QuestDisplayData_quest_s42_progressiontrack_11",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 11,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_11_obj0",
+          "required": 11,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_12": {
+      "name": "Mastered 12 Sprites",
+      "description": "Master 12 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_12.QuestDisplayData_quest_s42_progressiontrack_12",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 12,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_12_obj0",
+          "required": 12,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_13": {
+      "name": "Mastered 13 Sprites",
+      "description": "Master 13 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_13.QuestDisplayData_quest_s42_progressiontrack_13",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 13,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_13_obj0",
+          "required": 13,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_14": {
+      "name": "Mastered 14 Sprites",
+      "description": "Master 14 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_14.QuestDisplayData_quest_s42_progressiontrack_14",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 14,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_14_obj0",
+          "required": 14,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_15": {
+      "name": "Mastered 15 Sprites",
+      "description": "Master 15 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_15.QuestDisplayData_quest_s42_progressiontrack_15",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 15,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_15_obj0",
+          "required": 15,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_16": {
+      "name": "Mastered 16 Sprites",
+      "description": "Master 16 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_16.QuestDisplayData_quest_s42_progressiontrack_16",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 16,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_16_obj0",
+          "required": 16,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_17": {
+      "name": "Mastered 17 Sprites",
+      "description": "Master 17 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_17.QuestDisplayData_quest_s42_progressiontrack_17",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 17,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_17_obj0",
+          "required": 17,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_18": {
+      "name": "Mastered 18 Sprites",
+      "description": "Master 18 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_18.QuestDisplayData_quest_s42_progressiontrack_18",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 18,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_18_obj0",
+          "required": 18,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_19": {
+      "name": "Mastered 19 Sprites",
+      "description": "Master 19 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_19.QuestDisplayData_quest_s42_progressiontrack_19",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 19,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_19_obj0",
+          "required": 19,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_20": {
+      "name": "Mastered 20 Sprites",
+      "description": "Master 20 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_20.QuestDisplayData_quest_s42_progressiontrack_20",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 20,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_20_obj0",
+          "required": 20,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_21": {
+      "name": "Mastered 21 Sprites",
+      "description": "Master 21 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_21.QuestDisplayData_quest_s42_progressiontrack_21",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 21,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_21_obj0",
+          "required": 21,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_22": {
+      "name": "Mastered 22 Sprites",
+      "description": "Master 22 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_22.QuestDisplayData_quest_s42_progressiontrack_22",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 22,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_22_obj0",
+          "required": 22,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_23": {
+      "name": "Mastered 23 Sprites",
+      "description": "Master 23 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_23.QuestDisplayData_quest_s42_progressiontrack_23",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 23,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_23_obj0",
+          "required": 23,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_24": {
+      "name": "Mastered 24 Sprites",
+      "description": "Master 24 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_24.QuestDisplayData_quest_s42_progressiontrack_24",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 24,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_24_obj0",
+          "required": 24,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_25": {
+      "name": "Mastered 25 Sprites",
+      "description": "Master 25 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_25.QuestDisplayData_quest_s42_progressiontrack_25",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 25,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_25_obj0",
+          "required": 25,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_26": {
+      "name": "Mastered 26 Sprites",
+      "description": "Master 26 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_26.QuestDisplayData_quest_s42_progressiontrack_26",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 26,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_26_obj0",
+          "required": 26,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_27": {
+      "name": "Mastered 27 Sprites",
+      "description": "Master 27 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_27.QuestDisplayData_quest_s42_progressiontrack_27",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 27,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_27_obj0",
+          "required": 27,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
+    },
+    "quest:quest_s42_progressiontrack_28": {
+      "name": "Mastered 28 Sprites",
+      "description": "Master 28 Sprites this season.",
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_progressiontrack_28.QuestDisplayData_quest_s42_progressiontrack_28",
+      "categories": [
+        "QuestCategory.FA11y.SpriteMastery.rewards"
+      ],
+      "products": [
+        "Product.BR"
+      ],
+      "hidden": false,
+      "visibility": {},
+      "product_query": {
+        "TagDictionary": [
+          {
+            "TagName": "Product.BR"
+          }
+        ],
+        "QueryTokenStream": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "AutoDescription": " ANY( Product.BR )"
+      },
+      "sort_priority": 28,
+      "completion_count": null,
+      "objectives": [
+        {
+          "key": "quest_s42_progressiontrack_28_obj0",
+          "required": 28,
+          "description": "Sprites mastered",
+          "hidden": false,
+          "stage": -1
+        }
+      ],
+      "source": "SpriteMastery"
     }
   },
   "sources": [
@@ -33782,6 +35532,62 @@
     {
       "asset": "/QuestDisplayData/SparksPermanentQuests/QuestDisplayData_sparksquest_weekly_granter_08",
       "sha256": "28ab2af2c850572217169817fe0a13674a4257a0a11f79015a0e62efac10f689"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_aerial_q01",
+      "sha256": "77cdffbda9431ac60609a5a7efd464061ff0907eb3d26b29e08db288363fdb92"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_aura_q01",
+      "sha256": "a42c4ce99698cf9d55f6738ff3fca0ee1fd3a90301355e7ef5632c9505f0a7aa"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_blockstack_q08",
+      "sha256": "8e08de43b1a616cd82f9f56c9d4413fefa1c784d0a55c97d99a1a17bf49e17e7"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_hope_q01",
+      "sha256": "f9eb3e65f3e34f1206402b560749867a133749af575aa3c567163dcfed79b909"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_blockstackcosmetics_jones_q01",
+      "sha256": "d92dc04cfa27b05f2a89032a74130e699f9b2211e7317a9f062ffb5303c2a252"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q01",
+      "sha256": "603b83b34414915210fe66fe14e108fb5b5e4b6932fe2e9e38963bbc9b9cc090"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q03",
+      "sha256": "1bb0b6c1c9203077be1453c89ec24490552dd496761fd1f375297b3425db054f"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q06",
+      "sha256": "d2e2e43450eeebe37d2483283dc26814d2ac0bf632adc3760c46253c48915a89"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_bonusgoals_q07",
+      "sha256": "66f93a25dfcecb14704eaeee4eabb738f8f76b6a38879ecc2f3a0146e044f5e7"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_blockstack_p01_q01",
+      "sha256": "566f2e0d874be52edb6796b610e71ca6e98b33c5f2e238372a5b3f5d907a2440"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q01",
+      "sha256": "a17f13690c0f615b700f7d1f6fa6bd8e2754c5d82fa00d24fc7361498949ef04"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q02",
+      "sha256": "96dd0106212ad0c88bd23c0b427d0f76388e98a9f0899b3b6379ad9231d98eb4"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_bonusgoals_q03",
+      "sha256": "fd45e1b8199fdc96b288ff81a0c3afabb0125719ee188e119ceb0ca0b82c0d41"
+    },
+    {
+      "asset": "/QuestDisplayData/BattlePassS42_Quests/QuestDisplayData_quest_s42_story_heroictale_q01",
+      "sha256": "665fd3ad12419ef1a0b6e5b9422e1084ead59ef5a44937efcbde016fb86268ea"
     }
   ],
   "categories": [
@@ -34424,6 +36230,121 @@
       "headers": []
     },
     {
+      "asset": "/QuestCategories/Items/QuestItems/Categories/QC_S42_BlockStackCosmetics",
+      "name": "Build-A-Wrixel",
+      "tags": [
+        "QuestCategory.BR.S42.BlockStackCosmetics"
+      ],
+      "exclude": [],
+      "headers": [
+        {
+          "name": "Peely",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Peely",
+          "description": ""
+        },
+        {
+          "name": "Cuddle Team Leader",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Cuddle",
+          "description": ""
+        },
+        {
+          "name": "Meowscles",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Meowscles",
+          "description": ""
+        },
+        {
+          "name": "Fishsticks",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Fishsticks",
+          "description": ""
+        },
+        {
+          "name": "Lynx",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Lynx",
+          "description": ""
+        },
+        {
+          "name": "Aerial",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Aerial",
+          "description": ""
+        },
+        {
+          "name": "Aura",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Aura",
+          "description": ""
+        },
+        {
+          "name": "Ghoul",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Ghoul",
+          "description": ""
+        },
+        {
+          "name": "Drift",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Drift",
+          "description": ""
+        },
+        {
+          "name": "Luxe",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Luxe",
+          "description": ""
+        },
+        {
+          "name": "Ruby",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Ruby",
+          "description": ""
+        },
+        {
+          "name": "Skull Ranger",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Skull",
+          "description": ""
+        },
+        {
+          "name": "Ziggy",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Ziggy",
+          "description": ""
+        },
+        {
+          "name": "Jones",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Jonesy",
+          "description": ""
+        },
+        {
+          "name": "Hope",
+          "tag": "QuestCategory.BR.S42.BlockStackCosmetics.Hope",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "asset": "/QuestCategories/Items/QuestItems/Categories/QC_S42_Story",
+      "name": "Story",
+      "tags": [
+        "QuestCategory.BR.S42.Story"
+      ],
+      "exclude": [],
+      "headers": [
+        {
+          "name": "Wrixel (Ziggy): Get Crafty",
+          "tag": "QuestCategory.BR.S42.Story.BlockStack",
+          "description": ""
+        },
+        {
+          "name": "Geno: The Ultimate Reality",
+          "tag": "QuestCategory.BR.S42.Story.SheerWill",
+          "description": ""
+        },
+        {
+          "name": "Bastian: Weird Magic",
+          "tag": "QuestCategory.BR.S42.Story.HeroicTale",
+          "description": ""
+        },
+        {
+          "name": "Audio Logs",
+          "tag": "QuestCategory.BR.S42.Story.Audiologs",
+          "description": ""
+        }
+      ]
+    },
+    {
       "asset": "/FA11y/SpriteMastery",
       "name": "Sprite Mastery",
       "tags": [
@@ -34431,6 +36352,11 @@
       ],
       "exclude": [],
       "headers": [
+        {
+          "name": "Mastery Rewards",
+          "tag": "QuestCategory.FA11y.SpriteMastery.rewards",
+          "description": ""
+        },
         {
           "name": "8-Bit",
           "tag": "QuestCategory.FA11y.SpriteMastery.8bit",
@@ -34546,7 +36472,7 @@
   ],
   "display_supplement": {
     "build": "Release-42.20-CL-58011042",
-    "rows": 364,
+    "rows": 14,
     "rule": "enabled in QuestDisplayData and active on the reference account, or in the same daily pool as an active daily"
   }
 }

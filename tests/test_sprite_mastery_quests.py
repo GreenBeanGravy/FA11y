@@ -48,8 +48,28 @@ def test_one_category_heading_per_sprite():
     from lib.utilities.quest_presentation import group_catalog
     category = next(c for c in group_catalog()['categories'] if c['name'] == 'Sprite Mastery')
     names = [h['name'] for h in category['headers']]
-    assert len(names) == len(set(names)) == 22
+    assert names[0] == 'Mastery Rewards'
+    assert len(names) == len(set(names)) == 23
     assert {'Tails', 'Crash Bandicoot', 'Dumpster Dive', 'Morgana', 'Squibbly'} <= set(names)
+
+
+@pytest.mark.parametrize('count, reward', [(7, '2 Portable Extractor'), (12, '2 Portable Extractor'),
+                                           (8, '3 Extraction Accelerator'), (28, 'Pixel Polli outfit')])
+def test_mastery_reward_track_is_listed_with_its_rewards(count, reward):
+    quest, _, _ = shown(f'quest_s42_progressiontrack_{count:02d}')
+    assert quest['name'] == f'Mastered {count} Sprites'
+    assert quest['category'] == 'Sprite Mastery / Mastery Rewards'
+    text = details_text(quest)
+    assert f'Sprites mastered: Progress not reported; target {count}' in text
+    assert f'Rewards: {reward}' in text
+
+
+def test_mastery_monday_override_bonus_goals_give_portable_extractors():
+    for template, target in (('quest_dailychase_br_s42_mm_q01', 1), ('quest_dailychase_br_s42_mm_q03', 3)):
+        quest, _, _ = shown(template)
+        assert quest['category'] == 'Override Daily Quests / Bonus goals'
+        text = details_text(quest)
+        assert f'target {target}' in text and 'Rewards: Portable Extractor' in text
 
 
 def test_sprites_without_a_name_in_the_build_are_not_invented():
@@ -79,11 +99,19 @@ def test_builder_names_from_the_tracked_sprite_tag(tmp_path):
     # Only a variant definition exists for Foo; its prefix is stripped to recover the sprite name.
     _write(s / 'ESD_FooSprite_Variant_CheatMaster.json', sprite('ESD_FooSprite_Variant_CheatMaster', 'Cheat Master Apple Sprite'))
     _write(s / 'ESD_BarSprite.json', sprite('ESD_BarSprite', 'Bar Sprite'))
-    rows, category, skipped = build(q, s, {'quest:quest_s42_spritemastery_old': dict(name='Sprite Mastery - Elder')})
+    d = tmp_path / 'qdd'
+    _write(d / 'QuestDisplayData_quest_s42_progressiontrack_03.json', [dict(
+        Type='FortQuestDisplayDataAsset', Name='QDD_T3', Package='/QDD/QDD_T3', Properties=dict(
+            TemplateId='Quest:quest_s42_progressiontrack_03', Objectives=[dict(ObjectiveId='T3_obj0', Count=3)],
+            ExtensionData=[dict(DisplayName=dict(LocalizedString='Mastered 3 Sprite')),
+                           dict(bIsVisibleToPlayers=True, bIncludedInCategories=False)]))])
+    rows, category, skipped = build(q, s, {'quest:quest_s42_spritemastery_old': dict(name='Sprite Mastery - Elder')}, d)
+    track = rows.pop('quest:quest_s42_progressiontrack_03')
+    assert track['name'] == 'Mastered 3 Sprites' and track['objectives'][0]['required'] == 3
     assert rows['quest:quest_s42_spritemastery_foo_06']['name'] == 'Sprite Mastery - Bounty Hunter Apple'
     assert rows['quest:quest_s42_spritemastery_foo_06']['objectives'][0]['description'] == 'Extract a Bounty Hunter Apple Sprite'
     assert rows['quest:quest_s42_spritemastery_bar_04']['name'] == 'Sprite Mastery - Gummy Bar'
     assert rows['quest:quest_s42_spritemastery_old']['name'] == 'Sprite Mastery - Elder'
     assert skipped == ['Quest_S42_SpriteMastery_Nope']
-    assert [h['name'] for h in category['headers']] == ['Apple', 'Bar', 'Elder']
+    assert [h['name'] for h in category['headers']] == ['Mastery Rewards', 'Apple', 'Bar', 'Elder']
     assert all(not r['hidden'] for r in rows.values())

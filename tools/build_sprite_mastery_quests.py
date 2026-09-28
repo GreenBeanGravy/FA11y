@@ -13,7 +13,10 @@ names (e.g. ESD_DoubleJumpSprite_Variant_Candy = "Gummy Jackrabbit Sprite",
 ESD_*_Variant_Reaper = "Bounty Hunter ... Sprite"). Sprites with no name in the
 installed build are skipped rather than invented.
 
-    python tools/build_sprite_mastery_quests.py QUEST_DEFINITION_DIR SPRITE_DEFINITION_DIR
+The season's "Mastered N Sprites" reward track (which pays out Portable
+Extractors and other Override items) is listed first, under Mastery Rewards.
+
+    python tools/build_sprite_mastery_quests.py QUEST_DEFINITION_DIR SPRITE_DEFINITION_DIR --display-dir QDD_DIR
 """
 import argparse
 import json
@@ -74,7 +77,37 @@ def sprite_for(tag_key, names, fallback):
     return fallback
 
 
-def build(definition_dir, sprite_dir, catalog):
+TRACK_HEADER = CATEGORY_TAG + '.rewards'
+
+
+def track_rows(display_dir):
+    """The season's "Mastered N Sprites" reward track. Players see it, but it is kept out of quest
+    categories, so it is listed first under Sprite Mastery with the rewards each step pays out."""
+    rows = {}
+    for path in sorted(Path(display_dir).rglob('QuestDisplayData_quest_s42_progressiontrack_*.json')):
+        for obj in load(path):
+            props = obj.get('Properties') or {}
+            ext = {}
+            for entry in props.get('ExtensionData') or []:
+                ext.update(entry)
+            match = re.match(r'Mastered (\d+) Sprites?$', text(ext.get('DisplayName')))
+            if obj.get('Type') != 'FortQuestDisplayDataAsset' or ext.get('bIsVisibleToPlayers') is False or not match:
+                continue
+            count = int(match.group(1))
+            name = f"Mastered {count} Sprite{'s' if count != 1 else ''}"
+            rows[str(props['TemplateId']).lower()] = dict(
+                name=name, description=f'Master {count} Sprite{"s" if count != 1 else ""} this season.',
+                asset=obj.get('Package', '') + '.' + obj.get('Name', ''), categories=[TRACK_HEADER],
+                products=['Product.BR'], hidden=False, visibility={}, product_query=PRODUCT_QUERY,
+                sort_priority=count, completion_count=None,
+                objectives=[dict(key=str(o.get('ObjectiveId', '')).lower(), required=o.get('Count'),
+                                 description='Sprites mastered', hidden=False, stage=-1)
+                            for o in props.get('Objectives') or []],
+                source='SpriteMastery')
+    return rows
+
+
+def build(definition_dir, sprite_dir, catalog, display_dir=None):
     names = sprite_names(sprite_dir)
     # Families already named in an older catalog (e.g. Squibbly) keep that name when the build lacks one.
     old = {}
@@ -113,9 +146,12 @@ def build(definition_dir, sprite_dir, catalog):
             products=['Product.BR'], hidden=False, visibility={}, product_query=PRODUCT_QUERY,
             sort_priority=list(VARIANTS).index(variant.lower()), completion_count=None,
             objectives=objectives, source='SpriteMastery')
+    track = track_rows(display_dir) if display_dir else {}
+    rows.update(track)
     category = dict(asset=CATEGORY_ASSET, name='Sprite Mastery', tags=[CATEGORY_TAG], exclude=[],
-                    headers=[dict(name=name, tag=tag, description='')
-                             for tag, name in sorted(headers.items(), key=lambda item: item[1].casefold())])
+                    headers=([dict(name='Mastery Rewards', tag=TRACK_HEADER, description='')] if track else [])
+                    + [dict(name=name, tag=tag, description='')
+                       for tag, name in sorted(headers.items(), key=lambda item: item[1].casefold())])
     return rows, category, sorted(skipped)
 
 
@@ -123,10 +159,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('definition_dir', type=Path)
     parser.add_argument('sprite_dir', type=Path)
+    parser.add_argument('--display-dir', type=Path, help='QuestDisplayData export, adds the Mastered N Sprites track')
     args = parser.parse_args()
     catalog = json.loads((ROOT / 'lib/data/packet_quests_4210.json').read_text(encoding='utf-8'))['rows']
     supplement = json.loads(SUPPLEMENT.read_text(encoding='utf-8'))
-    rows, category, skipped = build(args.definition_dir, args.sprite_dir, catalog)
+    rows, category, skipped = build(args.definition_dir, args.sprite_dir, catalog, args.display_dir)
     # These rows deliberately replace the older hidden, sometimes placeholder-named catalog rows.
     supplement['rows'].update(rows)
     supplement['categories'] = [c for c in supplement['categories'] if c['asset'] != CATEGORY_ASSET] + [category]

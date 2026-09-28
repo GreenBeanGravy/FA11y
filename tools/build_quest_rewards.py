@@ -97,10 +97,24 @@ def asset_name(reference):
     return path.rsplit('/', 1)[-1].split('.')[0]
 
 
+def fortnite_api_cosmetic(asset_id):
+    """(name, type) for a Battle Royale cosmetic from fortnite-api.com, the locker's name source.
+    Only used for cosmetics whose definitions sit in archives the export could not open."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f'https://fortnite-api.com/v2/cosmetics/br/{asset_id}', timeout=15) as response:
+            data = json.load(response).get('data') or {}
+    except (OSError, ValueError):
+        return None
+    name = data.get('name')
+    return (name, (data.get('type') or {}).get('displayValue') or '') if name else None
+
+
 class RewardResolver:
-    def __init__(self, items, quest_names):
+    def __init__(self, items, quest_names, cosmetic_lookup=None):
         self.items = items
         self.quest_names = quest_names
+        self.cosmetic_lookup = cosmetic_lookup
         self.unresolved = set()
 
     def item(self, kind, name, quantity):
@@ -118,6 +132,10 @@ class RewardResolver:
         obj = self.items.get(name)
         props = (obj or {}).get('Properties') or {}
         title = text(props.get('ItemName'))
+        if not title and not obj and kind_l.startswith('athena') and self.cosmetic_lookup:
+            found = self.cosmetic_lookup(name)
+            if found:
+                return dict(type='item', name=found[0], category=found[1])
         if not title:
             self.unresolved.add(f'{kind}:{name}')
             return None
@@ -206,12 +224,12 @@ def display_names(display_dir):
     return names
 
 
-def build(display_dir, item_dirs, build_name):
+def build(display_dir, item_dirs, build_name, cosmetic_lookup=None):
     catalog = catalog_rows()
     quest_names = display_names(display_dir)
     quest_names.update({key: row['name'] for key, row in catalog.items() if row.get('name')})
     items = ItemIndex([*item_dirs, display_dir])
-    resolver = RewardResolver(items, quest_names)
+    resolver = RewardResolver(items, quest_names, cosmetic_lookup)
     rows, display_keys = {}, set()
     for path in sorted(Path(display_dir).rglob('*.json')):
         for obj in load_objects(path):
@@ -249,8 +267,11 @@ if __name__ == '__main__':
     parser.add_argument('item_dirs', type=Path, nargs='+')
     parser.add_argument('--build', default='Release-42.20-CL-58011042')
     parser.add_argument('--output', type=Path, default=ROOT / 'lib/data/quest_rewards_4220.json')
+    parser.add_argument('--fortnite-api', action='store_true',
+                        help='name cosmetics missing from the export through fortnite-api.com')
     args = parser.parse_args()
-    data, unresolved, fallback = build(args.display_dir, args.item_dirs, args.build)
+    data, unresolved, fallback = build(args.display_dir, args.item_dirs, args.build,
+                                       fortnite_api_cosmetic if args.fortnite_api else None)
     args.output.write_text(json.dumps(data, indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
     print(len(data['rows']), 'quests with rewards;', fallback, 'from quest definitions')
     if unresolved:

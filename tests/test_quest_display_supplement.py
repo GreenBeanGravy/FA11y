@@ -42,8 +42,20 @@ def test_game_disabled_and_placeholder_quests_were_not_added_from_display_data()
     # Epic ships "Quest Name" placeholders.
     assert all(not ('spritemastery' in key or 'progressiontrack' in key)
                for key, row in catalog.items() if row.get('source') == 'QuestDisplayData')
-    assert 'quest:quest_s42_progressiontrack_20' not in catalog
+    # The Mastered N Sprites track is added on purpose by the Sprite Mastery builder instead.
+    assert catalog['quest:quest_s42_progressiontrack_20']['source'] == 'SpriteMastery'
     assert 'quest:quest_sparksspotlight_s15_event03_q01' not in catalog
+
+
+def test_untitled_story_bonus_goals_use_their_description():
+    for template, name, category, reward in (
+            ('quest_s42_story_heroictale_bonusgoals_q03', 'Complete Bastian quests',
+             'Story / Bastian: Weird Magic / Bonus goals', 'Rewards: 3 Portable Extractor'),
+            ('quest_s42_story_blockstack_bonusgoals_q06', 'Complete Wrixel (Ziggy) quests',
+             'Story / Wrixel (Ziggy): Get Crafty / Bonus goals', 'Rewards: Portable Extractor')):
+        quest, _, _ = shown(template)
+        assert quest['name'] == name and quest['category'] == category
+        assert reward in details_text(quest)
 
 
 def test_newer_category_copy_replaces_the_older_one():
@@ -84,10 +96,18 @@ def test_builder_rules(tmp_path):
     _write(tmp_path / 'qc/QC_X.json', [dict(Type='QuestCategoryData', Package='/QC/QC_X', Properties=dict(
         DisplayName=dict(LocalizedString='X Quests'), IncludeTags=['QuestCategory.X'],
         AdditionalHeaders=[dict(HeaderName=dict(LocalizedString='Week 9'), HeaderTag=dict(TagName='QuestCategory.X.Weekly'))]))])
+    untitled = _record('b1', 'unused', ['QuestCategory.X.Weekly'], other)
+    ext = untitled[0]['Properties']['ExtensionData'][0]
+    ext['DisplayName'], ext['Description'] = {}, dict(LocalizedString='Complete X quests')
+    _write(qdd / 'Pool/QuestDisplayData_b1.json', untitled)
     supplement = dict(rows={}, categories=[dict(asset='/QC/QC_X', name='Old', tags=[], exclude=[], headers=[])])
-    added, categories, _ = build(qdd, tmp_path / 'qc', ['Quest:d1', 'Quest:w1', 'Quest:h1', 'Quest:p1'], {}, supplement)
+    # b1 has a blank name in the old catalog, so it may be replaced; w1 already has a real one.
+    catalog = {'quest:b1': dict(name='', hidden=True), 'quest:w2': dict(name='Weekly two', hidden=False)}
+    added, categories, _ = build(qdd, tmp_path / 'qc', ['Quest:d1', 'Quest:w1', 'Quest:h1', 'Quest:p1', 'Quest:b1'],
+                                 catalog, supplement)
     # Active + enabled, plus the same-plugin daily pool; not the old season, other weeks, hidden or placeholders.
-    assert sorted(added) == ['quest:d1', 'quest:d2', 'quest:w1']
+    assert sorted(added) == ['quest:b1', 'quest:d1', 'quest:d2', 'quest:w1']
+    assert added['quest:b1']['name'] == 'Complete X quests' and not added['quest:b1']['hidden']
     assert added['quest:w1']['objectives'][0] == dict(key='w1_obj0', required=3, description='Weekly one',
                                                       hidden=False, stage=-1)
     merged = merge(supplement, added, categories, [], 'test')

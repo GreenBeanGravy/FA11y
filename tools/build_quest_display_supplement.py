@@ -7,7 +7,8 @@ tags for every quest the client can show, so this tool fills the gap.
 
 Only quests the game marks enabled are added: bIsVisibleToPlayers and
 bIncludedInCategories must not be false (Sprite Mastery tiers, granters and
-reward trackers are hidden this way), and the name must be real text. A quest
+reward trackers are hidden this way), and the name must be real text (the
+description stands in when Epic ships an enabled quest without a title). A quest
 is added only when it is active on the reference account, or when it is a
 daily quest from the same random daily pool as an active daily (same plugin,
 exact QuestCategory tag, both typed AthenaDailyQuest) so tomorrow's draw is
@@ -28,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUPPLEMENT = ROOT / 'lib/data/quest_supplement_4220.json'
 DAILY = 'EFortQuestType::AthenaDailyQuest'
-PLACEHOLDER = re.compile(r'^(quest name|name|tbd|placeholder)$|LOCTEXT|\{[^}]*\}', re.I)
+PLACEHOLDER = re.compile(r'^(quest name|quest description|objective description|name|tbd|placeholder)$|LOCTEXT|\{[^}]*\}', re.I)
 
 
 def text(value):
@@ -69,10 +70,19 @@ def quest_tags(obj):
             if isinstance(t, str) and t.startswith('QuestCategory.')]
 
 
+def display_name(ext):
+    # Some enabled bonus goals ship without a title; their description ("Complete Bastian quests")
+    # is the text the quest screen shows in its place.
+    # A placeholder title ("Quest Name") marks an unfinished quest, so only a missing title falls back.
+    title = text(ext.get('DisplayName'))
+    name = title or text(ext.get('Description'))
+    return name if name and not PLACEHOLDER.search(name) else ''
+
+
 def row(obj, ext):
     props = obj.get('Properties') or {}
     query = props.get('ProductCompatabilityQuery') or {}
-    name = text(ext.get('DisplayName'))
+    name = display_name(ext)
     return dict(
         name=name, description=text(ext.get('Description')) or name,
         asset=obj.get('Package', '') + '.' + obj.get('Name', ''),
@@ -108,13 +118,15 @@ def _matches(tag, prefix):
 
 def build(display_dir, category_dir, active_templates, catalog, supplement):
     records = display_records(display_dir)
-    known = set(catalog) | set(supplement.get('rows', {}))
+    rows = {**catalog, **supplement.get('rows', {})}
+    # Rows without a usable name (blank titles hidden by the old catalog) may be replaced.
+    known = {key for key, value in rows.items() if (value.get('name') or '').strip()
+             and not PLACEHOLDER.search(value['name'])}
     active = {t.lower() for t in active_templates}
 
     def eligible(key):
         obj, ext, _ = records[key]
-        name = text(ext.get('DisplayName'))
-        return enabled(ext) and name and not PLACEHOLDER.search(name) and quest_tags(obj)
+        return enabled(ext) and display_name(ext) and quest_tags(obj)
 
     def daily_pool(key):
         # Random daily draws: same plugin folder and exact category tag, both typed as daily quests.

@@ -128,6 +128,11 @@ def test_builder_reads_display_rewards_names_and_definition_fallback(tmp_path, m
             dict(TableRowEntry=dict(DataTable=dict(ObjectPath='/P/XPTable.0'), RowName='Secret'))])])),
         dict(Type='AthenaDailyQuestDefinition', Name='Quest_C', Properties={})])
     data, unresolved, fallback = builder.build(display, [items], 'test')
+    # A cosmetic missing from the export is named through the optional lookup, never guessed.
+    resolver = builder.RewardResolver(builder.ItemIndex([items]), {}, lambda asset: ('Pixel Polli', 'Outfit'))
+    assert rewards_text('', [resolver.item('AthenaCharacter', 'Character_Missing', 1)]) == 'Pixel Polli outfit'
+    offline = builder.RewardResolver(builder.ItemIndex([items]), {})
+    assert offline.item('AthenaCharacter', 'Character_Missing', 1) is None and offline.unresolved
     assert unresolved == set() and fallback == 1
     assert rewards_text('quest:quest_a', data['rows']['quest:quest_a']) == (
         '15,000 XP; Yeddy outfit; Gold style for Yeddy outfit; Battle Pass bonus: Tag spray; unlocks the quest Quest B')

@@ -5147,6 +5147,108 @@
     "quantity": 2
    }
   ],
+  "quest:quest_s42_progressiontrack_15": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_16": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_progressiontrack_17": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_18": [
+   {
+    "type": "item",
+    "name": "Spicy Taco",
+    "category": "",
+    "quantity": 5
+   }
+  ],
+  "quest:quest_s42_progressiontrack_19": [
+   {
+    "type": "item",
+    "name": "Extraction Accelerator",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_progressiontrack_20": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_21": [
+   {
+    "type": "item",
+    "name": "Lucky Locator",
+    "category": ""
+   }
+  ],
+  "quest:quest_s42_progressiontrack_22": [
+   {
+    "type": "item",
+    "name": "Extraction Accelerator",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_progressiontrack_23": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_24": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_progressiontrack_25": [
+   {
+    "type": "item",
+    "name": "Llama Supply Drop",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_progressiontrack_26": [
+   {
+    "type": "item",
+    "name": "Sprite Dust",
+    "category": "",
+    "quantity": 5000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_27": [
+   {
+    "type": "xp",
+    "quantity": 40000
+   }
+  ],
+  "quest:quest_s42_progressiontrack_28": [
+   {
+    "type": "item",
+    "name": "Pixel Polli",
+    "category": "Outfit"
+   }
+  ],
   "quest:quest_s42_ranked_br_bonusgoal_01": [
    {
     "type": "item",
@@ -6102,6 +6204,35 @@
    }
   ],
   "quest:quest_s42_story_blockstack_p01_q01": [
+   {
+    "type": "xp",
+    "quantity": 10000
+   }
+  ],
+  "quest:quest_s42_story_heroictale_bonusgoals_q01": [
+   {
+    "type": "item",
+    "name": "Llama Supply Drop",
+    "category": ""
+   }
+  ],
+  "quest:quest_s42_story_heroictale_bonusgoals_q02": [
+   {
+    "type": "item",
+    "name": "Cheat Code Locator",
+    "category": "",
+    "quantity": 2
+   }
+  ],
+  "quest:quest_s42_story_heroictale_bonusgoals_q03": [
+   {
+    "type": "item",
+    "name": "Portable Extractor",
+    "category": "",
+    "quantity": 3
+   }
+  ],
+  "quest:quest_s42_story_heroictale_q01": [
    {
     "type": "xp",
     "quantity": 10000
