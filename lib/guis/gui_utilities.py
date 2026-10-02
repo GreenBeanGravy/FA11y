@@ -309,6 +309,24 @@ _last_focus_attempt: dict = {}
 _FORCE_FOCUS_DEDUPE_WINDOW_S = 0.5
 
 
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = [("dx", ctypes.c_long), ("dy", ctypes.c_long), ("mouseData", ctypes.c_ulong),
+                ("dwFlags", ctypes.c_ulong), ("time", ctypes.c_ulong), ("dwExtraInfo", ctypes.c_size_t)]
+
+
+class _INPUT(ctypes.Structure):
+    class _U(ctypes.Union):
+        _fields_ = [("mi", _MOUSEINPUT), ("pad", ctypes.c_byte * 32)]
+    _anonymous_ = ("u",)
+    _fields_ = [("type", ctypes.c_ulong), ("u", _U)]
+
+
+def _send_null_mouse_move() -> None:
+    event = _INPUT(type=0)  # INPUT_MOUSE
+    event.mi = _MOUSEINPUT(0, 0, 0, 0x0001, 0, 0)  # MOUSEEVENTF_MOVE, relative 0,0
+    ctypes.windll.user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(_INPUT))
+
+
 def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: Optional[Union[Callable, Any]] = None):
     """Bring window to the foreground via every Win32 focus method."""
     try:
@@ -366,6 +384,12 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
                 SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
             )
             ctypes.windll.user32.SetForegroundWindow(hwnd)
+            if ctypes.windll.user32.GetForegroundWindow() != hwnd:
+                # Windows only lets the process that received the last input
+                # take the foreground. A zero-distance mouse move from here
+                # makes that us, without moving anything or pressing a key.
+                _send_null_mouse_move()
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
             ctypes.windll.user32.BringWindowToTop(hwnd)
             ctypes.windll.user32.SetActiveWindow(hwnd)
 

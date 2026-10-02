@@ -110,52 +110,41 @@ class MousePassthroughService:
             else:
                 print("[INFO] Mouse passthrough disabled in config")
         else:
-            # First-time setup (only if enabled)
-            if enabled:
-                self._first_time_setup()
+            # Nothing is captured until the user picks a mouse, from the
+            # Fortnite page or with the Recapture mouse keybind.
+            print("[INFO] No mouse set up for passthrough.")
 
-    def _first_time_setup(self):
-        """Detect the mouse the first time FA11y runs, without speaking.
+    def describe(self) -> str:
+        """One line about the passthrough mouse, for the FA11y window."""
+        from lib.utilities.utilities import get_config_boolean, read_config
+        if not self.target_device:
+            return "No mouse is set up for passthrough."
+        device = f"{self.target_device.friendly_name} at {self.target_device.dpi} DPI"
+        if not get_config_boolean(read_config(), "MousePassthrough", True):
+            return f"Set up with {device}, but turned off in Settings."
+        if self.running:
+            return f"Using {device}."
+        return f"Set up with {device}, not running."
 
-        FA11y starts speaking its own startup messages at the same time, so
-        detection is silent: the first mouse that moves is used. Alt+Shift+M
-        recaptures it later. Runs on a background thread to avoid blocking
-        the main thread or key listener during the Win32 message pump.
-        """
-        print("[INFO] No mouse configured. Move your mouse to detect it (or wait to skip)...")
-
-        thread = threading.Thread(target=self._first_time_setup_blocking, daemon=True)
-        thread.start()
-
-    def _first_time_setup_blocking(self):
-        """Blocking first-time setup logic - runs on a background thread."""
-        device = detect_mouse_device(
-            dpi=self.config["DPI"],
-            timeout=self.config["DETECTION_TIMEOUT"]
-        )
-
-        if not device:
-            print("[INFO] No mouse detected. Skipping passthrough setup.")
-            return
-
-        self.target_device = device
-        self.mouse_hook.target_device = device
-        self._save_device_to_config()
-        self.start()
-        print(f"[INFO] Mouse passthrough started with {device.friendly_name} at {device.dpi} DPI.")
-
-    def recapture_mouse(self):
-        """Recapture the mouse device. Triggered by keybind.
+    def recapture_mouse(self, on_done=None):
+        """Detect the mouse to pass through. Triggered by keybind or the Fortnite page.
 
         Runs detection on a background thread so it doesn't block the
         key listener (detect_mouse_device pumps a Win32 message loop
-        for up to DETECTION_TIMEOUT seconds).
+        for up to DETECTION_TIMEOUT seconds). on_done is then called on
+        that thread with the detected device, or None.
         """
         if self.speaker:
             self.speaker.speak("Move your mouse to detect it.")
 
-        thread = threading.Thread(target=self._recapture_mouse_blocking, daemon=True)
-        thread.start()
+        def work():
+            device = None
+            try:
+                device = self._recapture_mouse_blocking()
+            finally:
+                if on_done is not None:
+                    on_done(device)
+        threading.Thread(target=work, daemon=True).start()
 
     def _recapture_mouse_blocking(self):
         """Blocking recapture logic - runs on a background thread."""
@@ -175,7 +164,7 @@ class MousePassthroughService:
             # Restart previous capture if we had one
             if was_running and self.target_device:
                 self.start()
-            return
+            return None
 
         # Preserve DPI if same device
         if self.target_device and self.target_device.matches(device.vendor_id, device.product_id):
@@ -189,6 +178,7 @@ class MousePassthroughService:
 
         if self.speaker:
             self.speaker.speak(f"Mouse recaptured: {device.friendly_name} at {device.dpi} D P I.")
+        return device
 
     def toggle(self):
         """Toggle mouse passthrough on/off. Announces state via TTS."""

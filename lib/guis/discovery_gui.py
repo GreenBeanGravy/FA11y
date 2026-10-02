@@ -462,7 +462,9 @@ class DiscoveryView(EmbeddedView):
 
         if islands:
             self.epic_list.SetSelection(0)
-            speaker.speak(f"{len(islands)} Epic gamemodes loaded")
+            # Only for someone waiting on this list, not a background load.
+            if self.epic_list.HasFocus():
+                speaker.speak(f"{len(islands)} Epic gamemodes loaded")
 
     def _show_epic_error(self):
         """Show error message in epic list"""
@@ -535,7 +537,9 @@ class DiscoveryView(EmbeddedView):
 
         if islands:
             self.browse_list.SetSelection(0)
-            speaker.speak(f"{len(islands)} islands loaded")
+            # Only for someone waiting on this list, not a background load.
+            if self.browse_list.HasFocus():
+                speaker.speak(f"{len(islands)} islands loaded")
 
     def _show_browse_error(self):
         """Show error message in browse list"""

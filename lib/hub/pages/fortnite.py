@@ -135,6 +135,17 @@ class FortnitePage(HubPage):
         self.skip_splash.Bind(wx.EVT_CHECKBOX, lambda e: self._save_launch_options())
         self.extra_args.Bind(wx.EVT_KILL_FOCUS, self._on_extra_blur)
 
+        # Mouse passthrough: FA11y never grabs a mouse by itself; pick one here.
+        self.content.Add(label(self, "Mouse passthrough", font=theme.heading_font(self, 1)), 0, wx.TOP, 18)
+        self.mouse_text = text(self, "", theme.TEXT_SECONDARY, wrap=620)
+        self.content.Add(self.mouse_text, 0, wx.TOP, 6)
+        self.content.Add(text(self, "Passthrough lets you use your own mouse in Fortnite while FA11y "
+                                    "also moves the camera. Press Detect mouse, then move the mouse "
+                                    "you play with.", theme.TEXT_SECONDARY, wrap=620), 0, wx.TOP, 4)
+        self.mouse_button = button(self, "&Detect mouse")
+        self.mouse_button.Bind(wx.EVT_BUTTON, lambda e: self._detect_mouse())
+        self.content.Add(self.mouse_button, 0, wx.TOP, 8)
+
         self._apply_status(None)
 
     # Status --------------------------------------------------------------
@@ -142,6 +153,38 @@ class FortnitePage(HubPage):
     def on_show(self) -> None:
         if self._cancel is None:
             self.refresh()
+        self._show_mouse()
+
+    # Mouse passthrough ---------------------------------------------------
+
+    def _show_mouse(self) -> None:
+        try:
+            from lib.mouse_passthrough import get_mouse_passthrough
+            service = get_mouse_passthrough()
+            self.mouse_text.SetLabel(service.describe())
+            self.mouse_button.SetLabel("&Detect mouse again" if service.target_device else "&Detect mouse")
+        except Exception as e:
+            self.mouse_text.SetLabel(f"Mouse passthrough isn't available: {e}")
+            self.mouse_button.Disable()
+        self.Layout()
+
+    def _detect_mouse(self) -> None:
+        from lib.mouse_passthrough import get_mouse_passthrough
+        self.mouse_button.Disable()
+        self.mouse_text.SetLabel("Move the mouse you play with now.")
+
+        def done(device):
+            wx.CallAfter(self._mouse_detected, device)
+        get_mouse_passthrough().recapture_mouse(on_done=done)
+
+    def _mouse_detected(self, device) -> None:
+        if not self:
+            return
+        self.mouse_button.Enable()
+        sounds.ui("done" if device else "error")
+        self._show_mouse()
+        if device is None:
+            self.mouse_text.SetLabel("No mouse moved, so nothing changed. " + self.mouse_text.GetLabel())
 
     def refresh(self, check_updates: bool = False) -> None:
         def work():

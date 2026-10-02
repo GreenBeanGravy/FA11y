@@ -216,7 +216,9 @@ class HubFrame(wx.Frame):
         self.watcher.start()
         self._sync_keybinds_with_game(game_watch.is_fortnite_running())
         if show and not game_watch.is_fortnite_running():
-            self._bring_to_front(self.sidebar.SetFocus)
+            self.Show()
+            # Once the window has painted, so it can take the foreground.
+            wx.CallAfter(self._bring_to_front, self.sidebar.SetFocus)
         sounds.preload()
 
     def _bring_to_front(self, focus) -> None:
