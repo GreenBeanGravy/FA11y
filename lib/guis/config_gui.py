@@ -161,6 +161,10 @@ class ConfigView(EmbeddedView):
     def activate(self) -> None:
         self._ensure_populated()
 
+    def prefetch(self) -> None:
+        """Build the widgets while the hub is idle, before the page is first shown."""
+        self._ensure_populated()
+
     def deactivate(self) -> None:
         """The page was hidden or the window is closing: stop capture, save changes."""
         if self.capturing_key:

@@ -66,8 +66,11 @@ class HomePage(HubPage):
 
     def refresh(self) -> None:
         """Fill in what's known now, then fetch the slower parts on a worker thread."""
+        from lib.app import state
+        keybinds = ("FA11y's keybinds are on." if state.are_keybinds_enabled()
+                    else "FA11y's keybinds turn on when Fortnite starts.")
         self.keybind_text.SetLabel(
-            f"Keybinds are active. Open this window any time with {status.open_hub_keybind()}.")
+            f"{keybinds} Open this window any time with {status.open_hub_keybind()}.")
         running = game_watch.is_fortnite_running()
         self.play_button.SetLabel("Fortnite is &running" if running else "&Play Fortnite")
         # Each card fills in as soon as its own check finishes; the Fortnite

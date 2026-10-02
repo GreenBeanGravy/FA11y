@@ -214,7 +214,6 @@ custom_poi_gui_open = _app_state.custom_poi_gui_open
 _shutdown_requested = _app_state.shutdown_requested
 auth_expired = _app_state.auth_expired
 
-keybinds_enabled = True
 poi_data_instance = None
 active_pinger = None
 social_manager = None
@@ -534,7 +533,7 @@ from lib.app.display_actions import announce_display_mode
 
 def key_listener() -> None:
     """Listen for and handle key presses with modifier key support and fast shutdown response."""
-    global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open, keybinds_enabled, config
+    global key_bindings, key_state, action_handlers, stop_key_listener, config_gui_open, config
     
     # Define the set of actions that should ignore extra modifiers
     mouse_key_actions = {
@@ -572,6 +571,7 @@ def key_listener() -> None:
         is_gui_focused = _foreground_window_pid() == own_pid
 
         numlock_on = is_numlock_on()
+        keybinds_on = _app_state.are_keybinds_enabled()
         if config is None:
             time.sleep(0.01) # Reduced sleep for faster response
             continue
@@ -595,7 +595,9 @@ def key_listener() -> None:
             if action_lower not in action_handlers:
                 continue
 
-            if not keybinds_enabled and action_lower != 'toggle keybinds':
+            # Off while Fortnite isn't running (see HubFrame); toggling and
+            # opening FA11y's window always work.
+            if not keybinds_on and action_lower not in ('toggle keybinds', 'open fa11y'):
                 continue
 
             if not _cached_mouse_keys and action_lower in mouse_key_actions:
@@ -840,7 +842,7 @@ def _start_background_systems() -> None:
     fa11y_ow_announcer.start()
 
     match_tracker.start_monitoring()
-    match_tracker._start_new_match()
+    match_tracker._start_new_match(announce=False)  # a session to track in, not a real match
     initialize_hotbar_detection()
 
     current_map = read_config().get('POI', 'current_map', fallback='main')
@@ -898,9 +900,13 @@ def _finish_epic_login(restored: bool, first_run: bool) -> None:
     hub = get_hub()
     if hub is not None:
         hub.reset_views(("social", "quests", "discover", "locker"))
+        hub.login_settled()
         home = hub.page("home")
         if home is not None and home.built and hub.current_page() is home:
             home.refresh()
+    # An update found at startup is spoken after the ready message.
+    from lib.app import updater_check
+    updater_check.startup_finished(speaker)
 
 
 def _finish_startup(first_run: bool) -> None:

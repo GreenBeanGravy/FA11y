@@ -82,7 +82,8 @@ def restart_to_update(hub) -> None:
     if not launcher:
         return
     try:
-        subprocess.Popen([launcher], cwd=os.path.dirname(launcher),
+        # --update makes the launcher update even when AutoUpdates is off.
+        subprocess.Popen([launcher, "--update"], cwd=os.path.dirname(launcher),
                          creationflags=subprocess.CREATE_NEW_CONSOLE, close_fds=True)
     except OSError as e:
         logger.error(f"Could not start the launcher: {e}")

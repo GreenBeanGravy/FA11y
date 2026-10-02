@@ -115,14 +115,13 @@ class MousePassthroughService:
                 self._first_time_setup()
 
     def _first_time_setup(self):
-        """Guide the user through first-time mouse setup. Skippable.
+        """Detect the mouse the first time FA11y runs, without speaking.
 
-        Runs detection on a background thread to avoid blocking the main thread
-        or key listener during the Win32 message pump.
+        FA11y starts speaking its own startup messages at the same time, so
+        detection is silent: the first mouse that moves is used. Alt+Shift+M
+        recaptures it later. Runs on a background thread to avoid blocking
+        the main thread or key listener during the Win32 message pump.
         """
-        if self.speaker:
-            self.speaker.speak("No mouse configured for passthrough. Move your mouse to detect it, or press Enter to skip.")
-
         print("[INFO] No mouse configured. Move your mouse to detect it (or wait to skip)...")
 
         thread = threading.Thread(target=self._first_time_setup_blocking, daemon=True)
@@ -136,8 +135,6 @@ class MousePassthroughService:
         )
 
         if not device:
-            if self.speaker:
-                self.speaker.speak("No mouse detected. You can recapture later with Alt Shift M.")
             print("[INFO] No mouse detected. Skipping passthrough setup.")
             return
 
@@ -145,9 +142,7 @@ class MousePassthroughService:
         self.mouse_hook.target_device = device
         self._save_device_to_config()
         self.start()
-
-        if self.speaker:
-            self.speaker.speak(f"Mouse passthrough started with {device.friendly_name} at {device.dpi} D P I.")
+        print(f"[INFO] Mouse passthrough started with {device.friendly_name} at {device.dpi} DPI.")
 
     def recapture_mouse(self):
         """Recapture the mouse device. Triggered by keybind.

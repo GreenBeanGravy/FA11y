@@ -91,6 +91,11 @@ class QuestView(EmbeddedView):
             self.refresh()
         self._render()
 
+    def prefetch(self):
+        """Start loading quests before the view is first shown."""
+        if self._autoload:
+            self.refresh()
+
     def deactivate(self):
         self._closed = True
         self.account_timer.Stop()

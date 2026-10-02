@@ -27,6 +27,7 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
 from typing import Optional
 
@@ -176,30 +177,56 @@ def check_once() -> Optional[bool]:
     return newer
 
 
-def announce_update(speaker, version: str) -> None:
-    """Tell the user about a new version: quiet sound, speech, and a Windows notification."""
-    from lib.hub import get_hub, sounds, status
-    sounds.update_available()
-    if status.can_restart_to_update():
-        message = f"FA11y {version} is available. Restart FA11y to update."
-    else:
-        message = f"FA11y {version} is available. Run the updater to update."
+_startup_lock = threading.Lock()
+_startup_done = False
+_startup_pending: Optional[str] = None
+
+
+def announce_update(speaker, version: str, at_startup: bool = False) -> None:
+    """Tell the user about a new version.
+
+    At startup it's one more spoken line after "FA11y is ready". Versions
+    released while FA11y runs also get a quiet sound and a Windows
+    notification.
+    """
+    from lib.hub import get_hub, sounds
+    message = f"FA11y {version} is available. Run the updater to update or update through the app."
+    if not at_startup:
+        sounds.update_available()
     speaker.speak(message)
     print(message)
     hub = get_hub()
     if hub is not None:
-        hub.notify("FA11y update available", message)
+        if not at_startup:
+            hub.notify("FA11y update available", message)
         hub.update_available_changed()
+
+
+def startup_finished(speaker) -> None:
+    """FA11y has said it's ready: now announce an update found at startup, if any."""
+    global _startup_done, _startup_pending
+    with _startup_lock:
+        _startup_done = True
+        version, _startup_pending = _startup_pending, None
+    if version:
+        announce_update(speaker, version, at_startup=True)
+
+
+def _announce_startup_update(speaker, version: str) -> None:
+    global _startup_pending
+    with _startup_lock:
+        if not _startup_done:
+            _startup_pending = version  # spoken by startup_finished()
+            return
+    announce_update(speaker, version, at_startup=True)
 
 
 def check_for_updates(speaker, shutdown_event, update_sound=None) -> None:
     """Check for updates now, then every 15 s, with shutdown awareness.
 
     Call as a daemon thread target. An update that's already out when
-    FA11y starts is only shown in the window (Home and About), without a
-    sound or speech: the user just chose to start FA11y and didn't ask
-    to be interrupted. Versions released while FA11y runs are announced
-    once each.
+    FA11y starts is spoken once, after FA11y's ready message. Versions
+    released while FA11y runs are announced once each.
     """
     last_announced_remote_version = None
     first = True
@@ -218,14 +245,12 @@ def check_for_updates(speaker, shutdown_event, update_sound=None) -> None:
         if not newer:
             continue
 
-        from lib.hub import get_hub, status
+        from lib.hub import status
         remote_version = status.available_update()
         if not remote_version or remote_version == last_announced_remote_version or shutdown_event.is_set():
             continue
         last_announced_remote_version = remote_version
         if startup_check:
-            hub = get_hub()
-            if hub is not None:
-                hub.update_available_changed()
+            _announce_startup_update(speaker, remote_version)
         else:
             announce_update(speaker, remote_version)

@@ -8,6 +8,7 @@ import json
 import time
 import logging
 import gc
+import threading
 from typing import List, Optional, Dict
 import ctypes
 import ctypes.wintypes
@@ -1174,13 +1175,17 @@ class LockerView(EmbeddedView):
 
     view_title = "Fortnite Locker"
 
-    def __init__(self, parent, cosmetics_data: List[dict], auth_instance=None, owned_only: bool = False):
+    def __init__(self, parent, cosmetics_data: List[dict], auth_instance=None, owned_only: bool = False,
+                 fetched_owned=None):
         super().__init__(parent)
         self.cosmetics_data = cosmetics_data
         self.auth = auth_instance
         self.owned_only = owned_only
         self.owned_ids = set()
         self._startup_checked = False
+        # Owned cosmetic ids fetched ahead of time on a worker thread, or
+        # None to fetch them the first time the view is shown.
+        self._fetched_owned = fetched_owned
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
         settings_sizer = BoxSizerHelper(self, orientation=wx.VERTICAL)
@@ -1198,7 +1203,10 @@ class LockerView(EmbeddedView):
         if not self._startup_checked:
             self._startup_checked = True
             if self.auth and self.auth.display_name:
-                wx.CallAfter(self._check_auth_on_startup)
+                if self._fetched_owned is not None:
+                    self._apply_owned_ids(self._fetched_owned)
+                else:
+                    self._fetch_owned_in_background()
 
     def _calculate_stats(self) -> Dict[str, int]:
         """Calculate statistics about cosmetics"""
@@ -1208,12 +1216,20 @@ class LockerView(EmbeddedView):
         }
         return stats
 
-    def _check_auth_on_startup(self):
-        """Check auth token validity and fetch owned cosmetics on startup"""
-        try:
-            logger.info("Checking auth token and fetching owned cosmetics...")
-            fetched_ids = self.auth.fetch_owned_cosmetics()
+    def _fetch_owned_in_background(self):
+        """Fetch owned cosmetics on a worker thread, then apply them here."""
+        def work():
+            try:
+                fetched = self.auth.fetch_owned_cosmetics()
+            except Exception as e:
+                logger.error(f"Fetching owned cosmetics failed: {e}")
+                return
+            wx.CallAfter(lambda: self and self._apply_owned_ids(fetched))
+        threading.Thread(target=work, name="LockerOwned", daemon=True).start()
 
+    def _apply_owned_ids(self, fetched_ids):
+        """Mark owned cosmetics and add placeholders for owned items the database lacks."""
+        try:
             # Check for auth expiration
             if fetched_ids == "AUTH_EXPIRED":
                 logger.info("Auth token expired on startup")

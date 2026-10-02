@@ -113,6 +113,10 @@ class DiscoveryView(EmbeddedView):
             # Pre-load all tabs (first show, or data has gone stale)
             self._preload_all_tabs()
 
+    def prefetch(self):
+        """Load the lists in the background before the view is first shown."""
+        self._preload_all_tabs()
+
     def deactivate(self):
         """The view was hidden or its host is closing"""
         self._is_destroying = True
@@ -420,7 +424,6 @@ class DiscoveryView(EmbeddedView):
 
         self.epic_list.Clear()
         self.epic_list.Append("Loading Epic Games gamemodes...")
-        speaker.speak("Loading Epic gamemodes")
 
         def _load():
             # Scrape Epic creator maps from fortnite.gg
@@ -434,7 +437,7 @@ class DiscoveryView(EmbeddedView):
 
     def _populate_epic_list(self, islands):
         """Populate Epic list with gamemodes"""
-        if self._is_destroying or not self.epic_list:
+        if not self or not self.epic_list:
             return
 
         try:
@@ -463,7 +466,7 @@ class DiscoveryView(EmbeddedView):
 
     def _show_epic_error(self):
         """Show error message in epic list"""
-        if self._is_destroying or not self.epic_list:
+        if not self or not self.epic_list:
             return
 
         try:
@@ -494,8 +497,6 @@ class DiscoveryView(EmbeddedView):
         self.browse_list.Clear()
         self.browse_list.Append("Loading islands from fortnite.gg...")
 
-        speaker.speak("Loading islands")
-
         def _load():
             # Scrape fortnite.gg for the most popular islands
             islands = self.discovery_api.scrape_fortnite_gg(search_query="", limit=50)
@@ -508,7 +509,7 @@ class DiscoveryView(EmbeddedView):
 
     def _populate_browse_list(self, islands):
         """Populate browse list with islands"""
-        if self._is_destroying or not self.browse_list:
+        if not self or not self.browse_list:
             return
 
         try:
@@ -538,7 +539,7 @@ class DiscoveryView(EmbeddedView):
 
     def _show_browse_error(self):
         """Show error message in browse list"""
-        if self._is_destroying or not self.browse_list:
+        if not self or not self.browse_list:
             return
 
         try:

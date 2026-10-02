@@ -11,7 +11,8 @@
 // an error. FA11y itself runs under pythonw.exe without a console: its
 // window is the user interface. Pass --console to run it under python.exe
 // in a console instead, which shows FA11y's printed output for
-// troubleshooting.
+// troubleshooting. Pass --update to update first even when AutoUpdates is
+// off (FA11y's "Restart to update" button does this).
 package main
 
 import (
@@ -32,7 +33,10 @@ import (
 const (
 	detachedProcess = 0x00000008
 	createNoWindow  = 0x08000000
+	asfwAny         = ^uintptr(0) // ASFW_ANY
 )
+
+var allowSetForegroundWindow = syscall.NewLazyDLL("user32.dll").NewProc("AllowSetForegroundWindow")
 
 func main() {
 	console.SetTitle("FA11y")
@@ -50,7 +54,7 @@ func main() {
 		if (code != layout.ExitNoUpdate && code != layout.ExitUpdated) || !installed(l) {
 			console.Fail(2, "the install did not finish (updater exit code %d).", code)
 		}
-	} else if fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true) && checkForUpdate(l) {
+	} else if forced := slices.Contains(os.Args[1:], "--update"); (forced || fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true)) && checkForUpdate(l) {
 		code := runUpdater(l, "--quick")
 		if code != layout.ExitNoUpdate && code != layout.ExitUpdated {
 			console.Say("The update failed (exit code %d). Starting the installed version.", code)
@@ -145,6 +149,8 @@ func startFA11yWindowed(l layout.Layout) error {
 		os.Exit(runFA11y(l))
 	}
 	cmd := fa11yCommand(l, pythonw)
+	// The user just started FA11y, so its window may take the foreground.
+	allowSetForegroundWindow.Call(asfwAny)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: detachedProcess | syscall.CREATE_NEW_PROCESS_GROUP}
 	if err := cmd.Start(); err != nil {
 		return err

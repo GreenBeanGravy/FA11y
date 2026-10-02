@@ -149,6 +149,8 @@ class HubFrame(wx.Frame):
         self._summoned_over_game = False
         self._quitting = False
         self._toasts_ready = False
+        self._login_settled = False
+        self._preparing = False
 
         root = wx.Panel(self)
         root.SetBackgroundColour(theme.WINDOW_BG)
@@ -183,7 +185,7 @@ class HubFrame(wx.Frame):
 
         self.Bind(wx.EVT_CLOSE, self._on_close)
         self.Bind(wx.EVT_CHAR_HOOK, self._on_char_hook)
-        self.Bind(wx.EVT_IDLE, self._prebuild_on_idle)
+        self._start_preparing()
 
         sounds.set_enabled(settings.flag("NavigationSounds", True))
         set_hub(self)
@@ -212,10 +214,16 @@ class HubFrame(wx.Frame):
         """Show the window on Home and start watching for Fortnite."""
         self.show_page(self._order[0], focus_sidebar=True)
         self.watcher.start()
+        self._sync_keybinds_with_game(game_watch.is_fortnite_running())
         if show and not game_watch.is_fortnite_running():
-            self.Show()
-            self.Raise()
+            self._bring_to_front(self.sidebar.SetFocus)
         sounds.preload()
+
+    def _bring_to_front(self, focus) -> None:
+        # Windows keeps a newly started program behind the current window
+        # (it only flashes in the taskbar) unless it insists.
+        from lib.guis.gui_utilities import force_focus_window
+        force_focus_window(self, None, focus)
 
     def start_onboarding(self, on_finished: Callable[[Optional[str]], None]) -> None:
         """Replace the sidebar and pages with first-run setup until it's finished or skipped.
@@ -242,9 +250,7 @@ class HubFrame(wx.Frame):
         self._root_sizer.Add(self._onboarding, 1, wx.EXPAND)
         self._root.Layout()
         self.SetTitle("FA11y setup")
-        if not self.IsShown():
-            self.Show()
-        self.Raise()
+        self._bring_to_front(None)
         self._onboarding.begin()
 
     def quit(self) -> None:
@@ -303,13 +309,23 @@ class HubFrame(wx.Frame):
             self.sidebar.SetFocus()
 
     def reset_views(self, keys) -> None:
-        """Rebuild the views on these pages next time they're shown (e.g. after signing in or out)."""
+        """Rebuild the views on these pages (e.g. after signing in or out).
+
+        The current page rebuilds now, behind "Loading…"; the others are
+        rebuilt in the background while the hub is idle.
+        """
         for key in keys:
             page = self._pages.get(key)
             if page is not None and page.built and hasattr(page, "reset_view"):
                 page.reset_view()
                 if key == self._current:
                     page.on_show()
+        self._start_preparing()
+
+    def login_settled(self) -> None:
+        """The startup Epic sign-in finished (or failed): prepare the account pages too."""
+        self._login_settled = True
+        self._start_preparing()
 
     def leave_page(self) -> None:
         """A page asked to close: hide over a game, otherwise go back to the sidebar."""
@@ -330,19 +346,31 @@ class HubFrame(wx.Frame):
             sounds.ui("navigate")
             self.show_page(key)
 
-    def _prebuild_on_idle(self, event: wx.IdleEvent) -> None:
-        # Build one unbuilt page per idle pass, so first visits are instant
-        # without delaying the window's first paint.
+    def _start_preparing(self) -> None:
+        if not self._preparing:
+            self._preparing = True
+            self.Bind(wx.EVT_IDLE, self._prepare_on_idle)
+
+    def _prepare_on_idle(self, event: wx.IdleEvent) -> None:
+        # One page per idle pass, so first visits are instant without
+        # delaying the window's first paint or the user's typing: build
+        # every page, then create each view and start loading its data.
         for key in self._order:
             page = self._pages[key]
             if not page.built:
-                try:
-                    page.ensure_built()
-                except Exception:
-                    logger.exception(f"Building page {key} failed")
-                event.RequestMore()
-                return
+                step = page.ensure_built
+            elif hasattr(page, "prepare") and not page.prepared and (self._login_settled or not page.after_login):
+                step = page.prepare
+            else:
+                continue
+            try:
+                step()
+            except Exception:
+                logger.exception(f"Preparing page {key} failed")
+            event.RequestMore()
+            return
         self.Unbind(wx.EVT_IDLE)
+        self._preparing = False
 
     def cycle_page(self, step: int) -> None:
         index = self._order.index(self._current) if self._current else 0
@@ -383,7 +411,18 @@ class HubFrame(wx.Frame):
             game_watch.focus_fortnite()
         self._summoned_over_game = False
 
+    @staticmethod
+    def _sync_keybinds_with_game(running: bool) -> None:
+        """FA11y's keybinds are on while Fortnite runs and off otherwise.
+
+        Toggle keybinds still switches them by hand in between; the next
+        time Fortnite starts or stops sets them again.
+        """
+        from lib.app import state
+        state.set_keybinds_enabled(running)
+
     def _on_fortnite_changed(self, running: bool) -> None:
+        self._sync_keybinds_with_game(running)
         home = self._pages.get("home")
         if home is not None and home.built and hasattr(home, "refresh"):
             home.refresh()

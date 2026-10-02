@@ -10,7 +10,7 @@ import wx
 from lib.guis.view_host import EmbeddedView, focus_view
 from lib.hub import theme
 from lib.hub.page import HubPage
-from lib.hub.widgets import label
+from lib.hub.widgets import text
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,12 @@ class ViewPage(HubPage):
 
     With identity, the page rebuilds its view whenever identity() returns
     a different object, such as a new social manager after signing in.
+
+    The hub calls prepare() while it's idle, so the view is created and
+    its data loaded (view.prefetch()) before the user first opens the
+    page. Pages whose view depends on the Epic account (after_login)
+    wait until the startup sign-in has settled. While a view is being
+    created or reloaded, the page shows a focusable "Loading…" text.
     """
 
     unavailable_text = ""
@@ -36,7 +42,7 @@ class ViewPage(HubPage):
                  unavailable_text: str = "",
                  load: Optional[Callable[[], Any]] = None,
                  identity: Optional[Callable[[], Any]] = None,
-                 loading_text: str = "Loading…"):
+                 loading_text: str = "Loading…", after_login: bool = False):
         self.title = title
         super().__init__(parent, hub)
         # Views manage their own scrolling lists; the page itself doesn't scroll.
@@ -48,20 +54,31 @@ class ViewPage(HubPage):
         self._identity_value: Any = None
         self._loading = False
         self.loading_text = loading_text
+        self.after_login = after_login
         self.view: Optional[EmbeddedView] = None
-        self._placeholder: Optional[wx.StaticText] = None
+        self._placeholder = None
+        self._focus_was_on_message = False
+        self._prepare_tried = False
 
     def build(self) -> None:
-        # The view itself is created on first show, not during idle
-        # prebuilding, since most views start network requests.
-        self._placeholder = label(self, "", theme.TEXT_SECONDARY)
+        self._placeholder = text(self, "", theme.TEXT_SECONDARY, wrap=560)
         self.content.Add(self._placeholder, 0, wx.ALL, 4)
 
-    def _show_message(self, text: str) -> None:
-        self._placeholder.SetLabel(text)
-        self._placeholder.Wrap(560)
+    def _show_message(self, message: str) -> None:
+        self._placeholder.SetLabel(message)
         self._placeholder.Show()
         self.Layout()
+
+    def prepare(self) -> None:
+        """Create the view and start loading its data before the page is shown."""
+        self.ensure_built()
+        self._prepare_tried = True
+        if self.view is None and not self._loading:
+            self._ensure_view()
+
+    @property
+    def prepared(self) -> bool:
+        return self._prepare_tried or self.view is not None or self._loading
 
     def _ensure_view(self) -> None:
         if self._identity is not None:
@@ -70,6 +87,12 @@ class ViewPage(HubPage):
                 self.reset_view()
             self._identity_value = current
         if self.view is not None or self._loading:
+            return
+        if self.hub.current_page() is self and self._load is None:
+            # Creating the view takes a moment; say so, then create it.
+            self._loading = True
+            self._show_message(self.loading_text)
+            wx.CallLater(30, self._create_after_message)
             return
         if self._load is not None:
             self._loading = True
@@ -87,6 +110,13 @@ class ViewPage(HubPage):
             return
         self._install_view(lambda: self._make_view(self))
 
+    def _create_after_message(self) -> None:
+        if not self:
+            return
+        self._loading = False
+        self._install_view(lambda: self._make_view(self))
+        self._after_install()
+
     def _loaded(self, data: Any) -> None:
         if not self:
             return
@@ -95,13 +125,17 @@ class ViewPage(HubPage):
             self._show_message(self.unavailable_text)
             return
         self._install_view(lambda: self._make_view(self, data))
-        if self.view is not None and self.hub.current_page() is self:
-            self.view.activate()
-            # Move focus into the new view only if the user was already in
-            # this page, not if they've gone back to the sidebar meanwhile.
-            focused = wx.Window.FindFocus()
-            if focused is not None and (focused is self or self.IsDescendant(focused)):
-                focus_view(self.view)
+        self._after_install()
+
+    def _after_install(self) -> None:
+        if self.view is None or self.hub.current_page() is not self:
+            return
+        self.view.activate()
+        # Move focus into the new view only if the user was already in
+        # this page, not if they've gone back to the sidebar meanwhile.
+        focused = wx.Window.FindFocus()
+        if self._focus_was_on_message or (focused is not None and (focused is self or self.IsDescendant(focused))):
+            focus_view(self.view)
 
     def _install_view(self, create: Callable[[], Optional[EmbeddedView]]) -> None:
         try:
@@ -112,22 +146,41 @@ class ViewPage(HubPage):
         if view is None:
             self._show_message(self.unavailable_text)
             return
+        self._focus_was_on_message = self._placeholder.HasFocus()
         self._placeholder.Hide()
         view.host = self
         theme.style_tree(view)
         self.content.Add(view, 1, wx.EXPAND)
         self.view = view
+        if self._identity is not None:
+            # make_view may create what identity() returns (Discover's API).
+            self._identity_value = self._identity()
         self.Layout()
         self.FitInside()
+        prefetch = getattr(view, "prefetch", None)
+        if callable(prefetch):
+            try:
+                prefetch()
+            except Exception:
+                logger.exception(f"Prefetching {self.title} failed")
 
     def reset_view(self) -> None:
-        """Drop the view so the next show creates a fresh one (e.g. after signing in)."""
+        """Drop the view so it's created again (e.g. after signing in)."""
+        self._prepare_tried = False
         if self.view is not None:
+            focused = wx.Window.FindFocus()
+            had_focus = focused is not None and self.view.IsDescendant(focused)
             try:
                 self.view.deactivate()
             finally:
                 self.view.Destroy()
                 self.view = None
+            if self._placeholder is not None:
+                self._show_message(self.loading_text)
+                if had_focus:
+                    # Keep focus in the page, on "Loading…", so the screen
+                    # reader says what's happening.
+                    self._placeholder.SetFocus()
 
     def on_show(self) -> None:
         self._ensure_view()

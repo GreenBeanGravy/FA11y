@@ -115,8 +115,8 @@ class MatchTracker:
         except Exception:
             pass
     
-    def _start_new_match(self):
-        """Start a new match session"""
+    def _start_new_match(self, announce: bool = True):
+        """Start a new match session. FA11y starts one silently at startup."""
         with self.match_lock:
             # Close current match if active
             if self.current_match and self.current_match.is_active:
@@ -132,7 +132,7 @@ class MatchTracker:
             self._clear_visited_objects_cache()
             
             # Announce if configured
-            if self._cached_announce_new_match:
+            if announce and self._cached_announce_new_match:
                 self.speaker.speak("New match started")
     
     def _clear_visited_objects_cache(self):

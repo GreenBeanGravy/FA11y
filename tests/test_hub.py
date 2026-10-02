@@ -91,10 +91,10 @@ def test_cycle_page_wraps(hub):
     assert hub.current_page() is hub.page("b")
 
 
-def test_idle_prebuild_builds_every_page(hub):
+def test_idle_prepare_builds_every_page(hub):
     assert not hub.page("b").built
     for _ in range(3):
-        hub._prebuild_on_idle(Mock())
+        hub._prepare_on_idle(Mock())
     assert all(hub.page(k).built for k in ("home", "a", "b"))
 
 
@@ -237,3 +237,122 @@ def test_view_page_unavailable_then_available(app, hub):
     page.on_show()
     assert page.view is not None
     page.Destroy()
+
+
+# Background preparation, keybinds following Fortnite, startup announcements --
+
+def _view_hub(app, monkeypatch, after_login):
+    from lib.app import state
+    from lib.guis.view_host import EmbeddedView
+    from lib.hub import game_watch
+    from lib.hub.frame import HubFrame, HubServices, PageSpec
+    from lib.hub.sidebar import SidebarEntry
+    from lib.hub.view_page import ViewPage
+
+    monkeypatch.setattr(state, "speaker", Mock())
+    monkeypatch.setattr(game_watch.GameWatcher, "start", lambda self: None)
+    monkeypatch.setattr(game_watch, "is_fortnite_running", lambda: False)
+    made = []
+
+    class View(EmbeddedView):
+        prefetched = 0
+
+        def __init__(self, parent):
+            super().__init__(parent)
+            wx.Button(self, label="Inside")
+
+        def prefetch(self):
+            self.prefetched += 1
+
+    def make(host):
+        made.append(View(host))
+        return made[-1]
+
+    pages = [PageSpec(SidebarEntry("home", "Home", "home"),
+                      lambda parent, hub: ViewPage(parent, hub, "Home", lambda host: View(host))),
+             PageSpec(SidebarEntry("v", "View", "home"),
+                      lambda parent, hub: ViewPage(parent, hub, "View", make, after_login=after_login))]
+    hub = HubFrame(HubServices(quit=lambda: None, reload_config=lambda: None, speak=lambda t: None), pages)
+    hub.start(show=False)
+    return hub, made
+
+
+def _idle(hub, passes=6):
+    for _ in range(passes):
+        hub._prepare_on_idle(Mock())
+
+
+def test_views_are_created_and_prefetched_while_idle(app, temp_config, monkeypatch):
+    hub, made = _view_hub(app, monkeypatch, after_login=False)
+    try:
+        _idle(hub)
+        assert len(made) == 1 and made[0].prefetched == 1
+        hub.show_page("v")
+        assert len(made) == 1  # showing it didn't create another
+    finally:
+        hub.quit()
+        hub.Destroy()
+
+
+def test_account_views_wait_for_login(app, temp_config, monkeypatch):
+    hub, made = _view_hub(app, monkeypatch, after_login=True)
+    try:
+        _idle(hub)
+        assert made == []
+        hub.login_settled()
+        _idle(hub)
+        assert len(made) == 1
+    finally:
+        hub.quit()
+        hub.Destroy()
+
+
+def test_resetting_the_open_view_says_loading(app, temp_config, monkeypatch):
+    hub, made = _view_hub(app, monkeypatch, after_login=False)
+    try:
+        _idle(hub)
+        hub.show_page("v")
+        page = hub.page("v")
+        page.view.GetChildren()[0].SetFocus()
+        hub.reset_views(["v"])
+        assert page.view is None
+        assert page._placeholder.IsShown()
+        assert page._placeholder.GetLabel() == page.loading_text
+    finally:
+        hub.quit()
+        hub.Destroy()
+
+
+def test_keybinds_follow_fortnite(app, temp_config, monkeypatch):
+    from lib.app import state
+    hub, _made = _view_hub(app, monkeypatch, after_login=False)
+    try:
+        assert not state.are_keybinds_enabled()  # Fortnite isn't running
+        hub._on_fortnite_changed(True)
+        assert state.are_keybinds_enabled()
+        hub._on_fortnite_changed(False)
+        assert not state.are_keybinds_enabled()
+    finally:
+        state.set_keybinds_enabled(True)
+        hub.quit()
+        hub.Destroy()
+
+
+def test_startup_update_is_spoken_after_ready(monkeypatch):
+    from lib.app import updater_check
+    from lib.hub import sounds
+    monkeypatch.setattr(updater_check, "_startup_done", False)
+    monkeypatch.setattr(updater_check, "_startup_pending", None)
+    played = []
+    monkeypatch.setattr(sounds, "update_available", lambda: played.append(True))
+    import lib.hub as hub_module
+    monkeypatch.setattr(hub_module, "get_hub", lambda: None)
+    speaker = Mock()
+    updater_check._announce_startup_update(speaker, "9.9.9")
+    speaker.speak.assert_not_called()
+    speaker.speak("FA11y is ready.")
+    updater_check.startup_finished(speaker)
+    spoken = [c.args[0] for c in speaker.speak.call_args_list]
+    assert spoken == ["FA11y is ready.",
+                      "FA11y 9.9.9 is available. Run the updater to update or update through the app."]
+    assert played == []
