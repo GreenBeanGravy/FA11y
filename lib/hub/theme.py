@@ -38,7 +38,10 @@ DANGER = wx.Colour(0xF0, 0x95, 0x95)
 DANGER_BORDER = wx.Colour(0x79, 0x1F, 0x1F)
 
 RADIUS = 8
-ICON_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "icons")
+ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets")
+ICON_DIR = os.path.join(ASSETS_DIR, "icons")
+LOGO_PNG = os.path.join(ASSETS_DIR, "images", "fa11y_logo.png")
+LOGO_ICO = os.path.join(ASSETS_DIR, "images", "fa11y.ico")
 FONT_FACE = "Segoe UI"
 BASE_POINTS = 10
 

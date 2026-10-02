@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 
@@ -33,27 +34,27 @@ class PageSpec:
 
 
 def app_icon(size: int = 32) -> wx.Icon:
-    """FA11y's icon: white "FA" on the accent colour, drawn at runtime."""
-    icon = wx.Icon()
-    icon.CopyFromBitmap(app_bitmap(size))
+    """FA11y's logo as an icon, taken from the .ico size closest to ``size``."""
+    icon = wx.Icon(theme.LOGO_ICO, wx.BITMAP_TYPE_ICO, size, size)
+    if not icon.IsOk():
+        icon = wx.Icon()
+        icon.CopyFromBitmap(app_bitmap(size))
     return icon
 
 
+_logo_bitmaps: Dict[int, wx.Bitmap] = {}
+
+
 def app_bitmap(size: int) -> wx.Bitmap:
-    bitmap = wx.Bitmap(size, size, 32)
-    dc = wx.MemoryDC(bitmap)
-    dc.SetBackground(wx.Brush(wx.Colour(0, 0, 0, 0)))
-    dc.Clear()
-    gc = wx.GraphicsContext.Create(dc)
-    gc.SetBrush(wx.Brush(theme.ACCENT))
-    gc.SetPen(wx.TRANSPARENT_PEN)
-    gc.DrawRoundedRectangle(0, 0, size, size, size * 0.22)
-    font = wx.Font(wx.FontInfo(size * 0.38).Bold())
-    gc.SetFont(font, wx.WHITE)
-    w, h = gc.GetTextExtent("FA")
-    gc.DrawText("FA", (size - w) / 2, (size - h) / 2)
-    del gc
-    dc.SelectObject(wx.NullBitmap)
+    """FA11y's logo scaled to ``size`` pixels."""
+    bitmap = _logo_bitmaps.get(size)
+    if bitmap is None:
+        image = wx.Image(theme.LOGO_PNG, wx.BITMAP_TYPE_PNG) if os.path.exists(theme.LOGO_PNG) else wx.Image()
+        if image.IsOk():
+            bitmap = wx.Bitmap(image.Scale(size, size, wx.IMAGE_QUALITY_HIGH))
+        else:
+            bitmap = wx.Bitmap(size, size, 32)
+        _logo_bitmaps[size] = bitmap
     return bitmap
 
 
@@ -61,7 +62,7 @@ class HubTrayIcon(wx.adv.TaskBarIcon):
     def __init__(self, hub: "HubFrame"):
         super().__init__()
         self.hub = hub
-        self.SetIcon(app_icon(32), "FA11y")
+        self.SetIcon(app_icon(wx.SystemSettings.GetMetric(wx.SYS_SMALLICON_X)), "FA11y")
         self.Bind(wx.adv.EVT_TASKBAR_LEFT_DCLICK, lambda e: hub.summon())
         self.Bind(wx.adv.EVT_TASKBAR_LEFT_UP, lambda e: hub.summon())
 
@@ -118,7 +119,11 @@ class HubFrame(wx.Frame):
         super().__init__(None, title="FA11y", size=(980, 660),
                          style=wx.DEFAULT_FRAME_STYLE)
         self.services = services
-        self.SetIcon(app_icon(32))
+        icons = wx.IconBundle(theme.LOGO_ICO, wx.BITMAP_TYPE_ICO)
+        if not icons.IsEmpty():
+            self.SetIcons(icons)
+        else:
+            self.SetIcon(app_icon(32))
         self.SetMinSize((760, 480))
         theme.style_window(self)
         self.SetFont(theme.base_font())
@@ -174,7 +179,7 @@ class HubFrame(wx.Frame):
         """FA11y's icon and name at the top of the sidebar."""
         panel = wx.Panel(parent)
         panel.SetBackgroundColour(theme.SIDEBAR_BG)
-        size = self.FromDIP(26)
+        size = self.FromDIP(32)
         icon = wx.StaticBitmap(panel, bitmap=app_bitmap(size))
         name = wx.StaticText(panel, label="FA11y")
         name.SetFont(theme.heading_font(panel, 3))
@@ -399,7 +404,7 @@ class HubFrame(wx.Frame):
                 wx.adv.NotificationMessage.MSWUseToasts()
                 self._toasts_ready = True
             note = wx.adv.NotificationMessage(title, message, self)
-            note.SetIcon(app_icon(48))
+            note.SetIcon(app_icon(64))
             note.Show()
         except Exception as e:
             logger.debug(f"Notification failed: {e}")

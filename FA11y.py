@@ -666,6 +666,9 @@ def create_desktop_shortcut() -> None:
     shortcut = shell.CreateShortCut(path)
     shortcut.Targetpath = target
     shortcut.WorkingDirectory = wDir
+    from lib.hub.theme import LOGO_ICO
+    if os.path.exists(LOGO_ICO):
+        shortcut.IconLocation = f"{LOGO_ICO},0"
     shortcut.save()
 
 def update_script_config(new_config: configparser.ConfigParser) -> None:
