@@ -28,7 +28,7 @@ class HomePage(HubPage):
         top = wx.BoxSizer(wx.HORIZONTAL)
         self.welcome = label(self, "Welcome to FA11y", font=theme.heading_font(self))
         top.Add(self.welcome, 1, wx.ALIGN_CENTER_VERTICAL)
-        self.play_button = button(self, "&Play Fortnite", "player-play")
+        self.play_button = button(self, "&Play Fortnite", "player-play", "primary")
         self.play_button.Bind(wx.EVT_BUTTON, lambda e: self.hub.play_fortnite())
         top.Add(self.play_button, 0, wx.ALIGN_CENTER_VERTICAL)
         self.content.Add(top, 0, wx.EXPAND | wx.BOTTOM, 16)
@@ -41,7 +41,7 @@ class HomePage(HubPage):
             cards.Add(card, 1, wx.EXPAND)
         self.content.Add(cards, 0, wx.EXPAND)
 
-        self.update_button = button(self, "&Restart to update FA11y", "refresh")
+        self.update_button = button(self, "&Restart to update FA11y", "refresh", "primary")
         self.update_button.Bind(wx.EVT_BUTTON, lambda e: status.restart_to_update(self.hub))
         self.update_button.Hide()
         self.content.Add(self.update_button, 0, wx.TOP, GAP)

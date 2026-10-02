@@ -12,6 +12,8 @@ from typing import Callable, Optional
 
 import wx
 
+from lib.hub import theme
+
 
 class EmbeddedView(wx.Panel):
     """Base class for a feature panel.
@@ -88,8 +90,10 @@ class ViewDialog(wx.Dialog):
     def __init__(self, parent: Optional[wx.Window], make_view: Callable[[wx.Window], EmbeddedView],
                  size: tuple = (900, 650)):
         super().__init__(parent, size=size, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.SetFont(theme.base_font())
         self.view = make_view(self)
         self.view.host = self
+        theme.style_tree(self)
         self.SetTitle(self.view.view_title)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.view, 1, wx.EXPAND)

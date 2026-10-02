@@ -2,6 +2,7 @@
 import threading
 
 import wx
+from lib.hub.controls import StyledButton, TabbedBook
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.view_host import EmbeddedView, ViewDialog
@@ -26,7 +27,7 @@ class PassesView(EmbeddedView):
         root = wx.BoxSizer(wx.VERTICAL)
         help_text = wx.StaticText(self, label='Arrow keys browse rewards. Page Up/Down changes pages. Ctrl+Tab changes passes.')
         root.Add(help_text, 0, wx.ALL, 10)
-        self.notebook = wx.Notebook(self)
+        self.notebook = TabbedBook(self)
         for definition in self.api.definitions:
             panel = wx.Panel(self.notebook)
             layout = wx.BoxSizer(wx.VERTICAL)
@@ -53,7 +54,7 @@ class PassesView(EmbeddedView):
             for label, action in [('&Claim reward','reward'),('Claim full pa&ge','page'),
                                   ('Claim full &set','set'),('&Unlock set','unlock'),('Unlock premium &pass','purchase'),
                                   ('View reward &quests','quests')]:
-                button = wx.Button(panel, label=label)
+                button = StyledButton(panel, label=label)
                 button.Bind(wx.EVT_BUTTON, lambda evt, t=tab, a=action: self.on_action(t,a))
                 tab['buttons'][action] = button
                 buttons.Add(button, 0, wx.ALL, 3)
@@ -68,17 +69,17 @@ class PassesView(EmbeddedView):
             reward_list.Bind(wx.EVT_LISTBOX, lambda evt,t=tab:self.render_details(t))
         root.Add(self.notebook, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
         footer = wx.BoxSizer(wx.HORIZONTAL)
-        self.refresh_button = wx.Button(self, label='&Refresh passes')
+        self.refresh_button = StyledButton(self, label='&Refresh passes')
         self.refresh_button.Bind(wx.EVT_BUTTON, self.refresh)
         footer.Add(self.refresh_button, 0, wx.ALL, 5)
-        self.quests_button=wx.Button(self,label='View selected &pass quests')
+        self.quests_button=StyledButton(self,label='View selected &pass quests')
         self.quests_button.Bind(wx.EVT_BUTTON,lambda evt:self.open_quests())
         footer.Add(self.quests_button,0,wx.ALL,5)
         self.message = wx.TextCtrl(self, value='Loading account status...',
                                    style=wx.TE_MULTILINE | wx.TE_READONLY,
                                    size=(-1,110), name='Pass operation result')
         footer.Add(self.message, 1, wx.ALL | wx.EXPAND, 5)
-        close = wx.Button(self, label='&Close')
+        close = StyledButton(self, label='&Close')
         close.Bind(wx.EVT_BUTTON, self.on_close_button)
         footer.Add(close, 0, wx.ALL, 5)
         root.Add(footer, 0, wx.EXPAND | wx.ALL, 5)

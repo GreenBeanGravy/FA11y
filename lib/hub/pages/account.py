@@ -25,7 +25,7 @@ class AccountPage(HubPage):
         self.content.Add(self.card, 0, wx.EXPAND)
 
         buttons = wx.BoxSizer(wx.HORIZONTAL)
-        self.signin_button = button(self, "&Sign in", "user")
+        self.signin_button = button(self, "&Sign in", "user", "primary")
         self.signout_button = button(self, "Sign &out")
         self.signin_button.Bind(wx.EVT_BUTTON, lambda e: self.sign_in())
         self.signout_button.Bind(wx.EVT_BUTTON, lambda e: self.sign_out())

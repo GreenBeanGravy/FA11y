@@ -2,7 +2,7 @@
 
 Everything here is made of native wx controls (StaticText, Button, Gauge),
 so screen readers see ordinary labels and buttons. Painting is limited to
-backgrounds and borders.
+backgrounds, borders and the look of buttons.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from typing import Optional
 import wx
 
 from lib.hub import theme
+from lib.hub.controls import StyledButton
 
 PAGE_MARGIN = 20
 GAP = 10
@@ -20,6 +21,7 @@ class Card(wx.Panel):
     """Rounded, bordered panel. Add children to card.body (a vertical BoxSizer)."""
 
     RADIUS = 8
+    keep_background = True
 
     def __init__(self, parent: wx.Window, name: str = ""):
         super().__init__(parent, name=name or "card")
@@ -63,12 +65,8 @@ def subheading(parent: wx.Window, text: str) -> wx.StaticText:
     return label(parent, text, font=theme.heading_font(parent, 1))
 
 
-def button(parent: wx.Window, text: str, icon_name: str = "") -> wx.Button:
-    btn = wx.Button(parent, label=text)
-    if icon_name:
-        btn.SetBitmap(theme.icon(icon_name, 16, theme.TEXT))
-        btn.SetBitmapMargins(6, 0)
-    return btn
+def button(parent: wx.Window, text: str, icon_name: str = "", variant: str = "secondary") -> StyledButton:
+    return StyledButton(parent, label=text, icon=icon_name, variant=variant)
 
 
 class StatusCard(Card):

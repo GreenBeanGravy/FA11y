@@ -2,6 +2,8 @@
 GUI utilities for FA11y based on NVDA
 """
 import wx
+from lib.hub import theme
+from lib.hub.controls import StyledButton, TabbedBook
 import ctypes
 import ctypes.wintypes
 import time
@@ -54,7 +56,7 @@ class ButtonHelper:
     
     def addButton(self, *args, **kwargs):
         """Add a button to the group with automatic spacing"""
-        wxButton = wx.Button(*args, **kwargs)
+        wxButton = StyledButton(*args, **kwargs)
         if not self._firstButton:
             self._sizer.AddSpacer(self._space)
         self._sizer.Add(wxButton)
@@ -195,6 +197,7 @@ class AccessibleDialog(wx.Dialog):
     def __init__(self, parent, title="", helpId=""):
         super().__init__(parent, title=title)
         self.helpId = helpId
+        self.SetFont(theme.base_font())
 
         # Make dialog resizable by default
         style = self.GetWindowStyleFlag() | wx.RESIZE_BORDER
@@ -224,6 +227,7 @@ class AccessibleDialog(wx.Dialog):
         )
         
         self.SetSizer(mainSizer)
+        theme.style_tree(self)
         mainSizer.Fit(self)
         
         # Center on screen and ensure proper sizing
@@ -250,7 +254,7 @@ class AccessibleDialog(wx.Dialog):
         """Set focus to the first suitable control"""
         def findFirstControl(parent):
             for child in parent.GetChildren():
-                if isinstance(child, (wx.Button, wx.TextCtrl, wx.Choice, wx.CheckBox, wx.ListCtrl, wx.SpinCtrl, wx.Notebook)):
+                if isinstance(child, (wx.Button, wx.TextCtrl, wx.Choice, wx.CheckBox, wx.ListCtrl, wx.SpinCtrl, wx.Notebook, TabbedBook)):
                     return child
                 # Recursively search in sizers
                 if hasattr(child, 'GetChildren'):

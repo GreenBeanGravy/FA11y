@@ -114,8 +114,7 @@ class ViewPage(HubPage):
             return
         self._placeholder.Hide()
         view.host = self
-        view.SetBackgroundColour(theme.WINDOW_BG)
-        view.SetForegroundColour(theme.TEXT)
+        theme.style_tree(view)
         self.content.Add(view, 1, wx.EXPAND)
         self.view = view
         self.Layout()

@@ -10,6 +10,8 @@ if sys.stderr is None:
 import configparser
 import threading
 import time
+from lib.app import fast_speech
+fast_speech.install()  # before any module creates a speaker
 from lib.utilities.mouse import pixel as _pixel
 import subprocess
 import win32com.client

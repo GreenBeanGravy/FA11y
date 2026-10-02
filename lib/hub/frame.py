@@ -9,6 +9,7 @@ import wx
 import wx.adv
 
 from lib.hub import game_watch, set_hub, settings, sounds, theme
+from lib.hub.controls import StyledButton, TabbedBook
 from lib.hub.page import HubPage
 from lib.hub.sidebar import Sidebar, SidebarEntry
 
@@ -33,6 +34,12 @@ class PageSpec:
 
 def app_icon(size: int = 32) -> wx.Icon:
     """FA11y's icon: white "FA" on the accent colour, drawn at runtime."""
+    icon = wx.Icon()
+    icon.CopyFromBitmap(app_bitmap(size))
+    return icon
+
+
+def app_bitmap(size: int) -> wx.Bitmap:
     bitmap = wx.Bitmap(size, size, 32)
     dc = wx.MemoryDC(bitmap)
     dc.SetBackground(wx.Brush(wx.Colour(0, 0, 0, 0)))
@@ -47,9 +54,7 @@ def app_icon(size: int = 32) -> wx.Icon:
     gc.DrawText("FA", (size - w) / 2, (size - h) / 2)
     del gc
     dc.SelectObject(wx.NullBitmap)
-    icon = wx.Icon()
-    icon.CopyFromBitmap(bitmap)
-    return icon
+    return bitmap
 
 
 class HubTrayIcon(wx.adv.TaskBarIcon):
@@ -84,6 +89,7 @@ class CloseChoiceDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
         super().__init__(parent, title="Keep FA11y running?")
         theme.style_window(self)
+        self.SetFont(theme.base_font())
         sizer = wx.BoxSizer(wx.VERTICAL)
         text = wx.StaticText(self, label="FA11y's keybinds only work while FA11y is running. "
                                          "You can keep it running in the system tray, or quit it now.")
@@ -93,8 +99,8 @@ class CloseChoiceDialog(wx.Dialog):
         self.remember.SetValue(True)
         sizer.Add(self.remember, 0, wx.LEFT | wx.RIGHT, 16)
         buttons = wx.BoxSizer(wx.HORIZONTAL)
-        quit_btn = wx.Button(self, wx.ID_NO, "&Quit FA11y")
-        tray_btn = wx.Button(self, wx.ID_YES, "&Hide to tray")
+        quit_btn = StyledButton(self, wx.ID_NO, "&Quit FA11y")
+        tray_btn = StyledButton(self, wx.ID_YES, "&Hide to tray", variant="primary")
         tray_btn.SetDefault()
         buttons.Add(quit_btn, 0, wx.RIGHT, 8)
         buttons.Add(tray_btn)
@@ -115,6 +121,7 @@ class HubFrame(wx.Frame):
         self.SetIcon(app_icon(32))
         self.SetMinSize((760, 480))
         theme.style_window(self)
+        self.SetFont(theme.base_font())
 
         self._specs: Dict[str, PageSpec] = {spec.entry.key: spec for spec in pages}
         self._order = [spec.entry.key for spec in pages]
@@ -127,16 +134,20 @@ class HubFrame(wx.Frame):
         root = wx.Panel(self)
         root.SetBackgroundColour(theme.WINDOW_BG)
         self.sidebar = Sidebar(root, [spec.entry for spec in pages], self._on_sidebar_select)
+        self.sidebar.on_activate = self.focus_content
         self.book = wx.Simplebook(root)
         self.book.SetBackgroundColour(theme.WINDOW_BG)
         divider = wx.Panel(root, size=(1, -1))
         divider.SetBackgroundColour(theme.CARD_BORDER)
 
+        column = wx.BoxSizer(wx.VERTICAL)
+        column.Add(self._brand(root), 0, wx.EXPAND)
+        column.Add(self.sidebar, 1, wx.EXPAND)
         self._main_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._main_sizer.Add(self.sidebar, 0, wx.EXPAND)
+        self._main_sizer.Add(column, 0, wx.EXPAND)
         self._main_sizer.Add(divider, 0, wx.EXPAND)
         self._main_sizer.Add(self.book, 1, wx.EXPAND)
-        self.sidebar.SetMinSize((SIDEBAR_WIDTH, -1))
+        self.sidebar.SetMinSize((self.FromDIP(SIDEBAR_WIDTH), -1))
         self._root = root
         self._root_sizer = wx.BoxSizer(wx.VERTICAL)
         self._root_sizer.Add(self._main_sizer, 1, wx.EXPAND)
@@ -153,12 +164,28 @@ class HubFrame(wx.Frame):
 
         self.Bind(wx.EVT_CLOSE, self._on_close)
         self.Bind(wx.EVT_CHAR_HOOK, self._on_char_hook)
-        self.sidebar.Bind(wx.EVT_KEY_DOWN, self._on_sidebar_key)
         self.Bind(wx.EVT_IDLE, self._prebuild_on_idle)
 
         sounds.set_enabled(settings.flag("NavigationSounds", True))
         set_hub(self)
         self.CentreOnScreen()
+
+    def _brand(self, parent: wx.Window) -> wx.Panel:
+        """FA11y's icon and name at the top of the sidebar."""
+        panel = wx.Panel(parent)
+        panel.SetBackgroundColour(theme.SIDEBAR_BG)
+        size = self.FromDIP(26)
+        icon = wx.StaticBitmap(panel, bitmap=app_bitmap(size))
+        name = wx.StaticText(panel, label="FA11y")
+        name.SetFont(theme.heading_font(panel, 3))
+        name.SetForegroundColour(theme.TEXT)
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(icon, 0, wx.ALIGN_CENTER_VERTICAL)
+        sizer.Add(name, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, self.FromDIP(10))
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(sizer, 0, wx.LEFT | wx.TOP | wx.BOTTOM, self.FromDIP(18))
+        panel.SetSizer(outer)
+        return panel
 
     # Lifecycle -----------------------------------------------------------
 
@@ -245,6 +272,7 @@ class HubFrame(wx.Frame):
                 old.on_hide()
             page = self._pages[key]
             page.ensure_built()
+            theme.style_tree(page)
             self.book.ChangeSelection(self._order.index(key))
             self._current = key
             self.sidebar.select(key)
@@ -385,6 +413,9 @@ class HubFrame(wx.Frame):
         key = event.GetKeyCode()
         mods = event.GetModifiers()
         if key == wx.WXK_TAB and mods & wx.MOD_CONTROL:
+            if self._focus_in_tabs():
+                event.Skip()  # the tabs inside the page switch instead
+                return
             self.cycle_page(-1 if mods & wx.MOD_SHIFT else 1)
             return
         if key == wx.WXK_F6 and not mods:
@@ -404,11 +435,14 @@ class HubFrame(wx.Frame):
             return
         event.Skip()
 
-    def _on_sidebar_key(self, event: wx.KeyEvent) -> None:
-        if event.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_RIGHT):
-            self.focus_content()
-            return
-        event.Skip()
+    @staticmethod
+    def _focus_in_tabs() -> bool:
+        window = wx.Window.FindFocus()
+        while window is not None and not window.IsTopLevel():
+            if isinstance(window, (TabbedBook, wx.Notebook)):
+                return True
+            window = window.GetParent()
+        return False
 
     # Closing -------------------------------------------------------------
 

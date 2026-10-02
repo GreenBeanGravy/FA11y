@@ -3,6 +3,7 @@ from datetime import datetime
 import threading
 
 import wx
+from lib.hub.controls import StyledButton
 
 from lib.guis.view_host import EmbeddedView, ViewDialog, show_view
 from lib.managers.quest_manager import quest_store
@@ -62,8 +63,8 @@ class QuestView(EmbeddedView):
         self.status = wx.StaticText(self, label='Quests have not been loaded.')
         layout.Add(self.status, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         buttons = wx.BoxSizer(wx.HORIZONTAL)
-        self.refresh_button = wx.Button(self, label='&Refresh')
-        close = wx.Button(self, label='&Close')
+        self.refresh_button = StyledButton(self, label='&Refresh')
+        close = StyledButton(self, label='&Close')
         buttons.Add(self.refresh_button, 0, wx.RIGHT, 10)
         buttons.Add(close, 0)
         layout.Add(buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 10)

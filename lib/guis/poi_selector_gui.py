@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 
 import wx
 import wx.lib.scrolledpanel as scrolled
+from lib.hub.controls import StyledButton, TabbedBook
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
@@ -410,7 +411,7 @@ class POIGUI(AccessibleDialog):
     
     def makeSettings(self, settingsSizer: BoxSizerHelper):
         """Create dialog structure immediately"""
-        self.notebook = wx.Notebook(self)
+        self.notebook = TabbedBook(self)
         settingsSizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
         
         # Create map tabs with minimal content
@@ -536,7 +537,7 @@ class POIGUI(AccessibleDialog):
                         position_desc = self.get_poi_position_description(poi)
                         button_text = f"{button_text} - {position_desc}"
                     
-                    button = wx.Button(panel, label=button_text)
+                    button = StyledButton(panel, label=button_text)
                     
                     button.category_name = category_name
                     button.poi_data = poi
@@ -559,7 +560,7 @@ class POIGUI(AccessibleDialog):
                 else:
                     placeholder_text = f"No items in {category_name}"
                 
-                placeholder_button = wx.Button(panel, label=placeholder_text)
+                placeholder_button = StyledButton(panel, label=placeholder_text)
                 placeholder_button.category_name = category_name
                 placeholder_button.poi_data = None
                 placeholder_button.is_placeholder = True

@@ -13,6 +13,7 @@ import ctypes
 import ctypes.wintypes
 
 import wx
+from lib.hub.controls import StyledButton
 from accessible_output2.outputs.auto import Auto
 import pyautogui
 from lib.utilities.mouse import (
@@ -401,7 +402,7 @@ class CategoryView(AccessibleDialog):
         search_sizer.Add(self.search_box, flag=wx.ALIGN_CENTER_VERTICAL)
 
         search_sizer.AddSpacer(10)
-        clear_btn = wx.Button(self, label="Clear")
+        clear_btn = StyledButton(self, label="Clear")
         clear_btn.Bind(wx.EVT_BUTTON, lambda e: self.search_box.SetValue(""))
         search_sizer.Add(clear_btn, flag=wx.ALIGN_CENTER_VERTICAL)
 
@@ -445,19 +446,19 @@ class CategoryView(AccessibleDialog):
         # Buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.equip_btn = wx.Button(self, label="&Equip Selected")
+        self.equip_btn = StyledButton(self, label="&Equip Selected")
         self.equip_btn.Bind(wx.EVT_BUTTON, self.on_equip_clicked)
         button_sizer.Add(self.equip_btn)
 
         button_sizer.AddSpacer(10)
 
-        self.back_btn = wx.Button(self, label="&Back to Categories")
+        self.back_btn = StyledButton(self, label="&Back to Categories")
         self.back_btn.Bind(wx.EVT_BUTTON, self.on_back)
         button_sizer.Add(self.back_btn)
 
         button_sizer.AddStretchSpacer()
 
-        self.close_btn = wx.Button(self, label="&Close")
+        self.close_btn = StyledButton(self, label="&Close")
         self.close_btn.Bind(wx.EVT_BUTTON, self.on_close)
         button_sizer.Add(self.close_btn)
 
@@ -872,7 +873,7 @@ class CategoryView(AccessibleDialog):
             speaker.speak("Error equipping cosmetic")
             if not self.IsShown():
                 wx.CallAfter(self.Show)
-            wx.CallAfter(lambda: messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self))
+            wx.CallAfter(messageBox, f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def _equip_unequip_option(self):
         """Unequip by scrolling to top and clicking the first item (default/none)"""
@@ -915,7 +916,7 @@ class CategoryView(AccessibleDialog):
             speaker.speak("Error unequipping cosmetic")
             if not self.IsShown():
                 wx.CallAfter(self.Show)
-            wx.CallAfter(lambda: messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self))
+            wx.CallAfter(messageBox, f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def _perform_scroll_and_click_automation(self, category: str, slot: int, click_x: int, click_y: int) -> bool:
         """Perform UI automation by scrolling to top of the list and clicking a target position"""
@@ -1040,7 +1041,7 @@ class CategoryView(AccessibleDialog):
             speaker.speak("Error equipping cosmetic")
             if not self.IsShown():
                 wx.CallAfter(self.Show)
-            wx.CallAfter(lambda: messageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self))
+            wx.CallAfter(messageBox, f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR, self)
 
     def _show_after_equip(self, success: bool, name: str):
         """Show dialog after equip"""
@@ -1284,14 +1285,14 @@ class LockerView(EmbeddedView):
             login_sizer.Add(status_label, flag=wx.ALIGN_CENTER_VERTICAL)
             login_sizer.AddSpacer(10)
 
-            self.login_btn = wx.Button(self, label="Logged In", size=(120, -1))
+            self.login_btn = StyledButton(self, label="Logged In", size=(120, -1))
             self.login_btn.Enable(False)
         else:
             status_label = wx.StaticText(self, label="Not logged in")
             login_sizer.Add(status_label, flag=wx.ALIGN_CENTER_VERTICAL)
             login_sizer.AddSpacer(10)
 
-            self.login_btn = wx.Button(self, label="&Login", size=(120, -1))
+            self.login_btn = StyledButton(self, label="&Login", size=(120, -1))
             self.login_btn.Bind(wx.EVT_BUTTON, self.on_login)
 
         login_sizer.Add(self.login_btn)
@@ -1340,7 +1341,7 @@ class LockerView(EmbeddedView):
         ]
 
         for category in categories:
-            btn = wx.Button(self.categories_panel, label=category, size=(200, 40))
+            btn = StyledButton(self.categories_panel, label=category, size=(200, 40))
             btn.Bind(wx.EVT_BUTTON, lambda evt, cat=category: self.on_category_selected(cat))
             categories_sizer.Add(btn, flag=wx.ALL, border=5)
 
@@ -1357,21 +1358,21 @@ class LockerView(EmbeddedView):
 
             loadout_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-            self.view_equipped_btn = wx.Button(self, label="&View Equipped")
+            self.view_equipped_btn = StyledButton(self, label="&View Equipped")
             self.view_equipped_btn.Bind(wx.EVT_BUTTON, self.on_view_equipped)
             loadout_sizer.Add(self.view_equipped_btn, flag=wx.RIGHT, border=5)
 
-            self.view_loadouts_btn = wx.Button(self, label="Saved &Loadouts")
+            self.view_loadouts_btn = StyledButton(self, label="Saved &Loadouts")
             self.view_loadouts_btn.Bind(wx.EVT_BUTTON, self.on_view_loadouts)
             loadout_sizer.Add(self.view_loadouts_btn, flag=wx.RIGHT, border=5)
 
-            self.save_loadout_btn = wx.Button(self, label="&Save Current as Loadout")
+            self.save_loadout_btn = StyledButton(self, label="&Save Current as Loadout")
             self.save_loadout_btn.Bind(wx.EVT_BUTTON, self.on_save_loadout)
             loadout_sizer.Add(self.save_loadout_btn, flag=wx.RIGHT, border=5)
 
             sizer.addItem(loadout_sizer)
 
-        self.passes_btn = wx.Button(self, label="Battle &Passes")
+        self.passes_btn = StyledButton(self, label="Battle &Passes")
         self.passes_btn.Bind(wx.EVT_BUTTON, self.on_passes)
         sizer.addItem(self.passes_btn)
 
@@ -1380,7 +1381,7 @@ class LockerView(EmbeddedView):
 
         button_sizer.AddStretchSpacer()
 
-        self.close_btn = wx.Button(self, label="&Close")
+        self.close_btn = StyledButton(self, label="&Close")
         self.close_btn.Bind(wx.EVT_BUTTON, self.on_close)
         button_sizer.Add(self.close_btn)
 
@@ -1537,7 +1538,7 @@ class LockerView(EmbeddedView):
                                     style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP)
             dlg_sizer.Add(text_ctrl, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
 
-            close_btn = wx.Button(dlg, wx.ID_CLOSE, "&Close")
+            close_btn = StyledButton(dlg, wx.ID_CLOSE, "&Close")
             close_btn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_CLOSE))
             dlg_sizer.Add(close_btn, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
 
@@ -1827,7 +1828,7 @@ class LockerView(EmbeddedView):
             btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
             # Equip via API
-            equip_api_btn = wx.Button(dlg, label="Equip via &API")
+            equip_api_btn = StyledButton(dlg, label="Equip via &API")
             equip_api_btn.SetToolTip("Equip instantly via Locker Service API. Changes apply next match or game restart.")
 
             def on_equip_api(evt):
@@ -1878,7 +1879,7 @@ class LockerView(EmbeddedView):
             btn_sizer.Add(equip_api_btn, flag=wx.RIGHT, border=5)
 
             # Equip via UI automation
-            equip_ui_btn = wx.Button(dlg, label="Equip in &Game (UI)")
+            equip_ui_btn = StyledButton(dlg, label="Equip in &Game (UI)")
             equip_ui_btn.SetToolTip("Equip each item one-by-one using mouse automation in the Fortnite locker UI.")
 
             def on_equip_ui(evt):
@@ -1936,7 +1937,7 @@ class LockerView(EmbeddedView):
             btn_sizer.Add(equip_ui_btn, flag=wx.RIGHT, border=5)
 
             # Delete local loadout button
-            delete_btn = wx.Button(dlg, label="&Delete Local")
+            delete_btn = StyledButton(dlg, label="&Delete Local")
             delete_btn.SetToolTip("Delete a locally saved loadout")
 
             def on_delete_local(evt):
@@ -1971,7 +1972,7 @@ class LockerView(EmbeddedView):
             delete_btn.Bind(wx.EVT_BUTTON, on_delete_local)
             btn_sizer.Add(delete_btn, flag=wx.RIGHT, border=5)
 
-            close_btn = wx.Button(dlg, wx.ID_CLOSE, "&Close")
+            close_btn = StyledButton(dlg, wx.ID_CLOSE, "&Close")
             close_btn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_CLOSE))
             btn_sizer.Add(close_btn)
 

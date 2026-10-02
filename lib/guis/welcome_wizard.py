@@ -6,6 +6,7 @@ import os
 from typing import Any, Callable, Dict, List, Optional
 
 import wx
+from lib.hub.controls import StyledButton
 from accessible_output2.outputs.auto import Auto
 
 from lib.app import state
@@ -147,7 +148,7 @@ class AudioTestPage(WizardPage):
         self.volume_spin.SetToolTip("Master volume, 0 to 100 percent.")
         row.Add(self.volume_spin, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=10)
 
-        self.test_btn = wx.Button(self, label="&Test sound")
+        self.test_btn = StyledButton(self, label="&Test sound")
         self.test_btn.Bind(wx.EVT_BUTTON, self._on_test)
         row.Add(self.test_btn, flag=wx.ALIGN_CENTER_VERTICAL)
 
@@ -271,18 +272,18 @@ class WelcomeWizard(AccessibleDialog):
         # Navigation row.
         nav = wx.BoxSizer(wx.HORIZONTAL)
 
-        self._skip_btn = wx.Button(self, label="S&kip wizard")
+        self._skip_btn = StyledButton(self, label="S&kip wizard")
         self._skip_btn.SetToolTip("Skip the wizard and use defaults. You can re-run it later.")
         self._skip_btn.Bind(wx.EVT_BUTTON, self._on_skip)
         nav.Add(self._skip_btn)
 
         nav.AddStretchSpacer()
 
-        self._back_btn = wx.Button(self, label="< &Back")
+        self._back_btn = StyledButton(self, label="< &Back")
         self._back_btn.Bind(wx.EVT_BUTTON, self._on_back)
         nav.Add(self._back_btn, flag=wx.RIGHT, border=5)
 
-        self._next_btn = wx.Button(self, label="&Next >")
+        self._next_btn = StyledButton(self, label="&Next >")
         self._next_btn.Bind(wx.EVT_BUTTON, self._on_next)
         # Make Enter / default button activation hit Next.
         self._next_btn.SetDefault()

@@ -25,7 +25,7 @@ class AboutPage(HubPage):
 
         buttons = wx.WrapSizer(wx.HORIZONTAL)
         self.check_button = button(self, "&Check for updates", "refresh")
-        self.restart_button = button(self, "&Restart to update", "download")
+        self.restart_button = button(self, "&Restart to update", "download", "primary")
         logs_button = button(self, "Open &logs folder", "folder")
         config_button = button(self, "Open &settings folder", "folder")
         site_button = button(self, "FA11y on &GitHub")

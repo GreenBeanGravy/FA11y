@@ -1,6 +1,7 @@
 """Accessible, mode-specific controls for Fortnite's open match-options screen."""
 import threading
 import wx
+from lib.hub.controls import StyledButton
 from accessible_output2.outputs.auto import Auto
 from lib.guis.gui_utilities import AccessibleDialog, force_focus_window
 from lib.detection import match_options as backend
@@ -52,10 +53,10 @@ class MatchOptionsDialog(AccessibleDialog):
         settingsSizer.addItem(self.fill,flag=wx.ALL,border=5)
         self.fill_help=wx.StaticText(self,label='')
         settingsSizer.addItem(self.fill_help,flag=wx.EXPAND|wx.ALL,border=5)
-        self.refresh=wx.Button(self,label='Re&fresh from Fortnite')
+        self.refresh=StyledButton(self,label='Re&fresh from Fortnite')
         self.refresh.Bind(wx.EVT_BUTTON,lambda event:self.run(self.controller.focus_and_read,self.refresh))
         settingsSizer.addItem(self.refresh,flag=wx.EXPAND|wx.ALL,border=5)
-        close=wx.Button(self,wx.ID_CANCEL,label='&Close')
+        close=StyledButton(self,wx.ID_CANCEL,label='&Close')
         close.Bind(wx.EVT_BUTTON,self.on_close)
         settingsSizer.addItem(close,flag=wx.EXPAND|wx.ALL,border=5)
 

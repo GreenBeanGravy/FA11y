@@ -4,6 +4,7 @@ Uses embedded WebView to capture Epic Games authentication
 """
 import wx
 import wx.html2
+from lib.hub.controls import StyledButton
 import logging
 import json
 import time
@@ -331,9 +332,9 @@ class EpicBrowserLoginDialog(wx.Dialog):
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.refresh_btn = wx.Button(panel, label="&Refresh")
-        self.logged_in_btn = wx.Button(panel, label="&I'm Logged In")
-        self.cancel_btn = wx.Button(panel, wx.ID_CANCEL, label="&Cancel")
+        self.refresh_btn = StyledButton(panel, label="&Refresh")
+        self.logged_in_btn = StyledButton(panel, label="&I'm Logged In")
+        self.cancel_btn = StyledButton(panel, wx.ID_CANCEL, label="&Cancel")
 
         btn_sizer.Add(self.refresh_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.logged_in_btn, 0, wx.ALL, 5)

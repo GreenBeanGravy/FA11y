@@ -13,6 +13,7 @@ import threading
 from typing import Any, Callable, Dict, List, Optional
 
 import wx
+from lib.hub.controls import StyledButton
 
 from lib.app import state
 from lib.guis.welcome_wizard import AudioTestPage, MousePage, SpeechPage, WizardPage
@@ -40,7 +41,7 @@ class SignInStep(WizardPage):
     def _build(self) -> None:
         super()._build()
         self.status = wx.StaticText(self, label="")
-        self.signin_button = wx.Button(self, label="&Sign in")
+        self.signin_button = StyledButton(self, label="&Sign in", variant="primary")
         self.signin_button.Bind(wx.EVT_BUTTON, self._sign_in)
         self.content_sizer.Add(self.status, flag=wx.ALL, border=5)
         self.content_sizer.Add(self.signin_button, flag=wx.ALL, border=5)
@@ -205,9 +206,9 @@ class OnboardingPanel(wx.Panel):
 
         self._progress = label(self, "", theme.TEXT_SECONDARY)
         nav = wx.BoxSizer(wx.HORIZONTAL)
-        self._skip = button(self, "S&kip setup")
+        self._skip = button(self, "S&kip setup", variant="ghost")
         self._back = button(self, "&Back")
-        self._next = button(self, "&Next")
+        self._next = button(self, "&Next", variant="primary")
         self._skip.Bind(wx.EVT_BUTTON, lambda e: self.skip())
         self._back.Bind(wx.EVT_BUTTON, lambda e: self._show(self._index - 1))
         self._next.Bind(wx.EVT_BUTTON, lambda e: self._advance())

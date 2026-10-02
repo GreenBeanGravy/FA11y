@@ -5,6 +5,7 @@ Provides interface for browsing Fortnite Creative islands and gamemodes
 import logging
 import re
 import wx
+from lib.hub.controls import StyledButton, TabbedBook
 import threading
 import time
 import pyperclip
@@ -81,7 +82,7 @@ class DiscoveryView(EmbeddedView):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create notebook for tabs
-        self.notebook = wx.Notebook(self)
+        self.notebook = TabbedBook(self)
         sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, BORDER_FOR_DIALOGS)
         self.SetSizer(sizer)
 
@@ -142,9 +143,9 @@ class DiscoveryView(EmbeddedView):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.copy_epic_btn = wx.Button(panel, label="Copy Code")
-        self.launch_epic_btn = wx.Button(panel, label="Launch Gamemode")
-        self.refresh_epic_btn = wx.Button(panel, label="Refresh")
+        self.copy_epic_btn = StyledButton(panel, label="Copy Code")
+        self.launch_epic_btn = StyledButton(panel, label="Launch Gamemode")
+        self.refresh_epic_btn = StyledButton(panel, label="Refresh")
         btn_sizer.Add(self.copy_epic_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.launch_epic_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.refresh_epic_btn, 0, wx.ALL, 5)
@@ -197,9 +198,9 @@ class DiscoveryView(EmbeddedView):
 
         # Pagination controls
         page_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.browse_prev_btn = wx.Button(panel, label="< Previous")
+        self.browse_prev_btn = StyledButton(panel, label="< Previous")
         self.browse_page_label = wx.StaticText(panel, label="Page 1")
-        self.browse_next_btn = wx.Button(panel, label="Next >")
+        self.browse_next_btn = StyledButton(panel, label="Next >")
         page_sizer.Add(self.browse_prev_btn, 0, wx.ALL, 5)
         page_sizer.Add(self.browse_page_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         page_sizer.Add(self.browse_next_btn, 0, wx.ALL, 5)
@@ -207,9 +208,9 @@ class DiscoveryView(EmbeddedView):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.copy_code_btn = wx.Button(panel, label="Copy Code")
-        self.launch_browse_btn = wx.Button(panel, label="Launch Gamemode")
-        self.refresh_browse_btn = wx.Button(panel, label="Refresh")
+        self.copy_code_btn = StyledButton(panel, label="Copy Code")
+        self.launch_browse_btn = StyledButton(panel, label="Launch Gamemode")
+        self.refresh_browse_btn = StyledButton(panel, label="Refresh")
         btn_sizer.Add(self.copy_code_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.launch_browse_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.refresh_browse_btn, 0, wx.ALL, 5)
@@ -255,7 +256,7 @@ class DiscoveryView(EmbeddedView):
         self.search_box.Bind(wx.EVT_TEXT_ENTER, self.on_search_enter)
         search_sizer.Add(self.search_box, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
-        search_btn = wx.Button(panel, label="Search")
+        search_btn = StyledButton(panel, label="Search")
         search_btn.Bind(wx.EVT_BUTTON, self.on_search_click)
         search_sizer.Add(search_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
@@ -267,9 +268,9 @@ class DiscoveryView(EmbeddedView):
 
         # Pagination controls
         search_page_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.search_prev_btn = wx.Button(panel, label="< Previous")
+        self.search_prev_btn = StyledButton(panel, label="< Previous")
         self.search_page_label = wx.StaticText(panel, label="Page 1")
-        self.search_next_btn = wx.Button(panel, label="Next >")
+        self.search_next_btn = StyledButton(panel, label="Next >")
         search_page_sizer.Add(self.search_prev_btn, 0, wx.ALL, 5)
         search_page_sizer.Add(self.search_page_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         search_page_sizer.Add(self.search_next_btn, 0, wx.ALL, 5)
@@ -277,8 +278,8 @@ class DiscoveryView(EmbeddedView):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.copy_code_search_btn = wx.Button(panel, label="Copy Code")
-        self.launch_search_btn = wx.Button(panel, label="Launch Gamemode")
+        self.copy_code_search_btn = StyledButton(panel, label="Copy Code")
+        self.launch_search_btn = StyledButton(panel, label="Launch Gamemode")
         btn_sizer.Add(self.copy_code_search_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.launch_search_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
@@ -317,7 +318,7 @@ class DiscoveryView(EmbeddedView):
         self.code_box.Bind(wx.EVT_TEXT_ENTER, self.on_lookup_code)
         code_sizer.Add(self.code_box, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
-        lookup_btn = wx.Button(panel, label="Lookup")
+        lookup_btn = StyledButton(panel, label="Lookup")
         lookup_btn.Bind(wx.EVT_BUTTON, self.on_lookup_code)
         code_sizer.Add(lookup_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
@@ -359,11 +360,11 @@ class DiscoveryView(EmbeddedView):
         self.creator_box.Bind(wx.EVT_TEXT_ENTER, self.on_load_creator)
         creator_sizer.Add(self.creator_box, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
-        load_creator_btn = wx.Button(panel, label="Load Maps")
+        load_creator_btn = StyledButton(panel, label="Load Maps")
         load_creator_btn.Bind(wx.EVT_BUTTON, self.on_load_creator)
         creator_sizer.Add(load_creator_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
-        epic_btn = wx.Button(panel, label="Epic Games")
+        epic_btn = StyledButton(panel, label="Epic Games")
         epic_btn.Bind(wx.EVT_BUTTON, self.on_load_epic)
         creator_sizer.Add(epic_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
@@ -375,8 +376,8 @@ class DiscoveryView(EmbeddedView):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.copy_code_creator_btn = wx.Button(panel, label="Copy Code")
-        self.launch_creator_btn = wx.Button(panel, label="Launch Gamemode")
+        self.copy_code_creator_btn = StyledButton(panel, label="Copy Code")
+        self.launch_creator_btn = StyledButton(panel, label="Launch Gamemode")
         btn_sizer.Add(self.copy_code_creator_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.launch_creator_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)

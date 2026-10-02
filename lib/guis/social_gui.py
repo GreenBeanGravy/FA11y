@@ -4,6 +4,7 @@ Provides interface for managing friends, party, and requests
 """
 import logging
 import wx
+from lib.hub.controls import StyledButton, TabbedBook
 import threading
 from datetime import datetime, timezone
 from typing import Optional
@@ -62,7 +63,7 @@ class SocialView(EmbeddedView):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create notebook for tabs
-        self.notebook = wx.Notebook(self)
+        self.notebook = TabbedBook(self)
         sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, BORDER_FOR_DIALOGS)
         self.SetSizer(sizer)
 
@@ -173,7 +174,7 @@ class SocialView(EmbeddedView):
         sizer.Add(self.ranked_stats_text, 1, wx.ALL | wx.EXPAND, 10)
 
         # Refresh button
-        refresh_btn = wx.Button(panel, label="Refresh Account Information")
+        refresh_btn = StyledButton(panel, label="Refresh Account Information")
         refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh_account_info)
         sizer.Add(refresh_btn, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
@@ -454,7 +455,7 @@ class SocialView(EmbeddedView):
         self.search_box.Bind(wx.EVT_TEXT_ENTER, self.on_search_changed)  # Enter also triggers search
         search_sizer.Add(self.search_box, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
-        clear_btn = wx.Button(panel, label="Clear")
+        clear_btn = StyledButton(panel, label="Clear")
         clear_btn.Bind(wx.EVT_BUTTON, lambda e: self.search_box.SetValue(""))
         search_sizer.Add(clear_btn, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
 
@@ -466,10 +467,10 @@ class SocialView(EmbeddedView):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.add_friend_btn = wx.Button(panel, label="Add Friend")
-        self.invite_btn = wx.Button(panel, label="Invite to Party")
-        self.request_join_btn = wx.Button(panel, label="Request to Join")
-        self.remove_friend_btn = wx.Button(panel, label="Remove Friend")
+        self.add_friend_btn = StyledButton(panel, label="Add Friend")
+        self.invite_btn = StyledButton(panel, label="Invite to Party")
+        self.request_join_btn = StyledButton(panel, label="Request to Join")
+        self.remove_friend_btn = StyledButton(panel, label="Remove Friend")
         btn_sizer.Add(self.add_friend_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.invite_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.request_join_btn, 0, wx.ALL, 5)
@@ -512,8 +513,8 @@ class SocialView(EmbeddedView):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.accept_req_btn = wx.Button(panel, label="Accept")
-        self.decline_req_btn = wx.Button(panel, label="Decline")
+        self.accept_req_btn = StyledButton(panel, label="Accept")
+        self.decline_req_btn = StyledButton(panel, label="Decline")
         btn_sizer.Add(self.accept_req_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.decline_req_btn, 0, wx.ALL, 5)
         sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER, 5)
@@ -539,9 +540,9 @@ class SocialView(EmbeddedView):
 
         # Action buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.promote_btn = wx.Button(panel, label="Promote to Leader")
-        self.kick_btn = wx.Button(panel, label="Kick Member")
-        self.leave_party_btn = wx.Button(panel, label="Leave Party")
+        self.promote_btn = StyledButton(panel, label="Promote to Leader")
+        self.kick_btn = StyledButton(panel, label="Kick Member")
+        self.leave_party_btn = StyledButton(panel, label="Leave Party")
         btn_sizer.Add(self.promote_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.kick_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.leave_party_btn, 0, wx.ALL, 5)

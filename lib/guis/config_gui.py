@@ -14,6 +14,7 @@ from typing import Callable, Dict, Optional, List, Any, Tuple, TYPE_CHECKING
 
 import wx
 import wx.lib.scrolledpanel as scrolled
+from lib.hub.controls import StyledButton, TabbedBook
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import DisplayableError
@@ -135,7 +136,7 @@ class ConfigView(EmbeddedView):
         self.capture_action = None
         self.original_capture_value = ""
         self.tab_control_widgets = {}
-        self.notebook: Optional[wx.Notebook] = None
+        self.notebook: Optional[TabbedBook] = None
         self._populated = False
         # (tab name, setting key) of every widget changed since the last save.
         self._dirty_keys: set = set()
@@ -191,7 +192,7 @@ class ConfigView(EmbeddedView):
         """Create view structure with minimal content"""
         sizer = wx.BoxSizer(wx.VERTICAL)
         if len(self.tab_names) > 1:
-            self.notebook = wx.Notebook(self)
+            self.notebook = TabbedBook(self)
             sizer.Add(self.notebook, 1, wx.EXPAND)
             self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
         self.SetSizer(sizer)
@@ -901,7 +902,7 @@ class ConfigView(EmbeddedView):
         entry.SetValue(scaled_value)
         entry.description = description
         
-        test_button = wx.Button(panel, label="Test")
+        test_button = StyledButton(panel, label="Test")
         test_button.description = f"Test {key} volume setting"
         
         entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
@@ -997,7 +998,7 @@ class ConfigView(EmbeddedView):
         
         # The raw stored combination lives on the button; the label only
         # shows a readable name and is never parsed back.
-        keybind_button = wx.Button(panel, label=key)
+        keybind_button = StyledButton(panel, label=key)
         keybind_button.description = description
         self._set_keybind_value(key, keybind_button, value)
         

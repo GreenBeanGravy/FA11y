@@ -3,6 +3,7 @@ Epic Games Login Dialog for FA11y
 Combined dialog with browser login and manual code entry options
 """
 import wx
+from lib.hub.controls import StyledButton, TabbedBook
 import webbrowser
 import logging
 import json
@@ -48,7 +49,7 @@ class LoginDialog(AccessibleDialog):
         sizer.addItem(instructions)
 
         # Create notebook for login methods
-        self.notebook = wx.Notebook(self)
+        self.notebook = TabbedBook(self)
 
         # Browser Login Tab
         browser_panel = wx.Panel(self.notebook)
@@ -64,7 +65,7 @@ class LoginDialog(AccessibleDialog):
         browser_instructions.Wrap(580)
         browser_sizer.Add(browser_instructions, 0, wx.ALL, 10)
 
-        self.browser_login_btn = wx.Button(browser_panel, label="&Open Browser Login")
+        self.browser_login_btn = StyledButton(browser_panel, label="&Open Browser Login")
         self.browser_login_btn.Bind(wx.EVT_BUTTON, self.on_browser_login)
         browser_sizer.Add(self.browser_login_btn, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
@@ -86,7 +87,7 @@ class LoginDialog(AccessibleDialog):
         manual_instructions.Wrap(580)
         manual_sizer.Add(manual_instructions, 0, wx.ALL, 10)
 
-        self.start_manual_btn = wx.Button(manual_panel, label="Open &Authorization Page")
+        self.start_manual_btn = StyledButton(manual_panel, label="Open &Authorization Page")
         self.start_manual_btn.Bind(wx.EVT_BUTTON, self.on_start_login)
         manual_sizer.Add(self.start_manual_btn, 0, wx.ALL, 10)
 
@@ -100,7 +101,7 @@ class LoginDialog(AccessibleDialog):
         self.code_input.Enable(False)
         manual_sizer.Add(self.code_input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
-        self.submit_btn = wx.Button(manual_panel, label="&Submit Code")
+        self.submit_btn = StyledButton(manual_panel, label="&Submit Code")
         self.submit_btn.Bind(wx.EVT_BUTTON, self.on_submit_code)
         self.submit_btn.Enable(False)
         manual_sizer.Add(self.submit_btn, 0, wx.ALL, 10)
@@ -122,7 +123,7 @@ class LoginDialog(AccessibleDialog):
         sizer.addItem(self.status_text, flag=wx.EXPAND)
 
         # Cancel button
-        self.cancel_btn = wx.Button(self, label="&Cancel")
+        self.cancel_btn = StyledButton(self, label="&Cancel")
         self.cancel_btn.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_CANCEL))
         sizer.addItem(self.cancel_btn)
 

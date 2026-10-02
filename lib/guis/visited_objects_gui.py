@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 
 import wx
 import wx.lib.scrolledpanel as scrolled
+from lib.hub.controls import StyledButton, TabbedBook
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import (
@@ -190,7 +191,7 @@ class VisitedObjectsGUI(AccessibleDialog):
     
     def makeSettings(self, settingsSizer: BoxSizerHelper):
         """Create dialog structure immediately without data"""
-        self.notebook = wx.Notebook(self)
+        self.notebook = TabbedBook(self)
         settingsSizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
         
         # Create empty tabs
@@ -360,7 +361,7 @@ class VisitedObjectsGUI(AccessibleDialog):
         sizer = wx.BoxSizer(wx.VERTICAL)
         
         if not objects:
-            no_objects_button = wx.Button(panel, label="No visited objects available")
+            no_objects_button = StyledButton(panel, label="No visited objects available")
             no_objects_button.SetToolTip("No objects have been visited in the current match")
             no_objects_button.Bind(wx.EVT_BUTTON, self.onNoObjectsClick)
             no_objects_button.Bind(wx.EVT_CHAR_HOOK, self.onButtonCharHook)
@@ -382,7 +383,7 @@ class VisitedObjectsGUI(AccessibleDialog):
                     button_text = obj[0] if isinstance(obj, tuple) else str(obj)
                     speech_text = "No position information available"
                 
-                button = wx.Button(panel, label=button_text)
+                button = StyledButton(panel, label=button_text)
                 button.Bind(wx.EVT_BUTTON, lambda evt, o=obj: self.select_object(o))
                 button.speech_text = speech_text
                 button.Bind(wx.EVT_CHAR_HOOK, self.onButtonCharHook)
@@ -603,7 +604,7 @@ class VisitedObjectsGUI(AccessibleDialog):
                 button_text = f"{obj[0]} (ID: {obj[3]})"
                 speech_text = self.get_object_speech_info(obj)
                 
-                button = wx.Button(self.search_results_panel, label=button_text)
+                button = StyledButton(self.search_results_panel, label=button_text)
                 button.Bind(wx.EVT_BUTTON, lambda evt, o=obj: self.select_object(o))
                 button.speech_text = speech_text
                 button.obj_data = obj

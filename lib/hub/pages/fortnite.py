@@ -47,7 +47,7 @@ class FortnitePage(HubPage):
 
         top = wx.BoxSizer(wx.HORIZONTAL)
         top.Add(label(self, "Fortnite", font=theme.heading_font(self)), 1, wx.ALIGN_CENTER_VERTICAL)
-        self.play_button = button(self, "&Play", "player-play")
+        self.play_button = button(self, "&Play", "player-play", "primary")
         self.play_button.Bind(wx.EVT_BUTTON, lambda e: self.play())
         top.Add(self.play_button, 0, wx.ALIGN_CENTER_VERTICAL)
         self.content.Add(top, 0, wx.EXPAND | wx.BOTTOM, 6)
@@ -59,7 +59,7 @@ class FortnitePage(HubPage):
         self.signin_card = Card(self, "Sign in for downloads")
         self.signin_text = label(self.signin_card, "Downloads, updates and Play need your Epic account.",
                                  wrap=620)
-        self.signin_button = button(self.signin_card, "&Sign in with your Epic account", "user")
+        self.signin_button = button(self.signin_card, "&Sign in with your Epic account", "user", "primary")
         self.signin_button.Bind(wx.EVT_BUTTON, lambda e: self._sign_in())
         self.signin_card.body.Add(self.signin_text)
         self.signin_card.body.Add(self.signin_button, 0, wx.TOP, 8)
@@ -68,7 +68,7 @@ class FortnitePage(HubPage):
         # Shown when the Epic Games Launcher has Fortnite and legendary doesn't.
         self.egl_card = Card(self, "Epic Games Launcher install")
         self.egl_text = label(self.egl_card, "", wrap=620)
-        self.egl_manage = button(self.egl_card, "Let FA11y &manage it (recommended)")
+        self.egl_manage = button(self.egl_card, "Let FA11y &manage it (recommended)", variant="primary")
         self.egl_keep = button(self.egl_card, "&Keep using the Epic Games Launcher")
         self.egl_manage.Bind(wx.EVT_BUTTON, lambda e: self.take_over_egl_install())
         self.egl_keep.Bind(wx.EVT_BUTTON, lambda e: self.sync_with_egl())
@@ -85,7 +85,7 @@ class FortnitePage(HubPage):
 
         # Install row, for when there's no install at all.
         self.install_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.install_button = button(self, "&Install Fortnite", "download")
+        self.install_button = button(self, "&Install Fortnite", "download", "primary")
         self.install_button.Bind(wx.EVT_BUTTON, lambda e: self._install())
         self.install_row.Add(self.install_button)
         self.content.Add(self.install_row, 0, wx.BOTTOM, GAP)
@@ -96,7 +96,7 @@ class FortnitePage(HubPage):
         self.verify_button = button(self, "&Verify and repair")
         self.move_button = button(self, "&Move install", "folder")
         self.open_button = button(self, "&Open folder", "folder")
-        self.uninstall_button = button(self, "U&ninstall", "trash")
+        self.uninstall_button = button(self, "U&ninstall", "trash", "danger")
         for ctrl, handler in ((self.update_button, self._update), (self.verify_button, self._verify),
                               (self.move_button, self._move), (self.open_button, self._open_folder),
                               (self.uninstall_button, self._uninstall)):
