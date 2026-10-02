@@ -34,6 +34,10 @@ what it currently does:
 
 ### Out of match
 
+- The FA11y window: a sidebar of pages for your Epic account, locker,
+  friends and party, quests, Discover, settings, and keybinds
+- Install, update, verify, move, and uninstall Fortnite, and set its launch
+  options, from the Fortnite page (no Epic Games Launcher needed)
 - Browse and equip cosmetics via the Locker selector
 - Select game modes via the Discovery selector (Left Alt + apostrophe)
 - Browse Creative islands via the Discovery menu
@@ -53,8 +57,28 @@ what it currently does:
    permission to install the drivers FA11y uses for mouse control.
 3. Start FA11y with `FA11y Launcher.exe`. It checks for updates each time
    it starts (turn this off with the `AutoUpdates` setting).
-4. On first run, FA11y creates `config/config.txt` with default keybinds;
-   press `F9` in-game to open the configuration menu
+4. The FA11y window opens. On first run it walks you through setup: signing
+   in to Epic Games, finding or installing Fortnite, and a few preferences.
+
+## The FA11y window
+
+The window has a list of pages on the left (Home, Fortnite, Discover, Epic
+account, Locker, Social, Quests and passes, Settings, Keybinds, and About and
+updates). Use the arrow keys in the list, then Enter or F6 to move into a
+page; F6 moves back. Ctrl+Tab and Ctrl+Shift+Tab switch pages from anywhere.
+
+FA11y's keybinds work while the window is open or hidden. When Fortnite
+starts, the window hides to the system tray. Bring it back with
+`Left Alt + F`, the tray icon, or by starting `FA11y Launcher.exe` again;
+Escape hides it and returns you to Fortnite. Keybinds that used to open
+separate menus, such as `F9` for settings or `Left Alt + .` for the social
+menu, now open the matching page.
+
+The first time you close the window, FA11y asks whether to keep running in
+the tray or quit. Change this later under Settings, General.
+
+To see FA11y's printed output while troubleshooting, run
+`"FA11y Launcher.exe" --console`.
 
 If you already use an older FA11y, keep starting it as usual: the next
 update moves it to the new layout and keeps your settings. A backup of
@@ -62,14 +86,17 @@ your settings is kept in a `FA11y_backup_` folder for two weeks.
 
 ## Default keybinds
 
-All keybinds are configurable via `F9` → FA11y configuration menu.
+All keybinds can be changed on the Keybinds page (`F9`, then Keybinds):
+select an action, press Enter, then press the new keys. If the keys belong
+to another action, the two actions swap keys.
 
 ### Meta
 
 | Key | Action |
 |---|---|
 | `F8` | Toggle all FA11y keybinds on/off |
-| `F9` | Open FA11y configuration menu |
+| `L-Alt + F` | Open or hide the FA11y window |
+| `F9` | Open FA11y settings |
 | `F12` | Exit current match (requires Fortnite quick menu open) |
 
 ### Navigation
