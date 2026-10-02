@@ -12,19 +12,12 @@ import wx.adv
 from lib.hub import game_watch, set_hub, settings, sounds, theme
 from lib.hub.controls import PageStack, StyledButton, TabbedBook
 from lib.hub.page import HubPage
+from lib.hub.services import HubServices  # noqa: F401 (re-exported)
 from lib.hub.sidebar import Sidebar, SidebarEntry
 
 logger = logging.getLogger(__name__)
 
 SIDEBAR_WIDTH = 210
-
-
-@dataclass
-class HubServices:
-    """Callbacks into the rest of FA11y, supplied by FA11y.py."""
-    quit: Callable[[], None]
-    reload_config: Callable[[], None]
-    speak: Callable[[str], None]
 
 
 @dataclass
@@ -415,13 +408,7 @@ class HubFrame(wx.Frame):
 
     @staticmethod
     def _sync_keybinds_with_game(running: bool) -> None:
-        """FA11y's keybinds are on while Fortnite runs and off otherwise.
-
-        Toggle keybinds still switches them by hand in between; the next
-        time Fortnite starts or stops sets them again.
-        """
-        from lib.app import state
-        state.set_keybinds_enabled(running)
+        game_watch.sync_keybinds_with_game(running)
 
     def _on_fortnite_changed(self, running: bool) -> None:
         self._sync_keybinds_with_game(running)

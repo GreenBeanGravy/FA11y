@@ -7,18 +7,9 @@ import threading
 import wx
 
 from lib.hub import game_watch, status, theme
+from lib.hub.status import latest_changelog_entry
 from lib.hub.page import HubPage
 from lib.hub.widgets import GAP, StatusCard, button, label, text
-
-
-def latest_changelog_entry(path: str = "CHANGELOG.txt") -> str:
-    """First block of CHANGELOG.txt (up to the first blank line)."""
-    try:
-        with open(path, encoding="utf-8") as f:
-            text = f.read().strip()
-    except OSError:
-        return ""
-    return text.split("\n\n", 1)[0].strip()
 
 
 class HomePage(HubPage):

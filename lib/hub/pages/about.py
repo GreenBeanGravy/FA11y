@@ -10,7 +10,7 @@ from lib.hub import sounds, status, theme
 from lib.hub.page import HubPage
 from lib.hub.widgets import button, label, text
 
-REPO_URL = "https://github.com/GreenBeanGravy/FA11y"
+REPO_URL = status.REPO_URL
 
 
 class AboutPage(HubPage):
@@ -33,8 +33,8 @@ class AboutPage(HubPage):
         setup_button.Bind(wx.EVT_BUTTON, lambda e: self.hub.start_onboarding(self._setup_done))
         self.check_button.Bind(wx.EVT_BUTTON, lambda e: self.check_now())
         self.restart_button.Bind(wx.EVT_BUTTON, lambda e: status.restart_to_update(self.hub))
-        logs_button.Bind(wx.EVT_BUTTON, lambda e: _open_folder("logs"))
-        config_button.Bind(wx.EVT_BUTTON, lambda e: _open_folder("config"))
+        logs_button.Bind(wx.EVT_BUTTON, lambda e: status.open_folder("logs"))
+        config_button.Bind(wx.EVT_BUTTON, lambda e: status.open_folder("config"))
         site_button.Bind(wx.EVT_BUTTON, lambda e: wx.LaunchDefaultBrowser(REPO_URL))
         for ctrl in (self.check_button, self.restart_button, logs_button, config_button, site_button,
                      setup_button):
@@ -51,11 +51,7 @@ class AboutPage(HubPage):
 
     def on_show(self) -> None:
         self.refresh()
-        try:
-            with open("CHANGELOG.txt", encoding="utf-8") as f:
-                text = f.read()
-        except OSError:
-            text = "No changelog found."
+        text = status.full_changelog()
         if self.changelog.GetValue() != text:
             self.changelog.ChangeValue(text)
 
@@ -105,9 +101,3 @@ class AboutPage(HubPage):
             self.update_text.SetLabel(message)
         self.hub.services.speak(message)
         self.check_button.SetFocus()
-
-
-def _open_folder(name: str) -> None:
-    path = os.path.abspath(name)
-    os.makedirs(path, exist_ok=True)
-    os.startfile(path)

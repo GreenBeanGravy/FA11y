@@ -1,0 +1,29 @@
+<Window Style="{StaticResource AppWindow}" x:Class="FA11y.UI.Shell.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:FA11y.UI.Controls"
+        Title="FA11y - Home" Width="980" Height="660" MinWidth="760" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Icon="pack://application:,,,/Assets/fa11y.ico">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="210" />
+            <ColumnDefinition Width="1" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <DockPanel Grid.Column="0" Background="{StaticResource SidebarBg}">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="18,18,0,18">
+                <c:HiddenImage Width="32" Height="32" Source="pack://application:,,,/Assets/fa11y_logo.png"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+                <c:HiddenText Text="FA11y" Margin="10,0,0,0" VerticalAlignment="Center"
+                           FontSize="{StaticResource BrandFontSize}" FontWeight="SemiBold" />
+            </StackPanel>
+            <c:NavList x:Name="Sidebar" />
+        </DockPanel>
+
+        <Border Grid.Column="1" Background="{StaticResource CardBorder}" />
+
+        <Grid x:Name="PageHost" Grid.Column="2" Background="{StaticResource WindowBg}" />
+    </Grid>
+</Window>

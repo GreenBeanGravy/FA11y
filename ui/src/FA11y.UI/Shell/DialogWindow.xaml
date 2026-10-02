@@ -1,0 +1,13 @@
+<Window Style="{StaticResource AppWindow}" x:Class="FA11y.UI.Shell.DialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:FA11y.UI.Controls"
+        Title="FA11y" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        Icon="pack://application:,,,/Assets/fa11y.ico">
+    <StackPanel Margin="16" MinWidth="380" MaxWidth="440">
+        <c:ReadableText x:Name="MessageText" Padding="3" />
+        <c:CheckOption x:Name="OptionBox" Margin="0,12,0,0" Visibility="Collapsed" />
+        <StackPanel x:Name="ButtonRow" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" />
+    </StackPanel>
+</Window>

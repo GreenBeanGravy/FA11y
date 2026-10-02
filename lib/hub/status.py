@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 _update_lock = threading.Lock()
 _available_update: Optional[str] = None
+_last_install_info = None
+
+REPO_URL = "https://github.com/GreenBeanGravy/FA11y"
 
 KEY_NAMES = {
     "lalt": "Left Alt", "ralt": "Right Alt", "lctrl": "Left Control", "rctrl": "Right Control",
@@ -47,6 +50,31 @@ def open_hub_keybind() -> str:
     from lib.utilities.utilities import get_config_value, read_config
     combo, _ = get_config_value(read_config(), "Open FA11y", "")
     return key_display_name(combo)
+
+
+def latest_changelog_entry(path: str = "CHANGELOG.txt") -> str:
+    """First block of CHANGELOG.txt (up to the first blank line)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read().strip()
+    except OSError:
+        return ""
+    return text.split("\n\n", 1)[0].strip()
+
+
+def full_changelog(path: str = "CHANGELOG.txt") -> str:
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return "No changelog found."
+
+
+def open_folder(name: str) -> None:
+    """Open one of FA11y's folders (logs, config) in Explorer."""
+    path = os.path.abspath(name)
+    os.makedirs(path, exist_ok=True)
+    os.startfile(path)
 
 
 # FA11y updates ------------------------------------------------------------
@@ -117,7 +145,13 @@ def account_status() -> dict:
             "name": auth.display_name}
 
 
+def last_install_info():
+    """The install status from the most recent Home page check, or None before one has run."""
+    return _last_install_info
+
+
 def fortnite_status() -> dict:
+    global _last_install_info
     from lib.hub import game_watch
     if game_watch.is_fortnite_running():
         return {"value": "Running", "detail": "", "level": "ok"}
@@ -127,6 +161,7 @@ def fortnite_status() -> dict:
     except Exception as e:
         logger.debug(f"Fortnite status failed: {e}")
         return {"value": "Unknown", "detail": "Couldn't check the install", "level": ""}
+    _last_install_info = info
     if not info.installed:
         if getattr(info, "egl_install_path", None):
             return {"value": "In Epic Games Launcher", "detail": "Set up on the Fortnite page",

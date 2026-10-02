@@ -1,0 +1,44 @@
+<pages:PageBase x:Class="FA11y.UI.Pages.AboutPage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:pages="clr-namespace:FA11y.UI.Pages"
+                xmlns:c="clr-namespace:FA11y.UI.Controls">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="About and updates" FontSize="{StaticResource HeadingFontSize}"
+                   FontWeight="SemiBold" Margin="0,0,0,12" />
+
+        <StackPanel Grid.Row="1">
+            <c:ReadableText x:Name="VersionText" />
+            <c:ReadableText x:Name="UpdateText" Margin="0,4,0,0" Foreground="{StaticResource TextSecondary}" />
+        </StackPanel>
+
+        <WrapPanel Grid.Row="2" Margin="0,12,0,0">
+            <c:IconButton x:Name="CheckButton" Icon="{StaticResource Icon.refresh}" Content="_Check for updates"
+                          Margin="0,0,8,8" Click="OnCheckClick" />
+            <c:IconButton x:Name="RestartButton" Variant="primary" Icon="{StaticResource Icon.download}"
+                          Content="_Restart to update" Margin="0,0,8,8" Visibility="Collapsed" Click="OnRestartClick" />
+            <c:IconButton Icon="{StaticResource Icon.folder}" Content="Open _logs folder" Margin="0,0,8,8"
+                          Click="OnLogsClick" />
+            <c:IconButton Icon="{StaticResource Icon.folder}" Content="Open _settings folder" Margin="0,0,8,8"
+                          Click="OnSettingsClick" />
+            <c:IconButton Content="FA11y on _GitHub" Margin="0,0,8,8" Click="OnGitHubClick" />
+            <c:IconButton Content="Run s_etup again" Margin="0,0,8,8" Click="OnSetupClick" />
+        </WrapPanel>
+
+        <TextBlock Grid.Row="4" Text="Changelog" Margin="0,12,0,0" FontSize="{StaticResource SubheadingFontSize}"
+                   FontWeight="SemiBold" />
+
+        <TextBox x:Name="Changelog" Grid.Row="5" Margin="0,6,0,0" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                 AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                 AutomationProperties.Name="Changelog" />
+    </Grid>
+</pages:PageBase>

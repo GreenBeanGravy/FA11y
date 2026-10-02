@@ -1,0 +1,7 @@
+# Build output for development; ui/bin (the published copy FA11y runs) is committed.
+src/**/bin/
+src/**/obj/
+tests/**/bin/
+tests/**/obj/
+.vs/
+*.user

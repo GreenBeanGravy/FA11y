@@ -299,24 +299,9 @@ class FortnitePage(HubPage):
     def play(self) -> None:
         if not self.built:
             self.ensure_built()
-        if game_watch.is_fortnite_running():
-            game_watch.focus_fortnite()
-            return
-        if self.status is not None and self.status.installed is False and not self.status.egl_install_path:
-            self.hub.services.speak("Fortnite isn't installed. Install it on the Fortnite page.")
-            self.hub.show_page("fortnite", summon=True)
-            return
-
-        def launched(result):
-            if not result.ok:
-                wx.CallAfter(self._launch_failed, result.message)
-
-        result = self.manager.launch(on_done=launched)
-        self.hub.services.speak(result.message)
-        if result.ok:
-            sounds.ui("done")
-        else:
-            sounds.ui("error")
+        from lib.hub.play import play_fortnite
+        play_fortnite(self.hub, self.manager, self.status,
+                      on_failed=lambda message: wx.CallAfter(self._launch_failed, message))
 
     def _launch_failed(self, message: str) -> None:
         sounds.ui("error")

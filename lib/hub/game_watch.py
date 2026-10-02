@@ -35,6 +35,16 @@ def _scan() -> bool:
     return False
 
 
+def sync_keybinds_with_game(running: bool) -> None:
+    """FA11y's keybinds are on while Fortnite runs and off otherwise.
+
+    Toggle keybinds still switches them by hand in between; the next
+    time Fortnite starts or stops sets them again.
+    """
+    from lib.app import state
+    state.set_keybinds_enabled(running)
+
+
 def is_fortnite_foreground() -> bool:
     try:
         import psutil

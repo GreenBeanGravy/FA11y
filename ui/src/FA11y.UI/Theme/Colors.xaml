@@ -1,0 +1,63 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Every color of the wx window (lib/hub/theme.py), by the same names. -->
+
+    <!-- Surfaces, darkest to lightest. -->
+    <Color x:Key="SidebarBgColor">#171717</Color>
+    <Color x:Key="WindowBgColor">#1E1E1E</Color>
+    <Color x:Key="HoverBgColor">#262626</Color>
+    <Color x:Key="CardBgColor">#252525</Color>
+    <Color x:Key="PressedBgColor">#30302E</Color>
+    <Color x:Key="CardBorderColor">#2C2C2A</Color>
+    <Color x:Key="ControlBorderColor">#5F5E5A</Color>
+
+    <Color x:Key="TextColor">#E8E6DF</Color>
+    <Color x:Key="TextSecondaryColor">#B4B2A9</Color>
+    <Color x:Key="TextMutedColor">#888780</Color>
+    <Color x:Key="TextDisabledColor">#5F5E5A</Color>
+
+    <Color x:Key="AccentColor">#378ADD</Color>
+    <Color x:Key="AccentHoverColor">#529CE4</Color>
+    <Color x:Key="AccentPressedColor">#185FA5</Color>
+    <Color x:Key="SelectedBgColor">#0C447C</Color>
+    <Color x:Key="SelectedTextColor">#E6F1FB</Color>
+    <Color x:Key="FocusRingColor">#85B7EB</Color>
+    <Color x:Key="SuccessColor">#97C459</Color>
+    <Color x:Key="WarningColor">#EF9F27</Color>
+    <Color x:Key="DangerColor">#F09595</Color>
+    <Color x:Key="DangerBorderColor">#791F1F</Color>
+
+    <SolidColorBrush x:Key="SidebarBg" Color="{StaticResource SidebarBgColor}" />
+    <SolidColorBrush x:Key="WindowBg" Color="{StaticResource WindowBgColor}" />
+    <SolidColorBrush x:Key="HoverBg" Color="{StaticResource HoverBgColor}" />
+    <SolidColorBrush x:Key="CardBg" Color="{StaticResource CardBgColor}" />
+    <SolidColorBrush x:Key="PressedBg" Color="{StaticResource PressedBgColor}" />
+    <SolidColorBrush x:Key="CardBorder" Color="{StaticResource CardBorderColor}" />
+    <SolidColorBrush x:Key="ControlBorder" Color="{StaticResource ControlBorderColor}" />
+
+    <SolidColorBrush x:Key="Text" Color="{StaticResource TextColor}" />
+    <SolidColorBrush x:Key="TextSecondary" Color="{StaticResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="TextMuted" Color="{StaticResource TextMutedColor}" />
+    <SolidColorBrush x:Key="TextDisabled" Color="{StaticResource TextDisabledColor}" />
+
+    <SolidColorBrush x:Key="Accent" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentHover" Color="{StaticResource AccentHoverColor}" />
+    <SolidColorBrush x:Key="AccentPressed" Color="{StaticResource AccentPressedColor}" />
+    <SolidColorBrush x:Key="SelectedBg" Color="{StaticResource SelectedBgColor}" />
+    <SolidColorBrush x:Key="SelectedText" Color="{StaticResource SelectedTextColor}" />
+    <SolidColorBrush x:Key="FocusRing" Color="{StaticResource FocusRingColor}" />
+    <SolidColorBrush x:Key="Success" Color="{StaticResource SuccessColor}" />
+    <SolidColorBrush x:Key="Warning" Color="{StaticResource WarningColor}" />
+    <SolidColorBrush x:Key="Danger" Color="{StaticResource DangerColor}" />
+    <SolidColorBrush x:Key="DangerBorder" Color="{StaticResource DangerBorderColor}" />
+
+    <!-- Segoe UI 10 pt is 13.33 device independent pixels. -->
+    <FontFamily x:Key="UiFont">Segoe UI</FontFamily>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="BaseFontSize">13.3333333</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="SmallFontSize">12</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="HeadingFontSize">20</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="SubheadingFontSize">14.6666667</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="CardValueFontSize">16</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="BrandFontSize">17.3333333</sys:Double>
+    <CornerRadius x:Key="Radius">8</CornerRadius>
+</ResourceDictionary>

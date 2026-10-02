@@ -781,10 +781,54 @@ def get_legendary_username() -> Optional[str]:
 def validate_epic_auth(epic_auth) -> bool:
     return _validate_epic_auth_ext(epic_auth)
 
-def _create_hub():
-    """Create and show the hub window."""
-    from lib.hub.frame import HubFrame, HubServices
+def _create_classic_hub(services):
+    """The wx window: the fallback, and what first-run setup runs in."""
+    from lib.hub.frame import HubFrame
     from lib.hub.pages import default_pages
+
+    hub = HubFrame(services, default_pages())
+    hub.start()
+    return hub
+
+
+def _create_remote_hub(services):
+    """The window as a separate program (FA11y.UI.exe), or None to use the wx window."""
+    from lib.hub import settings as hub_settings
+    from lib.shell.bridge import find_ui_exe
+    from lib.shell.remote_hub import RemoteHub
+
+    root = os.path.dirname(os.path.abspath(__file__))
+    exe = find_ui_exe(root)
+    if exe is None or hub_settings.interface() == "classic":
+        return None
+
+    def fall_back():
+        logger.error("The FA11y window program keeps stopping; using the classic window.")
+        wx.CallAfter(_create_classic_hub, services)
+
+    try:
+        hub = RemoteHub(services, exe, root, fallback=fall_back)
+        hub.start()
+    except Exception:
+        logger.exception("Could not start the FA11y window program")
+        return None
+    # Pages and dialogs that are still wx come and go; the app must outlive them.
+    # wx's main loop ends at once when it has no window at all, so an
+    # invisible frame keeps it running.
+    app = wx.GetApp()
+    if app is not None:
+        app.SetExitOnFrameDelete(False)
+    hub.anchor = wx.Frame(None, title="FA11y")
+    return hub
+
+
+def _create_hub(first_run: bool = False):
+    """Create and show the hub window.
+
+    First-run setup isn't in the new window yet, so that session uses the wx window.
+    """
+    from lib.hub import get_hub, single_instance
+    from lib.hub.services import HubServices
 
     def quit_fa11y():
         _shutdown_requested.set()
@@ -792,13 +836,18 @@ def _create_hub():
         if app is not None:
             app.ExitMainLoop()
 
-    hub = HubFrame(HubServices(quit=quit_fa11y, reload_config=reload_config,
-                               speak=lambda text: speaker.speak(text)),
-                   default_pages())
-    hub.start()
+    services = HubServices(quit=quit_fa11y, reload_config=reload_config,
+                           speak=lambda text: speaker.speak(text))
+    hub = None if first_run else _create_remote_hub(services)
+    if hub is None:
+        hub = _create_classic_hub(services)
 
-    from lib.hub import single_instance
-    single_instance.listen(lambda: wx.CallAfter(hub.summon), _shutdown_requested)
+    def summon():
+        current = get_hub()
+        if current is not None:
+            current.summon()
+
+    single_instance.listen(lambda: wx.CallAfter(summon), _shutdown_requested)
     return hub
 
 
@@ -992,7 +1041,7 @@ def main() -> None:
             if run_updater():
                 sys.exit(0)
 
-        hub = _create_hub()
+        hub = _create_hub(first_run)
         if first_run:
             # Setup runs before anything else: no monitors, no key
             # listener, and no startup speech until it's finished.

@@ -98,9 +98,29 @@ def are_keybinds_enabled() -> bool:
     return _keybinds_enabled
 
 
+_keybinds_listeners = []
+
+
+def add_keybinds_listener(listener) -> None:
+    """Call listener(enabled) whenever the keybinds are switched on or off."""
+    _keybinds_listeners.append(listener)
+
+
+def remove_keybinds_listener(listener) -> None:
+    if listener in _keybinds_listeners:
+        _keybinds_listeners.remove(listener)
+
+
 def set_keybinds_enabled(value: bool) -> None:
     global _keybinds_enabled
+    changed = value != _keybinds_enabled
     _keybinds_enabled = value
+    if changed:
+        for listener in list(_keybinds_listeners):
+            try:
+                listener(value)
+            except Exception:
+                pass
 
 
 def is_auth_expiration_announced() -> bool:

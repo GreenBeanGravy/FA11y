@@ -1,0 +1,55 @@
+<pages:PageBase x:Class="FA11y.UI.Pages.HomePage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:pages="clr-namespace:FA11y.UI.Pages"
+                xmlns:c="clr-namespace:FA11y.UI.Controls">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="WelcomeText" Text="Welcome to FA11y" FontSize="{StaticResource HeadingFontSize}"
+                       FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <c:IconButton x:Name="PlayButton" Grid.Column="1" Variant="primary"
+                          Icon="{StaticResource Icon.player-play}" Content="_Play Fortnite"
+                          Click="OnPlayClick" />
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <c:StatusCard x:Name="FortniteCard" Grid.Column="0" Title="Fortnite" />
+            <c:StatusCard x:Name="AccountCard" Grid.Column="2" Title="Epic account" />
+            <c:StatusCard x:Name="Fa11yCard" Grid.Column="4" Title="FA11y" />
+        </Grid>
+
+        <c:IconButton x:Name="UpdateButton" Grid.Row="2" Margin="0,10,0,0" HorizontalAlignment="Left"
+                      Variant="primary" Icon="{StaticResource Icon.refresh}" Content="_Restart to update FA11y"
+                      Visibility="Collapsed" Click="OnUpdateClick" />
+
+        <c:ReadableText x:Name="KeybindText" Grid.Row="3" Margin="0,18,0,0"
+                        Foreground="{StaticResource TextSecondary}" />
+
+        <TextBlock Grid.Row="4" Text="What's new" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
+                   FontWeight="SemiBold" />
+
+        <TextBox x:Name="WhatsNew" Grid.Row="5" Margin="0,6,0,0" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                 AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                 AutomationProperties.Name="What's new" />
+    </Grid>
+</pages:PageBase>

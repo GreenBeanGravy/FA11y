@@ -1,0 +1,20 @@
+<pages:PageBase x:Class="FA11y.UI.Pages.AccountPage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:pages="clr-namespace:FA11y.UI.Pages"
+                xmlns:c="clr-namespace:FA11y.UI.Controls">
+    <StackPanel Margin="20">
+        <TextBlock Text="Epic account" FontSize="{StaticResource HeadingFontSize}" FontWeight="SemiBold"
+                   Margin="0,0,0,12" />
+        <c:Card HorizontalAlignment="Stretch">
+            <c:ReadableText x:Name="AccountText" Separator=". " MaxWidth="600" />
+        </c:Card>
+        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+            <c:IconButton x:Name="SignInButton" Variant="primary" Icon="{StaticResource Icon.user}"
+                          Content="_Sign in" Margin="0,0,8,0" Click="OnSignInClick" />
+            <c:IconButton x:Name="SignOutButton" Content="Sign _out" Click="OnSignOutClick" />
+        </StackPanel>
+        <c:ReadableText Margin="0,18,0,0" MaxWidth="640" Foreground="{StaticResource TextSecondary}"
+                        Text="Your Epic account is used for the locker, friends and party, quests, Discover, and downloading and updating Fortnite. FA11y keeps you signed in between restarts." />
+    </StackPanel>
+</pages:PageBase>
