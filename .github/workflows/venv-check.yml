@@ -85,11 +85,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: installer/go.mod
-          cache: false  # no third-party modules yet
+          cache-dependency-path: installer/go.sum
       - run: go vet ./...
       - run: go test ./...
-      - name: Build launcher
-        run: go build -trimpath -ldflags "-s -w" -o "../dist/FA11y Launcher.exe" ./cmd/launcher
+      - name: Build launcher and updater
+        run: |
+          go build -trimpath -ldflags "-s -w" -o "../dist/FA11y Launcher.exe" ./cmd/launcher
+          go build -trimpath -ldflags "-s -w" -o ../dist/Updater.exe ./cmd/updater
       - uses: actions/upload-artifact@v4
         with:
           name: installer-exes

@@ -1,10 +1,32 @@
 {
   "schema": 1,
+  "repo": "GreenBeanGravy/FA11y",
+  "branch": "main",
   "python": {
     "version": "3.12.9",
     "url": "https://www.nuget.org/api/v2/package/python/3.12.9",
     "sha256": "b7240e3117d94dc2446c4b1250e31306adc817934706937d0992c78f937487ba",
     "archive_subdir": "tools"
+  },
+  "requirements": "requirements.lock",
+  "sync": {
+    "exclude": [
+      ".github/",
+      ".gitignore",
+      "installer/",
+      "tests/",
+      "tools/",
+      "docs/",
+      "whls/",
+      "pytest.ini",
+      "CONTRIBUTING.md",
+      "FortniteManager.py",
+      "legendary.exe",
+      "updater.py"
+    ],
+    "add_only": [
+      "assets/sounds/"
+    ]
   },
   "components": [
     {
@@ -20,8 +42,16 @@
       },
       "install": {
         "type": "exe",
-        "args": ["/install", "/quiet", "/norestart"],
-        "success_codes": [0, 1641, 3010]
+        "args": [
+          "/install",
+          "/quiet",
+          "/norestart"
+        ],
+        "success_codes": [
+          0,
+          1641,
+          3010
+        ]
       },
       "elevate": true
     },
@@ -38,10 +68,34 @@
       },
       "install": {
         "type": "msi",
-        "args": ["/qn", "/norestart"],
-        "success_codes": [0, 1641, 3010]
+        "args": [
+          "/qn",
+          "/norestart"
+        ],
+        "success_codes": [
+          0,
+          1641,
+          3010
+        ]
       },
       "elevate": true
+    },
+    {
+      "id": "legendary",
+      "name": "Legendary",
+      "reason": "Epic Games login and account features.",
+      "detect": {
+        "path_glob": "%FA11Y_FILES%\\legendary.exe"
+      },
+      "download": {
+        "url": "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe",
+        "sha256": "01ea22ea51749f46a0019657f64fc0d34429fb7cbf9b590c0848c0e0bd9c1f07"
+      },
+      "install": {
+        "type": "file",
+        "dest": "legendary.exe"
+      },
+      "elevate": false
     }
   ]
 }
