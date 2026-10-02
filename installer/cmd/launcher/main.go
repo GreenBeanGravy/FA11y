@@ -5,9 +5,13 @@
 // Updates happen here, before Python starts, because pip cannot replace
 // files that a running FA11y has loaded from the venv.
 //
-// FA11y runs under pythonw.exe without a console: its window is the user
-// interface. Pass --console to run it under python.exe in this console
-// instead, which shows FA11y's printed output for troubleshooting.
+// The launcher is built with -H windowsgui, so starting FA11y opens no
+// console window. It opens one only to install or update (a hidden
+// "Updater.exe --check" decides whether there is an update) or to report
+// an error. FA11y itself runs under pythonw.exe without a console: its
+// window is the user interface. Pass --console to run it under python.exe
+// in a console instead, which shows FA11y's printed output for
+// troubleshooting.
 package main
 
 import (
@@ -23,6 +27,11 @@ import (
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fa11yconfig"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/layout"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/pyenv"
+)
+
+const (
+	detachedProcess = 0x00000008
+	createNoWindow  = 0x08000000
 )
 
 func main() {
@@ -41,10 +50,10 @@ func main() {
 		if (code != layout.ExitNoUpdate && code != layout.ExitUpdated) || !installed(l) {
 			console.Fail(2, "the install did not finish (updater exit code %d).", code)
 		}
-	} else if fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true) {
+	} else if fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true) && checkForUpdate(l) {
 		code := runUpdater(l, "--quick")
 		if code != layout.ExitNoUpdate && code != layout.ExitUpdated {
-			console.Say("The update check failed (exit code %d). Starting the installed version.", code)
+			console.Say("The update failed (exit code %d). Starting the installed version.", code)
 		}
 	}
 
@@ -52,6 +61,7 @@ func main() {
 		console.Fail(2, "FA11y's Python environment is damaged: %v. Run Updater.exe to repair it.", err)
 	}
 	if slices.Contains(os.Args[1:], "--console") {
+		console.Ensure()
 		os.Exit(runFA11y(l))
 	}
 	if err := startFA11yWindowed(l); err != nil {
@@ -91,9 +101,25 @@ func runUpdater(l layout.Layout, args ...string) int {
 		console.Say("%s is missing, so FA11y cannot install or update.", layout.UpdaterExe)
 		return 2
 	}
+	console.Ensure() // the updater shares this console
 	cmd := exec.Command(l.Updater(), append(args, "--from-launcher")...)
 	cmd.Dir = l.Root
 	return run(cmd)
+}
+
+// checkForUpdate runs "Updater.exe --check" without a window and reports
+// whether there is an update to install. A failed check (no network, no
+// updater) counts as no update, so FA11y still starts quietly.
+func checkForUpdate(l layout.Layout) bool {
+	if _, err := os.Stat(l.Updater()); err != nil {
+		return false
+	}
+	cmd := exec.Command(l.Updater(), "--check", "--from-launcher")
+	cmd.Dir = l.Root
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
+	err := cmd.Run()
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitCode() == layout.ExitUpdateAvailable
 }
 
 func fa11yCommand(l layout.Layout, python string) *exec.Cmd {
@@ -119,7 +145,6 @@ func startFA11yWindowed(l layout.Layout) error {
 		os.Exit(runFA11y(l))
 	}
 	cmd := fa11yCommand(l, pythonw)
-	const detachedProcess = 0x00000008
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: detachedProcess | syscall.CREATE_NEW_PROCESS_GROUP}
 	if err := cmd.Start(); err != nil {
 		return err

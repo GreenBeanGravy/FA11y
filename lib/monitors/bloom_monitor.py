@@ -76,7 +76,7 @@ class BloomMonitor(BaseMonitor):
         self._last_bloom_dist = None
         self._last_tone_time = 0.0
 
-        # Cached config — updated via on_config_change
+        # Cached config - updated via on_config_change
         self._cached_enabled = True
 
         # Audio - use engine directly for fire-and-forget playback

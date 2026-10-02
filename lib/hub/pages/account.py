@@ -7,7 +7,8 @@ import wx
 
 from lib.hub import sounds, theme
 from lib.hub.page import HubPage
-from lib.hub.widgets import Card, button, label
+from lib.hub.controls import TextLine
+from lib.hub.widgets import Card, button, text
 
 ACCOUNT_PAGES = ("social", "quests", "locker", "discover")
 
@@ -18,10 +19,10 @@ class AccountPage(HubPage):
     def build(self) -> None:
         self.add_heading()
         self.card = Card(self, "Account")
-        self.name_text = label(self.card, "", font=theme.heading_font(self.card, 2))
-        self.detail_text = label(self.card, "", theme.TEXT_SECONDARY, wrap=600)
-        self.card.body.Add(self.name_text)
-        self.card.body.Add(self.detail_text, 0, wx.TOP, 4)
+        # One tab stop for the account's name and state, read as "Name. Signed in."
+        self.account_text = text(self.card, wrap=600)
+        self.account_text.separator = ". "
+        self.card.body.Add(self.account_text)
         self.content.Add(self.card, 0, wx.EXPAND)
 
         buttons = wx.BoxSizer(wx.HORIZONTAL)
@@ -33,7 +34,7 @@ class AccountPage(HubPage):
         buttons.Add(self.signout_button)
         self.content.Add(buttons, 0, wx.TOP, 12)
 
-        self.content.Add(label(self, "Your Epic account is used for the locker, friends and party, quests, "
+        self.content.Add(text(self, "Your Epic account is used for the locker, friends and party, quests, "
                                      "Discover, and downloading and updating Fortnite. FA11y keeps you signed "
                                      "in between restarts.", theme.TEXT_SECONDARY, wrap=640), 0, wx.TOP, 18)
 
@@ -41,21 +42,24 @@ class AccountPage(HubPage):
         self.refresh()
 
     def first_focus(self) -> wx.Window:
-        return self.signin_button if self.signin_button.IsShown() else self.signout_button
+        # Who is signed in first, then the buttons.
+        return self.account_text
 
     def refresh(self) -> None:
         from lib.utilities.epic_auth import get_epic_auth_instance
         auth = get_epic_auth_instance()
         signed_in = bool(auth and auth.access_token)
         if signed_in and auth.is_valid:
-            self.name_text.SetLabel(auth.display_name or "Signed in")
-            self.detail_text.SetLabel("Signed in.")
+            name, detail = auth.display_name or "Signed in", "Signed in."
         elif signed_in:
-            self.name_text.SetLabel(auth.display_name or "Session expired")
-            self.detail_text.SetLabel("Your session expired. Sign in again to keep using account features.")
+            name = auth.display_name or "Session expired"
+            detail = "Your session expired. Sign in again to keep using account features."
         else:
-            self.name_text.SetLabel("Signed out")
-            self.detail_text.SetLabel("Sign in to use your locker, friends, quests, and Fortnite downloads.")
+            name, detail = "Signed out", "Sign in to use your locker, friends, quests, and Fortnite downloads."
+        self.account_text.set_lines([
+            TextLine(name, theme.heading_font(self.card, 2)),
+            TextLine(detail, colour=theme.TEXT_SECONDARY, gap=4),
+        ])
         self.signin_button.SetLabel("&Sign in again" if signed_in else "&Sign in")
         self.signin_button.Show(not (signed_in and auth.is_valid))
         self.signout_button.Show(signed_in)

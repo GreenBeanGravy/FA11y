@@ -90,7 +90,7 @@ jobs:
       - run: go test ./...
       - name: Build launcher and updater
         run: |
-          go build -trimpath -ldflags "-s -w" -o "../dist/FA11y Launcher.exe" ./cmd/launcher
+          go build -trimpath -ldflags "-s -w -H windowsgui" -o "../dist/FA11y Launcher.exe" ./cmd/launcher
           go build -trimpath -ldflags "-s -w" -o ../dist/Updater.exe ./cmd/updater
       - uses: actions/upload-artifact@v4
         with:

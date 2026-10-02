@@ -26,7 +26,7 @@ _net_int16_cache = {}
 _cache_range = 0
 
 # Lazy-load gating. Loading the DLL spins up the .NET CoreCLR runtime
-# and can spawn a PowerShell process for Unblock-File — together that's
+# and can spawn a PowerShell process for Unblock-File - together that's
 # multi-second work that used to run at module import and stall every
 # FA11y startup. Now the work runs at most once, on demand, and can be
 # kicked off from a background thread by ``preload_async``.
@@ -43,7 +43,7 @@ def _maybe_unblock_dll(dll_path: str) -> None:
     """Run Unblock-File once per install, then never again.
 
     Spawning PowerShell costs ~1-2 s on Windows. Once Unblock-File has
-    succeeded it doesn't need to run again — the NTFS Zone.Identifier
+    succeeded it doesn't need to run again - the NTFS Zone.Identifier
     stream is gone. We track that with a sentinel file next to the DLL.
     """
     marker = _unblock_marker_path(dll_path)
@@ -124,7 +124,7 @@ def ensure_loaded() -> bool:
         if _load_event.is_set():
             return FAKERINPUT_AVAILABLE
         if _load_attempted:
-            # Another thread is mid-load — wait for it.
+            # Another thread is mid-load - wait for it.
             pass
         else:
             _load_attempted = True

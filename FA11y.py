@@ -12,6 +12,8 @@ import threading
 import time
 from lib.app import fast_speech
 fast_speech.install()  # before any module creates a speaker
+from lib.app import no_console
+no_console.install()  # before pythonnet probes dotnet on import
 from lib.utilities.mouse import pixel as _pixel
 import subprocess
 import win32com.client
@@ -219,7 +221,7 @@ social_manager = None
 discovery_api = None
 auth_expiration_announced = False  # Track if we've already announced it
 
-# POI category definitions — constants now live in lib/app/constants.py.
+# POI category definitions - constants now live in lib/app/constants.py.
 from lib.app.constants import (
     POI_CATEGORY_SPECIAL,
     POI_CATEGORY_REGULAR,
@@ -550,7 +552,7 @@ def key_listener() -> None:
         'open fa11y',
     }
 
-    # Cache config booleans outside the inner loop — refresh once per cycle, not per keybind
+    # Cache config booleans outside the inner loop - refresh once per cycle, not per keybind
     _cached_config_ref = None
     _cached_mouse_keys = True
     _cached_ignore_numlock = False

@@ -8,7 +8,7 @@ import wx
 
 from lib.hub import sounds, status, theme
 from lib.hub.page import HubPage
-from lib.hub.widgets import button, label
+from lib.hub.widgets import button, label, text
 
 REPO_URL = "https://github.com/GreenBeanGravy/FA11y"
 
@@ -18,8 +18,8 @@ class AboutPage(HubPage):
 
     def build(self) -> None:
         self.add_heading()
-        self.version_text = label(self, "", font=theme.heading_font(self, 1))
-        self.update_text = label(self, "", theme.TEXT_SECONDARY)
+        self.version_text = text(self, "", font=theme.heading_font(self, 1))
+        self.update_text = text(self, "", theme.TEXT_SECONDARY)
         self.content.Add(self.version_text)
         self.content.Add(self.update_text, 0, wx.TOP, 4)
 
@@ -60,7 +60,8 @@ class AboutPage(HubPage):
             self.changelog.ChangeValue(text)
 
     def first_focus(self) -> wx.Window:
-        return self.restart_button if self.restart_button.IsShown() else self.check_button
+        # The version and update state first, then the buttons.
+        return self.version_text
 
     def refresh(self) -> None:
         self.version_text.SetLabel(f"FA11y {status.local_version() or 'version unknown'}")

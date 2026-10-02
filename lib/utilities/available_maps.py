@@ -1,7 +1,7 @@
 """
 Downloadable list of currently-available maps.
 
-The repo ships ``data/available_maps.txt`` — one FA11y map slug per line
+The repo ships ``data/available_maps.txt`` - one FA11y map slug per line
 (matching the ``data/maps/map_<slug>_pois.txt`` file names). Epic rotates
 which Reload/Blitz arenas are playable far more often than FA11y itself
 releases, and the auto-updater only syncs repo files on version bumps, so
@@ -132,9 +132,12 @@ def check_for_map_list_updates(speaker, shutdown_event, update_sound) -> None:
     Mirrors ``lib.app.updater_check.check_for_updates``: wakes every 15 s,
     compares the remote list against the local file, and announces each
     distinct remote list at most once. When local and remote match again
-    (e.g. after a restart pulled the new list) the guard resets.
+    (e.g. after a restart pulled the new list) the guard resets. A
+    difference found by the first check is not announced: it was already
+    there when FA11y started, so a restart wouldn't change it.
     """
     last_announced: Optional[tuple] = None
+    first = True
 
     while not shutdown_event.is_set():
         # 15 s sleep that wakes promptly on shutdown.
@@ -152,9 +155,10 @@ def check_for_map_list_updates(speaker, shutdown_event, update_sound) -> None:
         if not remote_maps:
             continue
 
+        startup_check, first = first, False
         local_maps = read_local_available_maps()
         if local_maps is None:
-            # No local list yet — adopt the remote one quietly instead of
+            # No local list yet - adopt the remote one quietly instead of
             # nagging for a restart that wouldn't change anything visible.
             sync_local_from_remote()
             continue
@@ -164,6 +168,9 @@ def check_for_map_list_updates(speaker, shutdown_event, update_sound) -> None:
             continue
 
         remote_key = tuple(remote_maps)
+        if startup_check:
+            last_announced = remote_key
+            continue
         if remote_key != last_announced and not shutdown_event.is_set():
             try:
                 update_sound.play()

@@ -46,7 +46,7 @@ FORTNITE_GG_UNRANKED_URL = (
     "https://fortnite.gg/map-rotation/reload/unranked"
 )
 
-# Fortnite.gg 403s known bot UAs — use a real browser UA.
+# Fortnite.gg 403s known bot UAs - use a real browser UA.
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -137,7 +137,7 @@ def _fetch_rotation_html(ranked: Optional[bool], timeout: float = 10.0) -> Optio
     """Fetch the fortnite.gg/map-rotation HTML with a real UA.
 
     Tries urllib first (stdlib, no hard dependency), then falls back to
-    ``requests`` — Cloudflare has intermittently rejected one HTTP client
+    ``requests`` - Cloudflare has intermittently rejected one HTTP client
     while accepting the other.
     """
     url = FORTNITE_GG_UNRANKED_URL if ranked is False else FORTNITE_GG_RANKED_URL
@@ -270,7 +270,7 @@ def _compute_rotation(now_unix: int, data: dict) -> Optional[CurrentReloadMap]:
     if not maps or cycle <= 0:
         return None
 
-    # Anchor to UTC midnight — matches the fortnite.gg algorithm exactly.
+    # Anchor to UTC midnight - matches the fortnite.gg algorithm exactly.
     utc_midnight = (now_unix // 86400) * 86400
     elapsed_today = now_unix - utc_midnight
     cycle_start = utc_midnight + (elapsed_today // cycle) * cycle
@@ -290,7 +290,7 @@ def _compute_rotation(now_unix: int, data: dict) -> Optional[CurrentReloadMap]:
             current_idx = i
             break
     else:
-        # We landed in an "idle" gap after the last map — treat last as current
+        # We landed in an "idle" gap after the last map - treat last as current
         current_idx = len(maps) - 1
 
     next_idx = (current_idx + 1) % len(maps)

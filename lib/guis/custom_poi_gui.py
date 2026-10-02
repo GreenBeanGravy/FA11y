@@ -354,7 +354,7 @@ def launch_custom_poi_creator(use_ppi: bool = False, player_detector=None, curre
 
         # CustomPOIGUI.__init__ performs the position detection (via the
         # robust PPI pipeline) and displays its own error if it fails, so we
-        # don't pre-fetch here — doing so would detect the position twice and
+        # don't pre-fetch here - doing so would detect the position twice and
         # toggle the map twice when it's open.
         dlg = CustomPOIGUI(None, use_ppi, player_detector, current_map)
         

@@ -269,7 +269,7 @@ class InventoryManager:
     def smooth_move_to(self, x, y):
         """Queue a movement request, clearing any pending moves so rapid
         key presses jump straight to the latest target."""
-        # Drain any pending moves — we only care about the newest destination
+        # Drain any pending moves - we only care about the newest destination
         try:
             while not self.movement_queue.empty():
                 self.movement_queue.get_nowait()

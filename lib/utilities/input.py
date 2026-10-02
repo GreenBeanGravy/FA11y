@@ -142,7 +142,7 @@ MODIFIER_KEYS = {
     'ralt': win32con.VK_RMENU,
 }
 
-# Reserved by FA11y for confirm / cancel — never bindable.
+# Reserved by FA11y for confirm / cancel - never bindable.
 RESERVED_MAIN_KEYS = {'enter', 'esc'}
 
 def is_key_pressed(key: str) -> bool:

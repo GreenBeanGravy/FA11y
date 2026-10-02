@@ -18,7 +18,7 @@ affine handles both scale and any axis-flip / origin offset between
 the two systems without us having to model them.
 
 Once the transform exists, ``transform_ow_to_fa11y`` returns the same
-shape as PPI's ``find_player_position`` — an ``(int, int)`` tuple — so
+shape as PPI's ``find_player_position`` - an ``(int, int)`` tuple - so
 callers can treat it as a drop-in replacement.
 """
 from __future__ import annotations
@@ -37,12 +37,12 @@ logger = logging.getLogger(__name__)
 _FILE_PATH = os.path.join('config', 'fa11y_ow_calibration.json')
 # Bundled with FA11y so users have a working transform out of the box.
 # User calibrations in _FILE_PATH override per-map; ``_DEFAULT_KEY`` is
-# the catch-all entry — every Fortnite map shares the same screen scale
+# the catch-all entry - every Fortnite map shares the same screen scale
 # and rotation in FA11y's ROI, so one transform covers them all.
 _DEFAULTS_PATH = os.path.join('lib', 'data', 'default_calibrations.json')
 _DEFAULT_KEY = '_default'
 _REQUIRED_SAMPLES = 3
-# Reject sample sets where the OW points are nearly colinear — the affine
+# Reject sample sets where the OW points are nearly colinear - the affine
 # matrix is well-defined mathematically (det ~= 0 still solves) but the
 # transform is unstable and any extrapolation will be wrong by orders of
 # magnitude. 0.5 in 0-3000 space is forgiving (about a few pixels).
@@ -64,12 +64,12 @@ class CalibrationManager:
         self._lock = threading.RLock()
         # Bundled defaults ship with FA11y so common maps work out of the
         # box. User calibrations override per-map. Stored separately so a
-        # save() doesn't bake the bundled defaults into the user file —
+        # save() doesn't bake the bundled defaults into the user file - 
         # that would freeze them at the user's installed version even if
         # we ship updated defaults later.
         self._defaults: Dict[str, dict] = self._load_file(self._defaults_path)
         self._user: Dict[str, dict] = self._load_file(self._file_path)
-        # Pending samples are kept in memory only — we don't want a
+        # Pending samples are kept in memory only - we don't want a
         # half-finished calibration to survive a crash.
         self._pending: Dict[str, List[SamplePair]] = {}
 
@@ -149,7 +149,7 @@ class CalibrationManager:
         """Record a calibration sample.
 
         Saves to ``save_key`` once three samples have been captured.
-        Defaults to the universal ``_default`` slot — one calibration
+        Defaults to the universal ``_default`` slot - one calibration
         covers every map. Pass a specific map name only if you want a
         per-map override.
 

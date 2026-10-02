@@ -1,4 +1,4 @@
-"""Performance benchmark tests — establish baselines and validate optimizations."""
+"""Performance benchmark tests - establish baselines and validate optimizations."""
 import os
 import sys
 import time

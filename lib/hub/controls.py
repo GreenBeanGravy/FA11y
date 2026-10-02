@@ -175,6 +175,208 @@ class StyledButton(wx.Button):
 
 
 # ---------------------------------------------------------------------------
+# Readable text
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TextLine:
+    """One paragraph of a ReadableText, with its own font and colour."""
+    text: str
+    font: Optional[wx.Font] = None
+    colour: Optional[wx.Colour] = None
+    gap: int = 0  # DIP of space above, when a line comes before it
+
+
+class _TextAccessible(wx.Accessible):
+    """MSAA for ReadableText: a focusable, read-only static text named by its text."""
+
+    def __init__(self, control: "ReadableText"):
+        super().__init__(control)
+        self.control = control
+
+    def GetChildCount(self):
+        return (ACC_OK, 0)
+
+    def GetChild(self, childId):
+        return (ACC_OK, None)
+
+    def GetParent(self):
+        return (wx.ACC_NOT_IMPLEMENTED, None)
+
+    def GetName(self, childId):
+        return (ACC_OK, self.control.accessible_text())
+
+    def GetDescription(self, childId):
+        return (ACC_OK, "")
+
+    def GetRole(self, childId):
+        return (ACC_OK, wx.ROLE_SYSTEM_STATICTEXT)
+
+    def GetState(self, childId):
+        state = STATE_FOCUSABLE | wx.ACC_STATE_SYSTEM_READONLY
+        if self.control.HasFocus():
+            state |= STATE_FOCUSED
+        return (ACC_OK, state)
+
+    def GetFocus(self):
+        return (ACC_OK, 0, None)
+
+    def GetLocation(self, elementId):
+        return (ACC_OK, self.control.GetScreenRect())
+
+
+class ReadableText(wx.Control):
+    """Text that keyboard and screen reader users can Tab to.
+
+    wx.StaticText is skipped by Tab, and NVDA has no browse mode in
+    desktop windows, so status and explanations written as static text
+    are only reachable through object navigation. This control draws its
+    text like a label but is a tab stop that NVDA reads as one line
+    ("Fortnite, 34.2, Ready"). Ctrl+C copies the text. Empty text is not
+    a tab stop.
+    """
+
+    PADDING = 3  # DIP, room for the focus ring
+    separator = " "
+
+    def __init__(self, parent: wx.Window, text: str = "", colour: Optional[wx.Colour] = None,
+                 font: Optional[wx.Font] = None, wrap: int = 0, name: str = "text"):
+        super().__init__(parent, style=wx.BORDER_NONE, name=name)
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        self.SetFont(font or parent.GetFont())
+        self.SetForegroundColour(colour or theme.TEXT)
+        self._wrap = wrap
+        self._lines: List[TextLine] = [TextLine(text)]
+        self._rows: List[tuple] = []
+        self._relayout_pending = False
+        self.SetAccessible(_TextAccessible(self))
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_SET_FOCUS, self._on_focus_change)
+        self.Bind(wx.EVT_KILL_FOCUS, self._on_focus_change)
+        self.Bind(wx.EVT_SIZE, lambda e: (self.Refresh(), e.Skip()))
+        self.Bind(wx.EVT_KEY_DOWN, self._on_key_down)
+        self._fit()
+
+    # StaticText-like API ---------------------------------------------------
+
+    def SetLabel(self, text: str) -> None:
+        self.set_lines([TextLine(text)])
+
+    def GetLabel(self) -> str:
+        return self.accessible_text()
+
+    def GetLabelText(self) -> str:
+        return self.accessible_text()
+
+    def Wrap(self, width: int) -> None:
+        if width != self._wrap:
+            self._wrap = width
+            self._fit()
+
+    def SetForegroundColour(self, colour: wx.Colour) -> bool:
+        changed = super().SetForegroundColour(colour)
+        self.Refresh()
+        return changed
+
+    # -------------------------------------------------------------------------
+
+    def set_lines(self, lines: List[TextLine]) -> None:
+        old = self.accessible_text()
+        self._lines = lines
+        self._fit()
+        self.Refresh()
+        if self.accessible_text() != old:
+            wx.Accessible.NotifyEvent(wx.ACC_EVENT_OBJECT_NAMECHANGE, self, wx.OBJID_CLIENT, 0)
+
+    def accessible_text(self) -> str:
+        return self.separator.join(line.text for line in self._lines if line.text)
+
+    def AcceptsFocus(self) -> bool:
+        return self.IsShown() and bool(self.accessible_text())
+
+    def AcceptsFocusFromKeyboard(self) -> bool:
+        return self.AcceptsFocus()
+
+    def _padding(self) -> int:
+        return self.FromDIP(self.PADDING)
+
+    def _fit(self) -> None:
+        from wx.lib.wordwrap import wordwrap
+        dc = wx.ClientDC(self)
+        pad = self._padding()
+        rows = []
+        y = pad
+        width = 0
+        for line in self._lines:
+            if not line.text:
+                continue
+            font = line.font or self.GetFont()
+            dc.SetFont(font)
+            text = wordwrap(line.text, self._wrap, dc) if self._wrap else line.text
+            if rows:
+                y += self.FromDIP(line.gap)
+            for part in text.rstrip("\n").split("\n"):
+                w, h = dc.GetTextExtent(part or " ")
+                rows.append((part, font, line.colour, y))
+                y += h
+                width = max(width, w)
+        self._rows = rows
+        size = wx.Size(width + 2 * pad, y + pad if rows else 0)
+        if size != self.GetMinSize():
+            self.SetMinSize(size)
+            self.SetSize(wx.Size(max(size.width, self.GetSize().width), size.height))
+            self._schedule_relayout()
+
+    def _schedule_relayout(self) -> None:
+        # The new size has to reach the page's sizers, which StaticText
+        # leaves to the caller; do it once per batch of changes.
+        if not self._relayout_pending:
+            self._relayout_pending = True
+            wx.CallAfter(self._relayout)
+
+    def _relayout(self) -> None:
+        if not self:
+            return
+        self._relayout_pending = False
+        window = self.GetParent()
+        while window is not None and not window.IsTopLevel():
+            window.Layout()
+            if isinstance(window, wx.ScrolledWindow):
+                window.FitInside()
+                break
+            window = window.GetParent()
+
+    def _on_focus_change(self, event: wx.FocusEvent) -> None:
+        self.Refresh()
+        event.Skip()
+
+    def _on_key_down(self, event: wx.KeyEvent) -> None:
+        if event.GetKeyCode() == ord("C") and event.GetModifiers() == wx.MOD_CONTROL:
+            if wx.TheClipboard.Open():
+                wx.TheClipboard.SetData(wx.TextDataObject(self.accessible_text()))
+                wx.TheClipboard.Close()
+            return
+        event.Skip()
+
+    def _paint_background(self, gc: wx.GraphicsContext, w: int, h: int) -> None:
+        if self.HasFocus():
+            gc.SetBrush(wx.TRANSPARENT_BRUSH)
+            gc.SetPen(wx.Pen(theme.FOCUS_RING, self.FromDIP(2)))
+            gc.DrawRoundedRectangle(1, 1, w - 2, h - 2, self.FromDIP(4))
+
+    def _on_paint(self, _event: wx.PaintEvent) -> None:
+        dc = wx.AutoBufferedPaintDC(self)
+        _clear(dc, self)
+        gc = _gc(dc)
+        w, h = self.GetClientSize()
+        self._paint_background(gc, w, h)
+        pad = self._padding()
+        for text, font, colour, y in self._rows:
+            gc.SetFont(font, colour or self.GetForegroundColour())
+            gc.DrawText(text, pad, y)
+
+
+# ---------------------------------------------------------------------------
 # Selectable item lists (sidebar and tabs share the accessibility plumbing)
 # ---------------------------------------------------------------------------
 
@@ -599,71 +801,39 @@ class TabBar(_ItemsControl):
             gc.DrawText(text, rect.x + (rect.width - tw) / 2, rect.y + (rect.height - th) / 2)
 
 
-class TabbedBook(wx.Panel):
-    """Drop-in replacement for the parts of wx.Notebook FA11y uses, drawn as pill tabs.
+class PageStack(wx.Panel):
+    """Holds pages and shows one at a time, without moving focus.
 
-    Pages may be created with the TabbedBook as their parent; AddPage moves
-    them into the page area. Sends EVT_NOTEBOOK_PAGE_CHANGED like wx.Notebook.
-    Pages are shown and hidden directly rather than through wx.Simplebook,
-    which moves focus into each page it shows: that would make screen
-    readers announce a control in the page while the user is on the tabs.
+    wx.Simplebook moves focus into each page it shows. When the user is
+    arrowing through a list of pages (the sidebar or a row of tabs), that
+    throws them out of the list and makes screen readers announce a control
+    in the page instead of the next page's name.
     """
 
-    def __init__(self, parent: wx.Window, id: int = wx.ID_ANY, name: str = "Tabs", **_kwargs):
-        super().__init__(parent, id, style=wx.TAB_TRAVERSAL, name=name)
+    def __init__(self, parent: wx.Window):
+        super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.SetBackgroundColour(parent.GetBackgroundColour())
-        self.SetForegroundColour(theme.TEXT)
-        self.tabs = TabBar(self, name)
-        self.book = wx.Panel(self, style=wx.TAB_TRAVERSAL)
-        self.book.SetBackgroundColour(self.GetBackgroundColour())
-        self._book_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.book.SetSizer(self._book_sizer)
-        self.tabs.on_select = self._on_tab_selected
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.tabs, 0, wx.BOTTOM, self.FromDIP(10))
-        sizer.Add(self.book, 1, wx.EXPAND)
-        self.SetSizer(sizer)
+        self._sizer = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(self._sizer)
         self._pages: List[wx.Window] = []
-        self._texts: List[str] = []
         self._selection = -1
-        self.Bind(wx.EVT_NAVIGATION_KEY, self._on_navigation_key)
 
-    # wx.Notebook API ------------------------------------------------------
-
-    def AddPage(self, page: wx.Window, text: str, select: bool = False, imageId: int = -1) -> bool:
-        if page.GetParent() is not self.book:
-            page.Reparent(self.book)
-        page.SetBackgroundColour(self.GetBackgroundColour())
+    def AddPage(self, page: wx.Window, _text: str = "") -> bool:
+        if page.GetParent() is not self:
+            page.Reparent(self)
         page.Hide()
-        self._book_sizer.Add(page, 1, wx.EXPAND)
+        self._sizer.Add(page, 1, wx.EXPAND)
         self._pages.append(page)
-        self._texts.append(text)
-        self.tabs.set_labels(self._texts)
-        if select or self._selection < 0:
-            self.ChangeSelection(len(self._pages) - 1)
         return True
 
-    def DeletePage(self, index: int) -> bool:
-        if not 0 <= index < len(self._pages):
-            return False
+    def RemovePage(self, index: int) -> wx.Window:
         page = self._pages.pop(index)
-        del self._texts[index]
-        self._book_sizer.Detach(page)
-        page.Destroy()
-        if self._selection >= len(self._pages) or self._selection == index:
+        self._sizer.Detach(page)
+        if self._selection == index:
             self._selection = -1
-            if self._pages:
-                self.ChangeSelection(min(index, len(self._pages) - 1))
         elif self._selection > index:
             self._selection -= 1
-        self.tabs.selection = self._selection
-        self.tabs.set_labels(self._texts)
-        return True
-
-    def DeleteAllPages(self) -> bool:
-        while self._pages:
-            self.DeletePage(len(self._pages) - 1)
-        return True
+        return page
 
     def GetPageCount(self) -> int:
         return len(self._pages)
@@ -671,8 +841,87 @@ class TabbedBook(wx.Panel):
     def GetPage(self, index: int) -> wx.Window:
         return self._pages[index]
 
+    def GetSelection(self) -> int:
+        return self._selection
+
     def GetCurrentPage(self) -> Optional[wx.Window]:
         return self._pages[self._selection] if self._selection >= 0 else None
+
+    def ChangeSelection(self, index: int) -> int:
+        old = self._selection
+        if not 0 <= index < len(self._pages) or index == old:
+            return old
+        previous = self.GetCurrentPage()
+        self.Freeze()
+        try:
+            self._pages[index].Show()
+            if previous is not None:
+                previous.Hide()
+            self._selection = index
+            self.Layout()
+        finally:
+            self.Thaw()
+        return old
+
+
+class TabbedBook(wx.Panel):
+    """Drop-in replacement for the parts of wx.Notebook FA11y uses, drawn as pill tabs.
+
+    Pages may be created with the TabbedBook as their parent; AddPage moves
+    them into the page area. Sends EVT_NOTEBOOK_PAGE_CHANGED like wx.Notebook.
+    Pages live in a PageStack, so switching tabs never moves focus off the
+    tabs.
+    """
+
+    def __init__(self, parent: wx.Window, id: int = wx.ID_ANY, name: str = "Tabs", **_kwargs):
+        super().__init__(parent, id, style=wx.TAB_TRAVERSAL, name=name)
+        self.SetBackgroundColour(parent.GetBackgroundColour())
+        self.SetForegroundColour(theme.TEXT)
+        self.tabs = TabBar(self, name)
+        self.book = PageStack(self)
+        self.tabs.on_select = self._on_tab_selected
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.tabs, 0, wx.BOTTOM, self.FromDIP(10))
+        sizer.Add(self.book, 1, wx.EXPAND)
+        self.SetSizer(sizer)
+        self._texts: List[str] = []
+        self.Bind(wx.EVT_NAVIGATION_KEY, self._on_navigation_key)
+
+    # wx.Notebook API ------------------------------------------------------
+
+    def AddPage(self, page: wx.Window, text: str, select: bool = False, imageId: int = -1) -> bool:
+        page.SetBackgroundColour(self.GetBackgroundColour())
+        self.book.AddPage(page)
+        self._texts.append(text)
+        self.tabs.set_labels(self._texts)
+        if select or self.GetSelection() < 0:
+            self.ChangeSelection(self.GetPageCount() - 1)
+        return True
+
+    def DeletePage(self, index: int) -> bool:
+        if not 0 <= index < self.GetPageCount():
+            return False
+        self.book.RemovePage(index).Destroy()
+        del self._texts[index]
+        if self.GetSelection() < 0 and self.GetPageCount():
+            self.ChangeSelection(min(index, self.GetPageCount() - 1))
+        self.tabs.selection = self.GetSelection()
+        self.tabs.set_labels(self._texts)
+        return True
+
+    def DeleteAllPages(self) -> bool:
+        while self.GetPageCount():
+            self.DeletePage(self.GetPageCount() - 1)
+        return True
+
+    def GetPageCount(self) -> int:
+        return self.book.GetPageCount()
+
+    def GetPage(self, index: int) -> wx.Window:
+        return self.book.GetPage(index)
+
+    def GetCurrentPage(self) -> Optional[wx.Window]:
+        return self.book.GetCurrentPage()
 
     def GetPageText(self, index: int) -> str:
         return self._texts[index]
@@ -683,11 +932,10 @@ class TabbedBook(wx.Panel):
         return True
 
     def GetSelection(self) -> int:
-        return self._selection
+        return self.book.GetSelection()
 
     def ChangeSelection(self, index: int) -> int:
-        old = self._selection
-        self._show_page(index)
+        old = self.book.ChangeSelection(index)
         self.tabs.set_selection(index)
         return old
 
@@ -700,31 +948,15 @@ class TabbedBook(wx.Panel):
     def AdvanceSelection(self, forward: bool = True) -> None:
         count = self.GetPageCount()
         if count:
-            self.SetSelection((self._selection + (1 if forward else -1)) % count)
+            self.SetSelection((self.GetSelection() + (1 if forward else -1)) % count)
 
     def SetFocus(self) -> None:
         self.tabs.SetFocus()
 
     # -------------------------------------------------------------------------
 
-    def _show_page(self, index: int) -> None:
-        if not 0 <= index < len(self._pages) or index == self._selection:
-            return
-        old = self.GetCurrentPage()
-        self.book.Freeze()
-        try:
-            new = self._pages[index]
-            new.Show()
-            if old is not None:
-                old.Hide()
-            self._selection = index
-            self.book.Layout()
-        finally:
-            self.book.Thaw()
-
     def _on_tab_selected(self, index: int) -> None:
-        old = self._selection
-        self._show_page(index)
+        old = self.book.ChangeSelection(index)
         if old != index:
             self._send_changed(index, old)
 

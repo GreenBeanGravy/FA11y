@@ -3,7 +3,7 @@ Epic auth keybind handlers + success wiring.
 
 ``handle_auth_expiration`` is invoked from EpicAuth on 401 to flag the
 session as expired. ``_on_auth_success`` is the success callback used by
-both interactive re-auth and the background ``auth_watcher`` refresh —
+both interactive re-auth and the background ``auth_watcher`` refresh - 
 it (re)creates the social manager and the discovery API.
 """
 from __future__ import annotations

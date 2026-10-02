@@ -3,7 +3,7 @@ Health / Shield / Rarity (HSR) detection.
 
 Two-path strategy:
 
-1. **Fast path — FA11y-OW companion service**
+1. **Fast path - FA11y-OW companion service**
    If a loopback HTTP service is running at ``http://127.0.0.1:6767/api``
    (the "FA11y-OW" helper, a separate optional project) it gets queried
    first. The service reads Fortnite memory/log signals directly and
@@ -13,7 +13,7 @@ Two-path strategy:
    fall through instantly rather than block the UI. No state is kept
    between calls; every H / shield keypress hits the endpoint fresh.
 
-2. **Fallback — visual bar scan**
+2. **Fallback - visual bar scan**
    When the service is unreachable (the common case), the functions below
    walk the health/shield bars pixel-by-pixel against the calibrated
    ``health_decreases`` step pattern. This is what ships by default and is

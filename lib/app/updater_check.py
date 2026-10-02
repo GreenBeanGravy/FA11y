@@ -34,7 +34,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Remote URLs — kept here so FA11y.py doesn't need to care.
+# Remote URLs - kept here so FA11y.py doesn't need to care.
 GITHUB_REPO_URL = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main"
 VERSION_URL = f"{GITHUB_REPO_URL}/VERSION"
 CHANGELOG_URL = f"{GITHUB_REPO_URL}/CHANGELOG.txt"
@@ -195,8 +195,11 @@ def announce_update(speaker, version: str) -> None:
 def check_for_updates(speaker, shutdown_event, update_sound=None) -> None:
     """Check for updates now, then every 15 s, with shutdown awareness.
 
-    Call as a daemon thread target. Each new remote version is announced
-    at most once.
+    Call as a daemon thread target. An update that's already out when
+    FA11y starts is only shown in the window (Home and About), without a
+    sound or speech: the user just chose to start FA11y and didn't ask
+    to be interrupted. Versions released while FA11y runs are announced
+    once each.
     """
     last_announced_remote_version = None
     first = True
@@ -206,6 +209,7 @@ def check_for_updates(speaker, shutdown_event, update_sound=None) -> None:
             # 15 s sleep that wakes promptly on shutdown.
             if shutdown_event.wait(15):
                 return
+        startup_check = first
         first = False
 
         newer = check_once()
@@ -214,8 +218,14 @@ def check_for_updates(speaker, shutdown_event, update_sound=None) -> None:
         if not newer:
             continue
 
-        from lib.hub import status
+        from lib.hub import get_hub, status
         remote_version = status.available_update()
-        if remote_version and remote_version != last_announced_remote_version and not shutdown_event.is_set():
+        if not remote_version or remote_version == last_announced_remote_version or shutdown_event.is_set():
+            continue
+        last_announced_remote_version = remote_version
+        if startup_check:
+            hub = get_hub()
+            if hub is not None:
+                hub.update_available_changed()
+        else:
             announce_update(speaker, remote_version)
-            last_announced_remote_version = remote_version

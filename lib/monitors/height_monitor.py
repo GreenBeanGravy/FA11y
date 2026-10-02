@@ -6,7 +6,7 @@ is visible, interpolates its y-pixel into meters and speaks the value.
 
 Scoped to the Fortnite OG map (``POI.current_map == "o_g"``): the modern
 BR mode's height bar isn't reliable, so outside OG this monitor idles. It
-no longer drives new-match detection — that now comes from the game log
+no longer drives new-match detection - that now comes from the game log
 (see ``match_event_monitor``).
 
 This used to be a bare ``start_height_monitor()`` function. It's now a
@@ -62,9 +62,9 @@ def _interpolate_height(pixel_y: int):
 
     Calibrated against three known landmarks on the HUD:
 
-        (y1=37,  h1=750)  — top of the bar
-        (y2=163, h2=325)  — mid-point
-        (y3=289, h3=0)    — bottom (ground)
+        (y1=37,  h1=750) - top of the bar
+        (y2=163, h2=325) - mid-point
+        (y3=289, h3=0) - bottom (ground)
     """
     y1, h1 = 37, 750
     y2, h2 = 163, 325
@@ -82,7 +82,7 @@ class HeightMonitor(BaseMonitor):
 
     _THREAD_NAME = "HeightMonitor"
 
-    # HUD constants — small enough to inline; tweak here if the HUD moves.
+    # HUD constants - small enough to inline; tweak here if the HUD moves.
     TARGET_COLOR: Tuple[int, int, int] = (255, 255, 255)
     CHECK_POINTS = [(1576, 319), (1586, 319), (1596, 319), (1599, 23)]
     HEIGHT_X = 1583
@@ -172,7 +172,7 @@ height_monitor = HeightMonitor()
 
 
 def start_height_monitor() -> None:
-    """Backward-compatible shim — spin up the monitor if it isn't already.
+    """Backward-compatible shim - spin up the monitor if it isn't already.
 
     FA11y.py called this bare function historically; keep it working.
     """
@@ -180,5 +180,5 @@ def start_height_monitor() -> None:
 
 
 def stop_height_monitor() -> None:
-    """Companion shutdown helper — also used from FA11y shutdown paths."""
+    """Companion shutdown helper - also used from FA11y shutdown paths."""
     height_monitor.stop_monitoring()

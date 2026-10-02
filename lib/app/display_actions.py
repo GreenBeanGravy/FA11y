@@ -1,7 +1,7 @@
 """
 Display-mode announcement action.
 
-``announce_display_mode`` — lalt+r hotkey; reads Fortnite's local log to find
+``announce_display_mode`` - lalt+r hotkey; reads Fortnite's local log to find
 the most recent window mode (Fullscreen / Windowed Fullscreen / Windowed) and
 render resolution, then announces them in the order window-mode, resolution.
 
@@ -14,7 +14,7 @@ settings are applied (and on most map / menu transitions), for example::
 These lines carry no leading timestamp, so we simply scan for the *last*
 occurrence of each. Only the live ``FortniteGame.log`` is read (not the rotated
 backups), and we read a tail of the file first since these lines are emitted
-frequently — falling back to a full scan if the tail doesn't contain them.
+frequently - falling back to a full scan if the tail doesn't contain them.
 """
 from __future__ import annotations
 

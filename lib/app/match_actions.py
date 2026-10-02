@@ -1,5 +1,5 @@
 """
-In-match action handlers — match stats, bad-object marking, hotspot check,
+In-match action handlers - match stats, bad-object marking, hotspot check,
 visited-objects GUI launcher.
 
 Each handler speaks via ``state.speaker`` and reads config through
@@ -160,7 +160,7 @@ def mark_last_reached_object_as_bad() -> None:
         speaker.speak("Error marking last reached object as bad")
 
 
-# Hotspot pixels on the full-screen map — these are the fixed on-map glyph
+# Hotspot pixels on the full-screen map - these are the fixed on-map glyph
 # locations; match them against non-white / non-black to find active hotspots.
 _HOTSPOT_PIXELS = [
     (683, 303), (955, 311), (1210, 245), (782, 405), (904, 417),

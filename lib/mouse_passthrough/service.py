@@ -63,7 +63,7 @@ class MousePassthroughService:
             print("[INFO] Mouse passthrough: Running with Administrator privileges")
 
     def _on_config_change(self, config):
-        """Handle main config change event — sync DPI."""
+        """Handle main config change event - sync DPI."""
         from lib.utilities.utilities import get_config_value
         try:
             dpi_str, _ = get_config_value(config, 'MousePassthroughDPI', '800')
@@ -129,7 +129,7 @@ class MousePassthroughService:
         thread.start()
 
     def _first_time_setup_blocking(self):
-        """Blocking first-time setup logic — runs on a background thread."""
+        """Blocking first-time setup logic - runs on a background thread."""
         device = detect_mouse_device(
             dpi=self.config["DPI"],
             timeout=self.config["DETECTION_TIMEOUT"]
@@ -163,7 +163,7 @@ class MousePassthroughService:
         thread.start()
 
     def _recapture_mouse_blocking(self):
-        """Blocking recapture logic — runs on a background thread."""
+        """Blocking recapture logic - runs on a background thread."""
         # Stop current capture if running
         was_running = self.running
         if was_running:

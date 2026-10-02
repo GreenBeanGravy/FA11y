@@ -13,11 +13,11 @@ class BaseMonitor:
     """Lifecycle-managed background monitor.
 
     API:
-        ``start_monitoring()``  — idempotent; no-op if already running
-        ``stop_monitoring()``   — sets the stop event, joins with timeout
-        ``self.running``        — True between start and stop
-        ``self.stop_event``     — ``threading.Event`` the loop should observe
-        ``self.thread``         — the current daemon thread (or ``None``)
+        ``start_monitoring()`` - idempotent; no-op if already running
+        ``stop_monitoring()`` - sets the stop event, joins with timeout
+        ``self.running`` - True between start and stop
+        ``self.stop_event`` - ``threading.Event`` the loop should observe
+        ``self.thread`` - the current daemon thread (or ``None``)
 
     Subclass contract:
         override ``_monitor_loop`` (the function run on the daemon thread).
@@ -82,7 +82,7 @@ class BaseMonitor:
         """True while the first-run wizard owns the screen.
 
         Subclass loops should check this at the top of each iteration
-        and sleep instead of doing work — keeps TTS / screen capture
+        and sleep instead of doing work - keeps TTS / screen capture
         from firing while the user is configuring FA11y.
         """
         try:
@@ -106,5 +106,5 @@ class BaseMonitor:
             )
         finally:
             # Make sure ``running`` reflects reality even on an unhandled
-            # crash — downstream callers poll this.
+            # crash - downstream callers poll this.
             self.running = False

@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
 
 import wx
 import wx.lib.scrolledpanel as scrolled
+from lib.hub.accessibility import annotate
 from lib.hub.controls import StyledButton, TabbedBook
 from accessible_output2.outputs.auto import Auto
 
@@ -212,7 +213,6 @@ class VisitedObjectsGUI(AccessibleDialog):
         wx.CallAfter(self._loadAndPopulate)
         
         self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
-        self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
     
     def _loadAndPopulate(self):
         """Load data and populate tabs after dialog is shown"""
@@ -279,13 +279,6 @@ class VisitedObjectsGUI(AccessibleDialog):
     def _postInitFocus(self):
         ensure_window_focus_and_center_mouse(self)
         self.setFocusToFirstControl()
-    
-    def onPageChanged(self, event):
-        page_index = event.GetSelection()
-        if page_index >= 0 and page_index < self.notebook.GetPageCount():
-            tab_text = self.notebook.GetPageText(page_index)
-            speaker.speak(f"{tab_text} tab")
-        event.Skip()
     
     def setFocusToFirstControl(self):
         try:
@@ -385,9 +378,8 @@ class VisitedObjectsGUI(AccessibleDialog):
                 
                 button = StyledButton(panel, label=button_text)
                 button.Bind(wx.EVT_BUTTON, lambda evt, o=obj: self.select_object(o))
-                button.speech_text = speech_text
+                annotate(button, description=speech_text)
                 button.Bind(wx.EVT_CHAR_HOOK, self.onButtonCharHook)
-                button.Bind(wx.EVT_SET_FOCUS, self.onButtonFocus)
                 button.obj_data = obj
                 
                 sizer.Add(button, flag=wx.EXPAND | wx.ALL, border=2)
@@ -464,18 +456,6 @@ class VisitedObjectsGUI(AccessibleDialog):
             return
         
         event.Skip()
-    
-    def onButtonFocus(self, event):
-        button = event.GetEventObject()
-        wx.CallAfter(self.announceDescription, button)
-        event.Skip()
-    
-    def announceDescription(self, button):
-        try:
-            if hasattr(button, 'speech_text'):
-                wx.CallLater(150, lambda: speaker.speak(button.speech_text))
-        except Exception as e:
-            logger.error(f"Error announcing description: {e}")
     
     def get_object_speech_info(self, obj: Tuple[str, str, str, str]) -> str:
         try:
@@ -606,11 +586,10 @@ class VisitedObjectsGUI(AccessibleDialog):
                 
                 button = StyledButton(self.search_results_panel, label=button_text)
                 button.Bind(wx.EVT_BUTTON, lambda evt, o=obj: self.select_object(o))
-                button.speech_text = speech_text
+                annotate(button, description=speech_text)
                 button.obj_data = obj
                 
                 button.Bind(wx.EVT_CHAR_HOOK, self.onButtonCharHook)
-                button.Bind(wx.EVT_SET_FOCUS, self.onButtonFocus)
                 
                 sizer.Add(button, flag=wx.EXPAND | wx.ALL, border=2)
         

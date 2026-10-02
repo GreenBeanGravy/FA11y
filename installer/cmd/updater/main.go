@@ -2,7 +2,8 @@
 // virtual environment and its packages, FA11y's files, and the external
 // components listed in installer/manifest.json.
 //
-// Exit codes: 0 nothing changed, 1 something was updated, 2 error.
+// Exit codes: 0 nothing changed, 1 something was updated, 2 error,
+// 3 an update is available (--check only).
 package main
 
 import (
@@ -40,15 +41,16 @@ const (
 )
 
 type options struct {
-	install, quick, fromLauncher, noComponents bool
-	branch, source                             string
-	waitPIDs                                   pidList
+	install, quick, check, fromLauncher, noComponents bool
+	branch, source                                    string
+	waitPIDs                                          pidList
 }
 
 func main() {
 	var opts options
 	flag.BoolVar(&opts.install, "install", false, "install FA11y (also repairs an existing install)")
 	flag.BoolVar(&opts.quick, "quick", false, "only update when a new FA11y version is out or the install needs repair")
+	flag.BoolVar(&opts.check, "check", false, "only report whether --quick would update: exit 3 if so, 0 if not")
 	flag.BoolVar(&opts.fromLauncher, "from-launcher", false, "started by FA11y Launcher.exe")
 	flag.StringVar(&opts.branch, "branch", defaultBranch, "GitHub branch to install from")
 	flag.StringVar(&opts.source, "source", "", "install from this folder (an exported checkout) instead of GitHub, for testing")
@@ -101,14 +103,14 @@ func run(l layout.Layout, opts options) (int, error) {
 		console.Say("Installing from %s instead of GitHub.", opts.source)
 		src = filesync.Local{Dir: opts.source}
 	} else {
-		if os.Getenv(restartedEnv) == "" {
+		if os.Getenv(restartedEnv) == "" && !opts.check {
 			if restarted, code := updateExecutables(l); restarted {
 				return code, nil
 			}
 		}
 		commit, err := filesync.Commit(defaultRepo, opts.branch)
 		if err != nil {
-			if installed(l) && opts.quick {
+			if installed(l) && (opts.quick || opts.check) {
 				console.Say("Could not reach GitHub (%v). Skipping the update check.", err)
 				return layout.ExitNoUpdate, nil
 			}
@@ -123,6 +125,18 @@ func run(l layout.Layout, opts options) (int, error) {
 	st, err := state.Load(l.Files)
 	if err != nil {
 		return exitError, err
+	}
+
+	if opts.check {
+		// Read-only: the launcher runs this without a window and opens a
+		// console for the real update only when there is one.
+		if !legacy && installed(l) {
+			remote, err := src.Read("VERSION")
+			if err != nil || !versionNewer(strings.TrimSpace(string(remote)), readVersion(l)) && healthy(l, m, st, opts.noComponents) {
+				return layout.ExitNoUpdate, nil
+			}
+		}
+		return layout.ExitUpdateAvailable, nil
 	}
 
 	if legacy {

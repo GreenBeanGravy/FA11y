@@ -326,7 +326,7 @@ def release_middle_button():
     return _send_mouse_button("MiddleButton", False)
 
 def click_mouse(button='left'):
-    """Click mouse button — press down, hold 50ms, release"""
+    """Click mouse button - press down, hold 50ms, release"""
     if button == 'left':
         left_mouse_down()
         time.sleep(0.05)
@@ -436,7 +436,7 @@ def move_to_and_click(target_x, target_y, button='left', duration=0, settle=0.02
     """Move to coordinates and click.
 
     duration: time to spread the move over (0 = instant).
-    settle: brief pause after move before click — just enough for the game
+    settle: brief pause after move before click - just enough for the game
             to register the cursor position (20ms). Set to 0 for maximum speed.
     """
     move_to(target_x, target_y, duration=duration)

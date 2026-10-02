@@ -26,7 +26,7 @@ class BackgroundMonitor(BaseMonitor):
         # When MatchEventMonitor sees inventory open/close in the Fortnite
         # log it sets this flag and starts driving inventory_open directly.
         # The pixel-based inventory check below skips itself while it's set
-        # — log-based detection is faster and avoids template-match flaps
+        # - log-based detection is faster and avoids template-match flaps
         # from animations or cosmetic UI overlays.
         self._external_inventory_source = False
         # Same pattern for the full-screen map.

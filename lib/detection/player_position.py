@@ -21,7 +21,7 @@ from lib.detection.coordinate_config import get_minimap_coords, get_px_to_meters
 def _current_px_to_meters() -> float:
     """Pixel-to-meters scaling for distance calculations on the current map.
 
-    Reads the current map from config each time (cheap — ``read_config``
+    Reads the current map from config each time (cheap - ``read_config``
     caches) so this auto-adapts if the user switches maps mid-session.
     """
     try:
@@ -136,7 +136,7 @@ class PlayerPositionTracker:
             angle = None
 
             # Position via FA11y-OW when calibrated, falling back to PPI
-            # otherwise. Angle is always minimap-only — GEP doesn't expose
+            # otherwise. Angle is always minimap-only - GEP doesn't expose
             # player facing.
             position = find_player_position()
             if position is not None:
@@ -271,7 +271,7 @@ def get_player_position_for_poi_creation():
             time.sleep(0.1)
             return position
 
-        # Minimap present (map closed) or indeterminate state — PPI directly.
+        # Minimap present (map closed) or indeterminate state - PPI directly.
         return find_player_position()
 
     except Exception as e:

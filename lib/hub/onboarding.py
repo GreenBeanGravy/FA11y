@@ -18,7 +18,7 @@ from lib.hub.controls import StyledButton
 from lib.app import state
 from lib.guis.welcome_wizard import AudioTestPage, MousePage, SpeechPage, WizardPage
 from lib.hub import settings, sounds, theme
-from lib.hub.widgets import button, label
+from lib.hub.widgets import button, label, text
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class SignInStep(WizardPage):
 
     def _build(self) -> None:
         super()._build()
-        self.status = wx.StaticText(self, label="")
+        self.status = text(self)
         self.signin_button = StyledButton(self, label="&Sign in", variant="primary")
         self.signin_button.Bind(wx.EVT_BUTTON, self._sign_in)
         self.content_sizer.Add(self.status, flag=wx.ALL, border=5)
@@ -48,7 +48,6 @@ class SignInStep(WizardPage):
 
     def on_enter(self) -> None:
         self._refresh()
-        super().on_enter()
 
     def _refresh(self) -> None:
         from lib.utilities.epic_auth import get_epic_auth_instance
@@ -90,8 +89,7 @@ class FortniteStep(WizardPage):
 
     def _build(self) -> None:
         super()._build()
-        self.message = wx.StaticText(self, label="Looking for Fortnite on this computer…")
-        self.content_sizer.Add(self.message, flag=wx.ALL, border=5)
+        self.set_intro("Looking for Fortnite on this computer…")
         self.choice = wx.RadioBox(
             self, label="How should Fortnite be managed?",
             choices=["Let FA11y manage it (recommended). Faster launches and updates from FA11y, no redownload.",
@@ -115,23 +113,18 @@ class FortniteStep(WizardPage):
             return
         self.status = st
         if st is None:
-            text = "FA11y couldn't check for Fortnite. You can set it up on the Fortnite page later."
+            message = "FA11y couldn't check for Fortnite. You can set it up on the Fortnite page later."
         elif st.installed:
-            text = f"Fortnite is installed at {st.install_path} and ready to play from FA11y."
+            message = f"Fortnite is installed at {st.install_path} and ready to play from FA11y."
         elif st.egl_install_path:
-            text = f"Fortnite is installed through the Epic Games Launcher at {st.egl_install_path}."
+            message = f"Fortnite is installed through the Epic Games Launcher at {st.egl_install_path}."
             self.choice.Show()
         else:
-            text = ("Fortnite isn't installed. After setup, open the Fortnite page to install it. "
-                    "It needs about 100 GB.")
-        self.message.SetLabel(text)
-        self.message.Wrap(560)
+            message = ("Fortnite isn't installed. After setup, open the Fortnite page to install it. "
+                       "It needs about 100 GB.")
+        # A focused intro reports the new text to screen readers itself.
+        self.set_intro(message)
         self.Layout()
-        if self.IsShown():
-            state.speaker.speak(text)
-
-    def on_enter(self) -> None:
-        state.speaker.speak(f"{self.title}. {self.message.GetLabel()}")
 
     def egl_choice(self) -> Optional[str]:
         """'manage', 'sync', or None when there's no Epic Games Launcher install to decide on."""

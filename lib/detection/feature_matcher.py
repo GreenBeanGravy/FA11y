@@ -3,9 +3,9 @@ Pluggable feature-matching backend for PPI.
 
 PPI's SIFT-only path struggles on two kinds of terrain:
 
-* **Low-contrast snow / ice / sand** — SIFT's default contrast threshold
+* **Low-contrast snow / ice / sand** - SIFT's default contrast threshold
   throws away keypoints that the minimap genuinely needs.
-* **Reload arenas** — smaller, more uniformly-textured maps. SIFT finds
+* **Reload arenas** - smaller, more uniformly-textured maps. SIFT finds
   enough keypoints but matches are noisier because the discriminative
   signal per keypoint is lower.
 
@@ -20,10 +20,10 @@ Design notes:
   picks the right norm automatically.
 * The *map-side* detector is built with defaults (runs once per map, can be
   thorough). The *capture-side* detector is the one that runs every frame
-  and carries the tunables — SIFT's ``contrastThreshold``, ORB's feature
+  and carries the tunables - SIFT's ``contrastThreshold``, ORB's feature
   budget, AKAZE's threshold.
 * CLAHE is applied uniformly to both sides when enabled. Applying it only
-  to the capture would mean the descriptors don't compare — the map side
+  to the capture would mean the descriptors don't compare - the map side
   needs the same histogram equalization.
 """
 from __future__ import annotations
@@ -51,7 +51,7 @@ class MatcherConfig:
 
     detector: DetectorType = DetectorType.SIFT
 
-    # SIFT tunables — applied to the capture-side detector.
+    # SIFT tunables - applied to the capture-side detector.
     sift_n_features: int = 0              # 0 = unlimited
     sift_contrast_threshold: float = 0.03 # Lower catches snow / ice features
     sift_edge_threshold: float = 10.0
@@ -64,7 +64,7 @@ class MatcherConfig:
     # AKAZE tunables.
     akaze_threshold: float = 0.001
 
-    # Preprocessing — CLAHE dramatically improves match rate on
+    # Preprocessing - CLAHE dramatically improves match rate on
     # low-contrast terrain (snow, ice, uniform sand).
     preprocess_clahe: bool = False
     clahe_clip_limit: float = 2.0
@@ -98,7 +98,7 @@ class MatcherConfig:
 
 
 def build_capture_detector(cfg: MatcherConfig):
-    """Detector applied to every captured frame — keep it fast."""
+    """Detector applied to every captured frame - keep it fast."""
     if cfg.detector is DetectorType.SIFT:
         return cv2.SIFT_create(
             nfeatures=cfg.sift_n_features,
@@ -119,7 +119,7 @@ def build_capture_detector(cfg: MatcherConfig):
 def build_map_detector(cfg: MatcherConfig):
     """Detector applied once per map image (computed on load, cached)."""
     if cfg.detector is DetectorType.SIFT:
-        # Unconstrained SIFT on the map — we only pay this cost once.
+        # Unconstrained SIFT on the map - we only pay this cost once.
         return cv2.SIFT_create()
     # AKAZE and ORB don't benefit enough from "thorough" settings to warrant
     # a separate instance; reuse the capture-side config.
@@ -140,7 +140,7 @@ def build_matcher(cfg: MatcherConfig) -> cv2.BFMatcher:
 
 
 def preprocess_image(image: np.ndarray, cfg: MatcherConfig) -> np.ndarray:
-    """CLAHE on the luminance channel — identity when disabled.
+    """CLAHE on the luminance channel - identity when disabled.
 
     This must be applied symmetrically to both the map image and each
     capture frame; otherwise descriptors drift apart.
@@ -166,7 +166,7 @@ def preprocess_image(image: np.ndarray, cfg: MatcherConfig) -> np.ndarray:
 
 @dataclass
 class MatchOutcome:
-    """Rich result from a single match attempt — lets bench/dev tools inspect
+    """Rich result from a single match attempt - lets bench/dev tools inspect
     what happened even on partial failures."""
 
     corners_on_map: Optional[np.ndarray] = None  # (4, 1, 2) float32

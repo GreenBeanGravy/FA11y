@@ -6,7 +6,7 @@ import os
 from typing import Any, Callable, Dict, List, Optional
 
 import wx
-from lib.hub.controls import StyledButton
+from lib.hub.controls import ReadableText, StyledButton, TextLine
 from accessible_output2.outputs.auto import Auto
 
 from lib.app import state
@@ -54,29 +54,26 @@ class WizardPage(wx.Panel):
     def _build(self) -> None:
         outer = wx.BoxSizer(wx.VERTICAL)
 
-        title_label = wx.StaticText(self, label=self.title)
-        font = title_label.GetFont()
-        font.PointSize += 4
-        font = font.Bold()
-        title_label.SetFont(font)
-        outer.Add(title_label, flag=wx.ALL, border=BORDER_FOR_DIALOGS)
-
-        if self.intro:
-            intro_label = wx.StaticText(self, label=self.intro)
-            intro_label.Wrap(520)
-            outer.Add(intro_label, flag=wx.LEFT | wx.RIGHT | wx.BOTTOM, border=BORDER_FOR_DIALOGS)
+        # The title and intro are one tab stop, focused when the step
+        # appears, so screen readers read "Title. Intro" without FA11y
+        # speaking over them.
+        self.intro_text = ReadableText(self, wrap=520, name=self.title)
+        self.intro_text.separator = ". "
+        self.set_intro(self.intro)
+        outer.Add(self.intro_text, flag=wx.ALL, border=BORDER_FOR_DIALOGS)
 
         self.content_sizer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(self.content_sizer, proportion=1, flag=wx.EXPAND | wx.ALL, border=BORDER_FOR_DIALOGS)
 
         self.SetSizer(outer)
 
+    def set_intro(self, intro: str) -> None:
+        font = self.GetFont()
+        font.PointSize += 4
+        self.intro_text.set_lines([TextLine(self.title, font.Bold()), TextLine(intro, gap=6)])
+
     def on_enter(self) -> None:
-        """Called every time this page becomes visible. Speak the page."""
-        announcement = self.title
-        if self.intro:
-            announcement = f"{self.title}. {self.intro}"
-        speaker.speak(announcement)
+        """Called every time this page becomes visible."""
 
     def collect(self) -> Dict[tuple, Any]:
         """Return ``{(section, key): value}`` to write to config on finish."""
@@ -113,8 +110,8 @@ class SpeechPage(WizardPage):
             self,
             label="Speech style",
             choices=[
-                "Verbose — full sentences, more context (recommended for new users)",
-                "Simplified — shorter, terser announcements",
+                "Verbose: full sentences, more context (recommended for new users)",
+                "Simplified: shorter, terser announcements",
             ],
             majorDimension=1,
             style=wx.RA_SPECIFY_COLS,
@@ -133,8 +130,8 @@ class AudioTestPage(WizardPage):
     intro = (
         "FA11y plays spatial audio cues for storms, points of interest, "
         "and dynamic objects. Use the Test button to play a sound at the "
-        "current master volume — adjust the slider until it's comfortable, "
-        "then continue."
+        "current master volume, and adjust the slider until it's comfortable "
+        "before you continue."
     )
 
     def _build(self) -> None:
@@ -190,7 +187,7 @@ class MousePage(WizardPage):
     intro = (
         "FA11y reads your mouse DPI to compute correct in-game sensitivity "
         "for its turn and look keys. Enter the DPI your mouse is set to. "
-        "If you don't know, 800 is a safe default — you can fine-tune later."
+        "If you don't know, 800 is a safe default. You can fine-tune it later."
     )
 
     def _build(self) -> None:
@@ -256,7 +253,7 @@ class WelcomeWizard(AccessibleDialog):
     # ----- dialog construction -----
 
     def makeSettings(self, sizer: BoxSizerHelper) -> None:
-        # Stack of pages — only one is visible at a time.
+        # Stack of pages - only one is visible at a time.
         self._page_container = wx.Panel(self)
         self._page_sizer = wx.BoxSizer(wx.VERTICAL)
         self._page_container.SetSizer(self._page_sizer)
@@ -457,7 +454,7 @@ def is_first_run() -> bool:
     """Return True if the setup wizard hasn't been completed yet."""
     try:
         config = read_config()
-        # Query [Setup] directly — get_config_value only scans
+        # Query [Setup] directly - get_config_value only scans
         # Toggles/Values/Audio/GameObjects/Keybinds/POI/SETTINGS/SCRIPT
         # KEYBINDS, so it can't see [Setup] at all.
         if config.has_section("Setup") and config.has_option("Setup", "FirstRunComplete"):
@@ -467,14 +464,14 @@ def is_first_run() -> bool:
         return True  # No [Setup] yet → never completed.
     except Exception as e:
         logger.warning(f"is_first_run check failed: {e}")
-        return False  # Fail closed — don't pester the user on a flaky read.
+        return False  # Fail closed - don't pester the user on a flaky read.
 
 
 def run_welcome_wizard() -> bool:
     """Show the wizard modally. Returns True if completed, False if skipped.
 
     While the wizard is open, ``state.wizard_open`` is set so the FA11y
-    key listener is muted — no in-game keybinds fire during setup.
+    key listener is muted - no in-game keybinds fire during setup.
     """
     state.wizard_open.set()
     try:

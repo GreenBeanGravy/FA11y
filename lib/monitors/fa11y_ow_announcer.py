@@ -3,7 +3,7 @@ pickups.
 
 This is a thin consumer of ``lib.utilities.fa11y_ow_client``. It only does
 work when both the FA11y-OW helper is up *and* the user has the relevant
-toggle enabled in config — otherwise the listeners are no-ops.
+toggle enabled in config - otherwise the listeners are no-ops.
 
 Each toggle is independent so users can opt into just the parts they want:
 
@@ -61,7 +61,7 @@ def _toggles() -> Dict[str, bool]:
 class Fa11yOwAnnouncer:
     """Subscribes to the FA11y-OW SSE client and speaks selected events.
 
-    Owns no thread of its own — the SSE thread inside ``ow_client`` calls our
+    Owns no thread of its own - the SSE thread inside ``ow_client`` calls our
     listeners directly. We keep the speaker call out of the stream parsing
     code path by re-using the existing accessible-output speaker which is
     safe to call from worker threads.
@@ -129,7 +129,7 @@ class Fa11yOwAnnouncer:
         elif ev_type == "death":
             phrase = f"{player} was eliminated."
         else:
-            # Generic feed mention — voice the underlying message verbatim
+            # Generic feed mention - voice the underlying message verbatim
             # since it carries useful detail (revives, thanks, item finds,
             # etc.) and the player name is already inside it.
             phrase = message or f"{player} appeared in the feed."
@@ -148,7 +148,7 @@ class Fa11yOwAnnouncer:
             self._last_equipped_id = None
             return
         # Suppress repeats when the same item gets re-emitted (e.g. ammo
-        # ticks down on the equipped weapon) — only re-announce on rawId
+        # ticks down on the equipped weapon) - only re-announce on rawId
         # change. Pickup events still fire on transitions empty -> populated.
         if raw_id and raw_id == self._last_equipped_id:
             return

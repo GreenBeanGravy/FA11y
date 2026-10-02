@@ -10,7 +10,7 @@ import wx
 import wx.adv
 
 from lib.hub import game_watch, set_hub, settings, sounds, theme
-from lib.hub.controls import StyledButton, TabbedBook
+from lib.hub.controls import PageStack, StyledButton, TabbedBook
 from lib.hub.page import HubPage
 from lib.hub.sidebar import Sidebar, SidebarEntry
 
@@ -56,6 +56,20 @@ def app_bitmap(size: int) -> wx.Bitmap:
             bitmap = wx.Bitmap(size, size, 32)
         _logo_bitmaps[size] = bitmap
     return bitmap
+
+
+class _Decoration(wx.Panel):
+    """A panel that only draws (the logo, the divider), so it is never a tab stop.
+
+    A wx.Panel with nothing focusable inside takes focus itself, and screen
+    readers would read it as an unnamed "panel".
+    """
+
+    def AcceptsFocus(self) -> bool:
+        return False
+
+    def AcceptsFocusFromKeyboard(self) -> bool:
+        return False
 
 
 class HubTrayIcon(wx.adv.TaskBarIcon):
@@ -140,9 +154,9 @@ class HubFrame(wx.Frame):
         root.SetBackgroundColour(theme.WINDOW_BG)
         self.sidebar = Sidebar(root, [spec.entry for spec in pages], self._on_sidebar_select)
         self.sidebar.on_activate = self.focus_content
-        self.book = wx.Simplebook(root)
+        self.book = PageStack(root)
         self.book.SetBackgroundColour(theme.WINDOW_BG)
-        divider = wx.Panel(root, size=(1, -1))
+        divider = _Decoration(root, size=(1, -1))
         divider.SetBackgroundColour(theme.CARD_BORDER)
 
         column = wx.BoxSizer(wx.VERTICAL)
@@ -177,7 +191,7 @@ class HubFrame(wx.Frame):
 
     def _brand(self, parent: wx.Window) -> wx.Panel:
         """FA11y's icon and name at the top of the sidebar."""
-        panel = wx.Panel(parent)
+        panel = _Decoration(parent)
         panel.SetBackgroundColour(theme.SIDEBAR_BG)
         size = self.FromDIP(32)
         icon = wx.StaticBitmap(panel, bitmap=app_bitmap(size))

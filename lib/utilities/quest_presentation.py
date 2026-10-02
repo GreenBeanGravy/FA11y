@@ -282,8 +282,8 @@ def list_label(quest, include_mode=False):
     if quest['state'].lower() in ('completed','claimed') and not any(o.get('achieved') is not None for o in objectives):
         progress = 'Completion confirmed by Epic; detailed counters not supplied'
     state = 'Completed' if quest['state'].lower() in ('completed', 'claimed') else quest['state']
-    suffix = '' if state.lower() == 'active' else f' — {state}'
-    return f"{quest['name']} — {progress or 'No counter reported'} — {prefix}{quest['category']}{suffix}"
+    suffix = '' if state.lower() == 'active' else f', {state}'
+    return f"{quest['name']}, {progress or 'No counter reported'}, {prefix}{quest['category']}{suffix}"
 
 
 def completion_summary(quest):
@@ -305,7 +305,7 @@ def list_labels(quests, include_mode=False):
     result = []
     for label in labels:
         seen[label] += 1
-        result.append(f'{label} — Separate quest {seen[label]} of {counts[label]}' if counts[label] > 1 else label)
+        result.append(f'{label}, separate quest {seen[label]} of {counts[label]}' if counts[label] > 1 else label)
     return result
 
 

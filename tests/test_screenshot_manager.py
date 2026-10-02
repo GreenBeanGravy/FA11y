@@ -1,4 +1,4 @@
-"""Tests for lib/managers/screenshot_manager.py — format conversion + cache behavior."""
+"""Tests for lib/managers/screenshot_manager.py - format conversion + cache behavior."""
 import numpy as np
 import pytest
 from collections import OrderedDict

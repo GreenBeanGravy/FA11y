@@ -2,7 +2,7 @@
 Epic auth expiration watcher + token validation helpers.
 
 Lifted out of ``FA11y.py`` to keep the main entry focused on event
-dispatch. This module has no FA11y imports — callers pass the shutdown
+dispatch. This module has no FA11y imports - callers pass the shutdown
 event and the ``on_auth_success`` callback that ``FA11y`` uses to wire
 up dependent subsystems after a refresh.
 """

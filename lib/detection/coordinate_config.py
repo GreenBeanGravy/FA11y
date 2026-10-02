@@ -58,7 +58,7 @@ class CoordinateSet:
     px_to_meters: float = 2.65
     # Per-map feature-matching overrides. ``None`` = use the global defaults
     # (from config ``[POI] feature_detector`` / ``feature_clahe``). Set this
-    # for maps with known detector preferences — e.g. reload arenas where
+    # for maps with known detector preferences - e.g. reload arenas where
     # AKAZE + CLAHE outperforms SIFT on the purple / berry terrain.
     matcher_override: Optional[MatcherConfig] = None
 
@@ -193,7 +193,7 @@ COORDINATE_REGISTRY: Dict[str, CoordinateSet] = {
 # ==============================================================================
 # Chosen based on ``python dev_tools/feature_match_bench.py`` runs against
 # the map .pngs we ship. The bench uses synthetic 250x250 crops from each
-# map — that tends to favour SIFT because there's no UI overlay, no zoom
+# map - that tends to favour SIFT because there's no UI overlay, no zoom
 # mismatch, no compression. Real in-game performance may prefer AKAZE in
 # harder-to-match conditions (partial occlusion, scale drift).
 #
@@ -205,8 +205,8 @@ COORDINATE_REGISTRY: Dict[str, CoordinateSet] = {
 #   * blitz_stranger_things (snow-heavy): SIFT 60%, SIFT+CLAHE 80%. Big
 #     CLAHE win → force CLAHE on. Keep SIFT detector.
 #   * Other reload arenas (venture/oasis/slurp_rush/surfcity): SIFT
-#     outperforms AKAZE on synthetic crops (85–95% vs 75–80%). Keep SIFT
-#     default — users can flip to AKAZE globally via [POI] feature_detector
+#     outperforms AKAZE on synthetic crops (85-95% vs 75-80%). Keep SIFT
+#     default - users can flip to AKAZE globally via [POI] feature_detector
 #     if real-world data tells a different story.
 #
 # Users can change the global default at runtime via [POI] feature_detector
@@ -215,7 +215,7 @@ COORDINATE_REGISTRY: Dict[str, CoordinateSet] = {
 
 _AKAZE_CLAHE = MatcherConfig(
     detector=DetectorType.AKAZE,
-    akaze_threshold=0.0008,    # Slightly lower than default — more keypoints
+    akaze_threshold=0.0008,    # Slightly lower than default - more keypoints
     preprocess_clahe=True,
     clahe_clip_limit=2.5,
     lowe_ratio=0.80,           # AKAZE matches are tighter; loosen the ratio
@@ -234,7 +234,7 @@ _SIFT_CLAHE = MatcherConfig(
 MAP_MATCHER_OVERRIDES: Dict[str, MatcherConfig] = {
     'reload_elite_stronghold': _AKAZE_CLAHE,  # New map, user-reported issues
     'blitz_stranger_things':   _SIFT_CLAHE,   # Snow-heavy; CLAHE +20pp success
-    # Other reload arenas intentionally NOT overridden — synthetic bench
+    # Other reload arenas intentionally NOT overridden - synthetic bench
     # favours SIFT and they've been fine in production. Revisit if real
     # minimap capture data shows otherwise.
 }

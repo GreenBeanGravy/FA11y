@@ -3,12 +3,12 @@ Keybind toggle actions.
 
 Covers the keybind-toggle family:
 
-* ``toggle_keybinds``       — F8 hotkey; enables/disables FA11y response
-* ``toggle_continuous_ping`` — Alt+P; starts/stops the POI pinger
-* ``toggle_favorite_poi``   — Alt+Shift+F; adds/removes current POI from favorites
-* ``_refresh_poi_selector_after_favorite_toggle`` — helper
+* ``toggle_keybinds`` - F8 hotkey; enables/disables FA11y response
+* ``toggle_continuous_ping`` - Alt+P; starts/stops the POI pinger
+* ``toggle_favorite_poi`` - Alt+Shift+F; adds/removes current POI from favorites
+* ``_refresh_poi_selector_after_favorite_toggle`` - helper
 
-All state access goes through ``lib.app.state`` — no module-level globals.
+All state access goes through ``lib.app.state`` - no module-level globals.
 """
 from __future__ import annotations
 

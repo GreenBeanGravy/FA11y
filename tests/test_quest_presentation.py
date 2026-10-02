@@ -72,7 +72,7 @@ def test_rich_text_missing_count_expiry_and_duplicate_labels():
     quest['expiry'] = '0001-01-01T00:00:00Z'
     details = details_text(quest)
     assert 'target 10' in details and '0 of 10' not in details and 'Expires:' not in details
-    assert list_labels([quest, dict(quest, id='second')])[0].endswith('Separate quest 1 of 2')
+    assert list_labels([quest, dict(quest, id='second')])[0].endswith('separate quest 1 of 2')
     quest['expired'] = True
     assert filter_quests([quest]) == []
     assert filter_quests([quest], expired=True) == [quest]
@@ -145,7 +145,7 @@ def test_geno_reward_trackers_have_actual_cosmetic_names_and_unknown_progress():
     assert len(labels)==len(set(labels))==7
     assert any('Ordered Conduits of Power reward' in label for label in labels)
     assert all('Unlock progress unavailable' in label for label in labels)
-    assert not any('Selected pass reward quest' in label or 'Separate quest' in label or 'target 1' in label for label in labels)
+    assert not any('Selected pass reward quest' in label or 'separate quest' in label or 'target 1' in label for label in labels)
     assert 'not a playable quest' in details_text(rows[0])
     quests[0]['state']='Claimed'
     rows,_,_=prepare_quests(quests,contextual_templates=templates)

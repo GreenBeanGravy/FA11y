@@ -1,4 +1,4 @@
-# FA11y — Fortnite Accessibility Tool for the Blind and Visually Impaired
+# FA11y - Fortnite Accessibility Tool for the Blind and Visually Impaired
 
 ## FA11y is NOT a mod
 
@@ -29,7 +29,7 @@ what it currently does:
 - Auto-turn toward the selected POI when you start navigation
 - Announce match events like knockdowns, respawns,
   players-remaining changes, battle bus, storm phases, death, and spectating info
-- Full keyboard camera and mouse control — recentering camera, turning, scrolling,
+- Full keyboard camera and mouse control: recentering camera, turning, scrolling,
   left/right click
 
 ### Out of match
@@ -42,7 +42,7 @@ what it currently does:
 - Select game modes via the Discovery selector (Left Alt + apostrophe)
 - Browse Creative islands via the Discovery menu
 - Epic authentication / social menu (friends, party, requests)
-- Reload map rotation — query fortnite.gg and announce which map is live now
+- Reload map rotation: query fortnite.gg and announce which map is live now
   and what's next; optionally sync FA11y's `current_map` to it automatically
 - Custom POIs per map, favorites, visited-objects tracking
 
@@ -129,7 +129,7 @@ to another action, the two actions swap keys.
 | `;` | Announce direction you're facing |
 | `[` (inside inventory) | Announce rarity of selected item |
 | `L-Alt + M` | Match stats summary |
-| `1`–`5` | Announce details of hotbar slot 1–5 |
+| `1`-`5` | Announce details of hotbar slot 1-5 |
 
 ### Camera & mouse (keyboard-only control)
 

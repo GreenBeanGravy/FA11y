@@ -1,8 +1,8 @@
-"""Tests for the hub's drawn controls: StyledButton, NavList and TabbedBook."""
+"""Tests for the hub's drawn controls: StyledButton, NavList, TabbedBook, PageStack and ReadableText."""
 import pytest
 import wx
 
-from lib.hub.controls import NavItem, NavList, StyledButton, TabbedBook
+from lib.hub.controls import NavItem, NavList, PageStack, ReadableText, StyledButton, TabbedBook, TextLine
 
 
 @pytest.fixture
@@ -87,3 +87,34 @@ def test_tabbed_book_matches_notebook_api(frame):
     assert book.GetPageText(1) == "Tab 1"
     book.DeleteAllPages()
     assert book.GetPageCount() == 0
+
+
+def test_page_stack_switches_pages_without_moving_focus(frame):
+    button = wx.Button(frame, label="Stay here")
+    stack = PageStack(frame)
+    pages = []
+    for _ in range(2):
+        page = wx.Panel(stack)
+        wx.Button(page, label="Inside")
+        stack.AddPage(page)
+        pages.append(page)
+    frame.GetParent().Show()
+    button.SetFocus()
+    for index in (0, 1, 0):
+        stack.ChangeSelection(index)
+        wx.SafeYield()
+        assert wx.Window.FindFocus() is button
+        assert pages[index].IsShown() and not pages[1 - index].IsShown()
+
+
+def test_readable_text_is_a_tab_stop_only_with_text(frame):
+    text = ReadableText(frame, "")
+    assert not text.AcceptsFocusFromKeyboard()
+    text.SetLabel("Keybinds are active.")
+    assert text.AcceptsFocusFromKeyboard()
+    assert text.GetLabel() == "Keybinds are active."
+    text.separator = ", "
+    text.set_lines([TextLine("Fortnite"), TextLine(""), TextLine("Ready")])
+    assert text.accessible_text() == "Fortnite, Ready"
+    assert text.GetAccessible().GetName(0) == (wx.ACC_OK, "Fortnite, Ready")
+    assert text.GetAccessible().GetRole(0) == (wx.ACC_OK, wx.ROLE_SYSTEM_STATICTEXT)

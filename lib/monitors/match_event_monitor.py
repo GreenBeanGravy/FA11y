@@ -87,7 +87,7 @@ _RE_FINAL_COUNTDOWN = re.compile(
 # These events are fired by Fortnite when party state changes. Parsing them
 # from the log gives us sub-second latency and removes the need to poll the
 # social API for invites or membership changes. They deliberately do NOT have
-# their own config toggles — the API-polled versions they replace were also
+# their own config toggles - the API-polled versions they replace were also
 # always-on.
 #
 # OnPartyInviteReceived: someone invited you to their party.
@@ -98,12 +98,12 @@ _RE_PARTY_INVITE_RECEIVED = re.compile(
 _RE_PARTY_PING_RECEIVED = re.compile(
     r'LogOnlineParty:\s*MCP:\s*OnPingReceived:.*?Sender=\[(?P<sender>[^\]]+)\]'
 )
-# JoinParty (local request kicked off) — carries the other party's display
+# JoinParty (local request kicked off) - carries the other party's display
 # name inline, which is a rare luxury in these logs.
 _RE_PARTY_JOIN_ATTEMPT = re.compile(
     r'LogOnlineParty:\s*MCP:\s*JoinParty:.*?SourceDisplayName\((?P<name>[^)]+)\)'
 )
-# LogParty: Verbose: Adding [<name>] Id [MCP:<id>] ... — fires when a member
+# LogParty: Verbose: Adding [<name>] Id [MCP:<id>] ... - fires when a member
 # (you or someone else) is inserted into the party's in-game team. The line
 # contains the display name verbatim, so no partial-ID resolver is needed.
 # Only emitted at Verbose log level, which is Fortnite's default for this
@@ -131,7 +131,7 @@ _RE_MAP_OPEN = re.compile(
     r'LogUIActionRouter:.*Applying input config for leaf-most node \[MapScreenContainer\]'
 )
 # Inventory + map are in-match overlays, so they always close back to
-# Game. We don't match Menu->Game here (that's sidebar) — sidebar uses
+# Game. We don't match Menu->Game here (that's sidebar) - sidebar uses
 # its own close trigger below.
 _RE_BACK_TO_GAME = re.compile(
     r'LogUIActionRouter:.*InputMode:.*New \(ECommonInputMode::Game\)'
@@ -155,7 +155,7 @@ _RE_APPLYING_LEAF = re.compile(
 # vary across runs (the trailing _2147482645 is the widget instance id),
 # but a few nodes use a literal string instead and aren't suffixed.
 _TAB_NAME_BY_NODE: List[Tuple[re.Pattern, str]] = [
-    # Sidebar tabs — covers the in-match WBP_Sidebar_C_* and the lobby
+    # Sidebar tabs - covers the in-match WBP_Sidebar_C_* and the lobby
     # WBP_Sidebar_C_*. The user lands on whichever was last selected,
     # which is announced once the inner panel applies after the sidebar
     # itself.
@@ -231,7 +231,7 @@ class MatchEventMonitor(BaseMonitor):
 
         # Spectator mode flag. Set on death, cleared on respawn or match
         # end. We need this because view-target changes happen during
-        # normal play too (entering vehicles, getting downed, etc.) — only
+        # normal play too (entering vehicles, getting downed, etc.) - only
         # changes that happen while we're spectating should be announced.
         self._spectating = False
 
@@ -241,7 +241,7 @@ class MatchEventMonitor(BaseMonitor):
         self._map_open = False
         self._sidebar_open = False
 
-        # Last announced UI tab — used to dedupe the "Applying input
+        # Last announced UI tab - used to dedupe the "Applying input
         # config for leaf-most node [...]" lines that fire 2-3 times
         # for some lobby tabs and would otherwise re-announce.
         self._last_tab_name: Optional[str] = None
@@ -424,7 +424,7 @@ class MatchEventMonitor(BaseMonitor):
         # ones that are fire frequently when menus open/close, so handle
         # them before the heavier patterns.
         if 'LogUIActionRouter:' in line:
-            # Panel-specific opens. Don't `return` — the same line also
+            # Panel-specific opens. Don't `return` - the same line also
             # triggers tab-name announcement below for inner panels (e.g.
             # opening inventory should still announce 'Inventory opened';
             # we'd just skip it from the tab table since 'InventoryScreenContainer'
@@ -655,7 +655,7 @@ class MatchEventMonitor(BaseMonitor):
         m = _RE_PARTY_MEMBER_REMOVED.search(line)
         if m:
             account_id = m.group('id').strip()
-            # If it's us being removed, we left the party — drop the cache
+            # If it's us being removed, we left the party - drop the cache
             # and stay quiet (FA11y's existing self-state logic will
             # handle that path).
             if self.local_account_id and account_id == self.local_account_id:
@@ -672,7 +672,7 @@ class MatchEventMonitor(BaseMonitor):
     def _resolve_party_identity(self, partial_or_full_id: str) -> str:
         """Turn a party-log id (either a partial 'xxxxx...xxxxx' or a full
         MCP id) into a display name. Falls back to returning the raw id if
-        no resolver is configured or no match is found — better a clumsy
+        no resolver is configured or no match is found - better a clumsy
         announcement than silent."""
         resolver = self.name_resolver
         if resolver:

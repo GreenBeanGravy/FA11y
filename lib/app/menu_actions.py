@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def open_config_gui(reload_config: Optional[Callable] = None) -> None:
     """Open the FA11y configuration GUI.
 
-    ``reload_config`` is the callback invoked after the user saves — lives
+    ``reload_config`` is the callback invoked after the user saves - lives
     in FA11y.py and re-binds the action handlers / key bindings. Caller
     must supply it; we refuse to open the GUI without a reload path.
     """
@@ -99,7 +99,7 @@ def handle_custom_poi_gui(use_ppi: bool = False) -> None:
 
 
 def _stop_active_pinger_for_menu() -> None:
-    """Shared helper — locker stops the POI pinger when it opens."""
+    """Shared helper - locker stops the POI pinger when it opens."""
     pinger = state.get_active_pinger()
     if pinger:
         pinger.stop()
@@ -142,7 +142,7 @@ def open_locker_selector() -> None:
     launch_gui_thread_safe(_do_open_locker)
 
 
-# ``open_locker_viewer`` is an identical alias for ``open_locker_selector`` —
+# ``open_locker_viewer`` is an identical alias for ``open_locker_selector`` - 
 # the two keybinds opened the same GUI. Kept for back-compat with existing
 # FA11y action handler mapping that binds both names.
 open_locker_viewer = open_locker_selector

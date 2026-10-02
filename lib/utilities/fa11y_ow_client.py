@@ -2,7 +2,7 @@
 
 Streams ``/api/subscribe`` from the local FA11y-OW helper, maintains a live
 state cache, and dispatches change callbacks to subscribers. When the helper
-isn't running, the client sits idle and quietly retries — every consumer
+isn't running, the client sits idle and quietly retries - every consumer
 registered through ``add_listener`` simply doesn't fire.
 
 Design notes:
@@ -15,23 +15,23 @@ Design notes:
       get logged and swallowed so one buggy listener can't sever the stream.
 
 Public surface:
-    ``client.start()`` / ``client.stop()`` — lifecycle
-    ``client.is_running()``                — True between start/stop
-    ``client.is_connected()``              — True only while the SSE socket
+    ``client.start()`` / ``client.stop()`` - lifecycle
+    ``client.is_running()`` - True between start/stop
+    ``client.is_connected()`` - True only while the SSE socket
                                               is actively delivering events
-    ``client.get_state()``                 — last known full state dict
+    ``client.get_state()`` - last known full state dict
                                               (empty {} until first event)
     ``client.add_listener(key_or_type, cb)``
     ``client.remove_listener(key_or_type, cb)``
 
 Event types passed to listeners:
-    ``"stateChange"``   — payload: (changedKey, previousValue, newState)
-    ``"killEvent"``     — payload: kill dict from FA11y-OW
-    ``"teammateEvent"`` — payload: teammate-event dict
-    ``"itemEquipped"``  — payload: hotbar-item dict (or None when slot
+    ``"stateChange"`` - payload: (changedKey, previousValue, newState)
+    ``"killEvent"`` - payload: kill dict from FA11y-OW
+    ``"teammateEvent"`` - payload: teammate-event dict
+    ``"itemEquipped"`` - payload: hotbar-item dict (or None when slot
                           becomes empty)
-    ``"itemPickup"``    — payload: hotbar-item dict
-    ``<changedKey>``    — fires alongside ``stateChange`` for the specific
+    ``"itemPickup"`` - payload: hotbar-item dict
+    ``<changedKey>`` - fires alongside ``stateChange`` for the specific
                           key, payload (previousValue, newState)
 """
 from __future__ import annotations
@@ -60,7 +60,7 @@ ListenerCallable = Callable[..., None]
 
 
 class _Fa11yOwClient:
-    """Thread-safe singleton. Don't construct directly — use ``client``."""
+    """Thread-safe singleton. Don't construct directly - use ``client``."""
 
     def __init__(self) -> None:
         self._lock = threading.RLock()
@@ -140,7 +140,7 @@ class _Fa11yOwClient:
                 # Clean disconnect (server closed); reset backoff.
                 backoff = _INITIAL_BACKOFF
             except (requests.RequestException, ValueError) as e:
-                # ConnectionRefused / timeout / chunked-decode / JSON errors —
+                # ConnectionRefused / timeout / chunked-decode / JSON errors - 
                 # totally expected when the helper isn't up. Stay quiet on
                 # the common case (refused) and only log the noisy ones.
                 if not isinstance(e, requests.ConnectionError):

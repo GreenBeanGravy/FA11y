@@ -8,7 +8,7 @@ import wx
 
 from lib.hub import game_watch, status, theme
 from lib.hub.page import HubPage
-from lib.hub.widgets import GAP, StatusCard, button, label
+from lib.hub.widgets import GAP, StatusCard, button, label, text
 
 
 def latest_changelog_entry(path: str = "CHANGELOG.txt") -> str:
@@ -46,7 +46,7 @@ class HomePage(HubPage):
         self.update_button.Hide()
         self.content.Add(self.update_button, 0, wx.TOP, GAP)
 
-        self.keybind_text = label(self, "", theme.TEXT_SECONDARY)
+        self.keybind_text = text(self, "", theme.TEXT_SECONDARY)
         self.content.Add(self.keybind_text, 0, wx.TOP, 18)
 
         self.content.Add(label(self, "What's new", font=theme.heading_font(self, 1)), 0, wx.TOP, 18)

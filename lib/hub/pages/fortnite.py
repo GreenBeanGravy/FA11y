@@ -10,7 +10,7 @@ import wx
 
 from lib.hub import game_watch, sounds, theme
 from lib.hub.page import HubPage
-from lib.hub.widgets import GAP, Card, button, label
+from lib.hub.widgets import GAP, Card, button, label, text
 
 API_CHOICES = [("default", "Default"), ("dx11", "DirectX 11"), ("dx12", "DirectX 12"),
                ("performance", "Performance mode")]
@@ -52,12 +52,12 @@ class FortnitePage(HubPage):
         top.Add(self.play_button, 0, wx.ALIGN_CENTER_VERTICAL)
         self.content.Add(top, 0, wx.EXPAND | wx.BOTTOM, 6)
 
-        self.summary = label(self, "Checking your Fortnite install…", theme.TEXT_SECONDARY)
+        self.summary = text(self, "Checking your Fortnite install…", theme.TEXT_SECONDARY)
         self.content.Add(self.summary, 0, wx.BOTTOM, 12)
 
         # Sign-in notice for legendary, shown when downloads need it.
         self.signin_card = Card(self, "Sign in for downloads")
-        self.signin_text = label(self.signin_card, "Downloads, updates and Play need your Epic account.",
+        self.signin_text = text(self.signin_card, "Downloads, updates and Play need your Epic account.",
                                  wrap=620)
         self.signin_button = button(self.signin_card, "&Sign in with your Epic account", "user", "primary")
         self.signin_button.Bind(wx.EVT_BUTTON, lambda e: self._sign_in())
@@ -67,7 +67,7 @@ class FortnitePage(HubPage):
 
         # Shown when the Epic Games Launcher has Fortnite and legendary doesn't.
         self.egl_card = Card(self, "Epic Games Launcher install")
-        self.egl_text = label(self.egl_card, "", wrap=620)
+        self.egl_text = text(self.egl_card, "", wrap=620)
         self.egl_manage = button(self.egl_card, "Let FA11y &manage it (recommended)", variant="primary")
         self.egl_keep = button(self.egl_card, "&Keep using the Epic Games Launcher")
         self.egl_manage.Bind(wx.EVT_BUTTON, lambda e: self.take_over_egl_install())
@@ -76,8 +76,8 @@ class FortnitePage(HubPage):
         egl_buttons.Add(self.egl_manage, 0, wx.RIGHT, 8)
         egl_buttons.Add(self.egl_keep)
         self.egl_card.body.Add(self.egl_text)
-        self.egl_card.body.Add(label(self.egl_card,
-                                     "Letting FA11y manage it means faster launches and updates from this window, "
+        self.egl_card.body.Add(text(self.egl_card,
+                                    "Letting FA11y manage it means faster launches and updates from this window, "
                                      "with no redownload. Keeping the Epic Games Launcher syncs it with FA11y so "
                                      "both know about the same install.", theme.TEXT_SECONDARY, wrap=620), 0, wx.TOP, 6)
         self.egl_card.body.Add(egl_buttons, 0, wx.TOP, 10)
@@ -109,7 +109,7 @@ class FortnitePage(HubPage):
         theme.style_window(self.progress_panel)
         progress_sizer = wx.BoxSizer(wx.VERTICAL)
         self.gauge = wx.Gauge(self.progress_panel, range=1000, name="Progress")
-        self.progress_text = label(self.progress_panel, "", theme.TEXT_SECONDARY)
+        self.progress_text = text(self.progress_panel, "", theme.TEXT_SECONDARY)
         self.cancel_button = button(self.progress_panel, "&Cancel")
         self.cancel_button.Bind(wx.EVT_BUTTON, lambda e: self._cancel_operation())
         progress_sizer.Add(self.gauge, 0, wx.EXPAND)

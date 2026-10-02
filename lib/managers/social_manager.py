@@ -134,9 +134,9 @@ class SocialManager:
 
     def resolve_name_from_partial_id(self, id_or_partial: str) -> Optional[str]:
         """
-        Resolve an MCP id — full 32-char or an abbreviated
+        Resolve an MCP id - full 32-char or an abbreviated
         '<prefix>...<suffix>' form that Fortnite writes in party-event log
-        lines — to a display name by matching against cached friends and
+        lines - to a display name by matching against cached friends and
         party members. Returns None when no match is found so the caller
         can fall back to speaking the id.
 

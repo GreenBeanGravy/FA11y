@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class MatchFailure(Enum):
-    """Reason the feature-matching pipeline failed — set on the module's
+    """Reason the feature-matching pipeline failed - set on the module's
     ``last_match_failure`` global so debuggers / dev tools can inspect
     why a silent ``None`` came back."""
     NO_CAPTURE_FEATURES = "no keypoints in capture"
@@ -36,7 +36,7 @@ class MatchFailure(Enum):
     CV_ERROR = "cv2 raised an error during transform"
 
 
-# Legacy tunables — kept for backwards compat. The live values now come
+# Legacy tunables - kept for backwards compat. The live values now come
 # from ``MatcherConfig`` (per-map in ``coordinate_config``, or falling back
 # to the global config keys ``POI.feature_detector`` / ``POI.feature_clahe``).
 LOWE_RATIO = 0.75
@@ -46,7 +46,7 @@ HOMOGRAPHY_REPROJ_THRESHOLD = 5.0
 # Last failure reason (None if last match succeeded). Observable from dev tools.
 last_match_failure: Optional[MatchFailure] = None
 
-# Last match outcome, full detail — exposed for bench / dev tools.
+# Last match outcome, full detail - exposed for bench / dev tools.
 last_match_outcome: Optional[MatchOutcome] = None
 
 # Check if OpenCL is available and enable it. OpenCV's T-API will handle the rest.
@@ -150,7 +150,7 @@ class MapManager:
         self._capture_detector = None
         self._matcher = None
 
-        # Cache keyed by (map_name, detector, clahe) — see _cache_key.
+        # Cache keyed by (map_name, detector, clahe) - see _cache_key.
         self.map_load_cache: dict = {}
         self.last_map_printed: Optional[str] = None
 
@@ -169,7 +169,7 @@ class MapManager:
         cfg = _resolve_matcher_config(map_name)
         key = self._cache_key(map_name, cfg)
 
-        # Already loaded with the same detector config — just repoint.
+        # Already loaded with the same detector config - just repoint.
         if self.current_map == map_name and self.current_matcher_cfg == cfg:
             return True
 
@@ -221,7 +221,7 @@ class MapManager:
 # Global map manager instance
 map_manager = MapManager()
 
-# Last matched region (4 corners on map image) — used by storm monitor for scale
+# Last matched region (4 corners on map image) - used by storm monitor for scale
 last_matched_region = None
 
 
@@ -255,14 +255,14 @@ def _match_at_scale(captured_area, scale_factor=1):
 
     Delegates to ``feature_matcher.match`` using the MapManager's currently
     bound detector + matcher (set by ``switch_map``). The src points returned
-    by ``feature_matcher`` are in *small-capture* coordinates — they are
+    by ``feature_matcher`` are in *small-capture* coordinates - they are
     scaled back to full capture space here before the homography is applied
     to the corners.
     """
     global last_match_failure, last_match_outcome
 
     if map_manager.current_matcher_cfg is None:
-        # switch_map was never called — bail politely
+        # switch_map was never called - bail politely
         return _fail(MatchFailure.NO_MAP_DESCRIPTORS, "switch_map not called")
 
     cfg = map_manager.current_matcher_cfg
@@ -300,7 +300,7 @@ def _match_at_scale(captured_area, scale_factor=1):
     # rectangle using the same homography so the corners live in map-space
     # at the correct scale. The simplest fix: compute the full-size
     # rectangle and apply the homography to it with src_pts already in
-    # small-space — but since corners came from small-space, we instead
+    # small-space - but since corners came from small-space, we instead
     # scale the 4 corner points back out.
     if scale_factor > 1 and outcome.homography is not None:
         try:

@@ -156,7 +156,7 @@ def is_purple(pixel):
 def _is_button_pixel(pixel):
     """Check if a pixel belongs to a team size button (selected or unselected).
     Selected: bright blue (0,85,254) or green (200,255,0)
-    Unselected: dark blue (82,48,217) — distinct from gradient background (~25,13,70)"""
+    Unselected: dark blue (82,48,217) - distinct from gradient background (~25,13,70)"""
     if pixel is None:
         return False
     r, g, b = pixel
@@ -385,7 +385,7 @@ def _scan_team_buttons(screen, preset):
         logger.info(f"[lobby] team scan: found {len(buttons)} buttons at y={scan_y}: {[(cx, 'SEL' if s else 'unsel') for cx, s in buttons]}")
         return buttons, scan_y
 
-    # Nothing found — log diagnostic info at a few key y values
+    # Nothing found - log diagnostic info at a few key y values
     for diag_y in [170, 250, 330, 350, 460]:
         pixels = []
         for x in range(TEAM_SCAN_X_START, TEAM_SCAN_X_END, 40):
@@ -581,7 +581,7 @@ def read_fill_state(screen, fill_pos):
 
 def read_creative_state(screen):
     """Read creative lobby state.
-    Returns (privacy_str, fill_str) — either may be None."""
+    Returns (privacy_str, fill_str) - either may be None."""
     pub_px = get_px(screen, *CREATIVE_PUBLIC_SAMPLE)
     priv_px = get_px(screen, *CREATIVE_PRIVATE_SAMPLE)
 
@@ -662,7 +662,7 @@ def _build_debug_composite(screen, points):
 
 
 # =====================================================================
-# Public action functions — wired to keybinds in FA11y.py
+# Public action functions - wired to keybinds in FA11y.py
 # =====================================================================
 
 def read_mode_status():

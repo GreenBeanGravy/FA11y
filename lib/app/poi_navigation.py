@@ -4,17 +4,17 @@ POI categorization + selection cycling.
 Handles the big POI-navigation keybind cluster that was previously
 spaghettied through ``FA11y.py``:
 
-* ``get_poi_category`` — which bucket does a POI name belong in?
-* ``get_pois_by_category`` — list POIs in a given category for the
+* ``get_poi_category`` - which bucket does a POI name belong in?
+* ``get_pois_by_category`` - list POIs in a given category for the
   current map
-* ``get_display_poi_name`` — strip the ``"Closest "`` prefix for speech
-* ``sort_pois_by_position`` — quadrant + position ordering
-* ``get_poi_position_description`` — "top-left of top-right quadrant"
-* ``get_poi_categories`` — which categories are non-empty for this map
-* ``cycle_poi_category`` / ``cycle_poi`` / ``cycle_map`` — the three
+* ``get_display_poi_name`` - strip the ``"Closest "`` prefix for speech
+* ``sort_pois_by_position`` - quadrant + position ordering
+* ``get_poi_position_description`` - "top-left of top-right quadrant"
+* ``get_poi_categories`` - which categories are non-empty for this map
+* ``cycle_poi_category`` / ``cycle_poi`` / ``cycle_map`` - the three
   keybind handlers
 
-State access goes through ``lib.app.state`` — no module-level globals.
+State access goes through ``lib.app.state`` - no module-level globals.
 ``speaker`` is reached via ``state.speaker`` (set by FA11y at startup).
 """
 from __future__ import annotations

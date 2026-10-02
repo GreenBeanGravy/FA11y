@@ -37,7 +37,7 @@ class PassesView(EmbeddedView):
             layout.Add(wx.StaticText(panel, label='&Page:'), 0, wx.LEFT | wx.TOP, 5)
             choice = wx.Choice(panel)
             page_list = pages(definition)
-            choice.SetItems([f'{i+1} of {len(page_list)}: '+('Bonus — ' if c.get('group')=='Bonus' else '')+c['name'] for i,(c,p) in enumerate(page_list)])
+            choice.SetItems([f'{i+1} of {len(page_list)}: '+('Bonus: ' if c.get('group')=='Bonus' else '')+c['name'] for i,(c,p) in enumerate(page_list)])
             choice.SetSelection(0)
             layout.Add(choice, 0, wx.EXPAND | wx.ALL, 5)
             layout.Add(wx.StaticText(panel, label='&Rewards:'), 0, wx.LEFT, 5)
@@ -161,7 +161,7 @@ class PassesView(EmbeddedView):
     def render_page(self, tab, preserve=False):
         selection = tab['list'].GetSelection() if preserve else 0
         category, page = self.current(tab)
-        labels = [self.display_name(r)+' — '+reward_status(tab['definition'],category,page,r,self.snapshot)
+        labels = [self.display_name(r)+', '+reward_status(tab['definition'],category,page,r,self.snapshot)
                   for r in page['rewards']]
         tab['list'].SetItems(labels)
         if labels:
@@ -260,7 +260,7 @@ class PassesView(EmbeddedView):
             action=self.api.prepare(tab['definition']['key'],kind if kind in ('unlock','purchase') else 'claim',ids,self.snapshot)
         except PassError as exc:
             self.say(str(exc));return
-        confirm=wx.MessageDialog(self,action.summary+'\n\nContinue?', 'FA11y Locker Passes — Confirm',
+        confirm=wx.MessageDialog(self,action.summary+'\n\nContinue?', 'FA11y Locker Passes: Confirm',
                                  wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
         try:
             if confirm.ShowModal()!=wx.ID_YES:return

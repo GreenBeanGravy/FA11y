@@ -767,9 +767,6 @@ class POIGUI(AccessibleDialog):
                 self.update_current_buttons()
                 if self.current_buttons:
                     self.current_button_index = 0
-                
-                map_name = self.poi_data.maps[new_map].name
-                speaker.speak(map_name)
         
         event.Skip()
     

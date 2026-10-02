@@ -1018,7 +1018,7 @@ class EpicAuth:
 
                 # Extract template IDs (these are the cosmetic IDs).
                 # Favorite status rides along in the same profile response,
-                # so collect it here too — the locker GUI uses it to
+                # so collect it here too - the locker GUI uses it to
                 # pre-mark favorites on load.
                 owned_ids = []
                 favorite_ids = set()
@@ -1350,7 +1350,7 @@ _epic_auth_singleton_lock = threading.Lock()
 def get_epic_auth_instance() -> EpicAuth:
     """Get or create the Epic auth singleton.
 
-    The instance was previously rebuilt every call — that meant each
+    The instance was previously rebuilt every call - that meant each
     locker / social / discovery open re-registered configs, reread the
     cached auth JSON, and reset every transient field (EOS token,
     refresh state, etc.). Cached EOS tokens were silently thrown away

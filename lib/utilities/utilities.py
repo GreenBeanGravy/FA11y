@@ -179,7 +179,7 @@ def _migrate_current_map_slug():
     cfg_path = os.path.join('config', 'config.txt')
     if os.path.exists(cfg_path):
         try:
-            # Must preserve key case — default ConfigParser lowercases all
+            # Must preserve key case - default ConfigParser lowercases all
             # option names on write, which trashes every TitleCase key in the
             # file (MouseKeys, Toggle Keybinds, etc.) and causes update_config
             # to fall back to defaults for every value.
@@ -568,7 +568,7 @@ DEFAULT_CONFIG = get_default_config()
 
 # Register app_config with ConfigManager as a ``custom`` format delegating
 # to the legacy ``read_config`` / ``save_config`` helpers in this module.
-# This unifies the two config paths — both ``config_manager.get('app_config')``
+# This unifies the two config paths - both ``config_manager.get('app_config')``
 # and ``read_config()`` now hit the same on-disk source and the same
 # in-memory cache (the legacy ``_config_cache``), so there's no drift.
 #
@@ -874,7 +874,7 @@ def read_config(use_cache: bool = True) -> configparser.ConfigParser:
         
         # Update cache (ConfigManager's app_config registry delegates to
         # this function via its custom_loader, so this is the one-and-only
-        # cache — no manual sync needed any more).
+        # cache - no manual sync needed any more).
         _config_cache = config
         _config_cache_time = time.time()
 
@@ -994,7 +994,7 @@ def update_config(current_config: configparser.ConfigParser) -> configparser.Con
                         default_desc = default_desc[:-1]
 
                 # configparser strips leading spaces, so a leading-space
-                # encoding round-trips differently — match its native form.
+                # encoding round-trips differently - match its native form.
                 if user_value_part:
                     final_value = f'{user_value_part} "{default_desc}"'
                 else:

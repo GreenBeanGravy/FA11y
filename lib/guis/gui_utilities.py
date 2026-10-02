@@ -21,7 +21,7 @@ SPACE_BETWEEN_ASSOCIATED_CONTROL_VERTICAL = 3
 class DisplayableError(Exception):
     """Error intended to be surfaced to the user via a dialog.
 
-    Shared across GUI modules — previously duplicated in five places.
+    Shared across GUI modules - previously duplicated in five places.
     """
 
     def __init__(self, displayMessage: str, titleMessage: str = "Error"):
@@ -336,7 +336,7 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
                     wx.CallAfter(focus_widget.SetFocus)
             return
         _last_focus_attempt[key] = now
-        # id() is recycled — prune so a recycled id can't false-dedupe.
+        # id() is recycled - prune so a recycled id can't false-dedupe.
         if len(_last_focus_attempt) > 32:
             cutoff = now - _FORCE_FOCUS_DEDUPE_WINDOW_S
             _last_focus_attempt_keep = {

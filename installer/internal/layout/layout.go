@@ -24,6 +24,8 @@ const (
 const (
 	ExitNoUpdate = 0
 	ExitUpdated  = 1
+	// ExitUpdateAvailable is returned by Updater.exe --check.
+	ExitUpdateAvailable = 3
 )
 
 type Layout struct {

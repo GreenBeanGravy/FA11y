@@ -10,13 +10,13 @@ if TYPE_CHECKING:
     from lib.managers.poi_data_manager import POIData  # noqa: F401
 
 
-# Init-once globals — FA11y.py assigns these at startup.
+# Init-once globals - FA11y.py assigns these at startup.
 speaker: "Optional[Auto]" = None
 logger: logging.Logger = logging.getLogger("fa11y.app")
 update_sound = None
 
 
-# Thread-synchronization events — authoritative; FA11y aliases these.
+# Thread-synchronization events - authoritative; FA11y aliases these.
 shutdown_requested: threading.Event = threading.Event()
 stop_key_listener: threading.Event = threading.Event()
 auth_expired: threading.Event = threading.Event()
@@ -30,11 +30,11 @@ match_options_busy: threading.Event = threading.Event()
 visited_objects_gui_open: threading.Event = threading.Event()
 custom_poi_gui_open: threading.Event = threading.Event()
 
-# Wizard takes exclusive control — key listener short-circuits while set.
+# Wizard takes exclusive control - key listener short-circuits while set.
 wizard_open: threading.Event = threading.Event()
 
 
-# Lazy singletons — use getters; ``import`` would freeze the reference.
+# Lazy singletons - use getters; ``import`` would freeze the reference.
 _poi_data_instance = None
 _active_pinger = None
 _social_manager = None

@@ -14,6 +14,7 @@ from typing import Callable, Dict, Optional, List, Any, Tuple, TYPE_CHECKING
 
 import wx
 import wx.lib.scrolledpanel as scrolled
+from lib.hub.accessibility import annotate
 from lib.hub.controls import StyledButton, TabbedBook
 from lib.guis.config_layout import (
     CONTROL_WIDTH, KEY_WIDTH, group_for, finish_sections, reset_sections, section_for, setting_label,
@@ -143,7 +144,7 @@ class ConfigView(EmbeddedView):
         # Polling timer picks up mouse buttons (EVT_CHAR_HOOK can't see them).
         self._capture_timer: Optional[wx.Timer] = None
         # Keys already held when capture starts (e.g. the Enter that
-        # activated the button) — ignored until physically released so the
+        # activated the button) - ignored until physically released so the
         # activator is never sampled as the user's binding.
         self._capture_ignore_keys: set = set()
 
@@ -342,7 +343,7 @@ class ConfigView(EmbeddedView):
         return False
 
     def onPageChanged(self, event):
-        """Handle notebook page change, build tab lazily, announce."""
+        """Build the tab on its first visit. The tab control itself tells screen readers its name."""
         page_index = event.GetSelection()
         if page_index >= 0 and page_index < self.notebook.GetPageCount():
             tab_text = self.notebook.GetPageText(page_index)
@@ -350,24 +351,8 @@ class ConfigView(EmbeddedView):
             # snappy when the user only ever touches one or two tabs.
             if hasattr(self, '_tab_built') and not self._tab_built.get(tab_text, False):
                 self._build_tab(tab_text)
-            speaker.speak(f"{tab_text} tab")
         event.Skip()
 
-    def onWidgetFocus(self, event):
-        """Handle widget focus events to announce descriptions"""
-        widget = event.GetEventObject()
-        wx.CallAfter(self.announceDescription, widget)
-        event.Skip()
-    
-    def announceDescription(self, widget):
-        """Announce only the description part after NVDA finishes"""
-        try:
-            description = getattr(widget, 'description', '')
-            if description:
-                wx.CallLater(150, lambda: speaker.speak(description))
-        except Exception as e:
-            logger.error(f"Error announcing description: {e}")
-    
     def findWidgetKey(self, widget):
         """Find the setting key for a widget by looking at its parent's label"""
         try:
@@ -384,7 +369,7 @@ class ConfigView(EmbeddedView):
         """Create empty tab structure"""
         self.tabs = {}
 
-        # Per-map GameObjects sections aren't separate tabs anymore — they
+        # Per-map GameObjects sections aren't separate tabs anymore - they
         # render inside the GameObjects tab via a Map dropdown.
         # A lone tab has no notebook; its panel sits directly in the view.
         for tab_name in self.tab_names:
@@ -555,7 +540,7 @@ class ConfigView(EmbeddedView):
                     # GameObjects tab's map sub-panels.
                     continue
                 elif section == "Keybinds":
-                    # Keybinds aren't candidates for Advanced — they're
+                    # Keybinds aren't candidates for Advanced - they're
                     # all user-facing customisation by definition.
                     if _matches("Keybinds"):
                         self.create_keybind_entry("Keybinds", key, value_string)
@@ -628,7 +613,7 @@ class ConfigView(EmbeddedView):
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
 
     # ------------------------------------------------------------------
-    # General tab — a few settings pulled out of other sections.
+    # General tab - a few settings pulled out of other sections.
     # ------------------------------------------------------------------
 
     def _general_value_string(self, key: str) -> str:
@@ -666,7 +651,7 @@ class ConfigView(EmbeddedView):
         panel.SetupScrolling(scroll_x=False, scroll_y=True)
 
     # ------------------------------------------------------------------
-    # GameObjects tab — universal settings + map dropdown + per-map
+    # GameObjects tab - universal settings + map dropdown + per-map
     # sub-panels (replaces the old per-map notebook tabs).
     # ------------------------------------------------------------------
 
@@ -681,11 +666,11 @@ class ConfigView(EmbeddedView):
         panel.SetSizer(panel.sizer)
         reset_sections(panel)
 
-        # Reset trackers — Advanced-routed keys keep their existing entries.
+        # Reset trackers - Advanced-routed keys keep their existing entries.
         self.tab_widgets["GameObjects"] = []
         self.tab_variables["GameObjects"] = {}
 
-        # 1. Universal [GameObjects] settings (skip ADVANCED_KEYS — those go on Advanced).
+        # 1. Universal [GameObjects] settings (skip ADVANCED_KEYS - those go on Advanced).
         if self.config.config.has_section("GameObjects"):
             for key in self.config.config["GameObjects"]:
                 if key in ADVANCED_KEYS:
@@ -712,10 +697,8 @@ class ConfigView(EmbeddedView):
                 size=(section.parent.FromDIP(CONTROL_WIDTH * 2), -1),
             )
             self._gameobjects_map_choice.SetSelection(0)
-            self._gameobjects_map_choice.description = (
-                "Pick which map's per-object tracking settings to view and edit."
-            )
-            self._gameobjects_map_choice.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+            annotate(self._gameobjects_map_choice, name="Map",
+                     description="Pick which map's per-object tracking settings to view and edit.")
             self._gameobjects_map_choice.Bind(wx.EVT_CHOICE, self._on_gameobjects_map_changed)
             section.add_row(map_label, self._gameobjects_map_choice)
 
@@ -834,9 +817,9 @@ class ConfigView(EmbeddedView):
         value, description = self.extract_value_and_description(value_string)
         checkbox = wx.CheckBox(section.parent, label=setting_label(key, tab_name))
         checkbox.SetValue(value.lower() == 'true')
-        checkbox.description = description
+        checkbox.description = description  # saved with the value
+        annotate(checkbox, description=description)
 
-        checkbox.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         checkbox.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
         self._track_changes(checkbox, tab_name, key)
 
@@ -877,9 +860,8 @@ class ConfigView(EmbeddedView):
             entry = wx.TextCtrl(section.parent, value=value, style=wx.TE_PROCESS_ENTER,
                                 size=(section.parent.FromDIP(CONTROL_WIDTH * 2), -1))
             entry.Bind(wx.EVT_CHAR_HOOK, self.onTextCharHook)
-        entry.description = description
-
-        entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        entry.description = description  # saved with the value
+        annotate(entry, name=label.GetLabel(), description=description)
         self._track_changes(entry, tab_name, key)
 
         self._ensure_tracking(tab_name)
@@ -903,13 +885,12 @@ class ConfigView(EmbeddedView):
 
         entry = wx.SpinCtrl(section.parent, size=(section.parent.FromDIP(CONTROL_WIDTH), -1),
                             min=0, max=100, initial=scaled_value)
-        entry.description = description
+        entry.description = description  # saved with the value
+        annotate(entry, name=label.GetLabel(), description=description)
 
         test_button = StyledButton(section.parent, label="Test")
-        test_button.description = f"Test {setting_label(key, tab_name)}"
+        annotate(test_button, name=f"Test {setting_label(key, tab_name)}")
 
-        entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
-        test_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         self._track_changes(entry, tab_name, key)
         test_button.Bind(wx.EVT_BUTTON, lambda evt: self.test_volume(key, str(entry.GetValue() / 100.0)))
 
@@ -944,9 +925,9 @@ class ConfigView(EmbeddedView):
         if value.lower() in choice.choice_values:
             selected = choice.choice_values.index(value.lower())
         choice.SetSelection(selected)
-        choice.description = description
+        choice.description = description  # saved with the value
+        annotate(choice, name=text, description=description)
 
-        choice.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         self._track_changes(choice, tab_name, key)
 
         self._ensure_tracking(tab_name)
@@ -990,10 +971,10 @@ class ConfigView(EmbeddedView):
         # shows a readable name and is never parsed back.
         keybind_button = StyledButton(section.parent, label=key,
                                       size=(section.parent.FromDIP(KEY_WIDTH), -1))
-        keybind_button.description = description
+        keybind_button.description = description  # saved with the value
+        annotate(keybind_button, description=description)
         self._set_keybind_value(key, keybind_button, value)
 
-        keybind_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         keybind_button.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
         keybind_button.Bind(wx.EVT_BUTTON, lambda evt: self.capture_keybind(key, keybind_button))
 
@@ -1136,7 +1117,7 @@ class ConfigView(EmbeddedView):
 
         # Snapshot whatever is held right now (e.g. the Enter that activated
         # this button). Those keys are excluded from capture until released,
-        # so the activator can't become the binding — but the user's first
+        # so the activator can't become the binding - but the user's first
         # real keypress is captured immediately, even if it lands before an
         # all-keys-up polling tick.
         self._capture_ignore_keys = get_pressed_main_keys()
@@ -1156,7 +1137,7 @@ class ConfigView(EmbeddedView):
             self._capture_timer.Stop()
 
     def _on_capture_timer(self, _event):
-        """Timer tick — try to capture a keybind from current global key state."""
+        """Timer tick - try to capture a keybind from current global key state."""
         if not self.capturing_key:
             self._stop_capture_polling()
             return
@@ -1280,7 +1261,7 @@ class ConfigView(EmbeddedView):
                 return
 
         # The single-letter shortcuts below should NOT fire when a modifier
-        # is held — Ctrl+R / Ctrl+T would otherwise hijack browser-style
+        # is held - Ctrl+R / Ctrl+T would otherwise hijack browser-style
         # combos and trigger reset/test unexpectedly.
         modifier_held = (event.ControlDown() or event.AltDown() or event.MetaDown())
 
@@ -1369,7 +1350,7 @@ class ConfigView(EmbeddedView):
             if not widgets:
                 continue
             # Per-map sections like "MainGameObjects" render inside the
-            # GameObjects tab via the Map dropdown — show that in the label.
+            # GameObjects tab via the Map dropdown - show that in the label.
             if (tab_internal.endswith("GameObjects")
                     and tab_internal != "GameObjects"):
                 map_token = tab_internal[:-len("GameObjects")]
@@ -1706,7 +1687,7 @@ class _SettingSearchDialog(wx.Dialog):
         self._list.Bind(wx.EVT_CHAR_HOOK, self._on_list_char_hook)
 
         self._populate_list("")
-        # Search field gets focus by default — start typing immediately.
+        # Search field gets focus by default - start typing immediately.
         wx.CallAfter(self._search.SetFocus)
 
     def _populate_list(self, query: str) -> None:
@@ -1736,7 +1717,7 @@ class _SettingSearchDialog(wx.Dialog):
 
         self._list.Clear()
         for tab_display, tab_internal, key, _description in self._filtered:
-            self._list.Append(f"{setting_label(key, tab_internal)}  —  {tab_display}")
+            self._list.Append(f"{setting_label(key, tab_internal)}, {tab_display}")
         if self._filtered:
             self._list.SetSelection(0)
         count = len(self._filtered)
