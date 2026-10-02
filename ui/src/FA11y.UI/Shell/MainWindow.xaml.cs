@@ -151,8 +151,15 @@ public partial class MainWindow : Window
         bridge.On("home.changed", _ => RefreshIfShown("home"));
         bridge.On("account.changed", _ => RefreshIfShown("account"));
         bridge.On("about.changed", _ => RefreshIfShown("about"));
+        // These pages keep their data ready before they are opened (after sign in, or when it changes).
+        bridge.On("social.changed", _ => GetPage("social").Refresh());
+        bridge.On("locker.changed", _ => GetPage("locker").Refresh());
         if (Environment.GetEnvironmentVariable("FA11Y_UI_TEST") == "1")
+        {
             bridge.On("test.screenshot", data => SaveScreenshot(data.Str("path")));
+            bridge.On("test.locker_category", data => (GetPage("locker") as LockerPage)?.OpenCategoryForTest(data.Str("name")));
+            bridge.On("test.social_tab", data => (GetPage("social") as SocialPage)?.SelectTabForTest(data.Str("tab")));
+        }
     }
 
     /// <summary>Test builds only (FA11Y_UI_TEST=1): draw the window to a PNG, since screen capture can't see it.</summary>
@@ -194,6 +201,8 @@ public partial class MainWindow : Window
             "home" => new HomePage(),
             "account" => new AccountPage(),
             "about" => new AboutPage(),
+            "social" => new SocialPage(),
+            "locker" => new LockerPage(),
             _ => new PlaceholderPage(key, Specs.First(s => s.Key == key).Label),
         };
         var element = (FrameworkElement)page;

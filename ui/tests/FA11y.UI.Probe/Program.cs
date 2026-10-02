@@ -15,6 +15,10 @@ namespace FA11y.UI.Probe;
 /// keyboard while it runs. Exit code 0 when everything passed.
 ///
 ///   FA11y.UI.Probe --python PATH_TO_PYTHON [--fake-core PATH] [--root DIR]
+///   FA11y.UI.Probe --python PATH --tree social,locker [--shots DIR]
+///
+/// With --tree it types nothing and needs no foreground rights: it shows each listed page (and the
+/// extra views the page-specific checks open) and checks what a screen reader would find there.
 /// </summary>
 internal static class Program
 {
@@ -41,9 +45,13 @@ internal static class Program
     {
         string python = "python";
         string? fakeCore = null;
+        string[]? treeKeys = null;
+        string? shotsDir = null;
         string root = Path.Combine(Path.GetTempPath(), "fa11y-probe-root");
         for (var i = 0; i < args.Length - 1; i++)
         {
+            if (args[i] == "--tree") treeKeys = args[i + 1].Split(',');
+            if (args[i] == "--shots") shotsDir = args[i + 1];
             if (args[i] == "--python") python = args[i + 1];
             if (args[i] == "--fake-core") fakeCore = args[i + 1];
             if (args[i] == "--root") root = args[i + 1];
@@ -99,7 +107,10 @@ internal static class Program
                 Check(false, "ui.ready arrived");
             Thread.Sleep(1200); // let the pages fill in, as a user would wait
 
-            Run(core, uiPid);
+            if (treeKeys != null)
+                RunTree(core, treeKeys, shotsDir);
+            else
+                Run(core, uiPid);
 
             ui.Refresh();
             Info($"UI process working set: {ui.WorkingSet64 / (1024 * 1024)} MB, private {ui.PrivateMemorySize64 / (1024 * 1024)} MB");
@@ -226,6 +237,176 @@ internal static class Program
         Check(Foreground() == Handle(_window), "the summoned window is in front");
         var f = AutomationElement.FocusedElement;
         Check(InSidebar(f), $"summon puts focus on the sidebar (is \"{Safe(f)}\")");
+    }
+
+    // Tree mode: no keys, no foreground ----------------------------------------------------
+
+    private static void RunTree(Process core, string[] keys, string? shotsDir)
+    {
+        if (shotsDir != null)
+            Directory.CreateDirectory(shotsDir);
+        _pagesList = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List),
+            new PropertyCondition(AutomationElement.NameProperty, "Pages")))!;
+        foreach (var key in keys)
+        {
+            var page = Pages.First(p => p.Key == key);
+            Console.WriteLine($"\n== {page.Title}");
+            Command(core, $"show-page {key}");
+            Check(WaitFor(() => _window.Current.Name == $"FA11y - {page.Title}", 3000), $"the window shows {page.Title}");
+            Thread.Sleep(1500); // the page loads its data
+
+            if (key == "social")
+                SocialChecks(core, shotsDir);
+            else if (key == "locker")
+                LockerChecks(core, shotsDir);
+            else
+                CheckFocusable($"{page.Title}");
+        }
+    }
+
+    private static void Command(Process core, string line) => core.StandardInput.WriteLine(line);
+
+    private static void Shot(Process core, string? dir, string name)
+    {
+        if (dir == null)
+            return;
+        var path = Path.Combine(dir, name + ".png");
+        if (File.Exists(path))
+            File.Delete(path);
+        Command(core, $"screenshot {path}");
+        WaitFor(() => File.Exists(path), 3000);
+        Info($"screenshot: {path}");
+    }
+
+    /// <summary>Everything a screen reader can land on in the visible page: named, with a real role.</summary>
+    private static List<AutomationElement> CheckFocusable(string what)
+    {
+        var all = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.IsKeyboardFocusableProperty, true))
+            .Cast<AutomationElement>()
+            .Where(e => { try { return !e.Current.IsOffscreen && !InSidebar(e) && e.Current.ControlType != ControlType.MenuBar
+                                       && e.Current.ControlType != ControlType.MenuItem && !Same(e, _pagesList); } catch { return false; } })
+            .ToList();
+        Console.WriteLine($"   focusable in {what}:");
+        foreach (var el in all)
+        {
+            var c = el.Current;
+            Console.WriteLine($"   {Short(c.ControlType),-9} \"{Clip(c.Name)}\"" + (c.HelpText.Length > 0 ? $"  [help: {Clip(c.HelpText)}]" : ""));
+            Check(c.Name.Trim().Length > 0, $"focusable {Short(c.ControlType)} has a name");
+            Check(c.ControlType != ControlType.Pane && c.ControlType != ControlType.Custom && c.ControlType != ControlType.Group,
+                $"\"{Clip(c.Name)}\" has a real role (is {Short(c.ControlType)})");
+        }
+        var stray = _window.FindAll(TreeScope.Descendants, Condition.TrueCondition).Cast<AutomationElement>()
+            .Where(e => { try { return e.Current.Name.Contains('_') || (e.Current.ControlType == ControlType.Button && e.FindFirst(TreeScope.Children, Condition.TrueCondition) != null); } catch { return false; } })
+            .Select(e => e.Current.Name).ToList();
+        Check(stray.Count == 0, $"no access key underscores or label fragments inside buttons ({string.Join(", ", stray)})");
+        return all;
+    }
+
+    private static AutomationElement? Named(IEnumerable<AutomationElement> elements, string name, ControlType? type = null) =>
+        elements.FirstOrDefault(e => e.Current.Name == name && (type == null || e.Current.ControlType == type));
+
+    private static List<string> ItemNames(AutomationElement list) =>
+        list.FindAll(TreeScope.Children, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem))
+            .Cast<AutomationElement>().Select(e => e.Current.Name).ToList();
+
+    private static void SocialChecks(Process core, string? shots)
+    {
+        var focusable = CheckFocusable("Friends");
+        var friends = Named(focusable, "Friends", ControlType.List);
+        if (Check(friends != null, "the friends list is a List named Friends"))
+        {
+            var items = ItemNames(friends!);
+            Info("items: " + string.Join(" | ", items));
+            Check(items.SequenceEqual(new[] { "Bob, favorite", "amy", "Cy", "Dana", "Zed" }),
+                "friends: the favorite first, then by name, each item named for what it is");
+        }
+        foreach (var tab in new[] { "Friends", "Friend Requests", "Party", "Me" })
+            Check(_window.FindFirst(TreeScope.Descendants, new AndCondition(
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+                    new PropertyCondition(AutomationElement.NameProperty, tab))) != null, $"a tab named {tab}");
+        foreach (var name in new[] { "All Friends", "Favorites", "Search", "Add Friend", "Invite to Party", "Request to Join", "Remove Friend" })
+            Check(Named(focusable, name) != null, $"{name} is focusable and named");
+        Check(Named(focusable, "All Friends", ControlType.RadioButton) != null, "All Friends is a radio button");
+        Shot(core, shots, "social-friends");
+
+        Command(core, "social-tab Friend Requests");
+        Thread.Sleep(900);
+        focusable = CheckFocusable("Friend Requests");
+        var requests = Named(focusable, "Friend requests", ControlType.List);
+        if (Check(requests != null, "the requests list is a List named Friend requests"))
+            Check(ItemNames(requests!).SequenceEqual(new[] { "Request from Ann", "Request from Ben" }),
+                "requests read \"Request from Ann\"");
+        foreach (var name in new[] { "Incoming", "Outgoing", "Accept", "Decline" })
+            Check(Named(focusable, name) != null, $"{name} is focusable and named");
+
+        Command(core, "social-tab Party");
+        Thread.Sleep(900);
+        focusable = CheckFocusable("Party");
+        var party = Named(focusable, "Party members", ControlType.List);
+        if (Check(party != null, "the party list is a List named Party members"))
+            Check(ItemNames(party!).SequenceEqual(new[] { "TestPlayer (Leader)", "Pal" }), "party members read with (Leader)");
+        foreach (var name in new[] { "Promote to Leader", "Kick Member", "Leave Party" })
+            Check(Named(focusable, name) != null, $"{name} is focusable and named");
+        Shot(core, shots, "social-party");
+
+        Command(core, "social-tab Me");
+        Thread.Sleep(1200);
+        focusable = CheckFocusable("Me");
+        foreach (var name in new[] { "Epic Account Stats", "Fortnite Stats", "Fortnite Ranked Stats" })
+            Check(Named(focusable, name, ControlType.Edit) != null, $"{name} is a named read-only edit box");
+        Check(Named(focusable, "Refresh Account Information") != null, "Refresh Account Information is focusable and named");
+        Shot(core, shots, "social-me");
+    }
+
+    private static void LockerChecks(Process core, string? shots)
+    {
+        var focusable = CheckFocusable("the locker menu");
+        Check(Named(focusable, "Logged in as: TestPlayer", ControlType.Text) != null, "the login status is readable text");
+        Check(Named(focusable, "Show Only My Cosmetics", ControlType.CheckBox) != null, "Show Only My Cosmetics is a check box");
+        var categories = Named(focusable, "Select a category", ControlType.List);
+        if (Check(categories != null, "the categories are a List named Select a category"))
+        {
+            var items = ItemNames(categories!);
+            Check(items.Count > 5 && items[0] == "All Cosmetics" && items[1] == "Outfit", "categories start with All Cosmetics, Outfit");
+        }
+        foreach (var name in new[] { "View Equipped", "Saved Loadouts", "Save Current as Loadout", "Battle Passes" })
+            Check(Named(focusable, name) != null, $"{name} is focusable and named");
+        Check(_window.FindFirst(TreeScope.Descendants, new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text),
+                new PropertyCondition(AutomationElement.NameProperty, "Locker"))) != null, "the page heading Locker is in the tree");
+        Shot(core, shots, "locker-menu");
+
+        Command(core, "locker-category Outfit");
+        Thread.Sleep(1200);
+        focusable = CheckFocusable("the Outfit list");
+        var list = Named(focusable, "Cosmetics", ControlType.List);
+        if (Check(list != null, "the cosmetics are a List named Cosmetics"))
+        {
+            var items = ItemNames(list!);
+            Info("first items: " + string.Join(" | ", items.Take(4)));
+            Check(items.Count > 0 && items[0] == "Random, Special, -", $"the first row is Random (is \"{items.FirstOrDefault()}\")");
+            Check(items.Count > 1 && items[1].StartsWith("Unequip (Default)"), "the second row is Unequip (Default)");
+            Check(items.Count > 2 && items[2].Contains("Marvel series, "), "cosmetic rows read name, rarity and season");
+            Check(items.Count < 80, $"the list is virtualized ({items.Count} rows exist for {500} cosmetics)");
+        }
+        Check(Named(focusable, "Cosmetic Details", ControlType.Edit) != null, "Cosmetic Details is a named edit box");
+        foreach (var name in new[] { "Favorites Only", "Sort Favorites First", "Search", "Equip Selected", "Back to Categories" })
+            Check(Named(focusable, name) != null, $"{name} is focusable and named");
+        Shot(core, shots, "locker-category");
+
+        Command(core, "locker-category All Cosmetics");
+        Thread.Sleep(2000);
+        focusable = CheckFocusable("the All Cosmetics list");
+        list = Named(focusable, "Cosmetics", ControlType.List);
+        if (list != null)
+        {
+            var items = ItemNames(list);
+            Check(items.Count < 80, $"3000 cosmetics: only {items.Count} rows exist in the tree");
+            Check(items.Count > 0 && items[0].Contains(", Outfit, ") || items.Count > 0 && items[0].Split(',').Length >= 4,
+                "All Cosmetics rows include the type");
+        }
+        Shot(core, shots, "locker-all");
     }
 
     // One page --------------------------------------------------------------------

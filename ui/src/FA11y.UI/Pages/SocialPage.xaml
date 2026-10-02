@@ -1,0 +1,137 @@
+<pages:PageBase x:Class="FA11y.UI.Pages.SocialPage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:pages="clr-namespace:FA11y.UI.Pages"
+                xmlns:c="clr-namespace:FA11y.UI.Controls">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Social" FontSize="{StaticResource HeadingFontSize}" FontWeight="SemiBold"
+                   Margin="0,0,0,12" />
+
+        <c:ReadableText x:Name="Message" Grid.Row="1" MaxWidth="640" Foreground="{StaticResource TextSecondary}" />
+
+        <TabControl x:Name="Tabs" Grid.Row="2" Visibility="Collapsed" SelectionChanged="OnTabChanged"
+                    AutomationProperties.Name="Social sections">
+            <TabItem Header="Friends">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <c:RadioOption x:Name="AllFriendsRadio" Content="All Friends" GroupName="FriendFilter"
+                                       IsChecked="True" Checked="OnFriendFilterChanged" Margin="0,0,12,0" />
+                        <c:RadioOption x:Name="FavoritesRadio" Content="Favorites" GroupName="FriendFilter"
+                                       Checked="OnFriendFilterChanged" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,8">
+                        <c:HiddenText Text="Search:" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox x:Name="SearchBox" Width="300" AutomationProperties.Name="Search"
+                                 TextChanged="OnSearchChanged" />
+                        <c:IconButton x:Name="ClearButton" Content="Clear" Margin="10,0,0,0" Click="OnClearSearch" />
+                    </StackPanel>
+                    <ListBox x:Name="FriendsList" Grid.Row="2" Style="{StaticResource PageList}"
+                             AutomationProperties.Name="Friends" PreviewKeyDown="OnFriendsKeyDown"
+                             MouseDoubleClick="OnFriendsDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <c:HiddenText Text="{Binding Display}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <WrapPanel Grid.Row="3" Margin="0,10,0,0" HorizontalAlignment="Center">
+                        <c:IconButton Content="Add Friend" Margin="4" Click="OnAddFriend" />
+                        <c:IconButton Content="Invite to Party" Margin="4" Click="OnInvite" />
+                        <c:IconButton Content="Request to Join" Margin="4" Click="OnRequestJoin" />
+                        <c:IconButton Content="Remove Friend" Margin="4" Click="OnRemoveFriend" />
+                    </WrapPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Friend Requests">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                        <c:RadioOption x:Name="IncomingRadio" Content="Incoming" GroupName="RequestFilter"
+                                       IsChecked="True" Checked="OnRequestFilterChanged" Margin="0,0,12,0" />
+                        <c:RadioOption x:Name="OutgoingRadio" Content="Outgoing" GroupName="RequestFilter"
+                                       Checked="OnRequestFilterChanged" />
+                    </StackPanel>
+                    <ListBox x:Name="RequestsList" Grid.Row="1" Style="{StaticResource PageList}"
+                             AutomationProperties.Name="Friend requests" PreviewKeyDown="OnRequestsKeyDown">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <c:HiddenText Text="{Binding Display}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <WrapPanel Grid.Row="2" Margin="0,10,0,0" HorizontalAlignment="Center">
+                        <c:IconButton Content="Accept" Margin="4" Click="OnAccept" />
+                        <c:IconButton Content="Decline" Margin="4" Click="OnDecline" />
+                    </WrapPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Party">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ListBox x:Name="PartyList" Grid.Row="0" Style="{StaticResource PageList}"
+                             AutomationProperties.Name="Party members">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <c:HiddenText Text="{Binding Display}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <WrapPanel Grid.Row="1" Margin="0,10,0,0" HorizontalAlignment="Center">
+                        <c:IconButton x:Name="PromoteButton" Content="Promote to Leader" Margin="4" Click="OnPromote" />
+                        <c:IconButton x:Name="KickButton" Content="Kick Member" Margin="4" Click="OnKick" />
+                        <c:IconButton x:Name="LeaveButton" Content="Leave Party" Margin="4" Click="OnLeave" />
+                    </WrapPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Me">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <c:HiddenText Grid.Row="0" Text="Epic Account Stats" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBox x:Name="EpicText" Grid.Row="1" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                             AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             Height="80" AutomationProperties.Name="Epic Account Stats" />
+                    <c:HiddenText Grid.Row="2" Text="Fortnite Stats" FontWeight="SemiBold" Margin="0,10,0,4" />
+                    <TextBox x:Name="FortniteText" Grid.Row="3" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                             AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             AutomationProperties.Name="Fortnite Stats" />
+                    <c:HiddenText Grid.Row="4" Text="Fortnite Ranked Stats" FontWeight="SemiBold" Margin="0,10,0,4" />
+                    <TextBox x:Name="RankedText" Grid.Row="5" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                             AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             AutomationProperties.Name="Fortnite Ranked Stats" />
+                    <c:IconButton Grid.Row="6" Content="Refresh Account Information" Margin="0,10,0,0"
+                                  HorizontalAlignment="Center" Click="OnRefreshAccount" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</pages:PageBase>

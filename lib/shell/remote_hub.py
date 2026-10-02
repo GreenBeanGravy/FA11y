@@ -17,7 +17,8 @@ Events sent to the UI:
     keybinds.changed   {enabled, open_keybind}
     fortnite.running   {running}
     update.available   {version}
-    home.changed, account.changed, about.changed    a page's data changed
+    home.changed, account.changed, about.changed, social.changed, locker.changed
+                       a page's data changed (also sent to the account pages after signing in or out)
 Events from the UI:
     ui.ready           the window is on screen and listening
     ui.visibility      {visible, active}
@@ -35,7 +36,7 @@ from lib.shell.bridge import Bridge, registry
 
 logger = logging.getLogger(__name__)
 
-PORTED_PAGES = ("home", "account", "about")
+PORTED_PAGES = ("home", "account", "about", "social", "locker")
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
 
@@ -78,7 +79,7 @@ class RemoteHub:
 
     @staticmethod
     def _load_handlers() -> None:
-        from lib.shell.handlers import about, account, app, home  # noqa: F401 (they register themselves)
+        from lib.shell.handlers import about, account, app, home, locker, social  # noqa: F401 (they register themselves)
 
     # Lifecycle -----------------------------------------------------------
 
@@ -179,6 +180,9 @@ class RemoteHub:
 
     def reset_views(self, keys) -> None:
         """Rebuild the wx views on these pages (after signing in or out)."""
+        for key in keys:
+            if key in self._proxies:
+                self.send(f"{key}.changed")
         classic = self._classic
         if classic is None:
             return
@@ -193,6 +197,10 @@ class RemoteHub:
         self._login_settled = True
         self.send("account.changed")
         self.send("home.changed")
+        from lib.hub import account_ops
+        for key in account_ops.ACCOUNT_PAGES:
+            if key in self._proxies:
+                self.send(f"{key}.changed")
 
     def leave_page(self) -> None:
         """A page asked to close: hide over a game, otherwise go back to the sidebar."""

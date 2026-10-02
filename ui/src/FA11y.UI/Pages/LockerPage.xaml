@@ -1,0 +1,186 @@
+<pages:PageBase x:Class="FA11y.UI.Pages.LockerPage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:pages="clr-namespace:FA11y.UI.Pages"
+                xmlns:c="clr-namespace:FA11y.UI.Controls">
+    <pages:PageBase.Resources>
+        <!-- Rows of a category list. The type column only exists in All Cosmetics. -->
+        <DataTemplate x:Key="CategoryRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="200" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="80" />
+                </Grid.ColumnDefinitions>
+                <c:HiddenText Grid.Column="0" Text="{Binding Display}" TextTrimming="CharacterEllipsis" />
+                <c:HiddenText Grid.Column="1" Text="{Binding Rarity}" Foreground="{Binding RarityBrush}" />
+                <c:HiddenText Grid.Column="2" Text="{Binding SeasonText}" />
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="AllRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="200" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="80" />
+                </Grid.ColumnDefinitions>
+                <c:HiddenText Grid.Column="0" Text="{Binding Display}" TextTrimming="CharacterEllipsis" />
+                <c:HiddenText Grid.Column="1" Text="{Binding TypeText}" />
+                <c:HiddenText Grid.Column="2" Text="{Binding Rarity}" Foreground="{Binding RarityBrush}" />
+                <c:HiddenText Grid.Column="3" Text="{Binding SeasonText}" />
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="NameRow">
+            <c:HiddenText Text="{Binding Display}" TextTrimming="CharacterEllipsis" />
+        </DataTemplate>
+    </pages:PageBase.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="Heading" Grid.Row="0" Text="Locker" FontSize="{StaticResource HeadingFontSize}"
+                   FontWeight="SemiBold" Margin="0,0,0,12" />
+
+        <c:ReadableText x:Name="Message" Grid.Row="1" MaxWidth="640" Foreground="{StaticResource TextSecondary}" />
+
+        <Grid x:Name="Views" Grid.Row="2" Visibility="Collapsed">
+
+            <!-- The category menu -->
+            <Grid x:Name="MainView">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Orientation="Horizontal">
+                    <c:ReadableText x:Name="LoginText" VerticalAlignment="Center" />
+                    <c:IconButton x:Name="LoginButton" Content="_Login" Margin="12,0,0,0" Click="OnLogin" />
+                </StackPanel>
+                <c:CheckOption x:Name="OwnedCheck" Grid.Row="1" Content="Show Only My Cosmetics" Margin="0,8,0,0"
+                               HorizontalAlignment="Left" Checked="OnOwnedChanged" Unchecked="OnOwnedChanged" />
+                <c:HiddenText Grid.Row="2" Text="Select a category:" Margin="0,10,0,6" />
+                <ListBox x:Name="CategoriesList" Grid.Row="3" Style="{StaticResource PageList}"
+                         AutomationProperties.Name="Select a category" TextSearch.TextPath="Name"
+                         PreviewKeyDown="OnCategoriesKeyDown" MouseDoubleClick="OnCategoriesDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <c:HiddenText Text="{Binding Display}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <WrapPanel Grid.Row="4" Margin="0,10,0,0">
+                    <c:IconButton x:Name="EquippedButton" Content="_View Equipped" Margin="0,0,8,8" Click="OnViewEquipped" />
+                    <c:IconButton x:Name="LoadoutsButton" Content="Saved _Loadouts" Margin="0,0,8,8" Click="OnViewLoadouts" />
+                    <c:IconButton x:Name="SaveButton" Content="_Save Current as Loadout" Margin="0,0,8,8" Click="OnSaveLoadout" />
+                    <c:IconButton x:Name="PassesButton" Content="Battle _Passes" Margin="0,0,8,8" Click="OnPasses" />
+                </WrapPanel>
+            </Grid>
+
+            <!-- One category -->
+            <Grid x:Name="CategoryView" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <c:ReadableText x:Name="ResultsText" Grid.Row="0" />
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                    <c:CheckOption x:Name="FavoritesOnlyCheck" Content="Favorites Only" Margin="0,0,16,0"
+                                   Checked="OnCategoryFilterChanged" Unchecked="OnCategoryFilterChanged" />
+                    <c:CheckOption x:Name="SortFavoritesCheck" Content="Sort Favorites First"
+                                   Checked="OnCategoryFilterChanged" Unchecked="OnCategoryFilterChanged" />
+                </StackPanel>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,4,0,8">
+                    <c:HiddenText Text="Search:" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBox x:Name="CategorySearch" Width="400" AutomationProperties.Name="Search"
+                             TextChanged="OnCategorySearchChanged" />
+                    <c:IconButton Content="Clear" Margin="10,0,0,0" Click="OnClearCategorySearch" />
+                </StackPanel>
+                <Grid x:Name="ColumnHeaders" Grid.Row="3" Margin="11,0,26,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                        <ColumnDefinition x:Name="TypeHeaderColumn" Width="130" />
+                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="80" />
+                    </Grid.ColumnDefinitions>
+                    <c:HiddenText Grid.Column="0" Text="Name" Foreground="{StaticResource TextMuted}" />
+                    <c:HiddenText Grid.Column="1" Text="Type" Foreground="{StaticResource TextMuted}" />
+                    <c:HiddenText Grid.Column="2" Text="Rarity" Foreground="{StaticResource TextMuted}" />
+                    <c:HiddenText Grid.Column="3" Text="Season" Foreground="{StaticResource TextMuted}" />
+                </Grid>
+                <ListBox x:Name="CosmeticsList" Grid.Row="4" Style="{StaticResource PageList}"
+                         AutomationProperties.Name="Cosmetics" TextSearch.TextPath="Name"
+                         SelectionChanged="OnCosmeticSelected" PreviewKeyDown="OnCosmeticsKeyDown"
+                         MouseDoubleClick="OnCosmeticsDoubleClick" />
+                <TextBox x:Name="DetailsBox" Grid.Row="5" Height="100" Margin="0,8,0,0" IsReadOnly="True"
+                         IsReadOnlyCaretVisible="True" AcceptsReturn="True" TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Cosmetic Details" />
+                <WrapPanel Grid.Row="6" Margin="0,10,0,0">
+                    <c:IconButton x:Name="EquipButton" Variant="primary" Content="_Equip Selected" Margin="0,0,8,0"
+                                  Click="OnEquip" />
+                    <c:IconButton Content="_Back to Categories" Click="OnBackToCategories" />
+                </WrapPanel>
+            </Grid>
+
+            <!-- What is equipped now -->
+            <Grid x:Name="EquippedView" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBox x:Name="EquippedBox" Grid.Row="0" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                         AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Currently Equipped Cosmetics" />
+                <c:IconButton Grid.Row="1" Content="_Back" Margin="0,10,0,0" HorizontalAlignment="Left"
+                              Click="OnBackFromView" />
+            </Grid>
+
+            <!-- Saved loadouts -->
+            <Grid x:Name="LoadoutsView" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                    <c:HiddenText Text="Filter by type:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox x:Name="LoadoutFilter" Width="220" AutomationProperties.Name="Filter by type"
+                              SelectionChanged="OnLoadoutFilterChanged" />
+                </StackPanel>
+                <ListBox x:Name="LoadoutsList" Grid.Row="1" Style="{StaticResource PageList}"
+                         AutomationProperties.Name="Loadouts" SelectionChanged="OnLoadoutSelected">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <c:HiddenText Text="{Binding Display}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBox x:Name="LoadoutDetails" Grid.Row="2" Height="150" Margin="0,8,0,0" IsReadOnly="True"
+                         IsReadOnlyCaretVisible="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         AutomationProperties.Name="Loadout details" />
+                <WrapPanel Grid.Row="3" Margin="0,10,0,0">
+                    <c:IconButton Content="Equip via _API" Margin="0,0,8,8" Click="OnLoadoutApi"
+                                  AutomationProperties.HelpText="Equip instantly through Epic's servers. Changes apply next match or after restarting the game." />
+                    <c:IconButton Content="Equip in _Game (UI)" Margin="0,0,8,8" Click="OnLoadoutGame"
+                                  AutomationProperties.HelpText="Equip each item one by one with mouse automation in Fortnite's locker." />
+                    <c:IconButton Content="_Delete Local" Margin="0,0,8,8" Click="OnLoadoutDelete"
+                                  AutomationProperties.HelpText="Delete a loadout saved by FA11y." />
+                    <c:IconButton Content="_Back" Margin="0,0,8,8" Click="OnBackFromView" />
+                </WrapPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</pages:PageBase>

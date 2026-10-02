@@ -91,12 +91,12 @@ def visible(active=True):
 
 def test_only_the_ported_pages_count_as_pages(make_hub):
     hub, _ = make_hub()
-    for key in ("home", "account", "about"):
+    for key in ("home", "account", "about", "locker", "social"):
         assert hub.has_page(key)
-    for key in ("fortnite", "discover", "locker", "social", "quests", "settings", "keybinds", "nope"):
+    for key in ("fortnite", "discover", "quests", "settings", "keybinds", "nope"):
         assert not hub.has_page(key)
     assert hub.page("home") is not None and hub.page("home").built
-    assert hub.page("locker") is None
+    assert hub.page("quests") is None
 
 
 def test_hello_carries_the_starting_state(make_hub):

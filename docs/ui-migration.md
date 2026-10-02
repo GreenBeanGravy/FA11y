@@ -51,7 +51,8 @@ FA11y Launcher.exe
 * The core sends events for things the UI should react to:
   `ui.summon`, `ui.show_page`, `ui.hide`, `keybinds.changed`,
   `fortnite.running`, `update.available`, `views.reset`, `ui.notify`,
-  `ui.announce`, `ui.quit`.
+  `ui.announce`, `ui.quit`, and `<page>.changed` for a page's data (`social.changed`,
+  `locker.changed`, also sent after signing in or out).
 * Long operations (Fortnite install) return an operation id at once and
   report progress as `operation.progress` and `operation.finished` events.
 
