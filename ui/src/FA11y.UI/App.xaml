@@ -9,6 +9,7 @@
                 <ResourceDictionary Source="Theme/Icons.xaml" />
                 <ResourceDictionary Source="Theme/Controls.xaml" />
                 <ResourceDictionary Source="Theme/FormControls.xaml" />
+                <ResourceDictionary Source="Theme/PageControls.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -12,7 +12,8 @@ update to 99.0.0 available.
 While it runs it reads commands on its own stdin, one per line (the probe uses
 this): summon, summon-content, show-page KEY, hide, notify TITLE|MESSAGE,
 fortnite-running true|false, fortnite-state installed|none|egl, start-setup,
-screenshot PATH (the window draws itself to a PNG), quit. It prints "STARTED <ui pid>" when the
+screenshot PATH (the window draws itself to a PNG), locker-category NAME,
+social-tab HEADER (test builds only), quit. It prints "STARTED <ui pid>" when the
 window process starts and "READY <ui pid>" when the window sends ui.ready.
 """
 from __future__ import annotations
@@ -34,6 +35,25 @@ DEFAULT_EXES = [
 ]
 
 
+RARITIES = [("common", "Common", 1), ("uncommon", "Uncommon", 2), ("rare", "Rare", 3), ("epic", "Epic", 4),
+            ("legendary", "Legendary", 5), ("marvel", "Marvel series", 6)]
+COSMETIC_KINDS = ["Outfit", "Pickaxe", "Emote", "Glider", "Back Bling", "Wrap"]
+CATEGORIES = ["All Cosmetics", "Outfit", "Back Bling", "Pickaxe", "Glider", "Emote", "Wrap", "Jam Track",
+              "Lobby Track", "Banner"]
+
+
+def fake_cosmetics(count: int = 3000) -> list:
+    """Records shaped like the real locker.category answer (compact keys), one big mixed pool."""
+    out = []
+    for n in range(count):
+        key, label, value = RARITIES[n % len(RARITIES)]
+        out.append({"i": f"item_{n}", "n": f"Item {n:04d} {['Ace', 'Blaze', 'Cinder', 'Dusk'][n % 4]}",
+                    "t": COSMETIC_KINDS[(n // 7) % len(COSMETIC_KINDS)], "r": label, "k": key, "v": value,
+                    "s": f"C{1 + n % 6}S{1 + n % 9}", "c": str(1 + n % 6), "e": str(1 + n % 9),
+                    "d": f"A canned description for item {n}.", "f": n % 97 == 0})
+    return out
+
+
 class FakeCore:
     def __init__(self, exe: str, root: str, log_path: str, hidden: bool, close_action: str,
                  first_run: bool = False, fortnite: str = "installed"):
@@ -52,6 +72,10 @@ class FakeCore:
         self.next_operation = 0
         self.proc: subprocess.Popen | None = None
         self.started = 0.0
+        self.cosmetics = fake_cosmetics()
+        self.favorite_friends = {"f3"}
+        self.friends = [("f1", "Zed"), ("f2", "amy"), ("f3", "Bob"), ("f4", "Cy"), ("f5", "Dana")]
+        self.party_leader = True
 
     def log(self, text: str) -> None:
         with self.lock:
@@ -199,12 +223,103 @@ class FakeCore:
             self.setup = True
             self.event("setup.start", {"summon": True})
             return {}
+        if method.startswith("social."):
+            return self.social(method, params)
+        if method.startswith("locker."):
+            return self.locker(method, params)
         if method == "app.close_action":
             return {"action": self.close_action}
         if method == "app.open_classic":
             return {"ok": True}
         if method == "app.state":
             return self.hello()
+        return {}
+
+    # Social ---------------------------------------------------------------------
+
+    def social(self, method: str, params: dict):
+        if method == "social.state":
+            return {"available": self.signed_in}
+        if method == "social.friends":
+            friends = list(self.friends)
+            if params.get("favorites_only"):
+                friends = [f for f in friends if f[0] in self.favorite_friends]
+            search = (params.get("search") or "").lower()
+            friends = [f for f in friends if search in f[1].lower()]
+            friends.sort(key=lambda f: (f[0] not in self.favorite_friends, f[1].lower()))
+            kind = "favorite friends" if params.get("favorites_only") else "friends"
+            return {"friends": [{"id": i, "name": n, "favorite": i in self.favorite_friends} for i, n in friends],
+                    "summary": f"{len(friends)} {kind}" if friends else f"No {kind}"}
+        if method == "social.requests":
+            if params.get("incoming", True):
+                rows = [{"id": "r1", "name": "Ann", "incoming": True}, {"id": "r2", "name": "Ben", "incoming": True}]
+                return {"requests": rows, "summary": "2 incoming requests"}
+            return {"requests": [{"id": "r3", "name": "Cat", "incoming": False}], "summary": "1 outgoing requests"}
+        if method == "social.party":
+            members = [{"id": "me", "name": "TestPlayer", "leader": self.party_leader, "me": True},
+                       {"id": "p2", "name": "Pal", "leader": False, "me": False}]
+            return {"members": members, "am_leader": self.party_leader, "summary": "2 party members"}
+        if method == "social.account_info":
+            return {"epic": "Username: TestPlayer\nEmail: test@example.com\nAccount ID: 0123456789abcdef",
+                    "fortnite": "OVERALL CAREER STATS\nTotal Wins: 1,234\nTotal Kills: 5,678\n"
+                                "Matches Played: 9,999\nK/D Ratio: 1.50\nWin Rate: 12.35%\n"
+                                "Time Played: 120 minutes (2.0 hours / 0.1 days)",
+                    "ranked": "Battle Royale: Gold II (40% to Gold III)\n  Peak: Platinum I"}
+        if method == "social.toggle_favorite":
+            fid = params.get("id")
+            self.favorite_friends ^= {fid}
+            return {}
+        if method == "social.find_users":
+            return {"status": "sent"}
+        if method in ("social.accept_request", "social.promote", "social.kick"):
+            return {}
+        return {}
+
+    # Locker ---------------------------------------------------------------------
+
+    def locker(self, method: str, params: dict):
+        if method == "locker.load":
+            time.sleep(0.3)
+            return {"available": True, "signed_in": self.signed_in, "name": "TestPlayer" if self.signed_in else "",
+                    "owned_only": self.signed_in, "categories": CATEGORIES, "total": len(self.cosmetics)}
+        if method == "locker.category":
+            name = params.get("name", "")
+            records = [r for r in self.cosmetics if name == "All Cosmetics" or r["t"] == name]
+            records.sort(key=lambda r: (-r["v"], r["n"]))
+            show_random = name not in ("All Cosmetics", "Emote")
+            unequip = None if name == "All Cosmetics" else "Default" if name in ("Outfit", "Pickaxe") else "Empty"
+            return {"name": name,
+                    "options": {"random": show_random, "randomize": show_random and name in ("Jam Track", "Lobby Track"),
+                                "unequip": unequip},
+                    "special": {"random": "Random\n\nEquip the Random (shuffle) option for this slot.",
+                                "randomize": "Randomize Track\n\nPick a random cosmetic from this list and equip it.",
+                                "unequip": f"Unequip\n\nSearches for '{unequip}' to remove the cosmetic from this slot."},
+                    "records": records}
+        if method == "locker.toggle_favorite":
+            for r in self.cosmetics:
+                if r["i"] == params.get("id"):
+                    r["f"] = not r["f"]
+                    return {"result": "ok", "favorite": r["f"]}
+            return {"result": "missing", "favorite": False}
+        if method == "locker.set_owned_only":
+            return {"owned_only": bool(params.get("value")), "messages": ["Enabled: Show only owned cosmetics"],
+                    "expired": False, "error": None}
+        if method == "locker.equip_plan":
+            return {"kind": params.get("kind"), "id": params.get("id"), "name": "Item", "slot": 1}
+        if method == "locker.equip":
+            time.sleep(0.5)
+            return {"ok": True, "name": "Item", "message": ""}
+        if method == "locker.equipped":
+            return {"text": "--- Character ---\n  Character: Item 0001 Blaze\n  Pickaxe: (empty)\n"}
+        if method == "locker.loadouts":
+            records = [{"id": 0, "name": "Starter", "label": "Starter [Character]", "local": False,
+                        "detail": "Loadout: Starter\nSource: epic\nCategories: Character\n"},
+                       {"id": 1, "name": "Mine", "label": "Mine [Character + Emotes]", "local": True,
+                        "detail": "Loadout: Mine\nSource: local\nCategories: Character + Emotes\n"}]
+            return {"status": "ok", "total": 2, "filters": ["All", "Multi-Category Only", "Character", "Emotes"],
+                    "records": records}
+        if method == "locker.save_choices":
+            return {"choices": ["All Categories", "Character", "Emotes"]}
         return {}
 
     # Reading ------------------------------------------------------------------
@@ -289,6 +404,10 @@ class FakeCore:
             self.event("fortnite.running", {"running": self.fortnite_running})
         elif name == "screenshot":
             self.event("test.screenshot", {"path": rest.strip()})
+        elif name == "locker-category":
+            self.event("test.locker_category", {"name": rest.strip()})
+        elif name == "social-tab":
+            self.event("test.social_tab", {"tab": rest.strip()})
         elif name == "quit":
             self.event("ui.quit")
             return False

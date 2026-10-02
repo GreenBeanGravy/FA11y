@@ -45,6 +45,24 @@ def _is_pre_rank_expansion(last_updated: str) -> bool:
     return ts < _RANK_EXPANSION_UTC
 
 
+def friend_name(friend) -> str:
+    return friend.display_name or friend.account_id or "Unknown"
+
+
+def friends_count_text(count: int, favorites_only: bool = False) -> str:
+    kind = "favorite friends" if favorites_only else "friends"
+    return f"{count} {kind}" if count else f"No {kind}"
+
+
+def requests_count_text(count: int, incoming: bool = True) -> str:
+    kind = "incoming" if incoming else "outgoing"
+    return f"{count} {kind} requests" if count else f"No {kind} friend requests"
+
+
+def party_count_text(count: int) -> str:
+    return f"{count} party members" if count else "Not in a party"
+
+
 class SocialManager:
     """Manages social features with background monitoring and virtual UI navigation"""
 
@@ -112,6 +130,10 @@ class SocialManager:
         self.slow_poll_interval = 30  # seconds - for friends and party
         self.lock = threading.Lock()
         self.initial_data_loaded = threading.Event()  # Flag for initial data load completion
+
+        # Windows that want to know when the lists change (the hub's Social page)
+        self.change_listeners: list = []
+        self._change_signature = None
 
         # Load cached data
         self.load_cache()
@@ -337,6 +359,8 @@ class SocialManager:
                 # Save to cache
                 self.save_cache()
 
+            self.notify_changed()
+
         except Exception as e:
             logger.error(f"Error refreshing social data: {e}")
 
@@ -364,6 +388,8 @@ class SocialManager:
 
                 if invites is not None:
                     self.party_invites = invites
+
+            self.notify_changed()
 
         except Exception as e:
             logger.error(f"Error refreshing fast data: {e}")
@@ -393,6 +419,8 @@ class SocialManager:
 
                 # Save to cache after slow refresh
                 self.save_cache()
+
+            self.notify_changed()
 
         except Exception as e:
             logger.error(f"Error refreshing slow data: {e}")
@@ -845,10 +873,226 @@ class SocialManager:
             display_name = self._ensure_display_name(friend.display_name)
             speaker.speak(f"{display_name} added to favorites")
         self.save_favorites()
+        self.notify_changed()
 
     def is_favorite(self, friend: Friend) -> bool:
         """Check if a friend is favorited"""
         return friend.account_id in self.favorite_friends
+
+    # ========== What the Social window shows (shared by the wx view and the hub page) ==========
+
+    def notify_changed(self):
+        """Tell the listeners the lists changed, if they did."""
+        if not self.change_listeners:
+            return
+        with self.lock:
+            signature = (
+                tuple((f.account_id, f.display_name) for f in self.all_friends),
+                tuple((r.account_id, r.display_name, r.direction)
+                      for r in self.incoming_requests + self.outgoing_requests),
+                tuple((m.account_id, m.display_name, m.is_leader) for m in self.party_members),
+                frozenset(self.favorite_friends),
+            )
+        if signature == self._change_signature:
+            return
+        self._change_signature = signature
+        for listener in list(self.change_listeners):
+            try:
+                listener()
+            except Exception as e:
+                logger.debug(f"Social change listener failed: {e}")
+
+    def friends_view(self, favorites_only: bool = False, search: str = "") -> List[Friend]:
+        """Friends as the list shows them: filtered, favorites first, then by name."""
+        with self.lock:
+            friends = list(self.all_friends)
+
+        if favorites_only:
+            friends = [f for f in friends if self.is_favorite(f)]
+        if search:
+            needle = search.lower()
+            friends = [f for f in friends if needle in (f.display_name or "").lower()]
+
+        def sort_key(friend):
+            name = (friend.display_name or friend.account_id or "Unknown").lower()
+            return (not self.is_favorite(friend), name)
+
+        friends.sort(key=sort_key)
+        return friends
+
+    def requests_view(self, incoming: bool = True) -> List[FriendRequest]:
+        with self.lock:
+            return list(self.incoming_requests if incoming else self.outgoing_requests)
+
+    def party_view(self):
+        """(members, am_i_leader)."""
+        with self.lock:
+            members = list(self.party_members)
+        my_id = self.social_api.auth.account_id if self.social_api else None
+        am_leader = any(m.account_id == my_id and m.is_leader for m in members)
+        return members, am_leader
+
+    def find_friend(self, account_id: str) -> Optional[Friend]:
+        with self.lock:
+            return next((f for f in self.all_friends if f.account_id == account_id), None)
+
+    def find_request(self, account_id: str, incoming: bool) -> Optional[FriendRequest]:
+        with self.lock:
+            pool = self.incoming_requests if incoming else self.outgoing_requests
+            return next((r for r in pool if r.account_id == account_id), None)
+
+    def find_member(self, account_id: str) -> Optional[PartyMember]:
+        with self.lock:
+            return next((m for m in self.party_members if m.account_id == account_id), None)
+
+    def refresh_after_operation(self, data_type: str):
+        """Force a backend refresh after an action. data_type is 'friends' or 'requests'."""
+        if data_type == 'friends':
+            self.refresh_slow_data()
+        elif data_type == 'requests':
+            self.refresh_fast_data()
+
+    @staticmethod
+    def choose_user(users: List[dict]) -> Optional[dict]:
+        """The user a search means: the exact match, or the only result. None when the user must choose."""
+        for user in users:
+            if user["match_type"] == "exact":
+                return user
+        if len(users) == 1:
+            return users[0]
+        return None
+
+    @staticmethod
+    def user_choice_label(user: dict) -> str:
+        return f"{user['display_name']} ({user['mutual_friends']} mutual friends)"
+
+    def accept_problem(self, request: FriendRequest) -> Optional[str]:
+        """Why the request can't be accepted, or None."""
+        if request.direction != "inbound":
+            return "Cannot accept outgoing request"
+        return None
+
+    def promote_problem(self, member: PartyMember) -> Optional[str]:
+        if member.is_leader:
+            return "Member is already the leader"
+        return None
+
+    def kick_problem(self, member: PartyMember) -> Optional[str]:
+        if member.account_id == self.social_api.auth.account_id:
+            return "Cannot kick yourself. Use Leave Party instead."
+        return None
+
+    def account_info_texts(self):
+        """The three boxes of the Me tab: (Epic account, Fortnite stats, ranked stats). Calls the Epic API."""
+        try:
+            if not self.auth:
+                return ("Not authenticated. Please authenticate using ALT+SHIFT+V.",
+                        "Not authenticated.", "Not authenticated.")
+
+            auth = self.auth
+            expired = ("Authentication expired. Press ALT+E to re-authenticate.",
+                       "Authentication expired.", "Authentication expired.")
+            if not auth.is_valid:
+                return expired
+
+            account_info = auth.get_account_info()
+            if not account_info:
+                if not auth.is_valid:
+                    return expired
+                return ("Error loading account information. Please try refreshing.",
+                        "Error loading stats.", "Error loading ranked stats.")
+
+            epic = "\n".join([
+                f"Username: {account_info.get('displayName', 'N/A')}",
+                f"Email: {account_info.get('email', 'N/A')}",
+                f"Account ID: {account_info.get('id', 'N/A')}",
+            ])
+            fortnite = "\n".join(self._fortnite_stats_lines(auth.get_player_stats()))
+            ranked = "\n".join(self._ranked_stats_lines(auth.get_ranked_progress()))
+            return epic, fortnite, ranked
+        except Exception as e:
+            logger.error(f"Error loading account info: {e}")
+            message = f"Error: {e}"
+            return message, message, message
+
+    @staticmethod
+    def _fortnite_stats_lines(player_stats) -> List[str]:
+        lines = []
+        if player_stats is None:
+            lines.append("Error loading stats. Please try refreshing.")
+        elif player_stats.get('private'):
+            lines.append("Statistics are set to private.")
+            lines.append("Change privacy settings in-game to view stats.")
+        else:
+            lines.append("OVERALL CAREER STATS")
+            lines.append(f"Total Wins: {player_stats.get('wins', 0):,}")
+            lines.append(f"Total Kills: {player_stats.get('kills', 0):,}")
+            lines.append(f"Matches Played: {player_stats.get('matches_played', 0):,}")
+            lines.append(f"K/D Ratio: {player_stats.get('kd_ratio', 0):.2f}")
+            lines.append(f"Win Rate: {player_stats.get('win_rate', 0):.2f}%")
+
+            minutes = player_stats.get('minutes_played', 0)
+            hours = minutes / 60
+            days = hours / 24
+            lines.append(f"Time Played: {minutes:,} minutes ({hours:.1f} hours / {days:.1f} days)")
+            lines.append(f"Players Outlived: {player_stats.get('players_outlived', 0):,}")
+
+            mode_breakdown = player_stats.get('mode_breakdown', {})
+            if mode_breakdown:
+                modes = ['solo', 'duo', 'trio', 'squad']
+                if any(mode_breakdown.get(mode, {}).get('matches', 0) > 0 for mode in modes):
+                    lines.append("")
+                    lines.append("PER-MODE BREAKDOWN")
+                    for mode_name in modes:
+                        mode_data = mode_breakdown.get(mode_name, {})
+                        if mode_data.get('matches', 0) > 0:
+                            mode_label = mode_name.capitalize() + "s" if mode_name != "solo" else "Solos"
+                            lines.append(f"{mode_label}: {mode_data['wins']:,} wins, {mode_data['kills']:,} kills, {mode_data['matches']:,} matches (K/D: {mode_data['kd_ratio']:.2f}, WR: {mode_data['win_rate']:.1f}%)")
+
+            tops = [3, 5, 6, 10, 12, 25]
+            if any(player_stats.get(f'top{i}', 0) > 0 for i in tops):
+                lines.append("")
+                lines.append("TOP PLACEMENTS")
+                for i in tops:
+                    if player_stats.get(f'top{i}', 0) > 0:
+                        lines.append(f"Top {i}: {player_stats[f'top{i}']:,}")
+
+            if player_stats.get('score', 0) > 0:
+                lines.append("")
+                lines.append(f"Total Score: {player_stats['score']:,}")
+        return lines
+
+    def _ranked_stats_lines(self, ranked_data) -> List[str]:
+        lines = []
+        if ranked_data is None:
+            lines.append("Error loading ranked stats. Please try refreshing.")
+        elif not ranked_data:
+            lines.append("No ranked data available.")
+            lines.append("Play ranked matches to see your progress here.")
+        else:
+            from lib.utilities.ranked_modes import ordered_ranking_types
+            for ranking_type in ordered_ranking_types(ranked_data):
+                mode_data = ranked_data[ranking_type]
+                mode_name = self._get_ranked_mode_name(ranking_type)
+                current_div = mode_data.get('currentDivision', 0)
+                highest_div = mode_data.get('highestDivision', 0)
+                progress = mode_data.get('promotionProgress', 0.0)
+
+                # The API counts divisions from 0, so add 1 for the display rank.
+                # lastUpdated picks the pre-2026-04-16 ladder for stale records.
+                last_updated = mode_data.get('lastUpdated')
+                current_rank = self._division_to_rank_name(current_div + 1, last_updated)
+                highest_rank = self._division_to_rank_name(highest_div + 1, last_updated)
+
+                if current_div > 0:
+                    next_rank = self._division_to_rank_name(current_div + 2, last_updated)
+                    lines.append(f"{mode_name}: {current_rank} ({int(progress * 100)}% to {next_rank})")
+                else:
+                    lines.append(f"{mode_name}: {current_rank}")
+
+                if highest_div > current_div:
+                    lines.append(f"  Peak: {highest_rank}")
+        return lines
 
     # ========== Navigation Methods ==========
 

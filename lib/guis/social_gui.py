@@ -6,39 +6,16 @@ import logging
 import wx
 from lib.hub.controls import StyledButton, TabbedBook
 import threading
-from datetime import datetime, timezone
-from typing import Optional
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import BORDER_FOR_DIALOGS
 from lib.guis.view_host import EmbeddedView, show_view
-from lib.utilities.epic_social import Friend, FriendRequest, PartyMember, PartyInvite
+from lib.managers.social_manager import (
+    friend_name, friends_count_text, party_count_text, requests_count_text,
+)
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
-
-
-# Fortnite's 2026-04-16 rank expansion split Elite and Champion into I/II/III
-# sub-tiers, growing the ladder from 18 ranks to 22. Track entries with a
-# lastUpdated timestamp before this cutoff were stored under the old ladder;
-# entries at or after use the new ladder. Keep this value in sync with the
-# copy in lib/managers/social_manager.py.
-_RANK_EXPANSION_UTC = datetime(2026, 4, 16, 10, 0, 0, tzinfo=timezone.utc)
-
-
-def _is_pre_rank_expansion(last_updated: str) -> bool:
-    """Return True if the given ISO8601 lastUpdated timestamp is strictly
-    before the 2026-04-16 rank expansion cutoff. Empty or unparseable strings
-    return False so the caller defaults to the current mapping."""
-    if not last_updated:
-        return False
-    try:
-        ts = datetime.fromisoformat(last_updated.replace('Z', '+00:00'))
-    except (ValueError, TypeError):
-        return False
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    return ts < _RANK_EXPANSION_UTC
 
 
 class SocialView(EmbeddedView):
@@ -188,242 +165,15 @@ class SocialView(EmbeddedView):
 
         return panel
 
-    def _division_to_rank_name(self, division: int, last_updated: Optional[str] = None) -> str:
-        """
-        Convert division number to human-readable rank name.
-        In Fortnite: I is lowest, II is middle, III is highest within each tier.
-
-        If last_updated is supplied and predates the 2026-04-16 rank expansion,
-        the legacy (pre-expansion) mapping is used so stored pre-patch ranks
-        still display correctly. Omitting last_updated uses the current mapping.
-        """
-        if last_updated and _is_pre_rank_expansion(last_updated):
-            return self._division_to_rank_name_legacy(division)
-        if division == 0:
-            return "Unranked"
-        elif 1 <= division <= 3:
-            tier = ["I", "II", "III"][division - 1]
-            return f"Bronze {tier}"
-        elif 4 <= division <= 6:
-            tier = ["I", "II", "III"][division - 4]
-            return f"Silver {tier}"
-        elif 7 <= division <= 9:
-            tier = ["I", "II", "III"][division - 7]
-            return f"Gold {tier}"
-        elif 10 <= division <= 12:
-            tier = ["I", "II", "III"][division - 10]
-            return f"Platinum {tier}"
-        elif 13 <= division <= 15:
-            tier = ["I", "II", "III"][division - 13]
-            return f"Diamond {tier}"
-        elif 16 <= division <= 18:
-            tier = ["I", "II", "III"][division - 16]
-            return f"Elite {tier}"
-        elif 19 <= division <= 21:
-            tier = ["I", "II", "III"][division - 19]
-            return f"Champion {tier}"
-        elif division == 22:
-            return "Unreal"
-        else:
-            return f"Division {division}"
-
-    def _division_to_rank_name_legacy(self, division: int) -> str:
-        """Pre-2026-04-16 rank mapping. Elite, Champion, and Unreal each had a
-        single tier and the Unreal cap was at division 18."""
-        if division == 0:
-            return "Unranked"
-        elif 1 <= division <= 3:
-            tier = ["I", "II", "III"][division - 1]
-            return f"Bronze {tier}"
-        elif 4 <= division <= 6:
-            tier = ["I", "II", "III"][division - 4]
-            return f"Silver {tier}"
-        elif 7 <= division <= 9:
-            tier = ["I", "II", "III"][division - 7]
-            return f"Gold {tier}"
-        elif 10 <= division <= 12:
-            tier = ["I", "II", "III"][division - 10]
-            return f"Platinum {tier}"
-        elif 13 <= division <= 15:
-            tier = ["I", "II", "III"][division - 13]
-            return f"Diamond {tier}"
-        elif division == 16:
-            return "Elite"
-        elif division == 17:
-            return "Champion"
-        elif division == 18:
-            return "Unreal"
-        else:
-            return f"Division {division}"
-
-    def _get_ranked_mode_name(self, ranking_type: str) -> str:
-        """Get friendly name for ranked mode"""
-        from lib.utilities.ranked_modes import ranked_mode_name
-        return ranked_mode_name(ranking_type)
-
     def load_account_info(self):
         """Load account information from Epic Games API into 3 separate boxes"""
-        try:
-            # Get account info from social manager's auth
-            if not self.social_manager or not self.social_manager.auth:
-                self.epic_account_text.SetValue("Not authenticated. Please authenticate using ALT+SHIFT+V.")
-                self.fortnite_stats_text.SetValue("Not authenticated.")
-                self.ranked_stats_text.SetValue("Not authenticated.")
-                return
-
-            auth = self.social_manager.auth
-
-            # Check if auth is still valid before making API calls
-            if not auth.is_valid:
-                self.epic_account_text.SetValue("Authentication expired. Press ALT+E to re-authenticate.")
-                self.fortnite_stats_text.SetValue("Authentication expired.")
-                self.ranked_stats_text.SetValue("Authentication expired.")
-                return
-
-            account_info = auth.get_account_info()
-
-            if not account_info:
-                # Check if auth was invalidated during the request
-                if not auth.is_valid:
-                    self.epic_account_text.SetValue("Authentication expired. Press ALT+E to re-authenticate.")
-                    self.fortnite_stats_text.SetValue("Authentication expired.")
-                    self.ranked_stats_text.SetValue("Authentication expired.")
-                    return
-                self.epic_account_text.SetValue("Error loading account information. Please try refreshing.")
-                self.fortnite_stats_text.SetValue("Error loading stats.")
-                self.ranked_stats_text.SetValue("Error loading ranked stats.")
-                return
-
-            # === EPIC ACCOUNT STATS BOX (Simple: username, email, ID only) ===
-            epic_lines = []
-            epic_lines.append(f"Username: {account_info.get('displayName', 'N/A')}")
-            epic_lines.append(f"Email: {account_info.get('email', 'N/A')}")
-            epic_lines.append(f"Account ID: {account_info.get('id', 'N/A')}")
-
-            self.epic_account_text.SetValue("\n".join(epic_lines))
-            self.epic_account_text.SetInsertionPoint(0)
-
-            # === FORTNITE STATS BOX ===
-            player_stats = auth.get_player_stats()
-            fn_lines = []
-
-            if player_stats is None:
-                fn_lines.append("Error loading stats. Please try refreshing.")
-            elif player_stats.get('private'):
-                fn_lines.append("Statistics are set to private.")
-                fn_lines.append("Change privacy settings in-game to view stats.")
-            else:
-                # Overall Career Stats
-                fn_lines.append("OVERALL CAREER STATS")
-                fn_lines.append(f"Total Wins: {player_stats.get('wins', 0):,}")
-                fn_lines.append(f"Total Kills: {player_stats.get('kills', 0):,}")
-                fn_lines.append(f"Matches Played: {player_stats.get('matches_played', 0):,}")
-                fn_lines.append(f"K/D Ratio: {player_stats.get('kd_ratio', 0):.2f}")
-                fn_lines.append(f"Win Rate: {player_stats.get('win_rate', 0):.2f}%")
-
-                minutes = player_stats.get('minutes_played', 0)
-                hours = minutes / 60
-                days = hours / 24
-                fn_lines.append(f"Time Played: {minutes:,} minutes ({hours:.1f} hours / {days:.1f} days)")
-                fn_lines.append(f"Players Outlived: {player_stats.get('players_outlived', 0):,}")
-
-                # Per-Mode Breakdown
-                mode_breakdown = player_stats.get('mode_breakdown', {})
-                if mode_breakdown:
-                    # Check if any mode has stats
-                    has_mode_stats = any(
-                        mode_breakdown.get(mode, {}).get('matches', 0) > 0
-                        for mode in ['solo', 'duo', 'trio', 'squad']
-                    )
-
-                    if has_mode_stats:
-                        fn_lines.append("")
-                        fn_lines.append("PER-MODE BREAKDOWN")
-
-                        for mode_name in ['solo', 'duo', 'trio', 'squad']:
-                            mode_data = mode_breakdown.get(mode_name, {})
-                            if mode_data.get('matches', 0) > 0:
-                                mode_label = mode_name.capitalize() + "s" if mode_name != "solo" else "Solos"
-                                fn_lines.append(f"{mode_label}: {mode_data['wins']:,} wins, {mode_data['kills']:,} kills, {mode_data['matches']:,} matches (K/D: {mode_data['kd_ratio']:.2f}, WR: {mode_data['win_rate']:.1f}%)")
-
-                # Top Placements (only if there are any)
-                if any(player_stats.get(f'top{i}', 0) > 0 for i in [3, 5, 6, 10, 12, 25]):
-                    fn_lines.append("")
-                    fn_lines.append("TOP PLACEMENTS")
-                    if player_stats.get('top3', 0) > 0:
-                        fn_lines.append(f"Top 3: {player_stats['top3']:,}")
-                    if player_stats.get('top5', 0) > 0:
-                        fn_lines.append(f"Top 5: {player_stats['top5']:,}")
-                    if player_stats.get('top6', 0) > 0:
-                        fn_lines.append(f"Top 6: {player_stats['top6']:,}")
-                    if player_stats.get('top10', 0) > 0:
-                        fn_lines.append(f"Top 10: {player_stats['top10']:,}")
-                    if player_stats.get('top12', 0) > 0:
-                        fn_lines.append(f"Top 12: {player_stats['top12']:,}")
-                    if player_stats.get('top25', 0) > 0:
-                        fn_lines.append(f"Top 25: {player_stats['top25']:,}")
-
-                if player_stats.get('score', 0) > 0:
-                    fn_lines.append("")
-                    fn_lines.append(f"Total Score: {player_stats['score']:,}")
-
-            self.fortnite_stats_text.SetValue("\n".join(fn_lines))
-            self.fortnite_stats_text.SetInsertionPoint(0)
-
-            # === FORTNITE RANKED STATS BOX ===
-            ranked_data = auth.get_ranked_progress()
-            ranked_lines = []
-
-            if ranked_data is None:
-                ranked_lines.append("Error loading ranked stats. Please try refreshing.")
-            elif not ranked_data:
-                ranked_lines.append("No ranked data available.")
-                ranked_lines.append("Play ranked matches to see your progress here.")
-            else:
-                # Show each ranked mode with current rank and progress
-                from lib.utilities.ranked_modes import ordered_ranking_types
-                for ranking_type in ordered_ranking_types(ranked_data):
-                    mode_data = ranked_data[ranking_type]
-                    mode_name = self._get_ranked_mode_name(ranking_type)
-                    current_div = mode_data.get('currentDivision', 0)
-                    highest_div = mode_data.get('highestDivision', 0)
-                    progress = mode_data.get('promotionProgress', 0.0)
-
-                    # API uses 0-indexed divisions for ranked tiers
-                    # Division 1 = Bronze II, Division 2 = Bronze III, etc.
-                    # Add 1 to get the display rank.
-                    # lastUpdated lets the mapping fall back to the pre-
-                    # 2026-04-16 ladder for stale pre-expansion records.
-                    last_updated = mode_data.get('lastUpdated')
-                    current_rank = self._division_to_rank_name(current_div + 1, last_updated)
-                    highest_rank = self._division_to_rank_name(highest_div + 1, last_updated)
-
-                    # Format: "Battle Royale: Bronze II (20% to Bronze III)"
-                    if current_div > 0:
-                        # Show next rank
-                        next_div = current_div + 2  # +1 for offset, +1 for next tier
-                        next_rank = self._division_to_rank_name(next_div, last_updated)
-                        progress_pct = int(progress * 100)
-                        ranked_lines.append(f"{mode_name}: {current_rank} ({progress_pct}% to {next_rank})")
-                    else:
-                        ranked_lines.append(f"{mode_name}: {current_rank}")
-
-                    # Show highest rank if different from current
-                    if highest_div > current_div:
-                        ranked_lines.append(f"  Peak: {highest_rank}")
-
-            self.ranked_stats_text.SetValue("\n".join(ranked_lines))
-            self.ranked_stats_text.SetInsertionPoint(0)
-
-            logger.info("Account information and stats loaded successfully")
-
-        except Exception as e:
-            logger.error(f"Error loading account info: {e}")
-            import traceback
-            traceback.print_exc()
-            self.epic_account_text.SetValue(f"Error: {str(e)}")
-            self.fortnite_stats_text.SetValue(f"Error: {str(e)}")
-            self.ranked_stats_text.SetValue(f"Error: {str(e)}")
+        epic, fortnite, ranked = self.social_manager.account_info_texts()
+        self.epic_account_text.SetValue(epic)
+        self.epic_account_text.SetInsertionPoint(0)
+        self.fortnite_stats_text.SetValue(fortnite)
+        self.fortnite_stats_text.SetInsertionPoint(0)
+        self.ranked_stats_text.SetValue(ranked)
+        self.ranked_stats_text.SetInsertionPoint(0)
 
     def on_refresh_account_info(self, event):
         """Refresh account information"""
@@ -599,45 +349,18 @@ class SocialView(EmbeddedView):
 
         self.friends_list.Clear()
 
-        with self.social_manager.lock:
-            all_friends = list(self.social_manager.all_friends)
-
-        # Filter by favorites if selected
-        if self.favorite_friends_btn.GetValue():
-            friends = [f for f in all_friends if self.social_manager.is_favorite(f)]
-        else:
-            friends = all_friends
-
-        # Apply search filter
-        if self.current_search:
-            search_lower = self.current_search.lower()
-            friends = [f for f in friends if search_lower in (f.display_name or "").lower()]
-
-        # Sort favorites first, then alphabetically
-        def sort_key(friend):
-            is_fav = self.social_manager.is_favorite(friend)
-            name = (friend.display_name or friend.account_id or "Unknown").lower()
-            return (not is_fav, name)  # not is_fav so True (favorite) comes before False
-
-        friends.sort(key=sort_key)
+        favorites_only = self.favorite_friends_btn.GetValue()
+        friends = self.social_manager.friends_view(favorites_only, self.current_search)
 
         # Add to list - screen readers will auto-announce position
         for friend in friends:
-            name = friend.display_name or friend.account_id or "Unknown"
-            # Add star for favorites
-            if self.social_manager.is_favorite(friend):
-                label = f"★ {name}"
-            else:
-                label = name
+            name = friend_name(friend)
+            label = f"★ {name}" if self.social_manager.is_favorite(friend) else name
             self.friends_list.Append(label, friend)
 
         if friends:
             self.friends_list.SetSelection(0)
-            filter_type = "favorite friends" if self.favorite_friends_btn.GetValue() else "friends"
-            speaker.speak(f"{len(friends)} {filter_type}")
-        else:
-            filter_type = "favorite friends" if self.favorite_friends_btn.GetValue() else "friends"
-            speaker.speak(f"No {filter_type}")
+        speaker.speak(friends_count_text(len(friends), favorites_only))
 
     def refresh_requests_list(self, event=None):
         """Refresh requests list"""
@@ -654,26 +377,17 @@ class SocialView(EmbeddedView):
 
         self.requests_list.Clear()
 
-        with self.social_manager.lock:
-            if self.incoming_req_btn.GetValue():
-                requests = list(self.social_manager.incoming_requests)
-                request_type = "incoming"
-            else:
-                requests = list(self.social_manager.outgoing_requests)
-                request_type = "outgoing"
+        incoming = self.incoming_req_btn.GetValue()
+        requests = self.social_manager.requests_view(incoming)
 
         # Use cached display names - screen readers will auto-announce position
         for req in requests:
-            name = req.display_name or req.account_id or "Unknown"
             direction = "from" if req.direction == "inbound" else "to"
-            label = f"Request {direction} {name}"
-            self.requests_list.Append(label, req)
+            self.requests_list.Append(f"Request {direction} {friend_name(req)}", req)
 
         if requests:
             self.requests_list.SetSelection(0)
-            speaker.speak(f"{len(requests)} {request_type} requests")
-        else:
-            speaker.speak(f"No {request_type} friend requests")
+        speaker.speak(requests_count_text(len(requests), incoming))
 
     def refresh_party_list(self, event=None):
         """Refresh party members list"""
@@ -690,42 +404,20 @@ class SocialView(EmbeddedView):
 
         self.party_list.Clear()
 
-        with self.social_manager.lock:
-            members = list(self.social_manager.party_members)
+        members, am_i_leader = self.social_manager.party_view()
 
         # Use cached display names - screen readers will auto-announce position
         for member in members:
-            name = member.display_name or member.account_id or "Unknown"
-            if member.is_leader:
-                label = f"{name} (Leader)"
-            else:
-                label = name
-            self.party_list.Append(label, member)
+            name = friend_name(member)
+            self.party_list.Append(f"{name} (Leader)" if member.is_leader else name, member)
 
         if members:
             self.party_list.SetSelection(0)
-            speaker.speak(f"{len(members)} party members")
-            
-            # Check if we are leader
-            am_i_leader = False
-            my_id = self.social_manager.social_api.auth.account_id
-            for m in members:
-                if m.account_id == my_id and m.is_leader:
-                    am_i_leader = True
-                    break
-            
-            # Enable/Disable buttons based on leadership
-            if am_i_leader:
-                self.promote_btn.Enable()
-                self.kick_btn.Enable()
-            else:
-                self.promote_btn.Disable()
-                self.kick_btn.Disable()
-                
-        else:
-            speaker.speak("Not in a party")
-            self.promote_btn.Disable()
-            self.kick_btn.Disable()
+        speaker.speak(party_count_text(len(members)))
+
+        # Only the leader can promote or kick
+        self.promote_btn.Enable(am_i_leader)
+        self.kick_btn.Enable(am_i_leader)
 
     def on_friends_key_down(self, event):
         """Handle key press in friends list with arrow wrapping and type-to-search"""
@@ -813,15 +505,10 @@ class SocialView(EmbeddedView):
         Args:
             data_type: 'friends' or 'requests' to determine which data to refresh
         """
+        self.social_manager.refresh_after_operation(data_type)
         if data_type == 'friends':
-            # Refresh friends data from backend
-            self.social_manager.refresh_slow_data()
-            # Update GUI
             wx.CallAfter(self.refresh_friends_list)
         elif data_type == 'requests':
-            # Refresh requests data from backend
-            self.social_manager.refresh_fast_data()
-            # Update GUI
             wx.CallAfter(self.refresh_requests_list)
 
     def on_requests_key_down(self, event):
@@ -955,31 +642,17 @@ class SocialView(EmbeddedView):
                 speaker.speak(f"No users found matching {username}")
                 return
 
-            # If exact match found, use it
-            exact_match = None
-            for user in users:
-                if user["match_type"] == "exact":
-                    exact_match = user
-                    break
-
-            if exact_match:
-                # Send friend request to exact match
+            # The exact match or the only result is used; otherwise the user picks
+            chosen = self.social_manager.choose_user(users)
+            if chosen:
                 self.social_manager._send_friend_request_by_account_id(
-                    exact_match["account_id"],
-                    exact_match["display_name"]
-                )
-                wx.CallLater(1000, self.refresh_requests_list)
-            elif len(users) == 1:
-                # Only one result, use it
-                user = users[0]
-                self.social_manager._send_friend_request_by_account_id(
-                    user["account_id"],
-                    user["display_name"]
+                    chosen["account_id"],
+                    chosen["display_name"]
                 )
                 wx.CallLater(1000, self.refresh_requests_list)
             else:
                 # Multiple results - show selection dialog
-                choices = [f"{u['display_name']} ({u['mutual_friends']} mutual friends)" for u in users]
+                choices = [self.social_manager.user_choice_label(u) for u in users]
                 dlg = wx.SingleChoiceDialog(
                     self,
                     f"Multiple users found. Select one:",
@@ -1011,12 +684,13 @@ class SocialView(EmbeddedView):
             return
 
         req = self.requests_list.GetClientData(sel)
-        if req.direction == "inbound":
-            self.social_manager._accept_friend_request(req)
-            # Force immediate backend refresh then update GUI
-            wx.CallLater(500, self._refresh_after_operation, 'requests')
-        else:
-            speaker.speak("Cannot accept outgoing request")
+        problem = self.social_manager.accept_problem(req)
+        if problem:
+            speaker.speak(problem)
+            return
+        self.social_manager._accept_friend_request(req)
+        # Force immediate backend refresh then update GUI
+        wx.CallLater(500, self._refresh_after_operation, 'requests')
 
     def on_decline_request(self, event):
         """Decline selected request"""
@@ -1038,8 +712,9 @@ class SocialView(EmbeddedView):
             return
 
         member = self.party_list.GetClientData(sel)
-        if member.is_leader:
-            speaker.speak("Member is already the leader")
+        problem = self.social_manager.promote_problem(member)
+        if problem:
+            speaker.speak(problem)
             return
 
         self.social_manager._promote_party_member(member)
@@ -1075,8 +750,9 @@ class SocialView(EmbeddedView):
         member = self.party_list.GetClientData(sel)
         
         # Can't kick yourself (use leave instead)
-        if member.account_id == self.social_manager.social_api.auth.account_id:
-            speaker.speak("Cannot kick yourself. Use Leave Party instead.")
+        problem = self.social_manager.kick_problem(member)
+        if problem:
+            speaker.speak(problem)
             return
 
         name = self.social_manager._ensure_display_name(member.display_name)
