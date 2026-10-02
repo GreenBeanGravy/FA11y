@@ -1,0 +1,19 @@
+<UserControl x:Class="FA11y.UI.Controls.IslandPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:FA11y.UI.Controls"
+             IsTabStop="False">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <c:RowList x:Name="List" Grid.Row="0" Wrap="True" MinHeight="120" />
+        <WrapPanel Grid.Row="1" Margin="0,10,0,0">
+            <c:IconButton x:Name="CopyButton" Content="Copy code" Margin="0,0,8,0" Click="OnCopyClick" />
+            <c:IconButton x:Name="LaunchButton" Variant="primary" Content="Launch gamemode" Margin="0,0,8,0"
+                          Click="OnLaunchClick" />
+            <ContentPresenter x:Name="ExtraHost" />
+        </WrapPanel>
+    </Grid>
+</UserControl>

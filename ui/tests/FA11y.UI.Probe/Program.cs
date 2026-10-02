@@ -42,6 +42,7 @@ internal static class Program
         string python = "python";
         string? fakeCore = null;
         string root = Path.Combine(Path.GetTempPath(), "fa11y-probe-root");
+        var noKeys = args.Contains("--no-keys");
         for (var i = 0; i < args.Length - 1; i++)
         {
             if (args[i] == "--python") python = args[i + 1];
@@ -99,7 +100,10 @@ internal static class Program
                 Check(false, "ui.ready arrived");
             Thread.Sleep(1200); // let the pages fill in, as a user would wait
 
-            Run(core, uiPid);
+            if (noKeys)
+                StaticRun(core);
+            else
+                Run(core, uiPid);
 
             ui.Refresh();
             Info($"UI process working set: {ui.WorkingSet64 / (1024 * 1024)} MB, private {ui.PrivateMemorySize64 / (1024 * 1024)} MB");
@@ -228,6 +232,86 @@ internal static class Program
         Check(InSidebar(f), $"summon puts focus on the sidebar (is \"{Safe(f)}\")");
     }
 
+    // Without the keyboard (--no-keys) ---------------------------------------------------------
+    // For machines where the probe can't get the foreground. The core shows each page, then the
+    // probe reads the accessibility tree: every keyboard-focusable element, in tree order, must
+    // have a name and a real role, and the pages with tabs are checked tab by tab.
+
+    private static readonly Dictionary<string, string[]> StaticExpectations = new()
+    {
+        ["discover"] = new[]
+        {
+            "Epic gamemodes", "Epic Games - Official Gamemodes", "Zone Wars (2210 playing)", "Copy code", "Launch gamemode",
+            "Refresh", "Browse", "Search", "By creator", "By code",
+        },
+        ["quests"] = new[]
+        {
+            "Quests", "Battle Royale Pass", "Game mode", "Quest category", "Search quests", "Quest status", "Include expired quests",
+            "Quests", "Quest details", "Refresh", "Close",
+        },
+    };
+
+    private static void StaticRun(Process core)
+    {
+        Console.WriteLine("\n== Pages without the keyboard");
+        _pagesList = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List),
+            new PropertyCondition(AutomationElement.NameProperty, "Pages")))!;
+        foreach (var key in new[] { "discover", "quests" })
+        {
+            var title = Pages.First(p => p.Key == key).Title;
+            core.StandardInput.WriteLine($"show-page {key}");
+            if (!Check(WaitFor(() => _window.Current.Name == $"FA11y - {title}", 3000), $"{title} is shown"))
+                continue;
+            Thread.Sleep(1500); // data arrives
+            Console.WriteLine($"\n-- {title}");
+            var seen = new HashSet<string>();
+            DumpFocusable(seen);
+            var tabs = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem))
+                .Cast<AutomationElement>().ToList();
+            Check(tabs.Count > 0, $"{title} has tabs");
+            foreach (var tab in tabs)
+            {
+                var name = tab.Current.Name;
+                Console.WriteLine($"   [tab] {name}");
+                Check(name.Trim().Length > 0, "a tab has a name");
+                if (tab.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var pattern))
+                {
+                    ((SelectionItemPattern)pattern).Select();
+                    Thread.Sleep(900);
+                    DumpFocusable(seen);
+                }
+            }
+            foreach (var expected in StaticExpectations[key])
+                Check(seen.Contains(expected) || tabs.Any(t => t.Current.Name == expected), $"\"{expected}\" is reachable on {title}");
+        }
+    }
+
+    private static void DumpFocusable(HashSet<string> seen)
+    {
+        var elements = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.IsKeyboardFocusableProperty, true))
+            .Cast<AutomationElement>().ToList();
+        foreach (var el in elements)
+        {
+            var c = el.Current;
+            if (c.IsOffscreen)
+                continue;
+            if (!seen.Add(c.Name) && c.ControlType != ControlType.ListItem)
+                continue;
+            if (c.ControlType == ControlType.ListItem && InSidebar(el))
+                continue;
+            Console.WriteLine($"   {Short(c.ControlType),-9} \"{Clip(c.Name)}\"" + (c.HelpText.Length > 0 ? $"  [help: {Clip(c.HelpText)}]" : "")
+                              + (c.AccessKey.Length > 0 ? $"  [key: {c.AccessKey}]" : ""));
+            Check(c.Name.Trim().Length > 0, $"focusable {Short(c.ControlType)} has a name");
+            Check(c.ControlType != ControlType.Pane && c.ControlType != ControlType.Custom && c.ControlType != ControlType.Group,
+                $"\"{Clip(c.Name)}\" has a real role (is {Short(c.ControlType)})");
+        }
+        var stray = _window.FindAll(TreeScope.Descendants, Automation.ControlViewCondition).Cast<AutomationElement>()
+            .Where(e => { try { return e.Current.Name.Contains('_') || (e.Current.ControlType == ControlType.Button && e.FindFirst(TreeScope.Children, Condition.TrueCondition) != null); } catch { return false; } })
+            .Select(e => e.Current.Name).ToList();
+        Check(stray.Count == 0, $"no access key underscores or label fragments inside controls ({string.Join(", ", stray)})");
+    }
+
     // One page --------------------------------------------------------------------
 
     private static void WalkPage(int index)
@@ -257,7 +341,7 @@ internal static class Program
                 $"\"{Clip(c.Name)}\" has a real role (is {Short(c.ControlType)})");
         }
         var names = seen.Select(e => e.Current.Name).ToList();
-        var stray = _window.FindAll(TreeScope.Descendants, Condition.TrueCondition).Cast<AutomationElement>()
+        var stray = _window.FindAll(TreeScope.Descendants, Automation.ControlViewCondition).Cast<AutomationElement>()
             .Where(e => { try { return e.Current.Name.Contains('_') || (e.Current.ControlType == ControlType.Button && e.FindFirst(TreeScope.Children, Condition.TrueCondition) != null); } catch { return false; } })
             .Select(e => e.Current.Name).ToList();
         Check(stray.Count == 0, $"no access key underscores or label fragments inside buttons ({string.Join(", ", stray)})");
@@ -279,6 +363,24 @@ internal static class Program
             Check(seen.Any(e => e.Current.Name == "Changelog" && e.Current.ControlType == ControlType.Edit), "Changelog is a named edit box");
         }
 
+        if (page.Key == "discover")
+        {
+            Check(names.Contains("Epic gamemodes") && names.Contains("Zone Wars (2210 playing)")
+                  && names.Contains("Copy code") && names.Contains("Launch gamemode") && names.Contains("Refresh"),
+                "Discover's tab, list, and buttons are all reachable with Tab");
+            Check(names.IndexOf("Epic gamemodes") < names.IndexOf("Zone Wars (2210 playing)")
+                  && names.IndexOf("Zone Wars (2210 playing)") < names.IndexOf("Copy code"),
+                "Tab order follows the screen: tabs, list, then buttons");
+        }
+        if (page.Key == "quests")
+        {
+            Check(names.Contains("Quests") && names.Contains("Game mode") && names.Contains("Search quests")
+                  && names.Contains("Quest details") && names.Contains("Close"),
+                "Quests' tabs, filters, list, details, and buttons are all reachable with Tab");
+            Check(names.IndexOf("Game mode") < names.IndexOf("Search quests") && names.IndexOf("Search quests") < names.IndexOf("Quest details"),
+                "Tab order follows the screen: filters, then the list, then details");
+        }
+
         // Enter from the sidebar lands on the page's first control; Escape comes back.
         Key(Vk.Enter);
         Thread.Sleep(120);
@@ -291,6 +393,10 @@ internal static class Program
                 Check(Safe(first) == "TestPlayer. Signed in.", "Enter on the account page lands on who is signed in");
             if (page.Key == "about")
                 Check(Safe(first) == "FA11y 1.2.3", "Enter on About lands on the version");
+            if (page.Key == "discover")
+                Check(Safe(first) == "Zone Wars (2210 playing)", "Enter on Discover lands on the first gamemode");
+            if (page.Key == "quests")
+                Check(Safe(first) == "Search quests", "Enter on Quests lands on the search box");
             Key(Vk.Escape);
             Thread.Sleep(150);
             var back = AutomationElement.FocusedElement;

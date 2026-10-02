@@ -13,18 +13,36 @@ class QuestStore:
         self.packet = {}
         self.epoch = None
         self.revision = 0
+        self.listeners = []
+
+    def add_listener(self, callback):
+        """Call callback() (from any thread) after the quests changed."""
+        if callback not in self.listeners:
+            self.listeners.append(callback)
+
+    def _notify(self):
+        for callback in list(self.listeners):
+            try:
+                callback()
+            except Exception:
+                pass
 
     def replace_api(self, snapshot):
         with self.lock:
             self.api = copy.deepcopy(snapshot)
             self.revision += 1
+        self._notify()
 
     def reset_packet(self, epoch):
+        changed = False
         with self.lock:
             if epoch != self.epoch:
                 self.epoch = epoch
                 self.packet.clear()
                 self.revision += 1
+                changed = True
+        if changed:
+            self._notify()
 
     def feed_packet(self, event, epoch):
         self.reset_packet(epoch)
@@ -46,6 +64,7 @@ class QuestStore:
                     hidden=meta.get('hidden', False), metadata_available=bool(meta), expired=False,
                     expiry=None, source='match_packets', updated_at=event['received_at'])
             self.revision += 1
+        self._notify()
 
     def snapshot(self):
         with self.lock:

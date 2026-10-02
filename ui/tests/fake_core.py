@@ -43,6 +43,7 @@ class FakeCore:
         self.signed_in = True
         self.fortnite_running = False
         self.page = "home"
+        self.pages = None  # Discover, Quests and passes answers (fake_pages.py)
         self.proc: subprocess.Popen | None = None
         self.started = 0.0
 
@@ -113,6 +114,12 @@ class FakeCore:
             return {"ok": True}
         if method == "app.state":
             return self.hello()
+        if method.startswith(("discover.", "quests.", "passes.")):
+            from fake_pages import Pages
+            with self.lock:
+                if self.pages is None:
+                    self.pages = Pages()
+            return self.pages.answer(method, params, self.signed_in)
         return {}
 
     # Reading ------------------------------------------------------------------

@@ -18,6 +18,8 @@ Events sent to the UI:
     fortnite.running   {running}
     update.available   {version}
     home.changed, account.changed, about.changed    a page's data changed
+    views.reset        {keys}, signed in or out: ported pages that depend on the account reload
+    quests.changed     {revision}, quests changed (match packets or an account refresh)
 Events from the UI:
     ui.ready           the window is on screen and listening
     ui.visibility      {visible, active}
@@ -35,7 +37,7 @@ from lib.shell.bridge import Bridge, registry
 
 logger = logging.getLogger(__name__)
 
-PORTED_PAGES = ("home", "account", "about")
+PORTED_PAGES = ("home", "account", "about", "discover", "quests")
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
 
@@ -79,6 +81,7 @@ class RemoteHub:
     @staticmethod
     def _load_handlers() -> None:
         from lib.shell.handlers import about, account, app, home  # noqa: F401 (they register themselves)
+        from lib.shell.handlers import discover, passes, quests  # noqa: F401
 
     # Lifecycle -----------------------------------------------------------
 
@@ -178,7 +181,8 @@ class RemoteHub:
         self.send("ui.show_page", data)
 
     def reset_views(self, keys) -> None:
-        """Rebuild the wx views on these pages (after signing in or out)."""
+        """Rebuild the views on these pages (after signing in or out)."""
+        self.send("views.reset", {"keys": list(keys)})
         classic = self._classic
         if classic is None:
             return

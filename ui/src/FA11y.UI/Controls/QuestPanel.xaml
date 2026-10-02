@@ -1,0 +1,76 @@
+<UserControl x:Class="FA11y.UI.Controls.QuestPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:FA11y.UI.Controls"
+             IsTabStop="False">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" MinHeight="90" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="70" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <c:ReadableText x:Name="Intro" Grid.Row="0" Margin="0,0,0,10" />
+
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+            <c:FieldLabel Grid.Column="0" Style="{StaticResource FieldLabel}" Content="_Mode:" Target="{Binding ElementName=ModeBox}" />
+            <ComboBox x:Name="ModeBox" Grid.Column="1" Margin="0,0,12,0" AutomationProperties.Name="Game mode"
+                      SelectionChanged="OnModeChanged" />
+            <c:FieldLabel Grid.Column="2" Style="{StaticResource FieldLabel}" Content="Cate_gory:" Target="{Binding ElementName=CategoryBox}" />
+            <ComboBox x:Name="CategoryBox" Grid.Column="3" AutomationProperties.Name="Quest category"
+                      SelectionChanged="OnFilterChanged" />
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <c:FieldLabel Grid.Column="0" Style="{StaticResource FieldLabel}" Content="_Search:" Target="{Binding ElementName=SearchBox}" />
+            <TextBox x:Name="SearchBox" Grid.Column="1" Margin="0,0,12,0" AutomationProperties.Name="Search quests"
+                     TextChanged="OnSearchChanged" />
+            <c:FieldLabel Grid.Column="2" Style="{StaticResource FieldLabel}" Content="_Status:" Target="{Binding ElementName=StatusBox}" />
+            <ComboBox x:Name="StatusBox" Grid.Column="3" MinWidth="120" AutomationProperties.Name="Quest status"
+                      SelectionChanged="OnFilterChanged">
+                <ComboBoxItem Content="Active" />
+                <ComboBoxItem Content="Completed" />
+                <ComboBoxItem Content="All" />
+            </ComboBox>
+        </Grid>
+
+        <c:CheckOption x:Name="ExpiredBox" Grid.Row="3" Content="Include _expired quests" Margin="0,0,0,8"
+                       Checked="OnFilterChanged" Unchecked="OnFilterChanged" />
+
+        <c:FieldLabel Grid.Row="4" Style="{StaticResource FieldLabel}" Content="_Quests:" Target="{Binding ElementName=QuestList}" />
+        <c:RowList x:Name="QuestList" Grid.Row="5" Margin="0,2,0,8" AutomationProperties.Name="Quests"
+                   SelectionChanged="OnQuestSelected" />
+
+        <c:FieldLabel Grid.Row="6" Style="{StaticResource FieldLabel}" Content="_Details:" Target="{Binding ElementName=Details}" />
+        <TextBox x:Name="Details" Grid.Row="7" Margin="0,2,0,8" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                 AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                 AutomationProperties.Name="Quest details" />
+
+        <c:ReadableText x:Name="StatusText" Grid.Row="8" Margin="0,0,0,8" Foreground="{StaticResource TextSecondary}" />
+
+        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right">
+            <c:IconButton x:Name="RefreshButton" Icon="{StaticResource Icon.refresh}" Content="_Refresh"
+                          Margin="0,0,8,0" Click="OnRefreshClick" />
+            <c:IconButton x:Name="CloseButton" Content="_Close" Click="OnCloseClick" />
+        </StackPanel>
+    </Grid>
+</UserControl>

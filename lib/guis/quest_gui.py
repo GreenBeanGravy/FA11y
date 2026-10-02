@@ -8,8 +8,9 @@ from lib.hub.controls import StyledButton
 from lib.guis.view_host import EmbeddedView, ViewDialog, show_view
 from lib.managers.quest_manager import quest_store
 from lib.utilities.epic_quests import EpicQuestAPI, QuestQueryError
-from lib.utilities.quest_presentation import (prepare_quests, filter_quests, natural_key,
-                                            list_labels, details_text, matches_mode)
+from lib.utilities.quest_view import render_quests
+
+NO_QUESTS_TEXT = 'No quests match these filters.'
 
 
 class QuestView(EmbeddedView):
@@ -158,24 +159,19 @@ class QuestView(EmbeddedView):
         old_index = self.list.GetSelection()
         selected = self.rows[old_index]['id'] if 0 <= old_index < len(self.rows) else None
         self._revision, snapshot = self.store.snapshot()
-        rows, hidden, unresolved = prepare_quests(snapshot['quests'],contextual_templates=self.quest_templates)
-        if self.quest_templates is not None:
-            rows=[q for q in rows if q['template'].lower() in self.quest_templates]
-        self._choices(self.mode, ['All modes'] + sorted({m for q in rows for m in q['modes']}, key=natural_key))
-        if rows and self._initial_mode:
-            self.mode.SetStringSelection('Battle Royale')
+        view = render_quests(
+            snapshot, mode=None if self._initial_mode else self.mode.GetStringSelection(),
+            category=self.category.GetStringSelection(), status=self.filter.GetStringSelection(),
+            query=self.search.GetValue(), expired=self.expired.GetValue(),
+            templates=self.quest_templates, scope_label=self.scope_label, error=self._error)
+        if self._initial_mode and len(view['modes']) > 1:
             self._initial_mode = False
-        mode = self.mode.GetStringSelection()
-        categories = {q['category'] for q in rows if matches_mode(q, mode)}
-        if self.scope_label:
-            rows=[dict(q, category=self.scope_label) for q in rows]
-            self._choices(self.category, [self.scope_label])
-        else:
-            self._choices(self.category, ['All categories'] + sorted(categories, key=natural_key))
-        self.rows = filter_quests(rows, mode=mode, category=self.category.GetStringSelection(),
-                                  status=self.filter.GetStringSelection(), query=self.search.GetValue(),
-                                  expired=self.expired.GetValue())
-        labels = list_labels(self.rows, include_mode=mode == 'All modes')
+        self._choices(self.mode, view['modes'])
+        self.mode.SetStringSelection(view['mode'])
+        self._choices(self.category, view['categories'])
+        self.category.SetStringSelection(view['category'])
+        self.rows = view['rows']
+        labels = [row['label'] for row in self.rows]
         old_ids = getattr(self, '_list_ids', [])
         new_ids = [q['id'] for q in self.rows]
         if old_ids != new_ids:
@@ -191,18 +187,14 @@ class QuestView(EmbeddedView):
             if self.list.GetSelection() != index:
                 self.list.SetSelection(index)
         self._selection()
-        when = snapshot.get('updated_at')
-        stamp = datetime.fromtimestamp(when).strftime('%I:%M:%S %p') if when else 'not yet loaded'
-        self.status.SetLabel(self._error or
-            f'{len(self.rows)} quests shown. {hidden} inactive, hidden, or suppressed quests excluded; '
-            f'{unresolved} quests awaiting readable names. Account snapshot: {stamp}.')
+        self.status.SetLabel(view['status'])
 
     def _selection(self, event=None):
         index = self.list.GetSelection()
         if not 0 <= index < len(self.rows):
-            self.details.ChangeValue('No quests match these filters.')
+            self.details.ChangeValue(NO_QUESTS_TEXT)
             return
-        value = details_text(self.rows[index])
+        value = self.rows[index]['details']
         selected_id = self.rows[index]['id']
         if self.details.GetValue() != value:
             position = self.details.GetInsertionPoint() if getattr(self, '_details_id', None) == selected_id else 0

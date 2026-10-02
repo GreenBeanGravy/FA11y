@@ -3,38 +3,19 @@ Discovery GUI for FA11y
 Provides interface for browsing Fortnite Creative islands and gamemodes
 """
 import logging
-import re
 import wx
 from lib.hub.controls import StyledButton, TabbedBook
 import threading
 import time
-import pyperclip
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import BORDER_FOR_DIALOGS
 from lib.guis.view_host import EmbeddedView, show_view
+from lib.utilities import discovery_ops
+from lib.utilities.discovery_ops import is_standard_code_format  # noqa: F401 (kept for importers)
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
-
-
-def is_standard_code_format(code: str) -> bool:
-    """
-    Check if code matches standard Fortnite island code format.
-    
-    Standard formats:
-    - ####-####-#### (12 digits with dashes)
-    - ############ (12 digits without dashes)
-    
-    Args:
-        code: Island code to check
-        
-    Returns:
-        True if code is in standard format, False otherwise
-    """
-    if not code:
-        return False
-    return bool(re.match(r'^\d{4}-\d{4}-\d{4}$', code) or re.match(r'^\d{12}$', code))
 
 
 class DiscoveryView(EmbeddedView):
@@ -454,11 +435,7 @@ class DiscoveryView(EmbeddedView):
 
         for island in islands:
             # Display Epic gamemodes
-            if island.global_ccu >= 0:
-                label = f"{island.title} ({island.global_ccu} playing)"
-            else:
-                label = island.title
-            self.epic_list.Append(label, island)
+            self.epic_list.Append(discovery_ops.epic_label(island), island)
 
         if islands:
             self.epic_list.SetSelection(0)
@@ -527,13 +504,7 @@ class DiscoveryView(EmbeddedView):
             return
 
         for island in islands:
-            creator = island.creator_name if island.creator_name else "Unknown"
-            # Include player count if available
-            if island.global_ccu >= 0:
-                label = f"{island.title} ({island.global_ccu} playing) - {island.link_code}"
-            else:
-                label = f"{island.title} by {creator} - {island.link_code}"
-            self.browse_list.Append(label, island)
+            self.browse_list.Append(discovery_ops.browse_label(island), island)
 
         if islands:
             self.browse_list.SetSelection(0)
@@ -666,9 +637,7 @@ class DiscoveryView(EmbeddedView):
             return
 
         for island in islands:
-            creator = island.creator_name if island.creator_name else "Unknown"
-            label = f"{island.title} by {creator} - {island.link_code}"
-            self.search_list.Append(label, island)
+            self.search_list.Append(discovery_ops.search_label(island), island)
 
         if islands:
             self.search_list.SetSelection(0)
@@ -742,12 +711,7 @@ class DiscoveryView(EmbeddedView):
             return
 
         for island in islands:
-            # Include player count if available
-            if island.global_ccu >= 0:
-                label = f"{island.title} ({island.global_ccu} playing) - {island.link_code}"
-            else:
-                label = f"{island.title} - {island.link_code}"
-            self.creator_list.Append(label, island)
+            self.creator_list.Append(discovery_ops.creator_label(island), island)
 
         if islands:
             self.creator_list.SetSelection(0)
@@ -763,20 +727,7 @@ class DiscoveryView(EmbeddedView):
             speaker.speak("Island not found")
             return
 
-        info_lines = []
-        info_lines.append(f"Title: {island.title}")
-        info_lines.append(f"Code: {island.link_code}")
-
-        if island.creator_name:
-            info_lines.append(f"Creator: {island.creator_name}")
-
-        if island.description:
-            info_lines.append(f"\nDescription: {island.description}")
-
-        if island.global_ccu >= 0:
-            info_lines.append(f"\nPlayers: {island.global_ccu}")
-
-        self.island_info_text.SetValue("\n".join(info_lines))
+        self.island_info_text.SetValue(discovery_ops.lookup_text(island, code))
         self.island_info_text.SetInsertionPoint(0)
         speaker.speak(f"Found: {island.title}")
 
@@ -789,12 +740,7 @@ class DiscoveryView(EmbeddedView):
 
         island = self.browse_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            pyperclip.copy(island.link_code)
-            # Use title instead of code for non-standard formats
-            if is_standard_code_format(island.link_code):
-                speaker.speak(f"Copied code: {island.link_code}")
-            else:
-                speaker.speak(f"Copied code: {island.title}")
+            speaker.speak(discovery_ops.copy_text(island.link_code, island.title))
         else:
             speaker.speak("No code available")
 
@@ -807,12 +753,7 @@ class DiscoveryView(EmbeddedView):
 
         island = self.search_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            pyperclip.copy(island.link_code)
-            # Use title instead of code for non-standard formats
-            if is_standard_code_format(island.link_code):
-                speaker.speak(f"Copied code: {island.link_code}")
-            else:
-                speaker.speak(f"Copied code: {island.title}")
+            speaker.speak(discovery_ops.copy_text(island.link_code, island.title))
         else:
             speaker.speak("No code available")
 
@@ -825,12 +766,7 @@ class DiscoveryView(EmbeddedView):
 
         island = self.epic_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            pyperclip.copy(island.link_code)
-            # Use title instead of code for non-standard formats
-            if is_standard_code_format(island.link_code):
-                speaker.speak(f"Copied code: {island.link_code}")
-            else:
-                speaker.speak(f"Copied code: {island.title}")
+            speaker.speak(discovery_ops.copy_text(island.link_code, island.title))
         else:
             speaker.speak("No code available")
 
@@ -856,12 +792,7 @@ class DiscoveryView(EmbeddedView):
 
         island = self.creator_list.GetClientData(sel)
         if island and hasattr(island, 'link_code'):
-            pyperclip.copy(island.link_code)
-            # Use title instead of code for non-standard formats
-            if is_standard_code_format(island.link_code):
-                speaker.speak(f"Copied code: {island.link_code}")
-            else:
-                speaker.speak(f"Copied code: {island.title}")
+            speaker.speak(discovery_ops.copy_text(island.link_code, island.title))
         else:
             speaker.speak("No code available")
 
@@ -1098,22 +1029,7 @@ class DiscoveryView(EmbeddedView):
         # Close the view first
         self.request_close(wx.ID_OK)
 
-        # Run automation in separate thread to not block
-        def _do_automation():
-            try:
-                from lib.utilities.gamemode_selection import select_gamemode
-                search_text = code if is_standard_code_format(code) else title
-                success, error = select_gamemode(search_text, expected_title=title)
-                if success:
-                    speaker.speak(f"{title} selected!")
-                else:
-                    speaker.speak(f"Failed to select gamemode: {error}")
-
-            except Exception as e:
-                logger.error(f"Error launching gamemode: {e}")
-                speaker.speak(f"Failed to select gamemode: {e}")
-
-        threading.Thread(target=_do_automation, daemon=True).start()
+        discovery_ops.launch_gamemode(code, title, speaker.speak)
 
 
 def show_discovery_gui(discovery_api):
