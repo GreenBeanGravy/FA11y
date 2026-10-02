@@ -38,7 +38,7 @@ what it currently does:
   (uses [Legendary](https://github.com/derrod/legendary) — no Epic launcher
   required)
 - Browse and equip cosmetics via the Locker selector
-- Select and queue game modes via the Gamemode selector
+- Select game modes via the Discovery selector (Left Alt + apostrophe)
 - Browse Creative islands via the Discovery menu
 - Epic authentication / social menu (friends, party, requests)
 - Reload map rotation — query fortnite.gg and announce which map is live now
@@ -116,7 +116,7 @@ All keybinds are configurable via `F9` → FA11y configuration menu.
 
 | Key | Action |
 |---|---|
-| `'` | Gamemode selector |
+| `Left Alt + '` | Discovery game mode selector |
 | `L-Alt + V` | Visited-objects manager |
 | `L-Alt + .` | Social menu |
 | `L-Alt + '` | Discovery menu |

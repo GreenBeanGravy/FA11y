@@ -3,23 +3,16 @@ Discovery GUI for FA11y
 Provides interface for browsing Fortnite Creative islands and gamemodes
 """
 import logging
-import time
 import re
 import wx
 import threading
 import pyperclip
 from accessible_output2.outputs.auto import Auto
-import pyautogui
-from lib.utilities.mouse import (
-    move_to, move_to_and_click, mouse_scroll
-)
 
 from lib.guis.gui_utilities import (
     AccessibleDialog, BoxSizerHelper, ButtonHelper,
     messageBox, BORDER_FOR_DIALOGS
 )
-from lib.utilities.window_utils import focus_fortnite
-from lib.managers.screenshot_manager import capture_coordinates
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -1112,80 +1105,13 @@ class DiscoveryDialog(AccessibleDialog):
         # Run automation in separate thread to not block
         def _do_automation():
             try:
-                # Ensure Fortnite stays in focus
-                if not focus_fortnite():
-                    logger.error("Could not focus Fortnite window")
-                    speaker.speak("Failed to select gamemode: Could not focus Fortnite window")
-                    return
-                time.sleep(0.3)
-
-                # Click initial position to open discovery
-                move_to_and_click(69, 69)
-                time.sleep(0.5)
-
-                # Move mouse to scroll position
-                move_to(950, 470)
-                time.sleep(0.1)
-
-                # Scroll down once
-                mouse_scroll(-3)
-                time.sleep(0.2)
-
-                # Scroll down again
-                mouse_scroll(-3)
-                time.sleep(1.1)  # Wait extra second for UI to settle
-
-                # Click to open search
-                move_to_and_click(160, 170)
-                time.sleep(0.1)
-
-                # Type the gamemode code or title (use title for non-standard codes)
-                pyautogui.hotkey('ctrl', 'a')
-                time.sleep(0.1)
+                from lib.utilities.gamemode_selection import select_gamemode
                 search_text = code if is_standard_code_format(code) else title
-                pyautogui.typewrite(search_text)
-                time.sleep(1.0)  # Wait an extra second before pressing enter
-                pyautogui.press('enter')
-
-                # Wait for search results - check if pixel 84,353 is white (255,255,255)
-                # Using FA11y's built-in screen capture instead of pyautogui
-                def check_pixel_white(x, y):
-                    """Check if pixel at (x, y) is white using FA11y screen capture"""
-                    from lib.managers.screenshot_manager import screenshot_manager
-                    full_screen = screenshot_manager.capture_full_screen('rgb')
-                    if full_screen is not None:
-                        # numpy arrays are indexed [y, x] not [x, y]
-                        fa11y_color = tuple(full_screen[y, x])
-                        return fa11y_color == (255, 255, 255)
-                    return False
-
-                start_time = time.time()
-                while not check_pixel_white(84, 353):
-                    if time.time() - start_time > 5:
-                        logger.error("Timeout waiting for search results")
-                        speaker.speak("Failed to select gamemode: Search results not found - gamemode may not exist or something else broke")
-                        mouse_scroll(3)
-                        time.sleep(0.2)
-                        mouse_scroll(3)
-                        time.sleep(0.2)
-                        mouse_scroll(3)
-                        time.sleep(0.2)
-                        mouse_scroll(3)
-                        return
-                    time.sleep(0.1)
-                time.sleep(0.1)
-
-                # Click the gamemode result
-                move_to_and_click(192, 493)
-                time.sleep(0.15)
-                move_to_and_click(192, 493)
-                time.sleep(0.7)
-
-                # Click to confirm/select
-                move_to_and_click(235, 923)
-                time.sleep(0.5)
-
-                speaker.speak(f"{title} selected!")
+                success, error = select_gamemode(search_text, expected_title=title)
+                if success:
+                    speaker.speak(f"{title} selected!")
+                else:
+                    speaker.speak(f"Failed to select gamemode: {error}")
 
             except Exception as e:
                 logger.error(f"Error launching gamemode: {e}")

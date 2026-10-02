@@ -1,3 +1,9 @@
+10/1/2026 #1:
+- Updated the main Battle Royale map for Fortnitemares, with 13 POIs, 27 landmarks, and aligned chest, ammo box, and other object locations.
+- Updated the main-map loot list for Fortnite 42.30, including loot hacks and Zero Build items, excluding Sprites.
+- Updated Left Alt + apostrophe game mode selection to follow the current Discovery screens and confirm the selected mode. Selection no longer checks or changes Team Fill.
+- Removed the retired apostrophe game mode selector and its old separate Build/Zero Build lists. Use Left Alt + apostrophe, then Left Alt + O to choose match options.
+
 9/28/2026 #4 (18.11.15):
 - Added the Sprite Mastery reward track to Left Alt+Q quests under Sprite Mastery / Mastery Rewards. Each step, from Mastered 1 Sprite upward, lists its rewards, such as Portable Extractors, Extraction Accelerators, and the Pixel Polli outfit at 28 Sprites.
 - Added story bonus goals Fortnite shows without a title, such as Complete Bastian quests and Complete Wrixel (Ziggy) quests, with their Portable Extractor rewards.

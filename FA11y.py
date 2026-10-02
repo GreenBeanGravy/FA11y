@@ -204,7 +204,6 @@ config_gui_open = _app_state.config_gui_open
 social_gui_open = _app_state.social_gui_open
 discovery_gui_open = _app_state.discovery_gui_open
 locker_gui_open = _app_state.locker_gui_open
-gamemode_gui_open = _app_state.gamemode_gui_open
 visited_objects_gui_open = _app_state.visited_objects_gui_open
 custom_poi_gui_open = _app_state.custom_poi_gui_open
 _shutdown_requested = _app_state.shutdown_requested
@@ -424,7 +423,6 @@ def reload_config() -> None:
             'announce direction faced': speak_minimap_direction,
             'check health shields': check_health_shields,
             'check rarity': check_rarity,
-            'open gamemode selector': open_gamemode_selector,
             'open locker selector': open_locker_selector,
             'open quest browser': open_quest_browser,
             'open locker viewer': open_locker_viewer,
@@ -682,7 +680,6 @@ def update_script_config(new_config: configparser.ConfigParser) -> None:
 
 from lib.app.menu_actions import (
     handle_custom_poi_gui,
-    open_gamemode_selector,
     open_locker_selector,
     open_locker_viewer,
     open_config_gui as _open_config_gui_ext,

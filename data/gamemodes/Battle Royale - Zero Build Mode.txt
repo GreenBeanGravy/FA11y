@@ -1,2 +1,0 @@
-zero build
-solo,duo,trio,squad

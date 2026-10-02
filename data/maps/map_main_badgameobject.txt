@@ -1,0 +1,1 @@
+# New 42.30 alignment: no verified rejected static positions.

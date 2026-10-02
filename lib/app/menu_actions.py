@@ -90,32 +90,6 @@ def handle_custom_poi_gui(use_ppi: bool = False) -> None:
     launch_gui_thread_safe(_do_custom_poi_gui)
 
 
-def open_gamemode_selector() -> None:
-    """Open the gamemode selector GUI."""
-    speaker = state.speaker
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    def _do_open_gamemode():
-        if state.gamemode_gui_open.is_set():
-            speaker.speak("Gamemode selector is already open")
-            focus_window("Game Mode Selection")
-            return
-
-        try:
-            from lib.guis.gamemode_gui import launch_gamemode_selector
-            state.gamemode_gui_open.set()
-            try:
-                launch_gamemode_selector()
-            finally:
-                state.gamemode_gui_open.clear()
-        except Exception as e:
-            print(f"Error opening gamemode selector: {e}")
-            speaker.speak("Error opening gamemode selector")
-            state.gamemode_gui_open.clear()
-
-    launch_gui_thread_safe(_do_open_gamemode)
-
-
 def _stop_active_pinger_for_menu() -> None:
     """Shared helper — locker stops the POI pinger when it opens."""
     pinger = state.get_active_pinger()

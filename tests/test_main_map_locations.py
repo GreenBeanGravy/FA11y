@@ -33,7 +33,7 @@ def test_main_map_landmarks_transform_to_expected_screen_positions():
     coordinate_system = CoordinateSystem(str(MAPS_DIR / "map_main_pois.txt"))
     landmarks = _read_locations("map_main_landmarks.txt")
 
-    assert len(landmarks) == 24
+    assert len(landmarks) == 27
     for _name, expected_screen, world in landmarks:
         actual_screen = coordinate_system.world_to_screen(*world)
         assert abs(actual_screen[0] - expected_screen[0]) <= 1
@@ -48,15 +48,18 @@ def test_main_map_loot_has_current_items_and_no_sprites():
     assert not any("sprite" in item.lower() for item in loot)
     assert {
         "Assault Rifle",
-        "Ranger Assault Rifle",
-        "Minigun",
+        "Heavy Assault Rifle",
+        "Bonerattler SMG",
         "Tactical Pistol",
-        "Drum Gun",
+        "Dual Fiend Hunters",
         "8-Bit Shotgun",
         "Pump Shotgun",
-        "Oni Shotgun",
-        "Flare Gun",
-        "Chug Splash",
+        "Wood Stake Shotgun",
+        "Pumpkin Launcher",
+        "Last Call",
+        "Slap Candy Corn",
+        "Infantry Rifle",
+        "Light Machine Gun",
         "Small Shield Potion",
         "Shield Potion",
         "Chug Jug",
@@ -82,6 +85,7 @@ def test_main_map_loot_has_current_items_and_no_sprites():
         "Dark Voyager's Obliterator",
     }
     assert loot.isdisjoint(stale_mythics)
+    assert loot.isdisjoint({"Drum Gun", "Ranger Assault Rifle", "Tetris Rift"})
 
 
 def test_removed_boss_and_vault_objects_are_not_shipped():

@@ -1,19 +1,62 @@
-Assault Rifle
-Ranger Assault Rifle
-Minigun
-Tactical Pistol
-Drum Gun
+1-Up Token
 8-Bit Shotgun
-Pump Shotgun
-Oni Shotgun
-Flare Gun
-Chug Splash
-Small Shield Potion
-Shield Potion
-Chug Jug
-Med Kit
+Apple
+Assault Rifle
+Balloon Popper Assault Rifle
 Bandage
-Midas Flopper
-Sonic Power Sneakers
-Midas' Masterpiece
+Bonerattler SMG
+Brick-A-Bunker
+Bush
+Cabbage
+Candy Corn
+Chug Jug
+Coconut
+Dual Fiend Hunters
+Easy Ride Pumpkin Launcher
+Enhanced 8-Bit Shotgun
+Enhanced Assault Rifle
+Flopper
+Frantic Rebecca's Guns
+Freddy's Nightmare
+God Mode Llama
+Golden Apple
+Golden Truffle
+Guardian Shield
+Heavy Assault Rifle
+High Stakes' Shotgun
+Hop Drop
+Infantry Rifle
+Jelly Bean
+Jellyfish
+Kingdom Key
+Last Call
+Light Machine Gun
+Marker Bonerattler SMG
+Med Kit
 Mega Buster
+Midas Flopper
+Midas' Masterpiece
+Overclocked 8-Bit Shotgun
+Overdrive Grenade
+Overpowered Pump Shotgun
+Pepper
+Pocket Shockwave Grenade
+Pump Shotgun
+Pumpkin Launcher
+Quack Snacks
+Rebecca's Guns
+Sea Salt Ice Cream
+Shield Fish
+Shield Potion
+Shrub Bomb
+Slap Candy Corn
+Slurpfish
+Small Fry
+Small Shield Potion
+Smoke Cloud
+Snack-O'-Lantern Gizmo
+Sonic Power Sneakers
+Sweeper Shotgun
+Tactical Pistol
+Witch Broom
+Wood Stake Shotgun
