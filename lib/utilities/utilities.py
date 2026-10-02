@@ -1054,30 +1054,7 @@ def get_config_boolean(config: configparser.ConfigParser, key: str, fallback: bo
     return value.lower() in ('true', 'yes', 'on', '1')
 
 def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: Optional[Union[callable, Any]] = None) -> None:
-    """Force focus on a given window with optional speech and widget focus - supports both tkinter and PyQt6"""
-    
-    # Check if it's a PyQt6 window
-    try:
-        from PyQt6.QtWidgets import QWidget
-        from PyQt6.QtCore import Qt, QTimer
-        
-        if isinstance(window, QWidget):
-            # Simple PyQt6 focus - just bring to front and focus
-            window.show()
-            window.raise_()
-            window.activateWindow()
-            window.setFocus()
-            
-            # Handle speech and focus widget if provided
-            if speak_text:
-                speaker.speak(speak_text)
-            if focus_widget and callable(focus_widget):
-                QTimer.singleShot(100, focus_widget)
-            return
-    except ImportError:
-        pass  # PyQt6 not available, continue with tkinter handling
-    
-    # Original tkinter handling code (unchanged)
+    """Force focus on a given tkinter window with optional speech and widget focus"""
     window.deiconify()
     window.attributes('-topmost', True)
     window.update()

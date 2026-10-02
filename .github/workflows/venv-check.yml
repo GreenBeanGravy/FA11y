@@ -1,0 +1,76 @@
+name: Venv check
+
+# Builds the same environment FA11y ships with (official Python 3.12.9
+# NuGet package + venv + requirements.lock) and verifies FA11y imports and
+# its tests pass inside it.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12.9"
+  PYTHON_NUPKG_SHA256: "b7240e3117d94dc2446c4b1250e31306adc817934706937d0992c78f937487ba"
+
+jobs:
+  lock-in-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Check requirements.lock matches requirements.txt
+        run: |
+          uv pip compile requirements.txt \
+            --python-version 3.12 \
+            --python-platform x86_64-pc-windows-msvc \
+            --generate-hashes --no-header \
+            -o requirements.lock
+          git diff --exit-code requirements.lock || {
+            echo "::error::requirements.lock is out of date. Regenerate it with the command in this step."
+            exit 1
+          }
+
+  venv:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Python ${{ env.PYTHON_VERSION }}
+        run: |
+          Invoke-WebRequest "https://www.nuget.org/api/v2/package/python/$env:PYTHON_VERSION" -OutFile python.zip
+          $hash = (Get-FileHash python.zip -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:PYTHON_NUPKG_SHA256) { throw "Python package hash mismatch: $hash" }
+          Expand-Archive python.zip -DestinationPath "$env:RUNNER_TEMP\python"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: pip-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.lock') }}
+
+      - name: Create venv and install requirements.lock
+        run: |
+          Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+          & "$env:RUNNER_TEMP\python\tools\python.exe" -E -s -m venv "$env:RUNNER_TEMP\venv"
+          $py = "$env:RUNNER_TEMP\venv\Scripts\python.exe"
+          & $py -E -m pip install --disable-pip-version-check --require-hashes -r requirements.lock
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $py -E -m pip install --disable-pip-version-check pytest
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $py -VV
+
+      - name: Import every dependency and FA11y module
+        run: |
+          & "$env:RUNNER_TEMP\venv\Scripts\python.exe" -E tools/smoke_imports.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Run tests
+        # The default-config timing test has a tight wall-clock limit that
+        # also fails on developer machines; it is excluded until fixed.
+        run: |
+          & "$env:RUNNER_TEMP\venv\Scripts\python.exe" -E -m pytest -p no:cacheprovider `
+            --deselect tests/test_performance.py::TestDefaultConfigPerformance::test_default_config_generation_speed
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }

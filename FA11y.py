@@ -64,13 +64,6 @@ if sys.version_info >= (3, 12):
 
 from accessible_output2.outputs.auto import Auto
 
-try:
-    import PyQt6
-    PYQT6_AVAILABLE = True
-except ImportError:
-    PYQT6_AVAILABLE = False
-    print("Warning: PyQt6 not available")
-
 # Import from reorganized lib structure
 from lib.detection.hsr import (
     check_health_shields,
