@@ -629,7 +629,9 @@ def create_desktop_shortcut() -> None:
     """Create a desktop shortcut for FA11y."""
     desktop = winshell.desktop()
     path = os.path.join(desktop, "FA11y.lnk")
-    target = os.path.abspath(sys.argv[0])
+    # Installed copies run through FA11y Launcher.exe, which sets
+    # FA11Y_LAUNCHER to its own path; the shortcut must open the launcher.
+    target = os.environ.get('FA11Y_LAUNCHER') or os.path.abspath(sys.argv[0])
     wDir = os.path.dirname(target)
 
     shell = win32com.client.Dispatch('WScript.Shell')
@@ -792,7 +794,8 @@ def main() -> None:
 
         # Check startup settings
         temp_config = read_config()
-        if get_config_boolean(temp_config, 'AutoUpdates', True):
+        # FA11y Launcher.exe has already run the updater before starting us.
+        if get_config_boolean(temp_config, 'AutoUpdates', True) and not os.environ.get('FA11Y_LAUNCHER'):
             if run_updater():
                 sys.exit(0)
         if get_config_boolean(temp_config, 'CreateDesktopShortcut', True):

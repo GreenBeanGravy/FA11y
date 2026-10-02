@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "python": {
+    "version": "3.12.9",
+    "url": "https://www.nuget.org/api/v2/package/python/3.12.9",
+    "sha256": "b7240e3117d94dc2446c4b1250e31306adc817934706937d0992c78f937487ba",
+    "archive_subdir": "tools"
+  },
+  "components": [
+    {
+      "id": "dotnet8",
+      "name": ".NET 8 Runtime",
+      "reason": "Needed by mouse passthrough (FakerInputWrapper.dll targets .NET 8).",
+      "detect": {
+        "path_glob": "%ProgramFiles%\\dotnet\\shared\\Microsoft.NETCore.App\\8.*\\System.Runtime.dll"
+      },
+      "download": {
+        "url": "https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0.31/dotnet-runtime-8.0.31-win-x64.exe",
+        "sha512": "2dc2f346a4bcb53ab15ab6ab84348c02eb31b0a3d4e8e06aac73b4c89f1b001af01943ed4c5735fa5585f1dd731a942d2034577dfe937f4454367ff2d6edf929"
+      },
+      "install": {
+        "type": "exe",
+        "args": ["/install", "/quiet", "/norestart"],
+        "success_codes": [0, 1641, 3010]
+      },
+      "elevate": true
+    },
+    {
+      "id": "fakerinput",
+      "name": "FakerInput driver",
+      "reason": "Virtual mouse and keyboard driver used by mouse passthrough.",
+      "detect": {
+        "uninstall_display_name": "FakerInput"
+      },
+      "download": {
+        "url": "https://github.com/Ryochan7/FakerInput/releases/download/v0.1.0/FakerInput_0.1.0_x64.msi",
+        "sha256": "30cf218b624740a91be4fcca3adfb4550ba8cc8f31ac9625fe39d238e64d13ea"
+      },
+      "install": {
+        "type": "msi",
+        "args": ["/qn", "/norestart"],
+        "success_codes": [0, 1641, 3010]
+      },
+      "elevate": true
+    }
+  ]
+}

@@ -74,3 +74,23 @@ jobs:
           & "$env:RUNNER_TEMP\venv\Scripts\python.exe" -E -m pytest -p no:cacheprovider `
             --deselect tests/test_performance.py::TestDefaultConfigPerformance::test_default_config_generation_speed
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+  installer:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: installer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+          cache-dependency-path: installer/go.sum
+      - run: go vet ./...
+      - run: go test ./...
+      - name: Build launcher
+        run: go build -trimpath -ldflags "-s -w" -o "../dist/FA11y Launcher.exe" ./cmd/launcher
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-exes
+          path: dist/

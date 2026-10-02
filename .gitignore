@@ -33,3 +33,5 @@ __pycache__/
 # Per-install marker — written once after PowerShell Unblock-File so
 # subsequent launches can skip the DLL unblock dance.
 lib/mouse_passthrough/FakerInputWrapper.dll.unblocked
+# Built installer executables
+/dist/
