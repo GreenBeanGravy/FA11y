@@ -823,10 +823,7 @@ def _create_remote_hub(services):
 
 
 def _create_hub(first_run: bool = False):
-    """Create and show the hub window.
-
-    First-run setup isn't in the new window yet, so that session uses the wx window.
-    """
+    """Create and show the hub window."""
     from lib.hub import get_hub, single_instance
     from lib.hub.services import HubServices
 
@@ -838,7 +835,7 @@ def _create_hub(first_run: bool = False):
 
     services = HubServices(quit=quit_fa11y, reload_config=reload_config,
                            speak=lambda text: speaker.speak(text))
-    hub = None if first_run else _create_remote_hub(services)
+    hub = _create_remote_hub(services)
     if hub is None:
         hub = _create_classic_hub(services)
 

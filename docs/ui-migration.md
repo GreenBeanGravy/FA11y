@@ -55,6 +55,14 @@ FA11y Launcher.exe
 * Long operations (Fortnite install) return an operation id at once and
   report progress as `operation.progress` and `operation.finished` events.
 
+* Phase 3 operations (`fortnite.install`, `update`, `verify`, `move`,
+  `uninstall`, `import_egl`, `egl_sync`) answer `{id, name}` and then send
+  `operation.progress {id, percent, message}` (percent is null when unknown)
+  and `operation.finished {id, ok, message, cancelled}`; `fortnite.cancel`
+  stops the running one. First-run setup is shown by the window when it gets
+  `setup.start` (or `setup: true` in `core.hello`) and ends with the request
+  `setup.finish {save, answers, egl}`.
+
 ### Python side
 
 * `lib/shell/bridge.py`: starts the UI process, reads and writes messages,

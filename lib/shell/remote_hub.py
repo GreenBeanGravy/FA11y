@@ -17,7 +17,9 @@ Events sent to the UI:
     keybinds.changed   {enabled, open_keybind}
     fortnite.running   {running}
     update.available   {version}
-    home.changed, account.changed, about.changed    a page's data changed
+    home.changed, account.changed, about.changed, fortnite.changed    a page's data changed
+    fortnite.setup_choice  {choice} take over or sync the Epic Games Launcher install
+    setup.start        show first-run setup {summon}
 Events from the UI:
     ui.ready           the window is on screen and listening
     ui.visibility      {visible, active}
@@ -35,7 +37,7 @@ from lib.shell.bridge import Bridge, registry
 
 logger = logging.getLogger(__name__)
 
-PORTED_PAGES = ("home", "account", "about")
+PORTED_PAGES = ("home", "fortnite", "account", "about")
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
 
@@ -67,6 +69,7 @@ class RemoteHub:
         self._login_settled = False
         self._proxies: Dict[str, _PageProxy] = {key: _PageProxy(self, key) for key in PORTED_PAGES}
         self._classic = None
+        self._setup_done: Optional[Callable] = None
         self.watcher = game_watch.GameWatcher(self._on_fortnite_changed)
 
         self._load_handlers()
@@ -78,7 +81,7 @@ class RemoteHub:
 
     @staticmethod
     def _load_handlers() -> None:
-        from lib.shell.handlers import about, account, app, home  # noqa: F401 (they register themselves)
+        from lib.shell.handlers import about, account, app, fortnite, home, setup  # noqa: F401 (they register themselves)
 
     # Lifecycle -----------------------------------------------------------
 
@@ -119,6 +122,7 @@ class RemoteHub:
                 self._fallback()
             except Exception:
                 logger.exception("Could not create the wx window")
+        self.finish_onboarding(None)  # setup can't continue in the wx window; start FA11y without it
 
     # State the UI reports ----------------------------------------------------
 
@@ -149,6 +153,7 @@ class RemoteHub:
             "update": status.available_update(),
             "can_restart_to_update": status.can_restart_to_update(),
             "page": self._current,
+            "setup": self._setup_done is not None,
         }
 
     def send(self, name: str, data: Optional[dict] = None) -> None:
@@ -292,8 +297,32 @@ class RemoteHub:
         return self._classic
 
     def start_onboarding(self, on_finished) -> None:
-        """Run first-run setup in its own wx window."""
-        self.classic().start_onboarding(on_finished)
+        """Show first-run setup in the window. on_finished(egl_choice) runs on the wx thread when it ends."""
+        from lib.app import state
+        if self._setup_done is not None:
+            self.summon()
+            return
+        self._setup_done = on_finished
+        state.wizard_open.set()
+        if not self._shown:
+            self._note_summon()
+        self.send("setup.start", {"summon": True})
+
+    def finish_onboarding(self, egl_choice) -> None:
+        """Setup ended (the window asks through setup.finish): hand its Epic Games Launcher choice on."""
+        from lib.app import state
+        callback, self._setup_done = self._setup_done, None
+        state.wizard_open.clear()
+        if callback is not None:
+            import wx
+            wx.CallAfter(callback, egl_choice)
+
+    def apply_egl_choice(self, choice: str) -> None:
+        """After setup: the Fortnite page takes over ("manage") or syncs with ("sync") the Epic Games Launcher install."""
+        self.show_page("fortnite")
+        self.send("fortnite.setup_choice", {"choice": choice})
+
+    is_remote = True
 
 
 def _safe(func, default):

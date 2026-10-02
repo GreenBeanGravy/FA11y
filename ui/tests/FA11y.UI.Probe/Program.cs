@@ -14,14 +14,18 @@ namespace FA11y.UI.Probe;
 /// It starts the window through ui/tests/fake_core.py and types real keys, so don't touch the
 /// keyboard while it runs. Exit code 0 when everything passed.
 ///
-///   FA11y.UI.Probe --python PATH_TO_PYTHON [--fake-core PATH] [--root DIR]
+///   FA11y.UI.Probe --python PATH_TO_PYTHON [--fake-core PATH] [--root DIR] [--static]
 /// </summary>
-internal static class Program
+internal static partial class Program
 {
     private static int _failures;
     private static readonly List<string> Report = new();
     private static AutomationElement _window = null!;
     private static AutomationElement _pagesList = null!;
+
+    // False with --static: no keys are typed (for a session with no foreground window), and focus
+    // behavior is left unchecked. Tab order is taken from the tree instead.
+    private static bool _keys = true;
 
     private static readonly (string Key, string Title, string Group)[] Pages =
     {
@@ -48,6 +52,7 @@ internal static class Program
             if (args[i] == "--fake-core") fakeCore = args[i + 1];
             if (args[i] == "--root") root = args[i + 1];
         }
+        _keys = !args.Contains("--static");
         fakeCore ??= FindFakeCore();
         Directory.CreateDirectory(root);
 
@@ -99,7 +104,10 @@ internal static class Program
                 Check(false, "ui.ready arrived");
             Thread.Sleep(1200); // let the pages fill in, as a user would wait
 
-            Run(core, uiPid);
+            if (_keys)
+                Run(core, uiPid);
+            else
+                RunStatic(core);
 
             ui.Refresh();
             Info($"UI process working set: {ui.WorkingSet64 / (1024 * 1024)} MB, private {ui.PrivateMemorySize64 / (1024 * 1024)} MB");
@@ -113,6 +121,15 @@ internal static class Program
             try { core.StandardInput.WriteLine("quit"); } catch { /* already gone */ }
             if (!core.WaitForExit(5000))
                 core.Kill(true);
+        }
+
+        try
+        {
+            RunSetupSession(python, fakeCore, root);
+        }
+        catch (Exception e)
+        {
+            Check(false, $"setup probe crashed: {e}");
         }
 
         Console.WriteLine();
@@ -215,6 +232,8 @@ internal static class Program
             WaitFor(() => i == Pages.Length - 1 || _window.Current.Name == $"FA11y - {Pages[i + 1].Title}", 2000);
         }
 
+        RunFortnite();
+
         Console.WriteLine("\n== Escape and the tray");
         Key(Vk.Home);
         WaitFor(() => _window.Current.Name == "FA11y - Home", 2000);
@@ -235,6 +254,8 @@ internal static class Program
         var page = Pages[index];
         Console.WriteLine($"\n-- {page.Title}");
 
+        if (page.Key == "fortnite")
+            Thread.Sleep(500); // the page asks the core for its state when it is shown
         // Tab from the sidebar through every stop on the page, until focus wraps back to the sidebar.
         var seen = new List<AutomationElement>();
         for (var n = 0; n < 40; n++)
@@ -270,6 +291,8 @@ internal static class Program
             Check(seen.Any(e => e.Current.Name == "What's new" && e.Current.ControlType == ControlType.Edit), "What's new is a named edit box");
             Check(names.IndexOf("Play Fortnite") < names.IndexOf("Fortnite, 31.10, Ready"), "Tab order follows the screen: Play, then the cards");
         }
+        if (page.Key == "fortnite")
+            CheckFortnitePage(seen, names);
         if (page.Key == "account")
             Check(seen.Any(e => e.Current.Name == "TestPlayer. Signed in." && e.Current.ControlType == ControlType.Text),
                 "the account text reads \"TestPlayer. Signed in.\" as Text");
@@ -287,6 +310,8 @@ internal static class Program
         {
             if (page.Key == "home")
                 Check(Safe(first) == "Restart to update FA11y", "Enter on Home lands on the update button when there is one");
+            if (page.Key == "fortnite")
+                Check(Safe(first) == "Play", "Enter on Fortnite lands on Play");
             if (page.Key == "account")
                 Check(Safe(first) == "TestPlayer. Signed in.", "Enter on the account page lands on who is signed in");
             if (page.Key == "about")
@@ -392,7 +417,7 @@ internal static class Program
     private enum Vk : ushort
     {
         Tab = 0x09, Enter = 0x0D, Shift = 0x10, Control = 0x11, Escape = 0x1B,
-        End = 0x23, Home = 0x24, Down = 0x28, F6 = 0x75,
+        End = 0x23, Home = 0x24, Up = 0x26, Down = 0x28, F6 = 0x75,
     }
 
     private static void TypeLetter(char c) => Key((Vk)char.ToUpperInvariant(c));
@@ -411,7 +436,7 @@ internal static class Program
 
     private static void Send(Vk key, bool up)
     {
-        var extended = key is Vk.Down or Vk.End or Vk.Home;
+        var extended = key is Vk.Down or Vk.Up or Vk.End or Vk.Home;
         var input = new INPUT
         {
             type = 1,

@@ -1,0 +1,115 @@
+<UserControl x:Class="FA11y.UI.Shell.SetupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:FA11y.UI.Controls"
+             Background="{StaticResource WindowBg}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- "Setup: step 2 of 8" is drawn here and also given to each step's first text as its description. -->
+        <c:HiddenText x:Name="StepCounter" Grid.Row="0" Margin="36,24,0,0"
+                      Foreground="{StaticResource TextSecondary}" />
+
+        <Grid Grid.Row="1" Margin="24,0,24,0">
+            <!-- 1. Welcome -->
+            <StackPanel x:Name="WelcomeStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="WelcomeIntro" Separator=". " Margin="12" MaxWidth="560" />
+            </StackPanel>
+
+            <!-- 2. Sign in -->
+            <StackPanel x:Name="SignInStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="SignInIntro" Separator=". " Margin="12" MaxWidth="560" />
+                <c:ReadableText x:Name="SignInStatus" Margin="12,0,12,0" />
+                <c:IconButton x:Name="SignInButton" Variant="primary" Content="_Sign in" HorizontalAlignment="Left"
+                              Margin="12,8,12,0" Click="OnSignInClick" />
+            </StackPanel>
+
+            <!-- 3. Fortnite -->
+            <StackPanel x:Name="FortniteStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="FortniteIntro" Separator=". " Margin="12" MaxWidth="560" />
+                <c:RadioGroup x:Name="EglGroup" Header="How should Fortnite be managed?" Margin="12,0,12,0"
+                              Visibility="Collapsed">
+                    <StackPanel>
+                        <c:RadioOption x:Name="EglManage" IsChecked="True"
+                                       Content="Let FA11y manage it (recommended). Faster launches and updates from FA11y, no redownload." />
+                        <c:RadioOption x:Name="EglSync"
+                                       Content="Keep using the Epic Games Launcher. FA11y syncs with it so both see the same install." />
+                    </StackPanel>
+                </c:RadioGroup>
+            </StackPanel>
+
+            <!-- 4. Startup -->
+            <StackPanel x:Name="StartupStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="StartupIntro" Separator=". " Margin="12" MaxWidth="560" />
+                <StackPanel Margin="12,0,12,0">
+                    <c:CheckOption x:Name="StartFortnite" Content="Start _Fortnite when FA11y opens" />
+                    <c:CheckOption x:Name="HideOnLaunch" Content="_Hide this window when Fortnite starts" IsChecked="True" />
+                    <c:CheckOption x:Name="NavSounds" Content="Play _navigation sounds in this window" IsChecked="True" />
+                    <c:RadioGroup x:Name="CloseGroup" Header="When I close the FA11y window" Margin="0,8,0,0">
+                        <StackPanel>
+                            <c:RadioOption Content="Ask me" IsChecked="True" />
+                            <c:RadioOption Content="Keep running in the tray" />
+                            <c:RadioOption Content="Quit FA11y" />
+                        </StackPanel>
+                    </c:RadioGroup>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 5. Speech -->
+            <StackPanel x:Name="SpeechStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="SpeechIntro" Separator=". " Margin="12" MaxWidth="560" />
+                <c:RadioGroup x:Name="SpeechGroup" Header="Speech style" Margin="12,0,12,0">
+                    <StackPanel>
+                        <c:RadioOption IsChecked="True"
+                                       Content="Verbose: full sentences, more context (recommended for new users)" />
+                        <c:RadioOption Content="Simplified: shorter, terser announcements" />
+                    </StackPanel>
+                </c:RadioGroup>
+            </StackPanel>
+
+            <!-- 6. Audio -->
+            <StackPanel x:Name="AudioStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="AudioIntro" Separator=". " Margin="12" MaxWidth="560" />
+                <StackPanel Orientation="Horizontal" Margin="12,0,12,0">
+                    <c:HiddenText Text="Master volume:" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <c:NumberBox x:Name="VolumeBox" Minimum="0" Maximum="100" Text="100"
+                                 AutomationProperties.Name="Master volume"
+                                 AutomationProperties.HelpText="Master volume, 0 to 100 percent." Margin="0,0,10,0" />
+                    <c:IconButton Content="_Test sound" Click="OnTestSoundClick" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 7. Mouse -->
+            <StackPanel x:Name="MouseStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="MouseIntro" Separator=". " Margin="12" MaxWidth="560" />
+                <StackPanel Orientation="Horizontal" Margin="12,0,12,0">
+                    <c:HiddenText Text="Mouse DPI:" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <c:NumberBox x:Name="DpiBox" Minimum="100" Maximum="32000" Text="800"
+                                 AutomationProperties.Name="Mouse DPI"
+                                 AutomationProperties.HelpText="Your mouse's actual DPI. Check your mouse software if unsure." />
+                </StackPanel>
+                <c:CheckOption x:Name="PassthroughBox" Content="Enable mouse passthrough (recommended)" IsChecked="True"
+                               Margin="12,6,12,0" HorizontalAlignment="Left"
+                               AutomationProperties.HelpText="Routes your mouse through the FakerInput driver so FA11y's turn / look keys produce smooth in-game movement." />
+            </StackPanel>
+
+            <!-- 8. Done -->
+            <StackPanel x:Name="DoneStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="DoneIntro" Separator=". " Margin="12" MaxWidth="560" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="24">
+            <c:IconButton x:Name="SkipButton" Variant="ghost" Content="S_kip setup" HorizontalAlignment="Left"
+                          Click="OnSkipClick" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <c:IconButton x:Name="BackButton" Content="_Back" Margin="0,0,8,0" Click="OnBackClick" />
+                <c:IconButton x:Name="NextButton" Variant="primary" Content="_Next" IsDefault="True" Click="OnNextClick" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

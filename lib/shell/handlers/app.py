@@ -106,16 +106,14 @@ def open_classic(params: dict) -> dict:
 
 @handler("app.start_setup")
 def start_setup(_params: dict) -> dict:
-    """Run first-run setup again, in its own wx window."""
+    """Run first-run setup again, in the window."""
     hub = _hub()
 
     def finished(egl_choice) -> None:
         hub.reset_views(("settings", "keybinds"))
         if egl_choice in ("manage", "sync"):
             from lib.hub.pages.fortnite import apply_setup_choice
-            windows = hub.classic()
-            windows.open("fortnite")
-            apply_setup_choice(windows.host("fortnite"), egl_choice)
+            apply_setup_choice(hub, egl_choice)
         else:
             hub.show_page("home", summon=True)
 

@@ -3,13 +3,13 @@
 Pages the new window hasn't taken over yet (Fortnite, Discover, Locker,
 Social, Quests, Settings, Keybinds) still live in lib/hub/pages as wx
 pages. Each one opens here, in a small window of its own, when the user
-presses its "Open" button. Setup ("Run setup again") also runs here.
+presses its "Open" button.
 All of this runs on the wx main thread.
 """
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict
 
 import wx
 
@@ -131,49 +131,12 @@ class PageWindow(wx.Frame):
         event.Skip()
 
 
-class OnboardingWindow(wx.Frame):
-    """First-run setup, run from About's "Run setup again"."""
-
-    def __init__(self, on_finished: Callable[[Optional[str]], None]):
-        super().__init__(None, title="FA11y setup", size=(820, 620))
-        from lib.hub.frame import app_icon
-        from lib.hub.onboarding import OnboardingPanel
-        self.SetIcon(app_icon(32))
-        self.SetMinSize((640, 480))
-        theme.style_window(self)
-        self.SetFont(theme.base_font())
-        self._on_finished = on_finished
-        self._finished = False
-        self.panel = OnboardingPanel(self, self._done)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.panel, 1, wx.EXPAND)
-        self.SetSizer(sizer)
-        self.Bind(wx.EVT_CLOSE, lambda e: self.Destroy())
-        self.CentreOnScreen()
-
-    def begin(self) -> None:
-        from lib.guis.gui_utilities import force_focus_window
-        theme.style_tree(self)
-        self.Show()
-        force_focus_window(self, None, None)
-        self.panel.begin()
-
-    def _done(self, egl_choice) -> None:
-        if self._finished:
-            return
-        self._finished = True
-        self.Hide()
-        self._on_finished(egl_choice)
-        wx.CallAfter(self.Destroy)
-
-
 class ClassicWindows:
     """Creates each page's window once and opens it on request."""
 
     def __init__(self, remote):
         self._remote = remote
         self._windows: Dict[str, PageWindow] = {}
-        self._onboarding: Optional[OnboardingWindow] = None
 
     def open(self, key: str) -> bool:
         """Open the wx window for a page. Returns False when there isn't one."""
@@ -200,10 +163,3 @@ class ClassicWindows:
                 page.reset_view()
                 if window.IsShown():
                     page.on_show()
-
-    def start_onboarding(self, on_finished) -> None:
-        if self._onboarding:
-            self._onboarding.Raise()
-            return
-        self._onboarding = OnboardingWindow(on_finished)
-        self._onboarding.begin()

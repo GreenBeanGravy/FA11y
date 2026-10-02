@@ -13,6 +13,9 @@ public static class AppState
     public static bool CanRestartToUpdate { get; private set; }
     public static bool HelloReceived { get; private set; }
 
+    /// <summary>First-run setup is in progress (the core says so in core.hello).</summary>
+    public static bool SetupActive { get; private set; }
+
     /// <summary>Raised on the UI thread after any of the values above changed.</summary>
     public static event Action? Changed;
 
@@ -24,6 +27,7 @@ public static class AppState
         FortniteRunning = hello.Bool("fortnite_running");
         Update = hello.NullableStr("update");
         CanRestartToUpdate = hello.Bool("can_restart_to_update");
+        SetupActive = hello.Bool("setup");
         HelloReceived = true;
         Changed?.Invoke();
     }

@@ -17,13 +17,12 @@ from lib.hub.controls import StyledButton
 
 from lib.app import state
 from lib.guis.welcome_wizard import AudioTestPage, MousePage, SpeechPage, WizardPage
-from lib.hub import settings, sounds, theme
+from lib.hub import settings, setup_ops, sounds, theme
 from lib.hub.widgets import button, label, text
 
 logger = logging.getLogger(__name__)
 
-FIRST_RUN_DESCRIPTION = ('Set to true after the first-run setup finishes. '
-                         'While false, FA11y shows setup when it starts.')
+FIRST_RUN_DESCRIPTION = setup_ops.FIRST_RUN_DESCRIPTION
 
 
 class WelcomeStep(WizardPage):
@@ -262,9 +261,7 @@ class OnboardingPanel(wx.Panel):
         event.Skip()
 
     def _finish(self, save_choices: bool) -> None:
-        from lib.utilities.utilities import read_config, save_config
         try:
-            config = read_config(use_cache=False)
             values: Dict[tuple, Any] = {}
             if save_choices:
                 for step in self._steps:
@@ -272,19 +269,7 @@ class OnboardingPanel(wx.Panel):
                         values.update(step.collect())
                     except Exception as e:
                         logger.error(f"Setup step {type(step).__name__} collect failed: {e}")
-            values[("Setup", "FirstRunComplete")] = "true"
-            for (section, key), value in values.items():
-                if not config.has_section(section):
-                    config.add_section(section)
-                existing = config.get(section, key, fallback="")
-                description = existing[existing.index('"'):] if '"' in existing else ""
-                if key == "FirstRunComplete":
-                    description = f'"{FIRST_RUN_DESCRIPTION}"'
-                config.set(section, key, f"{value} {description}".strip())
-            if not save_config(config):
-                state.speaker.speak("Couldn't save your setup choices.")
-        except Exception:
-            logger.exception("Saving setup failed")
+            setup_ops.save_setup(values, speak=state.speaker.speak)
         finally:
             for step in self._steps:
                 cleanup = getattr(step, "cleanup", None)

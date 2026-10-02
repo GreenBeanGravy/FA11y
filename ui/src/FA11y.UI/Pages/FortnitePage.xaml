@@ -1,0 +1,100 @@
+<pages:PageBase x:Class="FA11y.UI.Pages.FortnitePage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:pages="clr-namespace:FA11y.UI.Pages"
+                xmlns:c="clr-namespace:FA11y.UI.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="20">
+
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Fortnite" FontSize="{StaticResource HeadingFontSize}" FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <c:IconButton x:Name="PlayButton" Grid.Column="1" Variant="primary"
+                              Icon="{StaticResource Icon.player-play}" Content="_Play" Click="OnPlayClick" />
+            </Grid>
+
+            <c:ReadableText x:Name="Summary" Margin="0,0,0,12" MaxWidth="640"
+                            Foreground="{StaticResource TextSecondary}" />
+
+            <!-- Downloads need the Epic account to be signed in to legendary. -->
+            <c:Card x:Name="SignInCard" Margin="0,0,0,10" Visibility="Collapsed">
+                <StackPanel>
+                    <c:ReadableText x:Name="SignInText" MaxWidth="620" />
+                    <c:IconButton x:Name="SignInButton" Variant="primary" Icon="{StaticResource Icon.user}"
+                                  Content="_Sign in with your Epic account" HorizontalAlignment="Left"
+                                  Margin="0,8,0,0" Click="OnSignInClick" />
+                </StackPanel>
+            </c:Card>
+
+            <!-- Shown when the Epic Games Launcher has Fortnite and legendary doesn't. -->
+            <c:Card x:Name="EglCard" Margin="0,0,0,10" Visibility="Collapsed">
+                <StackPanel>
+                    <c:ReadableText x:Name="EglText" MaxWidth="620" />
+                    <c:ReadableText Margin="0,6,0,0" MaxWidth="620" Foreground="{StaticResource TextSecondary}"
+                                    Text="Letting FA11y manage it means faster launches and updates from this window, with no redownload. Keeping the Epic Games Launcher syncs it with FA11y so both know about the same install." />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <c:IconButton x:Name="EglManageButton" Variant="primary"
+                                      Content="Let FA11y _manage it (recommended)" Margin="0,0,8,0"
+                                      Click="OnEglManageClick" />
+                        <c:IconButton x:Name="EglKeepButton" Content="_Keep using the Epic Games Launcher"
+                                      Click="OnEglKeepClick" />
+                    </StackPanel>
+                </StackPanel>
+            </c:Card>
+
+            <c:IconButton x:Name="InstallButton" Variant="primary" Icon="{StaticResource Icon.download}"
+                          Content="_Install Fortnite" HorizontalAlignment="Left" Margin="0,0,0,10"
+                          Visibility="Collapsed" Click="OnInstallClick" />
+
+            <WrapPanel x:Name="Actions" Visibility="Collapsed">
+                <c:IconButton x:Name="UpdateButton" Icon="{StaticResource Icon.refresh}" Content="Check for _updates"
+                              Margin="0,0,8,8" Click="OnUpdateClick" />
+                <c:IconButton Content="_Verify and repair" Margin="0,0,8,8" Click="OnVerifyClick" />
+                <c:IconButton Icon="{StaticResource Icon.folder}" Content="_Move install" Margin="0,0,8,8"
+                              Click="OnMoveClick" />
+                <c:IconButton Icon="{StaticResource Icon.folder}" Content="_Open folder" Margin="0,0,8,8"
+                              Click="OnOpenFolderClick" />
+                <c:IconButton Variant="danger" Icon="{StaticResource Icon.trash}" Content="U_ninstall"
+                              Margin="0,0,8,8" Click="OnUninstallClick" />
+            </WrapPanel>
+
+            <!-- Progress for long operations. The text and Cancel are tab stops; the bar's value updates for screen readers. -->
+            <StackPanel x:Name="ProgressPanel" Margin="0,6,0,0" Visibility="Collapsed">
+                <ProgressBar x:Name="Progress" AutomationProperties.Name="Progress" />
+                <c:ReadableText x:Name="ProgressText" Margin="0,4,0,0" MaxWidth="640"
+                                Foreground="{StaticResource TextSecondary}" />
+                <c:IconButton x:Name="CancelButton" Content="_Cancel" HorizontalAlignment="Left" Margin="0,6,0,0"
+                              Click="OnCancelClick" />
+            </StackPanel>
+
+            <TextBlock Text="Launch options" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
+                       FontWeight="SemiBold" />
+            <c:RadioGroup x:Name="ApiGroup" Header="_Graphics" Margin="0,6,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <c:RadioOption x:Name="ApiDefault" Content="Default" Margin="0,0,10,0" Checked="OnOptionChanged" />
+                    <c:RadioOption x:Name="ApiDx11" Content="DirectX 11" Margin="0,0,10,0" Checked="OnOptionChanged" />
+                    <c:RadioOption x:Name="ApiDx12" Content="DirectX 12" Margin="0,0,10,0" Checked="OnOptionChanged" />
+                    <c:RadioOption x:Name="ApiPerformance" Content="Performance mode" Checked="OnOptionChanged" />
+                </StackPanel>
+            </c:RadioGroup>
+            <c:CheckOption x:Name="SkipSplash" Content="Skip the _splash screen" Margin="0,8,0,0"
+                           HorizontalAlignment="Left" Click="OnOptionChanged" />
+            <c:AccessCaption Caption="E_xtra arguments" Target="{Binding ElementName=ExtraArgs}" Margin="3,10,0,0" />
+            <TextBox x:Name="ExtraArgs" AutomationProperties.Name="Extra arguments" Margin="0,4,0,0"
+                     LostKeyboardFocus="OnExtraBlur" />
+
+            <TextBlock Text="Mouse passthrough" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
+                       FontWeight="SemiBold" />
+            <c:ReadableText x:Name="MouseText" Margin="0,6,0,0" MaxWidth="640"
+                            Foreground="{StaticResource TextSecondary}" />
+            <c:ReadableText Margin="0,4,0,0" MaxWidth="640" Foreground="{StaticResource TextSecondary}"
+                            Text="Passthrough lets you use your own mouse in Fortnite while FA11y also moves the camera. Press Detect mouse, then move the mouse you play with." />
+            <c:IconButton x:Name="MouseButton" Content="_Detect mouse" HorizontalAlignment="Left" Margin="0,8,0,0"
+                          Click="OnDetectMouseClick" />
+        </StackPanel>
+    </ScrollViewer>
+</pages:PageBase>

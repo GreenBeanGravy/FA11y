@@ -7,10 +7,12 @@ update to 99.0.0 available.
 
     python ui/tests/fake_core.py [--exe PATH] [--log FILE] [--hidden]
                                  [--close-action ask|tray|quit] [--seconds N]
+                                 [--first-run] [--fortnite installed|none|egl]
 
 While it runs it reads commands on its own stdin, one per line (the probe uses
 this): summon, summon-content, show-page KEY, hide, notify TITLE|MESSAGE,
-fortnite-running true|false, screenshot PATH (the window draws itself to a PNG), quit. It prints "STARTED <ui pid>" when the
+fortnite-running true|false, fortnite-state installed|none|egl, start-setup,
+screenshot PATH (the window draws itself to a PNG), quit. It prints "STARTED <ui pid>" when the
 window process starts and "READY <ui pid>" when the window sends ui.ready.
 """
 from __future__ import annotations
@@ -33,7 +35,8 @@ DEFAULT_EXES = [
 
 
 class FakeCore:
-    def __init__(self, exe: str, root: str, log_path: str, hidden: bool, close_action: str):
+    def __init__(self, exe: str, root: str, log_path: str, hidden: bool, close_action: str,
+                 first_run: bool = False, fortnite: str = "installed"):
         self.exe = exe
         self.root = root
         self.hidden = hidden
@@ -43,6 +46,10 @@ class FakeCore:
         self.signed_in = True
         self.fortnite_running = False
         self.page = "home"
+        self.setup = first_run
+        self.fortnite = fortnite
+        self.operation = None  # {"id", "cancel": Event}
+        self.next_operation = 0
         self.proc: subprocess.Popen | None = None
         self.started = 0.0
 
@@ -70,7 +77,48 @@ class FakeCore:
     def hello(self) -> dict:
         return {"version": "1.2.3", "keybinds_on": False, "open_keybind": "Left Alt + Left Shift + F",
                 "fortnite_running": self.fortnite_running, "update": "99.0.0",
-                "can_restart_to_update": True, "page": self.page}
+                "can_restart_to_update": True, "page": self.page, "setup": self.setup}
+
+    def fortnite_state(self, check: bool) -> dict:
+        base = {"checked": True, "legendary_ok": True, "default_install_base": "C:\\Program Files\\Epic Games",
+                "running": self.fortnite_running, "operation": None, "remote_version": "", "install_path": ""}
+        if self.fortnite == "installed":
+            state = {**base, "summary": "31.10 \u00b7 managed by FA11y \u00b7 D:\\Fortnite \u00b7 60 GB",
+                     "installed": True, "egl_only": False, "show_signin": False, "show_install": False,
+                     "update_available": False, "egl_text": "", "install_path": "D:\\Fortnite"}
+        elif self.fortnite == "egl":
+            state = {**base, "summary": "Installed through the Epic Games Launcher.", "installed": False,
+                     "egl_only": True, "show_signin": True, "show_install": False, "update_available": False,
+                     "egl_text": "Fortnite is installed through the Epic Games Launcher at C:\\EGL\\Fortnite, version 30.00."}
+        else:
+            state = {**base, "summary": "Fortnite isn't installed.", "installed": False, "egl_only": False,
+                     "show_signin": False, "show_install": True, "update_available": False, "egl_text": ""}
+        if check:
+            state["message"] = "Fortnite is up to date."
+        if self.operation is not None:
+            state["operation"] = {"id": self.operation["id"], "name": "Verifying", "percent": 50.0,
+                                  "message": "Verifying files 50%"}
+        return state
+
+    def run_operation(self, name: str) -> dict:
+        """A pretend long operation: three progress events, then finished (or cancelled)."""
+        self.next_operation += 1
+        op = {"id": self.next_operation, "cancel": threading.Event()}
+        self.operation = op
+
+        def work() -> None:
+            for percent in (25.0, 50.0, 75.0):
+                if op["cancel"].wait(0.5):
+                    break
+                self.event("operation.progress", {"id": op["id"], "percent": percent,
+                                                  "message": f"{name} files {percent:.0f}%"})
+            cancelled = op["cancel"].is_set()
+            self.operation = None
+            self.event("operation.finished", {"id": op["id"], "ok": not cancelled,
+                                              "message": f"{name} cancelled." if cancelled else f"{name} finished.",
+                                              "cancelled": cancelled})
+        threading.Thread(target=work, daemon=True).start()
+        return {"id": op["id"], "name": name}
 
     def account(self) -> dict:
         if self.signed_in:
@@ -107,6 +155,50 @@ class FakeCore:
         if method == "about.check_updates":
             time.sleep(0.3)
             return {"found": True, "update": "99.0.0", "can_restart_to_update": True}
+        if method == "fortnite.state":
+            return self.fortnite_state(bool(params.get("check_updates")))
+        if method in ("fortnite.install", "fortnite.update", "fortnite.verify", "fortnite.move",
+                      "fortnite.uninstall", "fortnite.import_egl", "fortnite.egl_sync"):
+            names = {"install": "Installing", "update": "Updating", "verify": "Verifying", "move": "Moving",
+                     "uninstall": "Uninstalling", "import_egl": "Setting up", "egl_sync": "Syncing"}
+            return self.run_operation(names[method.split(".")[1]])
+        if method == "fortnite.cancel":
+            if self.operation is not None:
+                self.operation["cancel"].set()
+            return {"cancelling": True}
+        if method == "fortnite.install_question":
+            return {"question": f"Install Fortnite in {params.get('base')}\\Fortnite? It needs about 100 GB (500 GB free)."}
+        if method == "fortnite.launch_options":
+            return {"api": "dx12", "skip_splash": True, "extra": "-nosound",
+                    "choices": [{"key": "default", "label": "Default"}]}
+        if method == "fortnite.mouse":
+            return {"available": True, "text": "No mouse selected for passthrough.", "detected": False}
+        if method == "fortnite.detect_mouse":
+            def found() -> None:
+                time.sleep(0.6)
+                self.event("fortnite.mouse_detected", {"available": True, "text": "Using the Test Mouse.",
+                                                       "detected": True, "found": True})
+            threading.Thread(target=found, daemon=True).start()
+            return {"text": "Move the mouse you play with now."}
+        if method == "fortnite.sign_in":
+            return {"ok": True, "needs_account": False, "message": "Signed in to Fortnite downloads."}
+        if method == "setup.signin_state":
+            return {"signed_in": self.signed_in, "text": f"Signed in as TestPlayer." if self.signed_in else "Not signed in."}
+        if method == "setup.fortnite":
+            if self.fortnite == "egl":
+                return {"message": "Fortnite is installed through the Epic Games Launcher at C:\\EGL\\Fortnite.",
+                        "offer_choice": True}
+            return {"message": "Fortnite isn't installed. After setup, open the Fortnite page to install it. "
+                               "It needs about 100 GB.", "offer_choice": False}
+        if method == "setup.test_sound":
+            return {"message": None}
+        if method == "setup.finish":
+            self.setup = False
+            return {"saved": True}
+        if method == "app.start_setup":
+            self.setup = True
+            self.event("setup.start", {"summon": True})
+            return {}
         if method == "app.close_action":
             return {"action": self.close_action}
         if method == "app.open_classic":
@@ -186,6 +278,12 @@ class FakeCore:
         elif name == "notify":
             title, _, message = rest.partition("|")
             self.event("ui.notify", {"title": title, "message": message})
+        elif name == "fortnite-state":
+            self.fortnite = rest.strip()
+            self.event("fortnite.changed")
+        elif name == "start-setup":
+            self.setup = True
+            self.event("setup.start", {"summon": True})
         elif name == "fortnite-running":
             self.fortnite_running = rest.strip().lower() == "true"
             self.event("fortnite.running", {"running": self.fortnite_running})
@@ -205,12 +303,14 @@ def main() -> int:
     parser.add_argument("--root", default=os.path.join(os.environ.get("TEMP", "."), "fa11y-ui-test-root"))
     parser.add_argument("--log", default=os.path.join(os.environ.get("TEMP", "."), "fa11y-fake-core.log"))
     parser.add_argument("--hidden", action="store_true")
+    parser.add_argument("--first-run", action="store_true", help="start with first-run setup showing")
+    parser.add_argument("--fortnite", default="installed", choices=("installed", "none", "egl"))
     parser.add_argument("--close-action", default="tray", choices=("ask", "tray", "quit"))
     parser.add_argument("--seconds", type=float, default=0, help="stop after this long (0 = until quit or EOF)")
     args = parser.parse_args()
 
     os.makedirs(args.root, exist_ok=True)
-    core = FakeCore(args.exe, args.root, args.log, args.hidden, args.close_action)
+    core = FakeCore(args.exe, args.root, args.log, args.hidden, args.close_action, args.first_run, args.fortnite)
     core.start()
     deadline = time.time() + args.seconds if args.seconds else None
 

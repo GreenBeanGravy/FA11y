@@ -63,6 +63,7 @@ public partial class MainWindow : Window
             _items[spec.Key] = item;
             Sidebar.Items.Add(item);
         }
+        Setup.Finished += ExitSetup;
         Sidebar.SelectionChanged += OnSidebarSelectionChanged;
         Sidebar.Activate += FocusContent;
 
@@ -119,7 +120,10 @@ public partial class MainWindow : Window
             var page = hello.Str("page");
             if (page.Length > 0 && _items.ContainsKey(page) && page != _current)
                 ShowPage(page, fromUser: false);
+            if (hello.Bool("setup"))
+                StartSetup(false);
         });
+        bridge.On("setup.start", data => StartSetup(data.Bool("summon")));
         bridge.On("ui.summon", data => Summon(data.Bool("focus_content"), data.Bool("over_game")));
         bridge.On("ui.show_page", data =>
         {
@@ -151,6 +155,12 @@ public partial class MainWindow : Window
         bridge.On("home.changed", _ => RefreshIfShown("home"));
         bridge.On("account.changed", _ => RefreshIfShown("account"));
         bridge.On("about.changed", _ => RefreshIfShown("about"));
+        bridge.On("fortnite.changed", _ => RefreshIfShown("fortnite"));
+        bridge.On("operation.progress", data => FortnitePage?.OnOperationProgress(data));
+        bridge.On("operation.finished", data => FortnitePage?.OnOperationFinished(data));
+        bridge.On("fortnite.mouse_detected", data => FortnitePage?.OnMouseDetected(data));
+        bridge.On("fortnite.launch_failed", data => FortnitePage?.OnLaunchFailed(data));
+        bridge.On("fortnite.setup_choice", data => FortnitePage?.OnSetupChoice(data.Str("choice")));
         if (Environment.GetEnvironmentVariable("FA11Y_UI_TEST") == "1")
             bridge.On("test.screenshot", data => SaveScreenshot(data.Str("path")));
     }
@@ -177,6 +187,36 @@ public partial class MainWindow : Window
         }
     }
 
+    private FortnitePage? FortnitePage => GetPage("fortnite") as FortnitePage;
+
+    // First-run setup -----------------------------------------------------------------
+
+    /// <summary>Show setup instead of the sidebar and pages. Does nothing if it is already showing.</summary>
+    private void StartSetup(bool summon)
+    {
+        if (Setup.IsActive)
+            return;
+        MainArea.Visibility = Visibility.Collapsed;
+        Setup.Visibility = Visibility.Visible;
+        Title = "FA11y setup";
+        Setup.Begin();
+        if (summon)
+            Summon(false, false);
+    }
+
+    /// <summary>Setup is over: back to the sidebar and pages.</summary>
+    private void ExitSetup()
+    {
+        Setup.Visibility = Visibility.Collapsed;
+        MainArea.Visibility = Visibility.Visible;
+        if (_current != null && _pages.TryGetValue(_current, out var page))
+        {
+            Title = $"FA11y - {page.Title}";
+            page.OnShown();
+        }
+        FocusSidebar();
+    }
+
     private void RefreshIfShown(string key)
     {
         if (_current == key && _pages.TryGetValue(key, out var page))
@@ -194,6 +234,7 @@ public partial class MainWindow : Window
             "home" => new HomePage(),
             "account" => new AccountPage(),
             "about" => new AboutPage(),
+            "fortnite" => new FortnitePage(),
             _ => new PlaceholderPage(key, Specs.First(s => s.Key == key).Label),
         };
         var element = (FrameworkElement)page;
@@ -215,7 +256,8 @@ public partial class MainWindow : Window
         }
         ((FrameworkElement)page).Visibility = Visibility.Visible;
         _current = key;
-        Title = $"FA11y - {page.Title}";
+        if (!Setup.IsActive)
+            Title = $"FA11y - {page.Title}";
         _selecting = true;
         try { Sidebar.SelectedItem = _items[key]; }
         finally { _selecting = false; }
@@ -245,12 +287,22 @@ public partial class MainWindow : Window
 
     public void FocusSidebar()
     {
+        if (Setup.IsActive)
+        {
+            Setup.FocusIntro();
+            return;
+        }
         UpdateLayout();
         Sidebar.FocusSelected();
     }
 
     public void FocusContent()
     {
+        if (Setup.IsActive)
+        {
+            Setup.FocusIntro();
+            return;
+        }
         if (_current == null || !_pages.TryGetValue(_current, out var page))
             return;
         UpdateLayout();
@@ -360,6 +412,8 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Setup.IsActive)
+            return; // setup has its own keys
         var modifiers = Keyboard.Modifiers;
         if (e.Key == Key.Tab && (modifiers & ModifierKeys.Control) != 0 && (modifiers & ModifierKeys.Alt) == 0)
         {
@@ -381,7 +435,7 @@ public partial class MainWindow : Window
     // Escape is handled on the way back up, so a control that used it (a drop-down) keeps it.
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None || e.Handled)
+        if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None || e.Handled || Setup.IsActive)
             return;
         e.Handled = true;
         if (_current != null && _pages.TryGetValue(_current, out var page) && page.HandleEscape())

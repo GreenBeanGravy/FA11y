@@ -2,38 +2,19 @@
 from __future__ import annotations
 
 import os
-import shutil
 import threading
 from typing import Callable, Optional
 
 import wx
 
-from lib.hub import game_watch, sounds, theme
+from lib.hub import fortnite_ops, game_watch, sounds, theme
+from lib.hub.fortnite_ops import API_CHOICES
 from lib.hub.page import HubPage
 from lib.hub.widgets import GAP, Card, button, label, text
 
-API_CHOICES = [("default", "Default"), ("dx11", "DirectX 11"), ("dx12", "DirectX 12"),
-               ("performance", "Performance mode")]
-
-
-def _size_text(size_bytes: int) -> str:
-    if size_bytes <= 0:
-        return ""
-    gb = size_bytes / 1024 ** 3
-    return f"{gb:.0f} GB" if gb >= 10 else f"{gb:.1f} GB"
-
-
-def _free_space_text(path: str) -> str:
-    probe = path
-    while probe and not os.path.exists(probe):
-        parent = os.path.dirname(probe)
-        if parent == probe:
-            break
-        probe = parent
-    try:
-        return f"{shutil.disk_usage(probe).free / 1024 ** 3:.0f} GB free"
-    except OSError:
-        return ""
+_size_text = fortnite_ops.size_text
+_free_space_text = fortnite_ops.free_space_text
+_short_version = fortnite_ops.short_version
 
 
 class FortnitePage(HubPage):
@@ -201,27 +182,12 @@ class FortnitePage(HubPage):
         egl_only = bool(st and not st.installed and st.egl_install_path)
         legendary_ok = bool(st and st.legendary_available)
 
-        if st is None:
-            self.summary.SetLabel("Checking your Fortnite install…")
-        elif not legendary_ok:
-            self.summary.SetLabel(st.error)
-        elif installed:
-            parts = [_short_version(st.version) or "Installed", "managed by FA11y", st.install_path, _size_text(st.install_size_bytes)]
-            if st.update_available:
-                parts.append(f"update available ({st.remote_version})")
-            elif st.needs_verification:
-                parts.append("needs verifying")
-            self.summary.SetLabel(" · ".join(p for p in parts if p))
-        elif egl_only:
-            self.summary.SetLabel("Installed through the Epic Games Launcher.")
-        else:
-            self.summary.SetLabel("Fortnite isn't installed.")
+        self.summary.SetLabel(fortnite_ops.summary_text(st))
 
         self.signin_card.Show(bool(st) and legendary_ok and not st.logged_in)
         self.egl_card.Show(egl_only and not busy)
         if egl_only:
-            version = f", version {_short_version(st.egl_version)}" if st.egl_version else ""
-            self.egl_text.SetLabel(f"Fortnite is installed through the Epic Games Launcher at {st.egl_install_path}{version}.")
+            self.egl_text.SetLabel(fortnite_ops.egl_text(st))
             self.egl_text.Wrap(620)
         self.install_button.Show(bool(st) and legendary_ok and not installed and not egl_only and not busy)
         for ctrl in (self.update_button, self.verify_button, self.move_button,
@@ -340,10 +306,7 @@ class FortnitePage(HubPage):
             if dialog.ShowModal() != wx.ID_OK:
                 return
             base = dialog.GetPath()
-        free = _free_space_text(base)
-        if wx.MessageBox(f"Install Fortnite in {os.path.join(base, 'Fortnite')}? "
-                         f"It needs about 100 GB{' (' + free + ')' if free else ''}.",
-                         "Install Fortnite", wx.YES_NO | wx.ICON_QUESTION, self) != wx.YES:
+        if wx.MessageBox(fortnite_ops.install_question(base), "Install Fortnite", wx.YES_NO | wx.ICON_QUESTION, self) != wx.YES:
             return
         self._run("Installing", lambda p, c: self.manager.install(base, p, c))
 
@@ -364,9 +327,7 @@ class FortnitePage(HubPage):
             return
         self.update_button.Enable()
         self._apply_status(st)
-        message = (f"Update available: {st.remote_version}." if st.update_available
-                   else (st.error or "Fortnite is up to date."))
-        self.hub.services.speak(message)
+        self.hub.services.speak(fortnite_ops.check_message(st))
         self.update_button.SetFocus()
 
     def _verify(self) -> None:
@@ -427,6 +388,9 @@ def apply_setup_choice(hub, egl_choice) -> None:
     if egl_choice not in ("manage", "sync"):
         hub.show_page("home", focus_sidebar=True)
         return
+    if getattr(hub, "is_remote", False):
+        hub.apply_egl_choice(egl_choice)
+        return
     hub.show_page("fortnite")
     page = hub.page("fortnite")
 
@@ -439,11 +403,3 @@ def apply_setup_choice(hub, egl_choice) -> None:
         else:
             page.sync_with_egl()
     run()
-
-
-def _short_version(build: str) -> str:
-    """'++Fortnite+Release-42.20-CL-58011042-Windows' -> '42.20'."""
-    marker = "Release-"
-    if marker in build:
-        return build.split(marker, 1)[1].split("-", 1)[0]
-    return build
