@@ -1,0 +1,122 @@
+<pages:PageBase x:Class="FA11y.UI.Pages.DiscoverPage"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:pages="clr-namespace:FA11y.UI.Pages"
+                xmlns:c="clr-namespace:FA11y.UI.Controls">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Discover" FontSize="{StaticResource HeadingFontSize}" FontWeight="SemiBold"
+                   Margin="0,0,0,12" />
+        <TabControl x:Name="Tabs" Grid.Row="1" AutomationProperties.Name="Discover sections">
+            <TabItem x:Name="EpicTab" Header="Epic gamemodes" AutomationProperties.Name="Epic gamemodes">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Epic Games - Official Gamemodes" FontSize="{StaticResource SubheadingFontSize}"
+                               FontWeight="SemiBold" Margin="0,4,0,8" />
+                    <c:IslandPanel x:Name="EpicPanel" Grid.Row="1" Heading="Epic Games - Official Gamemodes">
+                        <c:IslandPanel.Extra>
+                            <c:IconButton Icon="{StaticResource Icon.refresh}" Content="Refresh" Click="OnRefreshEpic" />
+                        </c:IslandPanel.Extra>
+                    </c:IslandPanel>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="BrowseTab" Header="Browse" AutomationProperties.Name="Browse">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Browse Creative Islands" FontSize="{StaticResource SubheadingFontSize}"
+                               FontWeight="SemiBold" Margin="0,4,0,8" />
+                    <c:IslandPanel x:Name="BrowsePanel" Grid.Row="1" Heading="Browse Creative Islands">
+                        <c:IslandPanel.Extra>
+                            <c:IconButton Icon="{StaticResource Icon.refresh}" Content="Refresh" Click="OnRefreshBrowse" />
+                        </c:IslandPanel.Extra>
+                    </c:IslandPanel>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="SearchTab" Header="Search" AutomationProperties.Name="Search">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Search for Islands" FontSize="{StaticResource SubheadingFontSize}"
+                               FontWeight="SemiBold" Margin="0,4,0,8" />
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" MaxWidth="360" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBox x:Name="SearchBox" Grid.Column="1" AutomationProperties.Name="Search" />
+                        <c:IconButton Grid.Column="2" Margin="8,0,0,0" Variant="primary" Content="Search"
+                                      Click="OnSearchClick" />
+                    </Grid>
+                    <c:IslandPanel x:Name="SearchPanel" Grid.Row="2" Heading="Search results" />
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="CreatorTab" Header="By creator" AutomationProperties.Name="By creator">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Browse by Creator" FontSize="{StaticResource SubheadingFontSize}"
+                               FontWeight="SemiBold" Margin="0,4,0,8" />
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" MaxWidth="260" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Creator:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBox x:Name="CreatorBox" Grid.Column="1" Text="epic" AutomationProperties.Name="Creator" />
+                        <c:IconButton Grid.Column="2" Margin="8,0,0,0" Variant="primary" Content="Load maps"
+                                      Click="OnLoadCreatorClick" />
+                        <c:IconButton Grid.Column="3" Margin="8,0,0,0" Content="Epic Games" Click="OnLoadEpicCreatorClick" />
+                    </Grid>
+                    <c:IslandPanel x:Name="CreatorPanel" Grid.Row="2" Heading="Creator maps" />
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="CodeTab" Header="By code" AutomationProperties.Name="By code">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Lookup Island by Code" FontSize="{StaticResource SubheadingFontSize}"
+                               FontWeight="SemiBold" Margin="0,4,0,8" />
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" MaxWidth="260" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Island code:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBox x:Name="CodeBox" Grid.Column="1" AutomationProperties.Name="Island code" />
+                        <c:IconButton Grid.Column="2" Margin="8,0,0,0" Variant="primary" Content="Lookup"
+                                      Click="OnLookupClick" />
+                    </Grid>
+                    <TextBox x:Name="IslandInfo" Grid.Row="2" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                             AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MinHeight="120"
+                             AutomationProperties.Name="Island information" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</pages:PageBase>

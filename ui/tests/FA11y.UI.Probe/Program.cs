@@ -14,7 +14,7 @@ namespace FA11y.UI.Probe;
 /// It starts the window through ui/tests/fake_core.py and types real keys, so don't touch the
 /// keyboard while it runs. Exit code 0 when everything passed.
 ///
-///   FA11y.UI.Probe --python PATH_TO_PYTHON [--fake-core PATH] [--root DIR] [--static]
+///   FA11y.UI.Probe --python PATH_TO_PYTHON [--fake-core PATH] [--root DIR] [--static | --no-keys]
 ///   FA11y.UI.Probe --python PATH --tree social,locker [--shots DIR]
 ///
 /// With --tree it types nothing and needs no foreground rights: it shows each listed page (and the
@@ -49,6 +49,7 @@ internal static partial class Program
     {
         string python = "python";
         string? fakeCore = null;
+        var noKeys = args.Contains("--no-keys");
         string[]? treeKeys = null;
         string? shotsDir = null;
         string root = Path.Combine(Path.GetTempPath(), "fa11y-probe-root");
@@ -114,6 +115,8 @@ internal static partial class Program
 
             if (treeKeys != null)
                 RunTree(core, treeKeys, shotsDir);
+            else if (noKeys)
+                StaticRun(core);
             else if (_keys)
                 Run(core, uiPid);
             else
@@ -133,7 +136,7 @@ internal static partial class Program
                 core.Kill(true);
         }
 
-        if (treeKeys == null)
+        if (treeKeys == null && !noKeys)
         try
         {
             RunSetupSession(python, fakeCore, root);
@@ -258,6 +261,86 @@ internal static partial class Program
         Check(InSidebar(f), $"summon puts focus on the sidebar (is \"{Safe(f)}\")");
     }
 
+    // Without the keyboard (--no-keys) ---------------------------------------------------------
+    // For machines where the probe can't get the foreground. The core shows each page, then the
+    // probe reads the accessibility tree: every keyboard-focusable element, in tree order, must
+    // have a name and a real role, and the pages with tabs are checked tab by tab.
+
+    private static readonly Dictionary<string, string[]> StaticExpectations = new()
+    {
+        ["discover"] = new[]
+        {
+            "Epic gamemodes", "Epic Games - Official Gamemodes", "Zone Wars (2210 playing)", "Copy code", "Launch gamemode",
+            "Refresh", "Browse", "Search", "By creator", "By code",
+        },
+        ["quests"] = new[]
+        {
+            "Quests", "Battle Royale Pass", "Game mode", "Quest category", "Search quests", "Quest status", "Include expired quests",
+            "Quests", "Quest details", "Refresh", "Close",
+        },
+    };
+
+    private static void StaticRun(Process core)
+    {
+        Console.WriteLine("\n== Pages without the keyboard");
+        _pagesList = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List),
+            new PropertyCondition(AutomationElement.NameProperty, "Pages")))!;
+        foreach (var key in new[] { "discover", "quests" })
+        {
+            var title = Pages.First(p => p.Key == key).Title;
+            core.StandardInput.WriteLine($"show-page {key}");
+            if (!Check(WaitFor(() => _window.Current.Name == $"FA11y - {title}", 3000), $"{title} is shown"))
+                continue;
+            Thread.Sleep(1500); // data arrives
+            Console.WriteLine($"\n-- {title}");
+            var seen = new HashSet<string>();
+            DumpFocusable(seen);
+            var tabs = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem))
+                .Cast<AutomationElement>().ToList();
+            Check(tabs.Count > 0, $"{title} has tabs");
+            foreach (var tab in tabs)
+            {
+                var name = tab.Current.Name;
+                Console.WriteLine($"   [tab] {name}");
+                Check(name.Trim().Length > 0, "a tab has a name");
+                if (tab.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var pattern))
+                {
+                    ((SelectionItemPattern)pattern).Select();
+                    Thread.Sleep(900);
+                    DumpFocusable(seen);
+                }
+            }
+            foreach (var expected in StaticExpectations[key])
+                Check(seen.Contains(expected) || tabs.Any(t => t.Current.Name == expected), $"\"{expected}\" is reachable on {title}");
+        }
+    }
+
+    private static void DumpFocusable(HashSet<string> seen)
+    {
+        var elements = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.IsKeyboardFocusableProperty, true))
+            .Cast<AutomationElement>().ToList();
+        foreach (var el in elements)
+        {
+            var c = el.Current;
+            if (c.IsOffscreen)
+                continue;
+            if (!seen.Add(c.Name) && c.ControlType != ControlType.ListItem)
+                continue;
+            if (c.ControlType == ControlType.ListItem && InSidebar(el))
+                continue;
+            Console.WriteLine($"   {Short(c.ControlType),-9} \"{Clip(c.Name)}\"" + (c.HelpText.Length > 0 ? $"  [help: {Clip(c.HelpText)}]" : "")
+                              + (c.AccessKey.Length > 0 ? $"  [key: {c.AccessKey}]" : ""));
+            Check(c.Name.Trim().Length > 0, $"focusable {Short(c.ControlType)} has a name");
+            Check(c.ControlType != ControlType.Pane && c.ControlType != ControlType.Custom && c.ControlType != ControlType.Group,
+                $"\"{Clip(c.Name)}\" has a real role (is {Short(c.ControlType)})");
+        }
+        var stray = _window.FindAll(TreeScope.Descendants, Automation.ControlViewCondition).Cast<AutomationElement>()
+            .Where(e => { try { return e.Current.Name.Contains('_') || (e.Current.ControlType == ControlType.Button && e.FindFirst(TreeScope.Children, Condition.TrueCondition) != null); } catch { return false; } })
+            .Select(e => e.Current.Name).ToList();
+        Check(stray.Count == 0, $"no access key underscores or label fragments inside controls ({string.Join(", ", stray)})");
+    }
+
     // Tree mode: no keys, no foreground ----------------------------------------------------
 
     private static void RunTree(Process core, string[] keys, string? shotsDir)
@@ -315,7 +398,7 @@ internal static partial class Program
             Check(c.ControlType != ControlType.Pane && c.ControlType != ControlType.Custom && c.ControlType != ControlType.Group,
                 $"\"{Clip(c.Name)}\" has a real role (is {Short(c.ControlType)})");
         }
-        var stray = _window.FindAll(TreeScope.Descendants, Condition.TrueCondition).Cast<AutomationElement>()
+        var stray = _window.FindAll(TreeScope.Descendants, Automation.ControlViewCondition).Cast<AutomationElement>()
             .Where(e => { try { return e.Current.Name.Contains('_') || (e.Current.ControlType == ControlType.Button && e.FindFirst(TreeScope.Children, Condition.TrueCondition) != null); } catch { return false; } })
             .Select(e => e.Current.Name).ToList();
         Check(stray.Count == 0, $"no access key underscores or label fragments inside buttons ({string.Join(", ", stray)})");
@@ -459,7 +542,7 @@ internal static partial class Program
                 $"\"{Clip(c.Name)}\" has a real role (is {Short(c.ControlType)})");
         }
         var names = seen.Select(e => e.Current.Name).ToList();
-        var stray = _window.FindAll(TreeScope.Descendants, Condition.TrueCondition).Cast<AutomationElement>()
+        var stray = _window.FindAll(TreeScope.Descendants, Automation.ControlViewCondition).Cast<AutomationElement>()
             .Where(e => { try { return e.Current.Name.Contains('_') || (e.Current.ControlType == ControlType.Button && e.FindFirst(TreeScope.Children, Condition.TrueCondition) != null); } catch { return false; } })
             .Select(e => e.Current.Name).ToList();
         Check(stray.Count == 0, $"no access key underscores or label fragments inside buttons ({string.Join(", ", stray)})");

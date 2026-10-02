@@ -17,13 +17,8 @@ def _signed_in(auth) -> bool:
 def discover_page(parent, hub) -> ViewPage:
     def make(host):
         from lib.guis.discovery_gui import DiscoveryView
-        api = state.get_discovery_api()
-        if api is None:
-            from lib.utilities.epic_discovery import EpicDiscovery
-            auth = _epic_auth()
-            api = EpicDiscovery(auth if _signed_in(auth) else None)
-            state.set_discovery_api(api)
-        return DiscoveryView(host, api)
+        from lib.utilities.discovery_ops import get_api
+        return DiscoveryView(host, get_api())
 
     return ViewPage(parent, hub, "Discover", make, identity=state.get_discovery_api, after_login=True)
 

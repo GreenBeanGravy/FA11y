@@ -70,6 +70,7 @@ class FakeCore:
         self.fortnite = fortnite
         self.operation = None  # {"id", "cancel": Event}
         self.next_operation = 0
+        self.pages = None  # Discover, Quests and passes answers (fake_pages.py)
         self.proc: subprocess.Popen | None = None
         self.started = 0.0
         self.cosmetics = fake_cosmetics()
@@ -233,6 +234,12 @@ class FakeCore:
             return {"ok": True}
         if method == "app.state":
             return self.hello()
+        if method.startswith(("discover.", "quests.", "passes.")):
+            from fake_pages import Pages
+            with self.lock:
+                if self.pages is None:
+                    self.pages = Pages()
+            return self.pages.answer(method, params, self.signed_in)
         return {}
 
     # Social ---------------------------------------------------------------------

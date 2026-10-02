@@ -164,6 +164,19 @@ public partial class MainWindow : Window
         // These pages keep their data ready before they are opened (after sign in, or when it changes).
         bridge.On("social.changed", _ => GetPage("social").Refresh());
         bridge.On("locker.changed", _ => GetPage("locker").Refresh());
+        bridge.On("quests.changed", _ => RefreshIfShown("quests"));
+        // Pages that load before they are opened: once the core is up and once sign in has settled,
+        // and again after signing in or out.
+        bridge.On("core.hello", _ => PrefetchPages());
+        bridge.On("account.changed", _ => PrefetchPages());
+        bridge.On("views.reset", data =>
+        {
+            if (!data.TryGetProperty("keys", out var keys) || keys.ValueKind != JsonValueKind.Array)
+                return;
+            foreach (var key in keys.EnumerateArray().Select(k => k.GetString() ?? ""))
+                if (_items.ContainsKey(key) && GetPage(key) is IPrefetchPage page)
+                    page.ResetData();
+        });
         if (Environment.GetEnvironmentVariable("FA11Y_UI_TEST") == "1")
         {
             bridge.On("test.screenshot", data => SaveScreenshot(data.Str("path")));
@@ -224,6 +237,13 @@ public partial class MainWindow : Window
         FocusSidebar();
     }
 
+    private void PrefetchPages()
+    {
+        foreach (var spec in Specs)
+            if (GetPage(spec.Key) is IPrefetchPage page)
+                page.Prefetch();
+    }
+
     private void RefreshIfShown(string key)
     {
         if (_current == key && _pages.TryGetValue(key, out var page))
@@ -244,6 +264,8 @@ public partial class MainWindow : Window
             "fortnite" => new FortnitePage(),
             "social" => new SocialPage(),
             "locker" => new LockerPage(),
+            "discover" => new DiscoverPage(),
+            "quests" => new QuestsPage(),
             _ => new PlaceholderPage(key, Specs.First(s => s.Key == key).Label),
         };
         var element = (FrameworkElement)page;

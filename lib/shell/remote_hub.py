@@ -21,6 +21,8 @@ Events sent to the UI:
                        a page's data changed (account pages also get it after signing in or out)
     fortnite.setup_choice  {choice} take over or sync the Epic Games Launcher install
     setup.start        show first-run setup {summon}
+    views.reset        {keys}, signed in or out: ported pages that depend on the account reload
+    quests.changed     {revision}, quests changed (match packets or an account refresh)
 Events from the UI:
     ui.ready           the window is on screen and listening
     ui.visibility      {visible, active}
@@ -38,7 +40,7 @@ from lib.shell.bridge import Bridge, registry
 
 logger = logging.getLogger(__name__)
 
-PORTED_PAGES = ("home", "fortnite", "account", "about", "social", "locker")
+PORTED_PAGES = ("home", "fortnite", "discover", "account", "locker", "social", "quests", "about")
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
 
@@ -83,6 +85,7 @@ class RemoteHub:
     @staticmethod
     def _load_handlers() -> None:
         from lib.shell.handlers import about, account, app, fortnite, home, locker, setup, social  # noqa: F401 (they register themselves)
+        from lib.shell.handlers import discover, passes, quests  # noqa: F401
 
     # Lifecycle -----------------------------------------------------------
 
@@ -184,10 +187,11 @@ class RemoteHub:
         self.send("ui.show_page", data)
 
     def reset_views(self, keys) -> None:
-        """Rebuild the wx views on these pages (after signing in or out)."""
+        """Reload the account-dependent pages (after signing in or out)."""
         for key in keys:
             if key in self._proxies:
                 self.send(f"{key}.changed")
+        self.send("views.reset", {"keys": list(keys)})
         classic = self._classic
         if classic is None:
             return

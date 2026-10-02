@@ -10,6 +10,7 @@
                 <ResourceDictionary Source="Theme/Controls.xaml" />
                 <ResourceDictionary Source="Theme/FormControls.xaml" />
                 <ResourceDictionary Source="Theme/PageControls.xaml" />
+                <ResourceDictionary Source="Theme/PageTabs.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

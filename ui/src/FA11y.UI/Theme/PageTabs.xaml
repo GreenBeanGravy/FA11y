@@ -1,0 +1,68 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Tabs inside a page: a row of pill tabs over the page area, like the wx TabbedBook. Tab goes to
+         the selected tab, then into the page; arrows or Ctrl+Tab change tabs. -->
+    <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="Padding" Value="14,5" />
+        <Setter Property="Margin" Value="0,0,6,6" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="Pill" CornerRadius="8" BorderThickness="1" BorderBrush="{StaticResource CardBorder}"
+                            Background="Transparent" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                          RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Pill" Property="Background" Value="{StaticResource HoverBg}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Pill" Property="Background" Value="{StaticResource SelectedBg}" />
+                            <Setter TargetName="Pill" Property="BorderBrush" Value="{StaticResource SelectedBg}" />
+                            <Setter Property="Foreground" Value="{StaticResource SelectedText}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Pill" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                            <Setter TargetName="Pill" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The label of a field: plain text with an access key that moves focus to its Target. -->
+    <Style x:Key="FieldLabel" TargetType="Label">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="Padding" Value="0,0,8,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Focusable" Value="False" />
+    </Style>
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="KeyboardNavigation.TabNavigation" Value="Local" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel x:Name="HeaderPanel" Grid.Row="0" IsItemsHost="True" Margin="0,0,0,4"
+                                   KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Once" />
+                        <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" ContentSource="SelectedContent"
+                                          KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>
