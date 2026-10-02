@@ -788,6 +788,94 @@ def check_version():
         print_info("Invalid version format. Treating as update required.")
         return True
 
+INSTALLER_TAG_PREFIX = "installer-v"
+INSTALLER_ASSETS = ("Updater.exe", "FA11y Launcher.exe")
+
+
+def _installer_version(tag):
+    try:
+        return tuple(int(p) for p in tag[len(INSTALLER_TAG_PREFIX):].split('.'))
+    except ValueError:
+        return None
+
+
+def handoff_to_new_installer():
+    """
+    Move this install to the new layout (FA11y Launcher.exe, Updater.exe
+    and a "FA11y Files" folder with its own Python).
+
+    Downloads the newest installer release, starts Updater.exe --migrate in
+    its own console window and returns True. Updater.exe waits for this
+    script and FA11y to exit, backs up and carries over the user's config,
+    and installs the new layout. Returns False, leaving the old update
+    process in charge, when no installer release is available.
+    """
+    import hashlib
+
+    try:
+        response = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/releases?per_page=50", timeout=10)
+        response.raise_for_status()
+        releases = response.json()
+    except (requests.RequestException, ValueError) as e:
+        print_info(f"Could not check for the new installer: {e}")
+        return False
+
+    best = None
+    for release in releases:
+        tag = release.get('tag_name', '')
+        if release.get('draft') or release.get('prerelease') or not tag.startswith(INSTALLER_TAG_PREFIX):
+            continue
+        version = _installer_version(tag)
+        assets = {a['name']: a for a in release.get('assets', [])}
+        if version is None or not all(
+                name in assets and assets[name].get('digest', '').startswith('sha256:')
+                for name in INSTALLER_ASSETS):
+            continue
+        if best is None or version > best[0]:
+            best = (version, assets)
+    if best is None:
+        return False
+
+    print_info("FA11y is moving to a new installer that brings its own Python. Downloading it...")
+    root = os.getcwd()
+    for name in INSTALLER_ASSETS:
+        asset = best[1][name]
+        expected = asset['digest'].split(':', 1)[1].lower()
+        target = os.path.join(root, name)
+        partial = target + '.download'
+        try:
+            response = requests.get(asset['browser_download_url'], timeout=60)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            print_info(f"Could not download {name}: {e}")
+            return False
+        if hashlib.sha256(response.content).hexdigest() != expected:
+            print_info(f"{name} failed its integrity check. Keeping the current install.")
+            return False
+        with open(partial, 'wb') as f:
+            f.write(response.content)
+        os.replace(partial, target)
+
+    # Wait for FA11y (our parent, when it started us) and this script.
+    wait_pids = [os.getpid()]
+    try:
+        import psutil
+        parent = psutil.Process(os.getppid())
+        if 'python' in parent.name().lower():
+            wait_pids.append(parent.pid)
+    except Exception:
+        pass
+    args = [os.path.join(root, 'Updater.exe'), '--migrate']
+    for pid in wait_pids:
+        args += ['--wait-pid', str(pid)]
+    # No stdio redirection: Updater.exe writes to its own new console, and
+    # FA11y's captured pipes are not inherited, so FA11y can exit.
+    subprocess.Popen(args, cwd=root, creationflags=subprocess.CREATE_NEW_CONSOLE, close_fds=True)
+    print_info("The new installer has started in its own window. FA11y will close now.")
+    return True
+
+
 def main():
     """
     Main function to run the updater script.
@@ -832,6 +920,9 @@ def main():
             env=restart_env,
         )
         sys.exit(result.returncode)
+
+    if handoff_to_new_installer():
+        sys.exit(1)
 
     install_required_modules_and_whls()
     

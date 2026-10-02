@@ -42,6 +42,7 @@ const (
 type options struct {
 	install, quick, fromLauncher, noComponents bool
 	branch, source                             string
+	waitPIDs                                   pidList
 }
 
 func main() {
@@ -55,6 +56,8 @@ func main() {
 	monarch := flag.Bool("monarch", false, "retry failed downloads until they succeed")
 	elevatedPlan := flag.String("elevated-plan", "", "internal: install the components in this plan file")
 	flag.Bool("run-by-fa11y", false, "ignored; accepted for compatibility")
+	flag.Bool("migrate", false, "convert an old single-folder install (also detected automatically)")
+	flag.Var(&opts.waitPIDs, "wait-pid", "wait for this process to exit first (repeatable)")
 	flag.Parse()
 
 	console.SetTitle("FA11y Updater")
@@ -91,6 +94,8 @@ func run(l layout.Layout, opts options) (int, error) {
 		return exitError, err
 	}
 	selfupdate.CleanupOld(l.Updater(), l.Launcher())
+	waitForExit(opts.waitPIDs)
+	legacy := isLegacy(l)
 	var src filesync.Source
 	if opts.source != "" {
 		console.Say("Installing from %s instead of GitHub.", opts.source)
@@ -120,6 +125,13 @@ func run(l layout.Layout, opts options) (int, error) {
 		return exitError, err
 	}
 
+	if legacy {
+		if _, err := prepareMigration(l); err != nil {
+			return exitError, err
+		}
+		opts.quick, opts.install = false, true
+	}
+
 	localVersion := readVersion(l)
 	if opts.quick && installed(l) {
 		remote, err := src.Read("VERSION")
@@ -140,6 +152,17 @@ func run(l layout.Layout, opts options) (int, error) {
 	}
 	if err != nil {
 		return exitError, err
+	}
+	removeOldBackups(l)
+	if legacy {
+		if tree, err := src.Tree(); err == nil {
+			cleanupLegacy(l, tree)
+		}
+		console.Say("FA11y now lives in %s. Start it with %s.", layout.FilesDirName, layout.LauncherExe)
+		if !opts.fromLauncher {
+			startLauncher(l)
+		}
+		return layout.ExitUpdated, nil
 	}
 	if !changed {
 		console.Say("FA11y is up to date.")

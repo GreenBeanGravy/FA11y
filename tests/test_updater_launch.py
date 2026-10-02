@@ -53,3 +53,38 @@ def test_version_check_does_not_downgrade(monkeypatch, tmp_path):
     (tmp_path / "VERSION").write_text("18.10.4", encoding="utf-8")
     monkeypatch.setattr(updater, "get_version_github", lambda *_args: "18.10.3")
     assert updater.check_version() is False
+
+
+def _release(tag, digest="sha256:" + "0" * 64, draft=False):
+    return {
+        "tag_name": tag, "draft": draft, "prerelease": False,
+        "assets": [
+            {"name": name, "digest": digest, "browser_download_url": f"https://x/{name}"}
+            for name in updater.INSTALLER_ASSETS
+        ],
+    }
+
+
+def test_handoff_skipped_without_installer_release(monkeypatch):
+    response = MagicMock()
+    response.json.return_value = [_release("v17"), _release("installer-v1.0.0", draft=True)]
+    monkeypatch.setattr(updater.requests, "get", MagicMock(return_value=response))
+    popen = MagicMock()
+    monkeypatch.setattr(updater.subprocess, "Popen", popen)
+    assert updater.handoff_to_new_installer() is False
+    popen.assert_not_called()
+
+
+def test_handoff_rejects_tampered_download(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    listing = MagicMock()
+    listing.json.return_value = [_release("installer-v1.0.0")]
+    download = MagicMock(content=b"not the real exe")
+    monkeypatch.setattr(
+        updater.requests, "get",
+        MagicMock(side_effect=lambda url, **_: listing if "api.github.com" in url else download))
+    popen = MagicMock()
+    monkeypatch.setattr(updater.subprocess, "Popen", popen)
+    assert updater.handoff_to_new_installer() is False
+    popen.assert_not_called()
+    assert not (tmp_path / "Updater.exe").exists()
