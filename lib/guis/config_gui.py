@@ -15,6 +15,9 @@ from typing import Callable, Dict, Optional, List, Any, Tuple, TYPE_CHECKING
 import wx
 import wx.lib.scrolledpanel as scrolled
 from lib.hub.controls import StyledButton, TabbedBook
+from lib.guis.config_layout import (
+    CONTROL_WIDTH, KEY_WIDTH, group_for, finish_sections, reset_sections, section_for, setting_label,
+)
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import DisplayableError
@@ -73,14 +76,6 @@ GENERAL_TOGGLE_KEYS = (
     "CreateDesktopShortcut",
 )
 GENERAL_KEY_SECTIONS = {key: "Toggles" for key in GENERAL_TOGGLE_KEYS}
-# Readable labels for the General tab; other tabs show the config key name.
-GENERAL_LABELS = {
-    "StartFortniteOnLaunch": "Start Fortnite when FA11y opens",
-    "HideHubWhenFortniteStarts": "Hide the FA11y window when Fortnite starts",
-    "NavigationSounds": "Play navigation sounds in the FA11y window",
-    "AutoUpdates": "Update FA11y automatically",
-    "CreateDesktopShortcut": "Create a desktop shortcut",
-}
 GENERAL_KEY_SECTIONS["CloseAction"] = "Hub"
 
 CLOSE_ACTION_LABEL = "When I close the FA11y window"
@@ -90,6 +85,10 @@ CLOSE_ACTION_CHOICES = (
     ("tray", "Keep running in the tray"),
     ("quit", "Quit FA11y"),
 )
+
+# Config sections whose settings appear on another tab. Their widgets are
+# tracked under the section's own name so they save back to it.
+TRACKED_ELSEWHERE = {"MatchEvents": "Toggles"}
 
 # Every tab ConfigView knows, in display order.
 ALL_TABS = ("General", "Toggles", "Values", "Audio", "GameObjects", "Keybinds", "Advanced")
@@ -277,6 +276,7 @@ class ConfigView(EmbeddedView):
         panel.Freeze()
         try:
             self.create_widgets(target_tab=tab_name)
+            finish_sections(panel, tab_name)
             self.build_tab_control_lists(target_tab=tab_name)
         finally:
             panel.Thaw()
@@ -305,7 +305,8 @@ class ConfigView(EmbeddedView):
                     continue
             except Exception:
                 pass
-            if isinstance(child, (wx.Button, wx.TextCtrl, wx.CheckBox, wx.SpinCtrl, wx.Choice, wx.ComboBox, wx.ListCtrl)):
+            if isinstance(child, (wx.Button, wx.TextCtrl, wx.CheckBox, wx.SpinCtrl, wx.SpinCtrlDouble,
+                                  wx.Choice, wx.ComboBox, wx.ListCtrl)):
                 widget_list.append(child)
             elif hasattr(child, 'GetChildren'):
                 self._collect_focusable_widgets(child, widget_list)
@@ -499,6 +500,7 @@ class ConfigView(EmbeddedView):
             panel.DestroyChildren()
             panel.sizer = wx.BoxSizer(wx.VERTICAL)
             panel.SetSizer(panel.sizer)
+            reset_sections(panel)
 
         def _matches(actual_tab: str) -> bool:
             return target_tab is None or actual_tab == target_tab
@@ -611,6 +613,16 @@ class ConfigView(EmbeddedView):
                 elif section == "SCRIPT KEYBINDS":
                     if _matches("Keybinds"):
                         self.create_keybind_entry("Keybinds", key, value_string)
+                elif section in TRACKED_ELSEWHERE:
+                    actual_tab = _resolve(TRACKED_ELSEWHERE[section], key)
+                    if not _matches(actual_tab):
+                        continue
+                    tracking = section if actual_tab == TRACKED_ELSEWHERE[section] else actual_tab
+                    value, _ = self.extract_value_and_description(value_string)
+                    if value.lower() in ['true', 'false']:
+                        self.create_checkbox(tracking, key, value_string)
+                    else:
+                        self.create_value_entry(tracking, key, value_string)
 
         for _tab_name, panel in panels_to_reset:
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
@@ -639,6 +651,7 @@ class ConfigView(EmbeddedView):
         panel.DestroyChildren()
         panel.sizer = wx.BoxSizer(wx.VERTICAL)
         panel.SetSizer(panel.sizer)
+        reset_sections(panel)
 
         self.tab_widgets["General"] = []
         self.tab_variables["General"] = {}
@@ -666,6 +679,7 @@ class ConfigView(EmbeddedView):
         panel.DestroyChildren()
         panel.sizer = wx.BoxSizer(wx.VERTICAL)
         panel.SetSizer(panel.sizer)
+        reset_sections(panel)
 
         # Reset trackers — Advanced-routed keys keep their existing entries.
         self.tab_widgets["GameObjects"] = []
@@ -690,12 +704,12 @@ class ConfigView(EmbeddedView):
             available_maps.insert(0, 'main')
 
         if available_maps:
-            chooser_row = wx.BoxSizer(wx.HORIZONTAL)
-            chooser_row.Add(wx.StaticText(panel, label="Map:"),
-                            flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+            section = section_for(panel, "Each map", show_descriptions=False)
+            map_label = wx.StaticText(section.parent, label="Map")
             self._gameobjects_map_keys = available_maps
             self._gameobjects_map_choice = wx.Choice(
-                panel, choices=[m.replace('_', ' ').title() for m in available_maps],
+                section.parent, choices=[m.replace('_', ' ').title() for m in available_maps],
+                size=(section.parent.FromDIP(CONTROL_WIDTH * 2), -1),
             )
             self._gameobjects_map_choice.SetSelection(0)
             self._gameobjects_map_choice.description = (
@@ -703,8 +717,7 @@ class ConfigView(EmbeddedView):
             )
             self._gameobjects_map_choice.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
             self._gameobjects_map_choice.Bind(wx.EVT_CHOICE, self._on_gameobjects_map_changed)
-            chooser_row.Add(self._gameobjects_map_choice, flag=wx.ALL, border=5)
-            panel.sizer.Add(chooser_row, flag=wx.ALL, border=2)
+            section.add_row(map_label, self._gameobjects_map_choice)
 
         # 3. Sub-panel host. Each map's settings live in its own panel,
         # built lazily on first show, then hidden / shown as the
@@ -712,8 +725,7 @@ class ConfigView(EmbeddedView):
         self._gameobjects_subpanel_host = wx.Panel(panel)
         host_sizer = wx.BoxSizer(wx.VERTICAL)
         self._gameobjects_subpanel_host.SetSizer(host_sizer)
-        panel.sizer.Add(self._gameobjects_subpanel_host, proportion=1,
-                        flag=wx.EXPAND | wx.ALL, border=2)
+        panel.sizer.Add(self._gameobjects_subpanel_host, proportion=1, flag=wx.EXPAND)
 
         self._gameobjects_subpanels = {}  # map_name -> wx.Panel
 
@@ -751,6 +763,7 @@ class ConfigView(EmbeddedView):
             sub_sizer = wx.BoxSizer(wx.VERTICAL)
             sub.SetSizer(sub_sizer)
             self._build_per_map_widgets(sub, map_name)
+            finish_sections(sub, f"{map_name.title()}GameObjects")
             self._gameobjects_subpanels[map_name] = sub
             host.GetSizer().Add(sub, proportion=1, flag=wx.EXPAND)
 
@@ -793,7 +806,7 @@ class ConfigView(EmbeddedView):
         under a per-map ``tab_name`` key in ``tab_variables``."""
         if parent_override is not None:
             return parent_override
-        return self.tabs.get(tab_name)
+        return self.tabs.get(TRACKED_ELSEWHERE.get(tab_name, tab_name))
 
     def _ensure_tracking(self, tab_name: str) -> None:
         """Make sure ``tab_widgets`` / ``tab_variables`` have entries for a
@@ -803,17 +816,24 @@ class ConfigView(EmbeddedView):
         if tab_name not in self.tab_variables:
             self.tab_variables[tab_name] = {}
 
+    def _section(self, tab_name: str, key: str, parent_override=None):
+        """The group box ``key`` goes in, or None if its tab isn't shown."""
+        container = self._resolve_widget_parent(tab_name, parent_override)
+        if container is None:
+            return None
+        per_map = tab_name.endswith("GameObjects") and tab_name != "GameObjects"
+        return section_for(container, group_for(tab_name, key),
+                           show_descriptions=tab_name != "Keybinds" and not per_map)
+
     def create_checkbox(self, tab_name: str, key: str, value_string: str, parent_override=None):
         """Create a checkbox for a boolean setting."""
-        panel = self._resolve_widget_parent(tab_name, parent_override)
-        if panel is None:
+        section = self._section(tab_name, key, parent_override)
+        if section is None:
             return
 
         value, description = self.extract_value_and_description(value_string)
-        bool_value = value.lower() == 'true'
-
-        checkbox = wx.CheckBox(panel, label=GENERAL_LABELS.get(key, key) if tab_name == "General" else key)
-        checkbox.SetValue(bool_value)
+        checkbox = wx.CheckBox(section.parent, label=setting_label(key, tab_name))
+        checkbox.SetValue(value.lower() == 'true')
         checkbox.description = description
 
         checkbox.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
@@ -823,109 +843,84 @@ class ConfigView(EmbeddedView):
         self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].append(checkbox)
         self.tab_variables[tab_name][key] = checkbox
+        section.add_check(checkbox, description)
 
-        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
-            panel.sizer = wx.BoxSizer(wx.VERTICAL)
-            panel.SetSizer(panel.sizer)
-        elif not hasattr(panel, 'sizer'):
-            panel.sizer = panel.GetSizer()
-
-        panel.sizer.Add(checkbox, flag=wx.ALL, border=5)
+    def _number_control(self, parent, key: str, value: str):
+        """A SpinCtrl for whole numbers or a SpinCtrlDouble for decimals, or
+        None when ``value`` isn't a number."""
+        try:
+            number = float(value)
+        except (ValueError, TypeError):
+            return None
+        min_val, max_val = self.get_value_range(key)
+        size = (parent.FromDIP(CONTROL_WIDTH), -1)
+        if "." in value:
+            digits = min(max(len(value.split(".", 1)[1]), 1), 3)
+            control = wx.SpinCtrlDouble(parent, size=size, min=min(min_val, number),
+                                        max=max(max_val, number), initial=number, inc=10 ** -digits)
+            control.SetDigits(digits)
+            return control
+        number = int(number)
+        return wx.SpinCtrl(parent, size=size, min=min(min_val, number), max=max(max_val, number),
+                           initial=number)
 
     def create_value_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
-        """Create a text entry field or spin control for a value setting."""
-        panel = self._resolve_widget_parent(tab_name, parent_override)
-        if panel is None:
+        """Create a number box (or a text field for non-numbers) for a value setting."""
+        section = self._section(tab_name, key, parent_override)
+        if section is None:
             return
 
         value, description = self.extract_value_and_description(value_string)
-
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        label = wx.StaticText(panel, label=key)
-
-        is_numeric = self.is_numeric_setting(key, value)
-
-        if is_numeric:
-            try:
-                numeric_value = int(float(value))
-            except (ValueError, TypeError):
-                numeric_value = 0
-
-            min_val, max_val = self.get_value_range(key)
-
-            entry = wx.SpinCtrl(panel, value=str(numeric_value), min=min_val, max=max_val)
-            entry.SetValue(numeric_value)
-        else:
-            entry = wx.TextCtrl(panel, value=value, style=wx.TE_PROCESS_ENTER)
+        label = wx.StaticText(section.parent, label=setting_label(key, tab_name))
+        entry = self._number_control(section.parent, key, value)
+        if entry is None:
+            entry = wx.TextCtrl(section.parent, value=value, style=wx.TE_PROCESS_ENTER,
+                                size=(section.parent.FromDIP(CONTROL_WIDTH * 2), -1))
             entry.Bind(wx.EVT_CHAR_HOOK, self.onTextCharHook)
-
         entry.description = description
 
         entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         self._track_changes(entry, tab_name, key)
-
-        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
-        sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
 
         self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].extend([label, entry])
         self.tab_variables[tab_name][key] = entry
-
-        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
-            panel.sizer = wx.BoxSizer(wx.VERTICAL)
-            panel.SetSizer(panel.sizer)
-        elif not hasattr(panel, 'sizer'):
-            panel.sizer = panel.GetSizer()
-
-        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
+        section.add_row(label, entry, description)
 
     def create_volume_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
         """Create a volume entry field with test button."""
-        panel = self._resolve_widget_parent(tab_name, parent_override)
-        if panel is None:
+        section = self._section(tab_name, key, parent_override)
+        if section is None:
             return
 
         value, description = self.extract_value_and_description(value_string)
-        
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-        
-        label = wx.StaticText(panel, label=key)
-        
+        label = wx.StaticText(section.parent, label=setting_label(key, tab_name))
+
         try:
-            volume_value = float(value)
-            scaled_value = int(volume_value * 100)
+            scaled_value = int(float(value) * 100)
         except (ValueError, TypeError):
             scaled_value = 100
-        
-        entry = wx.SpinCtrl(panel, value=str(scaled_value), min=0, max=100)
-        entry.SetValue(scaled_value)
+
+        entry = wx.SpinCtrl(section.parent, size=(section.parent.FromDIP(CONTROL_WIDTH), -1),
+                            min=0, max=100, initial=scaled_value)
         entry.description = description
-        
-        test_button = StyledButton(panel, label="Test")
-        test_button.description = f"Test {key} volume setting"
-        
+
+        test_button = StyledButton(section.parent, label="Test")
+        test_button.description = f"Test {setting_label(key, tab_name)}"
+
         entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         test_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         self._track_changes(entry, tab_name, key)
-        
         test_button.Bind(wx.EVT_BUTTON, lambda evt: self.test_volume(key, str(entry.GetValue() / 100.0)))
-        
-        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
-        sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
-        sizer.Add(test_button, flag=wx.ALL, border=3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(entry, 0, wx.ALIGN_CENTER_VERTICAL)
+        row.Add(test_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, section.parent.FromDIP(8))
 
         self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].extend([label, entry, test_button])
         self.tab_variables[tab_name][key] = entry
-
-        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
-            panel.sizer = wx.BoxSizer(wx.VERTICAL)
-            panel.SetSizer(panel.sizer)
-        elif not hasattr(panel, 'sizer'):
-            panel.sizer = panel.GetSizer()
-
-        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
+        section.add_row(label, row, description)
 
     def create_choice_entry(self, tab_name: str, key: str, value_string: str,
                             choices, label_text: Optional[str] = None, parent_override=None):
@@ -933,18 +928,17 @@ class ConfigView(EmbeddedView):
 
         ``choices`` is a sequence of (config value, label shown to the user).
         """
-        panel = self._resolve_widget_parent(tab_name, parent_override)
-        if panel is None:
+        section = self._section(tab_name, key, parent_override)
+        if section is None:
             return
 
         value, description = self.extract_value_and_description(value_string)
+        text = label_text or setting_label(key, tab_name)
+        label = wx.StaticText(section.parent, label=text)
 
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        label = wx.StaticText(panel, label=label_text or key)
-
-        choice = wx.Choice(panel, choices=[text for _value, text in choices])
-        choice.SetName(label_text or key)
+        choice = wx.Choice(section.parent, choices=[shown for _value, shown in choices],
+                           size=(section.parent.FromDIP(CONTROL_WIDTH * 2), -1))
+        choice.SetName(text)
         choice.choice_values = [stored for stored, _text in choices]
         selected = 0
         if value.lower() in choice.choice_values:
@@ -955,18 +949,10 @@ class ConfigView(EmbeddedView):
         choice.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         self._track_changes(choice, tab_name, key)
 
-        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
-        sizer.Add(choice, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
-
         self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].extend([label, choice])
         self.tab_variables[tab_name][key] = choice
-
-        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
-            panel.sizer = wx.BoxSizer(wx.VERTICAL)
-            panel.SetSizer(panel.sizer)
-
-        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
+        section.add_row(label, choice, description)
 
     def _track_changes(self, widget, tab_name: str, key: str) -> None:
         """Mark the setting as changed whenever the user edits ``widget``."""
@@ -979,48 +965,43 @@ class ConfigView(EmbeddedView):
         elif isinstance(widget, wx.SpinCtrl):
             widget.Bind(wx.EVT_SPINCTRL, changed)
             widget.Bind(wx.EVT_TEXT, changed)
+        elif isinstance(widget, wx.SpinCtrlDouble):
+            widget.Bind(wx.EVT_SPINCTRLDOUBLE, changed)
+            widget.Bind(wx.EVT_TEXT, changed)
         elif isinstance(widget, wx.Choice):
             widget.Bind(wx.EVT_CHOICE, changed)
         elif isinstance(widget, wx.TextCtrl):
             widget.Bind(wx.EVT_TEXT, changed)
 
     def create_keybind_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
-        """Create a keybind button that shows current bind and captures new ones."""
-        panel = self._resolve_widget_parent(tab_name, parent_override)
-        if panel is None:
+        """Create a keybind row: the action's name, then a button showing its key.
+
+        The button only draws the key ("Left Ctrl"), but its label, which is
+        what screen readers read, is the whole "Fire: Left Ctrl".
+        """
+        section = self._section(tab_name, key, parent_override)
+        if section is None:
             return
 
         value, description = self.extract_value_and_description(value_string)
-        
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-        
-        label = wx.StaticText(panel, label=key)
-        
+        label = wx.StaticText(section.parent, label=key)
+
         # The raw stored combination lives on the button; the label only
         # shows a readable name and is never parsed back.
-        keybind_button = StyledButton(panel, label=key)
+        keybind_button = StyledButton(section.parent, label=key,
+                                      size=(section.parent.FromDIP(KEY_WIDTH), -1))
         keybind_button.description = description
         self._set_keybind_value(key, keybind_button, value)
-        
+
         keybind_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         keybind_button.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
         keybind_button.Bind(wx.EVT_BUTTON, lambda evt: self.capture_keybind(key, keybind_button))
-        
-        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
-        sizer.Add(keybind_button, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
 
         self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].extend([label, keybind_button])
         self.tab_variables[tab_name][key] = keybind_button
+        section.add_row(label, keybind_button, description)
 
-        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
-            panel.sizer = wx.BoxSizer(wx.VERTICAL)
-            panel.SetSizer(panel.sizer)
-        elif not hasattr(panel, 'sizer'):
-            panel.sizer = panel.GetSizer()
-
-        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
-    
     def onControlCharHook(self, event):
         """Handle char events for controls to disable arrow navigation"""
         key_code = event.GetKeyCode()
@@ -1051,19 +1032,6 @@ class ConfigView(EmbeddedView):
         
         event.Skip()
     
-    def is_numeric_setting(self, key: str, value: str) -> bool:
-        """Determine if a setting should use a spin control"""
-        try:
-            float(value)
-            numeric = True
-        except (ValueError, TypeError):
-            numeric = False
-        
-        numeric_keywords = ['sensitivity', 'delay', 'steps', 'speed', 'volume', 'distance', 'radius']
-        is_numeric_key = any(keyword in key.lower() for keyword in numeric_keywords)
-        
-        return numeric and is_numeric_key
-    
     def get_value_range(self, key: str) -> tuple:
         """Get reasonable min/max values for numeric settings"""
         key_lower = key.lower()
@@ -1080,6 +1048,10 @@ class ConfigView(EmbeddedView):
             return (0, 10000)
         elif 'distance' in key_lower or 'radius' in key_lower:
             return (1, 10000)
+        elif 'dpi' in key_lower:
+            return (100, 50000)
+        elif 'interval' in key_lower or 'exponent' in key_lower:
+            return (0, 100)
         else:
             return (-10000, 10000)
     
@@ -1146,6 +1118,7 @@ class ConfigView(EmbeddedView):
         value = (value or "").strip()
         button.key_value = value
         shown = _key_name(value) if value else "Unbound"
+        button.display_text = shown
         button.SetLabel(f"{action_name}: {shown}")
 
     def _find_keybind_button(self, action_name: str) -> Optional[wx.Button]:
@@ -1153,6 +1126,7 @@ class ConfigView(EmbeddedView):
 
     def capture_keybind(self, action_name: str, button_widget: wx.Button):
         """Start capturing a new keybind"""
+        button_widget.display_text = "Press any key..."
         button_widget.SetLabel(f"{action_name}: Press any key...")
 
         self.capturing_key = True
@@ -1380,6 +1354,7 @@ class ConfigView(EmbeddedView):
                 sub = wx.Panel(host)
                 sub.SetSizer(wx.BoxSizer(wx.VERTICAL))
                 self._build_per_map_widgets(sub, map_name)
+                finish_sections(sub, f"{map_name.title()}GameObjects")
                 sub.Hide()
                 subpanels[map_name] = sub
                 host.GetSizer().Add(sub, proportion=1, flag=wx.EXPAND)
@@ -1402,7 +1377,7 @@ class ConfigView(EmbeddedView):
                 map_display = map_token.replace('_', ' ').strip()
                 tab_display = f"GameObjects ({map_display})"
             else:
-                tab_display = tab_internal
+                tab_display = TRACKED_ELSEWHERE.get(tab_internal, tab_internal)
             for key, widget in widgets.items():
                 description = ""
                 try:
@@ -1418,7 +1393,7 @@ class ConfigView(EmbeddedView):
         """Switch notebook (and per-map dropdown if needed), then focus widget."""
         is_per_map = (tab_internal.endswith("GameObjects")
                       and tab_internal != "GameObjects")
-        target_tab = "GameObjects" if is_per_map else tab_internal
+        target_tab = "GameObjects" if is_per_map else TRACKED_ELSEWHERE.get(tab_internal, tab_internal)
 
         # Switch notebook page (a lone tab has no notebook).
         page_count = self.notebook.GetPageCount() if self.notebook is not None else 0
@@ -1451,7 +1426,7 @@ class ConfigView(EmbeddedView):
         widget = self.tab_variables.get(tab_internal, {}).get(key)
         if widget is not None:
             wx.CallAfter(widget.SetFocus)
-            speaker.speak(f"{key} on {target_tab} tab")
+            speaker.speak(f"{setting_label(key, tab_internal)} on {target_tab} tab")
         else:
             speaker.speak(f"Could not focus {key}")
     
@@ -1518,44 +1493,51 @@ class ConfigView(EmbeddedView):
                     
                     default_value_part, _ = self.extract_value_and_description(default_full_value)
                     self._dirty_keys.add((tab_name, key))
+                    name = setting_label(key, tab_name)
                     
                     if isinstance(widget, wx.CheckBox):
                         bool_value = default_value_part.lower() == 'true'
                         widget.SetValue(bool_value)
-                        speaker.speak(f"{key} reset to default: {'checked' if bool_value else 'unchecked'}")
+                        speaker.speak(f"{name} reset to default: {'checked' if bool_value else 'unchecked'}")
                     elif isinstance(widget, wx.SpinCtrl):
                         if key.endswith('Volume') or key == 'MasterVolume':
                             try:
                                 volume_value = float(default_value_part)
                                 scaled_value = int(volume_value * 100)
                                 widget.SetValue(scaled_value)
-                                speaker.speak(f"{key} reset to default: {scaled_value}%")
+                                speaker.speak(f"{name} reset to default: {scaled_value}%")
                             except (ValueError, TypeError):
                                 widget.SetValue(100)
-                                speaker.speak(f"{key} reset to default: 100%")
+                                speaker.speak(f"{name} reset to default: 100%")
                         else:
                             try:
                                 numeric_value = int(float(default_value_part))
                                 widget.SetValue(numeric_value)
-                                speaker.speak(f"{key} reset to default: {numeric_value}")
+                                speaker.speak(f"{name} reset to default: {numeric_value}")
                             except (ValueError, TypeError):
                                 widget.SetValue(0)
-                                speaker.speak(f"{key} reset to default: 0")
+                                speaker.speak(f"{name} reset to default: 0")
+                    elif isinstance(widget, wx.SpinCtrlDouble):
+                        try:
+                            widget.SetValue(float(default_value_part))
+                        except (ValueError, TypeError):
+                            return
+                        speaker.speak(f"{name} reset to default: {default_value_part}")
                     elif isinstance(widget, wx.TextCtrl):
                         widget.SetValue(default_value_part)
-                        speaker.speak(f"{key} reset to default: {default_value_part}")
+                        speaker.speak(f"{name} reset to default: {default_value_part}")
                     elif isinstance(widget, wx.Choice):
                         values = getattr(widget, 'choice_values', [])
                         if default_value_part.lower() in values:
                             widget.SetSelection(values.index(default_value_part.lower()))
-                            speaker.speak(f"{key} reset to default: {widget.GetStringSelection()}")
+                            speaker.speak(f"{name} reset to default: {widget.GetStringSelection()}")
                     elif isinstance(widget, wx.Button) and tab_name == "Keybinds":
                         if default_value_part.strip():
                             note = self._bind_key(key, widget, default_value_part.strip())
                             speaker.speak(note or f"{key} reset to default: {_key_name(default_value_part.strip())}")
                         else:
                             self._clear_key(key, widget)
-                            speaker.speak(f"{key} reset to default: unbound")
+                            speaker.speak(f"{name} reset to default: unbound")
 
                     return
     
@@ -1595,6 +1577,8 @@ class ConfigView(EmbeddedView):
             if setting_key.endswith('Volume') or setting_key == 'MasterVolume':
                 return str(widget.GetValue() / 100.0)
             return str(widget.GetValue())
+        if isinstance(widget, wx.SpinCtrlDouble):
+            return f"{widget.GetValue():.{widget.GetDigits()}f}"
         if isinstance(widget, wx.Choice):
             values = getattr(widget, 'choice_values', None)
             selection = widget.GetSelection()
@@ -1733,9 +1717,9 @@ class _SettingSearchDialog(wx.Dialog):
             terms = q.split()
             scored = []
             for entry in self._entries:
-                _, _, key, description = entry
-                key_l = key.lower()
-                hay = f"{key_l} {description.lower()}"
+                _, tab_internal, key, description = entry
+                key_l = setting_label(key, tab_internal).lower()
+                hay = f"{key_l} {key.lower()} {description.lower()}"
                 if not all(t in hay for t in terms):
                     continue
                 if key_l == q:
@@ -1751,8 +1735,8 @@ class _SettingSearchDialog(wx.Dialog):
             self._filtered = [e for _, _, e in scored]
 
         self._list.Clear()
-        for tab_display, _tab_internal, key, _description in self._filtered:
-            self._list.Append(f"{key}  —  {tab_display}")
+        for tab_display, tab_internal, key, _description in self._filtered:
+            self._list.Append(f"{setting_label(key, tab_internal)}  —  {tab_display}")
         if self._filtered:
             self._list.SetSelection(0)
         count = len(self._filtered)

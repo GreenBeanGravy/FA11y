@@ -64,6 +64,9 @@ class StyledButton(wx.Button):
     def __init__(self, *args, variant: str = "secondary", icon: str = "", **kwargs):
         super().__init__(*args, **kwargs)
         self.variant = variant
+        # Text to draw instead of the label, which screen readers still read
+        # (keybind buttons draw "Left Ctrl" but are named "Fire: Left Ctrl").
+        self.display_text = ""
         self._hover = False
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda e: None)
@@ -155,7 +158,7 @@ class StyledButton(wx.Button):
             gc.SetPen(wx.Pen(theme.FOCUS_RING, self.FromDIP(2)))
             gc.DrawRoundedRectangle(1, 1, w - 2, h - 2, radius + 1)
 
-        text = self.GetLabelText()
+        text = self.display_text or self.GetLabelText()
         gc.SetFont(self.GetFont(), fg)
         tw, th = gc.GetTextExtent(text) if text else (0, 0)
         icon_size = self.FromDIP(16)
@@ -745,3 +748,40 @@ class TabbedBook(wx.Panel):
             self.tabs.SetFocus()
         else:
             page.SetFocus()
+
+
+# ---------------------------------------------------------------------------
+# Settings group
+# ---------------------------------------------------------------------------
+
+class SettingsGroup(wx.StaticBox):
+    """A native group box drawn as a card with a heading.
+
+    Controls go inside it as children (use with wx.StaticBoxSizer), so
+    screen readers announce the group's name when focus moves into it,
+    e.g. "Announcements grouping".
+    """
+
+    keep_background = True
+
+    def __init__(self, parent: wx.Window, label: str):
+        super().__init__(parent, label=label)
+        self.SetBackgroundColour(theme.CARD_BG)
+        self.SetForegroundColour(theme.TEXT)
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda e: None)
+        self.Bind(wx.EVT_SIZE, lambda e: (self.Refresh(), e.Skip()))
+
+    def heading_font(self) -> wx.Font:
+        return wx.Font(wx.FontInfo(theme.BASE_POINTS + 1).FaceName(theme.FONT_FACE).Bold())
+
+    def _on_paint(self, _event: wx.PaintEvent) -> None:
+        dc = wx.BufferedPaintDC(self)
+        _clear(dc, self)
+        gc = _gc(dc)
+        w, h = self.GetClientSize()
+        gc.SetBrush(wx.Brush(theme.CARD_BG))
+        gc.SetPen(wx.Pen(theme.CARD_BORDER, 1))
+        gc.DrawRoundedRectangle(0.5, 0.5, w - 1, h - 1, self.FromDIP(theme.RADIUS))
+        gc.SetFont(self.heading_font(), theme.TEXT)
+        gc.DrawText(self.GetLabelText(), self.FromDIP(16), self.FromDIP(10))
