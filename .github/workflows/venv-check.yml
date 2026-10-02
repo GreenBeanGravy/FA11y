@@ -85,7 +85,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: installer/go.mod
-          cache-dependency-path: installer/go.sum
+          cache: false  # no third-party modules yet
       - run: go vet ./...
       - run: go test ./...
       - name: Build launcher
