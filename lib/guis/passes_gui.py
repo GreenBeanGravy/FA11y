@@ -4,20 +4,23 @@ import threading
 import wx
 from accessible_output2.outputs.auto import Auto
 
+from lib.guis.view_host import EmbeddedView, ViewDialog
 from lib.utilities.epic_passes import (EpicPassAPI, PassError, CURRENCY_NAMES, costs_text, pages,
     rewards, reward_status, requirement_text)
 from lib.utilities.pass_quests import related_templates, pass_quest_details
 
 
-class PassesDialog(wx.Dialog):
+class PassesView(EmbeddedView):
+    view_title = 'FA11y Locker Passes'
+
     def __init__(self, parent, auth, cosmetics=None, api=None):
-        super().__init__(parent, title='FA11y Locker Passes', size=(850, 720),
-                         style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        super().__init__(parent)
         self.api = api or EpicPassAPI(auth)
         self.speaker = Auto()
         self.snapshot = None
         self.busy = False
         self.closed = False
+        self._loaded = False
         self.tabs = []
         self.metadata = {c.get('id','').lower(): c for c in (cosmetics or [])}
         root = wx.BoxSizer(wx.VERTICAL)
@@ -75,17 +78,27 @@ class PassesDialog(wx.Dialog):
                                    style=wx.TE_MULTILINE | wx.TE_READONLY,
                                    size=(-1,110), name='Pass operation result')
         footer.Add(self.message, 1, wx.ALL | wx.EXPAND, 5)
-        close = wx.Button(self, wx.ID_CANCEL, '&Close')
-        close.Bind(wx.EVT_BUTTON, self.on_close)
+        close = wx.Button(self, label='&Close')
+        close.Bind(wx.EVT_BUTTON, self.on_close_button)
         footer.Add(close, 0, wx.ALL, 5)
         root.Add(footer, 0, wx.EXPAND | wx.ALL, 5)
         self.SetSizer(root)
-        self.SetMinSize((650,550))
         self.Bind(wx.EVT_CHAR_HOOK, self.on_key)
-        self.Bind(wx.EVT_CLOSE, self.on_close)
-        self.CentreOnParent()
         self.render_all()
-        wx.CallAfter(self.refresh)
+
+    def activate(self):
+        self.closed = False
+        if not self.busy:
+            self.refresh_button.Enable()
+        if not self._loaded:
+            self._loaded = True
+            wx.CallAfter(self.refresh)
+
+    def deactivate(self):
+        self.closed = True
+
+    def initial_focus(self):
+        return self.notebook
 
     def say(self, message):
         self.message.ChangeValue(message)
@@ -107,9 +120,9 @@ class PassesDialog(wx.Dialog):
                 result, error = None, 'Pass data could not be loaded. Refresh to retry.'
             wx.CallAfter(done, result, error)
         def done(result, error):
+            self.busy = False
             if self.closed:
                 return
-            self.busy = False
             self.refresh_button.Enable()
             callback(result,error)
             self.render_all()
@@ -218,9 +231,6 @@ class PassesDialog(wx.Dialog):
             else:
                 self.speaker.speak('First page.' if code==wx.WXK_PAGEUP else 'Last page.')
             return
-        if code==wx.WXK_ESCAPE:
-            self.on_close(event)
-            return
         event.Skip()
 
     def on_action(self,tab,kind):
@@ -283,15 +293,22 @@ class PassesDialog(wx.Dialog):
                         if entry['kind']=='quest':
                             allowed.update(related_templates(entry,quest_snapshot))
             heading=scope+' - quests linked to this pass and its rewards.'
-        dialog=QuestDialog(self,self.api.auth,quest_templates=allowed,heading=heading,initial_mode='All modes',scope_label=scope)
-        try:dialog.ShowModal()
-        finally:dialog.Destroy()
+        QuestDialog(self,self.api.auth,quest_templates=allowed,heading=heading,initial_mode='All modes',scope_label=scope).run()
 
-    def on_close(self,event):
+    def can_close(self):
         if self.busy:
             self.say('An account request is in progress. Close after it finishes.')
-            if isinstance(event,wx.CloseEvent) and event.CanVeto():event.Veto()
-            return
-        self.closed=True
-        if self.IsModal():self.EndModal(wx.ID_CANCEL)
-        else:self.Destroy()
+            return False
+        return True
+
+    def on_close_button(self,event):
+        if self.can_close():
+            self.request_close()
+
+
+class PassesDialog(ViewDialog):
+    """PassesView in a modal dialog; takes the same arguments as PassesView."""
+
+    def __init__(self, parent, auth, cosmetics=None, api=None):
+        super().__init__(parent, lambda host: PassesView(host, auth, cosmetics, api), size=(850, 720))
+        self.SetMinSize((650, 550))

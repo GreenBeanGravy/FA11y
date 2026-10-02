@@ -70,6 +70,7 @@ def main():
     print(f"Imported {len(names) - len(failures)}/{len(names)} modules")
     for name, tb in failures:
         print(f"\nFAILED: {name}\n{tb}")
+    sys.stdout.flush()
     # Daemon threads (e.g. the OCR loader) must not keep the process alive.
     os._exit(1 if failures else 0)
 

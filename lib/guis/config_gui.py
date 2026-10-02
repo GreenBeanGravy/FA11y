@@ -1,27 +1,27 @@
 """
-Configuration GUI for FA11y
-Provides interface for user configuration of settings, values, and keybinds
+Configuration view for FA11y
+Provides interface for user configuration of settings, values, and keybinds.
+
+ConfigView is a panel that the hub shows as the Settings and Keybinds pages
+(each with its own subset of tabs) and that ViewDialog shows as a popup
+when the hub isn't running.
 """
 import os
 import logging
 import time
 import configparser
-from typing import Callable, Dict, Optional, List, Any, Tuple
+from typing import Callable, Dict, Optional, List, Any, Tuple, TYPE_CHECKING
 
 import wx
 import wx.lib.scrolledpanel as scrolled
 from accessible_output2.outputs.auto import Auto
 
-from FA11y import Config
-from lib.guis.gui_utilities import (
-    AccessibleDialog, BoxSizerHelper, ButtonHelper, DisplayableError,
-    messageBox, force_focus_window, ensure_window_focus_and_center_mouse,
-    BORDER_FOR_DIALOGS
-)
+from lib.guis.gui_utilities import DisplayableError
+from lib.guis.view_host import EmbeddedView, ViewDialog, show_view
 from lib.utilities.spatial_audio import SpatialAudio
 from lib.utilities.utilities import (
-    DEFAULT_CONFIG, get_default_config_value_string, 
-    get_available_sounds, is_audio_setting, is_game_objects_setting, 
+    DEFAULT_CONFIG, get_default_config_value_string, read_config,
+    get_available_sounds, is_audio_setting, is_game_objects_setting,
     get_maps_with_game_objects, is_map_specific_game_object_setting,
     get_game_objects_config_order
 )
@@ -30,6 +30,9 @@ from lib.utilities.input import (
     validate_key_combination, get_supported_modifiers, is_modifier_key,
     get_pressed_main_keys, is_key_pressed
 )
+
+if TYPE_CHECKING:
+    from lib.utilities.utilities import Config
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -59,19 +62,69 @@ ADVANCED_KEYS = frozenset({
     "FirstRunComplete",
 })
 
+# Settings shown on the "General" tab, with the config section each one is
+# saved back to. They're removed from their natural tabs while General is shown.
+GENERAL_TOGGLE_KEYS = (
+    "StartFortniteOnLaunch",
+    "HideHubWhenFortniteStarts",
+    "NavigationSounds",
+    "AutoUpdates",
+    "CreateDesktopShortcut",
+)
+GENERAL_KEY_SECTIONS = {key: "Toggles" for key in GENERAL_TOGGLE_KEYS}
+# Readable labels for the General tab; other tabs show the config key name.
+GENERAL_LABELS = {
+    "StartFortniteOnLaunch": "Start Fortnite when FA11y opens",
+    "HideHubWhenFortniteStarts": "Hide the FA11y window when Fortnite starts",
+    "NavigationSounds": "Play navigation sounds in the FA11y window",
+    "AutoUpdates": "Update FA11y automatically",
+    "CreateDesktopShortcut": "Create a desktop shortcut",
+}
+GENERAL_KEY_SECTIONS["CloseAction"] = "Hub"
 
-class ConfigGUI(AccessibleDialog):
-    """Configuration GUI with instant opening via deferred widget creation"""
+CLOSE_ACTION_LABEL = "When I close the FA11y window"
+# (config value, label shown to the user)
+CLOSE_ACTION_CHOICES = (
+    ("ask", "Ask me"),
+    ("tray", "Keep running in the tray"),
+    ("quit", "Quit FA11y"),
+)
 
-    def __init__(self, parent, config, update_callback: Callable, default_config_str=None):
-        super().__init__(parent, title="FA11y Configuration", helpId="ConfigurationSettings")
-        
-        self.config = config 
+# Every tab ConfigView knows, in display order.
+ALL_TABS = ("General", "Toggles", "Values", "Audio", "GameObjects", "Keybinds", "Advanced")
+
+
+def _key_name(combo: str) -> str:
+    """Friendly name for a stored key combination, e.g. 'lalt+f' -> 'Left Alt + F'."""
+    from lib.hub.status import key_display_name
+    return key_display_name(combo)
+
+
+class ConfigView(EmbeddedView):
+    """Configuration panel with instant opening via deferred widget creation.
+
+    ``tabs`` picks which tabs to show (None means all). With a single tab no
+    notebook is created and that tab's panel fills the view.
+    """
+
+    def __init__(self, parent, config: 'Config', update_callback: Callable,
+                 tabs: Optional[List[str]] = None, default_config_str=None):
+        if tabs is None:
+            self.tab_names = list(ALL_TABS)
+            self.view_title = "FA11y Configuration"
+        else:
+            self.tab_names = [t for t in tabs if t in ALL_TABS]
+            self.view_title = self.tab_names[0] if len(self.tab_names) == 1 else "Settings"
+        super().__init__(parent)
+
+        self.config = config
         self.update_callback = update_callback
         self.default_config_str = default_config_str if default_config_str else DEFAULT_CONFIG
-        
+        # While General is shown, its keys leave their natural tabs.
+        self._general_active = "General" in self.tab_names
+
         # Quick initialization
-        self.maps_with_objects = get_maps_with_game_objects()
+        self.maps_with_objects = get_maps_with_game_objects() if "GameObjects" in self.tab_names else {}
         self.key_to_action: Dict[str, str] = {}
         self.action_to_key: Dict[str, str] = {}
         self.test_audio_instances = {}
@@ -80,7 +133,12 @@ class ConfigGUI(AccessibleDialog):
         self.capturing_key = False
         self.capture_widget = None
         self.capture_action = None
+        self.original_capture_value = ""
         self.tab_control_widgets = {}
+        self.notebook: Optional[wx.Notebook] = None
+        self._populated = False
+        # (tab name, setting key) of every widget changed since the last save.
+        self._dirty_keys: set = set()
 
         # Polling timer picks up mouse buttons (EVT_CHAR_HOOK can't see them).
         self._capture_timer: Optional[wx.Timer] = None
@@ -89,43 +147,94 @@ class ConfigGUI(AccessibleDialog):
         # activator is never sampled as the user's binding.
         self._capture_ignore_keys: set = set()
 
-        self.setupDialog()
+        self._build_structure()
 
-        # Set a proper size so the dialog isn't tiny before deferred widgets load
-        display = wx.Display(wx.Display.GetFromWindow(self) if self.GetParent() else 0)
-        screen_rect = display.GetClientArea()
-        width = min(700, int(screen_rect.GetWidth() * 0.6))
-        height = min(600, int(screen_rect.GetHeight() * 0.7))
-        self.SetSize(width, height)
-        self.SetMinSize((400, 350))
-        self.CentreOnScreen()
+    @property
+    def _dirty(self) -> bool:
+        return bool(self._dirty_keys)
 
-    def makeSettings(self, settingsSizer: BoxSizerHelper):
-        """Create dialog structure with minimal content"""
-        self.notebook = wx.Notebook(self)
-        settingsSizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
-        
+    # ------------------------------------------------------------------
+    # EmbeddedView protocol
+    # ------------------------------------------------------------------
+
+    def activate(self) -> None:
+        self._ensure_populated()
+
+    def deactivate(self) -> None:
+        """The page was hidden or the window is closing: stop capture, save changes."""
+        if self.capturing_key:
+            self._cancel_capture()
+        self._cleanup_test_audio()
+        self.save_changes()
+
+    def handle_escape(self) -> bool:
+        """Escape cancels a key capture; otherwise the host hides or closes the view."""
+        if self.capturing_key:
+            self._cancel_capture()
+            speaker.speak("Cancelled")
+            return True
+        return False
+
+    def initial_focus(self) -> Optional[wx.Window]:
+        self._ensure_populated()
+        first_tab = self.tab_names[0] if self.tab_names else None
+        widgets = self.tab_control_widgets.get(first_tab) or []
+        if widgets:
+            return widgets[0]
+        if self.notebook is not None:
+            return self.notebook
+        return None
+
+    # ------------------------------------------------------------------
+
+    def _build_structure(self):
+        """Create view structure with minimal content"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        if len(self.tab_names) > 1:
+            self.notebook = wx.Notebook(self)
+            sizer.Add(self.notebook, 1, wx.EXPAND)
+            self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
+        self.SetSizer(sizer)
+
         # Create empty tabs
         self.create_tabs()
-        
-        # Defer heavy operations
-        wx.CallAfter(self._populateWidgets)
-        
+        if self.notebook is None and self.tab_names:
+            sizer.Add(self.tabs[self.tab_names[0]], 1, wx.EXPAND)
+
         self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
-        self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onPageChanged)
-    
-    def _populateWidgets(self):
-        """Populate active tab now; queue rest for background build."""
+        self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
+
+        # Defer heavy operations
+        wx.CallAfter(self._ensure_populated)
+
+    def _on_destroy(self, event):
+        if event.GetEventObject() is self:
+            self._stop_capture_polling()
+            self._cleanup_test_audio()
+        event.Skip()
+
+    def _cleanup_test_audio(self):
+        for audio_instance in self.test_audio_instances.values():
+            try:
+                audio_instance.cleanup()
+            except Exception:
+                pass
+        self.test_audio_instances.clear()
+
+    def _ensure_populated(self):
+        """Populate the active tab now (once); queue the rest for background build."""
+        if self._populated or not self:
+            return
+        self._populated = True
         try:
             self.analyze_config()
 
             self._tab_built = {tab_name: False for tab_name in self.tabs}
             self._prebuild_queue: List[str] = []
 
-            active_idx = self.notebook.GetSelection()
-            if active_idx == wx.NOT_FOUND or active_idx >= self.notebook.GetPageCount():
-                active_idx = 0
-            active_tab = self.notebook.GetPageText(active_idx)
+            active_tab = self.get_current_tab_name()
+            if active_tab is None and self.tab_names:
+                active_tab = self.tab_names[0]
 
             self._build_tab(active_tab)
             self.Layout()
@@ -141,10 +250,7 @@ class ConfigGUI(AccessibleDialog):
 
     def _prebuild_next(self) -> None:
         """Build the next queued tab, then reschedule."""
-        try:
-            if self.IsBeingDeleted() or not self.IsShown():
-                return
-        except Exception:
+        if not self:
             return
         if not getattr(self, '_prebuild_queue', None):
             return
@@ -189,7 +295,7 @@ class ConfigGUI(AccessibleDialog):
         for tab_name, panel in self.tabs.items():
             self.tab_control_widgets[tab_name] = []
             self._collect_focusable_widgets(panel, self.tab_control_widgets[tab_name])
-    
+
     def _collect_focusable_widgets(self, parent, widget_list):
         """Recursively collect focusable widgets in tab order. Skip hidden subtrees."""
         for child in parent.GetChildren():
@@ -202,54 +308,49 @@ class ConfigGUI(AccessibleDialog):
                 widget_list.append(child)
             elif hasattr(child, 'GetChildren'):
                 self._collect_focusable_widgets(child, widget_list)
-    
+
     def get_current_tab_name(self):
         """Get the name of the currently selected tab"""
+        if self.notebook is None:
+            return self.tab_names[0] if self.tab_names else None
         selection = self.notebook.GetSelection()
         if selection != wx.NOT_FOUND:
             return self.notebook.GetPageText(selection)
         return None
-    
+
     def is_last_widget_in_tab(self, widget):
         """Check if the widget is the last focusable widget in its tab"""
         current_tab = self.get_current_tab_name()
         if not current_tab or current_tab not in self.tab_control_widgets:
             return False
-        
+
         widgets = self.tab_control_widgets[current_tab]
         return widgets and widget == widgets[-1]
-    
+
     def handle_tab_navigation(self, event):
         """Handle custom tab navigation logic"""
-        if not event.ShiftDown():
+        # With a single tab there's no notebook to jump back to; normal
+        # Tab order carries focus on to the next control in the host.
+        if self.notebook is not None and not event.ShiftDown():
             focused_widget = self.FindFocus()
             if focused_widget and self.is_last_widget_in_tab(focused_widget):
                 self.notebook.SetFocus()
                 return True
-        
+
         return False
-    
-    def postInit(self):
-        """Post-initialization setup"""
-        wx.CallAfter(self._postInitFocus)
-    
-    def _postInitFocus(self):
-        """Delayed post-init focus handling"""
-        ensure_window_focus_and_center_mouse(self)
-        self.setFocusToFirstControl()
-    
+
     def onPageChanged(self, event):
         """Handle notebook page change, build tab lazily, announce."""
         page_index = event.GetSelection()
         if page_index >= 0 and page_index < self.notebook.GetPageCount():
             tab_text = self.notebook.GetPageText(page_index)
-            # Build this tab on first visit so opening the dialog stays
+            # Build this tab on first visit so opening the view stays
             # snappy when the user only ever touches one or two tabs.
             if hasattr(self, '_tab_built') and not self._tab_built.get(tab_text, False):
                 self._build_tab(tab_text)
             speaker.speak(f"{tab_text} tab")
         event.Skip()
-    
+
     def onWidgetFocus(self, event):
         """Handle widget focus events to announce descriptions"""
         widget = event.GetEventObject()
@@ -283,13 +384,13 @@ class ConfigGUI(AccessibleDialog):
 
         # Per-map GameObjects sections aren't separate tabs anymore — they
         # render inside the GameObjects tab via a Map dropdown.
-        tab_names = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds", "Advanced"]
-
-        for tab_name in tab_names:
-            panel = scrolled.ScrolledPanel(self.notebook)
+        # A lone tab has no notebook; its panel sits directly in the view.
+        for tab_name in self.tab_names:
+            panel = scrolled.ScrolledPanel(self.notebook if self.notebook is not None else self)
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
             
-            self.notebook.AddPage(panel, tab_name)
+            if self.notebook is not None:
+                self.notebook.AddPage(panel, tab_name)
             self.tabs[tab_name] = panel
             self.tab_widgets[tab_name] = []
             self.tab_variables[tab_name] = {}
@@ -305,6 +406,7 @@ class ConfigGUI(AccessibleDialog):
         self.build_key_binding_maps()
         
         self.section_tab_mapping = {
+            "General": {},
             "Toggles": {},
             "Values": {},
             "Audio": {},
@@ -380,10 +482,14 @@ class ConfigGUI(AccessibleDialog):
         if target_tab == "GameObjects":
             self._build_gameobjects_tab_layout()
             return
+        if target_tab == "General":
+            self._build_general_tab_layout()
+            return
 
         if target_tab is None:
             self._build_gameobjects_tab_layout()
-            panels_to_reset = [(n, p) for n, p in self.tabs.items() if n != "GameObjects"]
+            self._build_general_tab_layout()
+            panels_to_reset = [(n, p) for n, p in self.tabs.items() if n not in ("GameObjects", "General")]
         else:
             if target_tab not in self.tabs:
                 return
@@ -405,6 +511,10 @@ class ConfigGUI(AccessibleDialog):
 
             for key in self.config.config[section]:
                 value_string = self.config.config[section][key]
+
+                # General-tab settings render there only, never twice.
+                if self._general_active and key in GENERAL_KEY_SECTIONS:
+                    continue
 
                 if section == "Toggles":
                     actual_tab = _resolve("Toggles", key)
@@ -503,6 +613,43 @@ class ConfigGUI(AccessibleDialog):
 
         for _tab_name, panel in panels_to_reset:
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
+
+    # ------------------------------------------------------------------
+    # General tab — a few settings pulled out of other sections.
+    # ------------------------------------------------------------------
+
+    def _general_value_string(self, key: str) -> str:
+        """The stored ``value "description"`` string for a General-tab key."""
+        section = GENERAL_KEY_SECTIONS[key]
+        parser = self.config.config
+        if parser.has_option(section, key):
+            return parser.get(section, key)
+        for other in parser.sections():
+            if parser.has_option(other, key):
+                return parser.get(other, key)
+        return get_default_config_value_string(section, key) or ""
+
+    def _build_general_tab_layout(self) -> None:
+        """Lay out the General tab: startup/update toggles, then what closing the window does."""
+        panel = self.tabs.get("General")
+        if panel is None:
+            return
+
+        panel.DestroyChildren()
+        panel.sizer = wx.BoxSizer(wx.VERTICAL)
+        panel.SetSizer(panel.sizer)
+
+        self.tab_widgets["General"] = []
+        self.tab_variables["General"] = {}
+
+        for key in GENERAL_TOGGLE_KEYS:
+            self.create_checkbox("General", key, self._general_value_string(key))
+        self.create_choice_entry(
+            "General", "CloseAction", self._general_value_string("CloseAction"),
+            CLOSE_ACTION_CHOICES, label_text=CLOSE_ACTION_LABEL,
+        )
+
+        panel.SetupScrolling(scroll_x=False, scroll_y=True)
 
     # ------------------------------------------------------------------
     # GameObjects tab — universal settings + map dropdown + per-map
@@ -664,12 +811,13 @@ class ConfigGUI(AccessibleDialog):
         value, description = self.extract_value_and_description(value_string)
         bool_value = value.lower() == 'true'
 
-        checkbox = wx.CheckBox(panel, label=key)
+        checkbox = wx.CheckBox(panel, label=GENERAL_LABELS.get(key, key) if tab_name == "General" else key)
         checkbox.SetValue(bool_value)
         checkbox.description = description
 
         checkbox.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         checkbox.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
+        self._track_changes(checkbox, tab_name, key)
 
         self._ensure_tracking(tab_name)
         self.tab_widgets[tab_name].append(checkbox)
@@ -714,6 +862,7 @@ class ConfigGUI(AccessibleDialog):
         entry.description = description
 
         entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        self._track_changes(entry, tab_name, key)
 
         sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
         sizer.Add(entry, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
@@ -757,6 +906,7 @@ class ConfigGUI(AccessibleDialog):
         
         entry.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         test_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        self._track_changes(entry, tab_name, key)
         
         test_button.Bind(wx.EVT_BUTTON, lambda evt: self.test_volume(key, str(entry.GetValue() / 100.0)))
         
@@ -776,6 +926,63 @@ class ConfigGUI(AccessibleDialog):
 
         panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
 
+    def create_choice_entry(self, tab_name: str, key: str, value_string: str,
+                            choices, label_text: Optional[str] = None, parent_override=None):
+        """Create a drop-down for a setting with a fixed set of values.
+
+        ``choices`` is a sequence of (config value, label shown to the user).
+        """
+        panel = self._resolve_widget_parent(tab_name, parent_override)
+        if panel is None:
+            return
+
+        value, description = self.extract_value_and_description(value_string)
+
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        label = wx.StaticText(panel, label=label_text or key)
+
+        choice = wx.Choice(panel, choices=[text for _value, text in choices])
+        choice.SetName(label_text or key)
+        choice.choice_values = [stored for stored, _text in choices]
+        selected = 0
+        if value.lower() in choice.choice_values:
+            selected = choice.choice_values.index(value.lower())
+        choice.SetSelection(selected)
+        choice.description = description
+
+        choice.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
+        self._track_changes(choice, tab_name, key)
+
+        sizer.Add(label, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=3)
+        sizer.Add(choice, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
+
+        self._ensure_tracking(tab_name)
+        self.tab_widgets[tab_name].extend([label, choice])
+        self.tab_variables[tab_name][key] = choice
+
+        if not hasattr(panel, 'sizer') or panel.GetSizer() is None:
+            panel.sizer = wx.BoxSizer(wx.VERTICAL)
+            panel.SetSizer(panel.sizer)
+
+        panel.sizer.Add(sizer, flag=wx.EXPAND | wx.ALL, border=2)
+
+    def _track_changes(self, widget, tab_name: str, key: str) -> None:
+        """Mark the setting as changed whenever the user edits ``widget``."""
+        def changed(event):
+            self._dirty_keys.add((tab_name, key))
+            event.Skip()
+
+        if isinstance(widget, wx.CheckBox):
+            widget.Bind(wx.EVT_CHECKBOX, changed)
+        elif isinstance(widget, wx.SpinCtrl):
+            widget.Bind(wx.EVT_SPINCTRL, changed)
+            widget.Bind(wx.EVT_TEXT, changed)
+        elif isinstance(widget, wx.Choice):
+            widget.Bind(wx.EVT_CHOICE, changed)
+        elif isinstance(widget, wx.TextCtrl):
+            widget.Bind(wx.EVT_TEXT, changed)
+
     def create_keybind_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
         """Create a keybind button that shows current bind and captures new ones."""
         panel = self._resolve_widget_parent(tab_name, parent_override)
@@ -788,9 +995,11 @@ class ConfigGUI(AccessibleDialog):
         
         label = wx.StaticText(panel, label=key)
         
-        button_text = f"{key}: {value}" if value else f"{key}: Unbound"
-        keybind_button = wx.Button(panel, label=button_text)
+        # The raw stored combination lives on the button; the label only
+        # shows a readable name and is never parsed back.
+        keybind_button = wx.Button(panel, label=key)
         keybind_button.description = description
+        self._set_keybind_value(key, keybind_button, value)
         
         keybind_button.Bind(wx.EVT_SET_FOCUS, self.onWidgetFocus)
         keybind_button.Bind(wx.EVT_CHAR_HOOK, self.onControlCharHook)
@@ -927,20 +1136,28 @@ class ConfigGUI(AccessibleDialog):
         except Exception as e:
             logger.error(f"Error testing volume: {e}")
     
+    def _set_keybind_value(self, action_name: str, button: wx.Button, value: str) -> None:
+        """Store a key combination on its button and show a readable label.
+
+        ``button.key_value`` is the raw value that gets saved; the label is
+        for display only and is never parsed back.
+        """
+        value = (value or "").strip()
+        button.key_value = value
+        shown = _key_name(value) if value else "Unbound"
+        button.SetLabel(f"{action_name}: {shown}")
+
+    def _find_keybind_button(self, action_name: str) -> Optional[wx.Button]:
+        return self.tab_variables.get("Keybinds", {}).get(action_name)
+
     def capture_keybind(self, action_name: str, button_widget: wx.Button):
         """Start capturing a new keybind"""
-        original_text = button_widget.GetLabel()
         button_widget.SetLabel(f"{action_name}: Press any key...")
 
         self.capturing_key = True
         self.capture_widget = button_widget
         self.capture_action = action_name
-
-        original_value = ""
-        if self.config.config.has_section("Keybinds") and action_name in self.config.config["Keybinds"]:
-            original_value, _ = self.extract_value_and_description(self.config.config["Keybinds"][action_name])
-
-        self.original_capture_value = original_value
+        self.original_capture_value = getattr(button_widget, 'key_value', "")
 
         # Snapshot whatever is held right now (e.g. the Enter that activated
         # this button). Those keys are excluded from capture until released,
@@ -970,19 +1187,72 @@ class ConfigGUI(AccessibleDialog):
             return
         self.handle_key_capture()
 
-    def _cancel_capture(self):
-        """Restore the captured button's label and exit capture mode."""
-        if self.capture_widget is not None and self.capture_action is not None:
-            if self.original_capture_value:
-                self.capture_widget.SetLabel(
-                    f"{self.capture_action}: {self.original_capture_value}"
-                )
-            else:
-                self.capture_widget.SetLabel(f"{self.capture_action}: Unbound")
+    def _end_capture(self):
         self.capturing_key = False
         self.capture_widget = None
         self.capture_action = None
         self._stop_capture_polling()
+
+    def _cancel_capture(self):
+        """Restore the captured button's label and exit capture mode."""
+        if self.capture_widget is not None and self.capture_action is not None:
+            self._set_keybind_value(
+                self.capture_action, self.capture_widget, self.original_capture_value
+            )
+        self._end_capture()
+
+    def _clear_key(self, action_name: str, button: wx.Button) -> bool:
+        """Unbind ``action_name``. Returns True if it had a key."""
+        old_value = getattr(button, 'key_value', "")
+        old_lower = self.action_to_key.pop(action_name, "") or old_value.lower()
+        if old_lower and self.key_to_action.get(old_lower) == action_name:
+            self.key_to_action.pop(old_lower, None)
+        self._set_keybind_value(action_name, button, "")
+        if old_value:
+            self._dirty_keys.add(("Keybinds", action_name))
+        return bool(old_value)
+
+    def _bind_key(self, action_name: str, button: wx.Button, new_key: str) -> str:
+        """Bind ``new_key`` to ``action_name``, swapping with any action that already uses it.
+
+        The other action gets this action's previous key (or becomes unbound
+        if there wasn't one). Returns a sentence describing the swap, or ""
+        when the key was free.
+        """
+        new_lower = new_key.lower()
+        previous = getattr(button, 'key_value', "")
+        conflict = self.key_to_action.get(new_lower)
+        if conflict == action_name:
+            conflict = None
+
+        old_lower = self.action_to_key.pop(action_name, "") or previous.lower()
+        if old_lower and self.key_to_action.get(old_lower) == action_name:
+            self.key_to_action.pop(old_lower, None)
+
+        note = ""
+        if conflict:
+            other = self._find_keybind_button(conflict)
+            self.action_to_key.pop(conflict, None)
+            used = f"{_key_name(new_key)} was used by {conflict}."
+            if previous:
+                prev_lower = previous.lower()
+                self.key_to_action[prev_lower] = conflict
+                self.action_to_key[conflict] = prev_lower
+                if other is not None:
+                    self._set_keybind_value(conflict, other, previous)
+                note = f"{used} Swapped: {conflict} is now {_key_name(previous)}."
+            else:
+                if other is not None:
+                    self._set_keybind_value(conflict, other, "")
+                note = f"{used} Swapped: {conflict} is now unbound."
+            self._dirty_keys.add(("Keybinds", conflict))
+
+        self.key_to_action[new_lower] = action_name
+        self.action_to_key[action_name] = new_lower
+        self._set_keybind_value(action_name, button, new_key)
+        if previous.lower() != new_lower:
+            self._dirty_keys.add(("Keybinds", action_name))
+        return note
 
     def handle_key_capture(self):
         """Handle key capture using input utilities"""
@@ -999,39 +1269,18 @@ class ConfigGUI(AccessibleDialog):
         new_key = get_pressed_key_combination(exclude_keys=self._capture_ignore_keys)
 
         if new_key:
+            action = self.capture_action
+            button = self.capture_widget
             if validate_key_combination(new_key):
-                new_key_lower = new_key.lower()
-                old_key_for_action = self.action_to_key.get(self.capture_action, "")
-
-                if old_key_for_action and self.key_to_action.get(old_key_for_action) == self.capture_action:
-                    self.key_to_action.pop(old_key_for_action, None)
-                self.action_to_key.pop(self.capture_action, None)
-
-                if new_key_lower and new_key_lower in self.key_to_action:
-                    conflicting_action = self.key_to_action[new_key_lower]
-                    if conflicting_action != self.capture_action:
-                        self.action_to_key.pop(conflicting_action, None)
-                        for tab_vars in self.tab_variables.values():
-                            if conflicting_action in tab_vars:
-                                tab_vars[conflicting_action].SetLabel(f"{conflicting_action}: Unbound")
-                                break
-
-                if new_key_lower:
-                    self.key_to_action[new_key_lower] = self.capture_action
-                self.action_to_key[self.capture_action] = new_key_lower
-
-                self.capture_widget.SetLabel(f"{self.capture_action}: {new_key}")
+                note = self._bind_key(action, button, new_key)
+                message = note or f"{action} set to {_key_name(new_key)}"
             else:
-                if self.original_capture_value:
-                    self.capture_widget.SetLabel(f"{self.capture_action}: {self.original_capture_value}")
-                else:
-                    self.capture_widget.SetLabel(f"{self.capture_action}: Unbound")
+                self._set_keybind_value(action, button, self.original_capture_value)
+                message = "That key can't be used."
 
-            self.capturing_key = False
-            self.capture_widget = None
-            self.capture_action = None
-            self._stop_capture_polling()
-    
+            self._end_capture()
+            speaker.speak(message)
+
     def onKeyEvent(self, event):
         """Handle key events for shortcuts and capture"""
         key_code = event.GetKeyCode()
@@ -1039,7 +1288,7 @@ class ConfigGUI(AccessibleDialog):
 
         if self.capturing_key:
             if key_code == wx.WXK_ESCAPE:
-                self._cancel_capture()
+                self.handle_escape()
                 return
             else:
                 self.handle_key_capture()
@@ -1072,9 +1321,6 @@ class ConfigGUI(AccessibleDialog):
             if focused and self.is_volume_entry(focused):
                 self.test_focused_volume(focused)
                 return
-        elif key_code == wx.WXK_ESCAPE:
-            self.save_and_close()
-            return
 
         event.Skip()
 
@@ -1173,8 +1419,9 @@ class ConfigGUI(AccessibleDialog):
                       and tab_internal != "GameObjects")
         target_tab = "GameObjects" if is_per_map else tab_internal
 
-        # Switch notebook page.
-        for idx in range(self.notebook.GetPageCount()):
+        # Switch notebook page (a lone tab has no notebook).
+        page_count = self.notebook.GetPageCount() if self.notebook is not None else 0
+        for idx in range(page_count):
             if self.notebook.GetPageText(idx) == target_tab:
                 if self.notebook.GetSelection() != idx:
                     self.notebook.SetSelection(idx)
@@ -1242,16 +1489,10 @@ class ConfigGUI(AccessibleDialog):
             if tab_name == "Keybinds":
                 for action_name, button in self.tab_variables[tab_name].items():
                     if button == widget:
-                        old_key = self.action_to_key.get(action_name, "")
-                        if old_key and old_key in self.key_to_action:
-                            self.key_to_action.pop(old_key, None)
-                        
-                        if action_name in self.action_to_key:
-                            self.action_to_key.pop(action_name, None)
-                        
-                        button.SetLabel(f"{action_name}: Unbound")
+                        self._clear_key(action_name, button)
+                        speaker.speak(f"{action_name} unbound")
                         return
-    
+
     def reset_focused_setting(self, widget):
         """Reset focused setting to default value"""
         for tab_name in self.tab_variables:
@@ -1266,6 +1507,8 @@ class ConfigGUI(AccessibleDialog):
                         lookup_section = "GameObjects"
                     elif tab_name == "Advanced":
                         lookup_section = self._default_section_for_key(key) or tab_name
+                    elif tab_name == "General":
+                        lookup_section = GENERAL_KEY_SECTIONS.get(key, tab_name)
 
                     default_full_value = get_default_config_value_string(lookup_section, key)
 
@@ -1273,6 +1516,7 @@ class ConfigGUI(AccessibleDialog):
                         return
                     
                     default_value_part, _ = self.extract_value_and_description(default_full_value)
+                    self._dirty_keys.add((tab_name, key))
                     
                     if isinstance(widget, wx.CheckBox):
                         bool_value = default_value_part.lower() == 'true'
@@ -1299,31 +1543,19 @@ class ConfigGUI(AccessibleDialog):
                     elif isinstance(widget, wx.TextCtrl):
                         widget.SetValue(default_value_part)
                         speaker.speak(f"{key} reset to default: {default_value_part}")
+                    elif isinstance(widget, wx.Choice):
+                        values = getattr(widget, 'choice_values', [])
+                        if default_value_part.lower() in values:
+                            widget.SetSelection(values.index(default_value_part.lower()))
+                            speaker.speak(f"{key} reset to default: {widget.GetStringSelection()}")
                     elif isinstance(widget, wx.Button) and tab_name == "Keybinds":
-                        action_being_reset = key
-                        
-                        old_key = self.action_to_key.get(action_being_reset, "")
-                        if old_key and self.key_to_action.get(old_key) == action_being_reset:
-                            self.key_to_action.pop(old_key, None)
-                        
-                        new_default_key_lower = default_value_part.lower()
-                        if new_default_key_lower and new_default_key_lower in self.key_to_action:
-                            conflicting_action = self.key_to_action[new_default_key_lower]
-                            if conflicting_action != action_being_reset:
-                                self.key_to_action.pop(new_default_key_lower, None)
-                                self.action_to_key.pop(conflicting_action, None)
-                                for other_tab_vars in self.tab_variables.values():
-                                    if conflicting_action in other_tab_vars:
-                                        other_tab_vars[conflicting_action].SetLabel(f"{conflicting_action}: Unbound")
-                                        break
-                        
-                        widget.SetLabel(f"{key}: {default_value_part}")
-                        self.action_to_key[action_being_reset] = new_default_key_lower
-                        if new_default_key_lower:
-                            self.key_to_action[new_default_key_lower] = action_being_reset
-                        
-                        speaker.speak(f"{key} keybind reset to default: {default_value_part}")
-                    
+                        if default_value_part.strip():
+                            note = self._bind_key(key, widget, default_value_part.strip())
+                            speaker.speak(note or f"{key} reset to default: {_key_name(default_value_part.strip())}")
+                        else:
+                            self._clear_key(key, widget)
+                            speaker.speak(f"{key} reset to default: unbound")
+
                     return
     
     def extract_value_and_description(self, value_string: str) -> tuple:
@@ -1354,89 +1586,93 @@ class ConfigGUI(AccessibleDialog):
                 return section
         return None
     
-    def save_and_close(self):
-        """Save configuration and close"""
+    def _widget_value(self, tab_name: str, setting_key: str, widget) -> str:
+        """The value to store for ``widget`` (without its description)."""
+        if isinstance(widget, wx.CheckBox):
+            return 'true' if widget.GetValue() else 'false'
+        if isinstance(widget, wx.SpinCtrl):
+            if setting_key.endswith('Volume') or setting_key == 'MasterVolume':
+                return str(widget.GetValue() / 100.0)
+            return str(widget.GetValue())
+        if isinstance(widget, wx.Choice):
+            values = getattr(widget, 'choice_values', None)
+            selection = widget.GetSelection()
+            if values and 0 <= selection < len(values):
+                return values[selection]
+            return widget.GetStringSelection()
+        if isinstance(widget, wx.Button) and tab_name == "Keybinds":
+            value = getattr(widget, 'key_value', "")
+            if value.strip() and not validate_key_combination(value):
+                return ""
+            return value
+        return widget.GetValue()
+
+    def _target_section(self, config_parser_instance, tab_name: str, setting_key: str) -> Optional[str]:
+        """The config section a widget on ``tab_name`` is saved to."""
+        if tab_name == "General":
+            section = GENERAL_KEY_SECTIONS.get(setting_key)
+            if section and config_parser_instance.has_option(section, setting_key):
+                return section
+        if tab_name in ("Advanced", "General"):
+            # Advanced and General widgets save back to their real section.
+            for sec in config_parser_instance.sections():
+                if config_parser_instance.has_option(sec, setting_key):
+                    return sec
+            if tab_name == "General":
+                return GENERAL_KEY_SECTIONS.get(setting_key)
+            return self._default_section_for_key(setting_key)
+        return tab_name
+
+    def _apply_changes_to(self, config_parser_instance) -> None:
+        """Write this view's changed widgets onto ``config_parser_instance``."""
+        for tab_name, setting_key in sorted(self._dirty_keys):
+            widget = self.tab_variables.get(tab_name, {}).get(setting_key)
+            if widget is None:
+                continue
+            description = getattr(widget, 'description', '')
+            value_to_save = self._widget_value(tab_name, setting_key, widget)
+            value_string_to_save = f"{value_to_save} \"{description}\"" if description else str(value_to_save)
+
+            target_section = self._target_section(config_parser_instance, tab_name, setting_key)
+            if target_section is None:
+                logger.warning(
+                    f"save_changes: no section found for key {setting_key!r}, skipping"
+                )
+                continue
+            if not config_parser_instance.has_section(target_section):
+                config_parser_instance.add_section(target_section)
+            config_parser_instance.set(target_section, setting_key, value_string_to_save)
+
+    def save_changes(self) -> bool:
+        """Save what changed since the last save. Returns True if anything was saved.
+
+        The config is re-read fresh and only this view's changed widgets are
+        applied to it, so the Settings and Keybinds views never overwrite
+        each other's changes.
+        """
+        if not self._dirty_keys:
+            return False
         try:
-            for audio_instance in self.test_audio_instances.values():
-                try:
-                    audio_instance.cleanup()
-                except Exception:
-                    pass
-            self.test_audio_instances.clear()
-            
-            config_parser_instance = self.config.config
-
-            required_sections = ["Toggles", "Values", "Audio", "GameObjects", "Keybinds", "POI", "Setup"]
-            for map_name in self.maps_with_objects.keys():
-                required_sections.append(f"{map_name.title()}GameObjects")
-
-            for section_name in required_sections:
-                if not config_parser_instance.has_section(section_name):
-                    config_parser_instance.add_section(section_name)
-
-            for tab_name in self.tab_variables:
-                for setting_key, widget in self.tab_variables[tab_name].items():
-                    description = getattr(widget, 'description', '')
-
-                    if isinstance(widget, wx.CheckBox):
-                        value_to_save = 'true' if widget.GetValue() else 'false'
-                    elif isinstance(widget, wx.SpinCtrl):
-                        if setting_key.endswith('Volume') or setting_key == 'MasterVolume':
-                            value_to_save = str(widget.GetValue() / 100.0)
-                        else:
-                            value_to_save = str(widget.GetValue())
-                    elif isinstance(widget, wx.Button) and tab_name == "Keybinds":
-                        button_text = widget.GetLabel()
-                        if ": " in button_text:
-                            value_to_save = button_text.split(": ", 1)[1]
-                            if value_to_save == "Unbound":
-                                value_to_save = ""
-                        else:
-                            value_to_save = ""
-
-                        if value_to_save.strip() and not validate_key_combination(value_to_save):
-                            value_to_save = ""
-                    else:
-                        value_to_save = widget.GetValue()
-
-                    value_string_to_save = f"{value_to_save} \"{description}\"" if description else str(value_to_save)
-
-                    # Advanced widgets save back to their real section.
-                    if tab_name == "Advanced":
-                        target_section = None
-                        for sec in config_parser_instance.sections():
-                            if config_parser_instance.has_option(sec, setting_key):
-                                target_section = sec
-                                break
-                        if target_section is None:
-                            target_section = self._default_section_for_key(setting_key)
-                        if target_section is None:
-                            logger.warning(
-                                f"save_and_close: no section found for advanced key {setting_key!r}, skipping"
-                            )
-                            continue
-                    elif tab_name.endswith("GameObjects"):
-                        target_section = tab_name
-                    else:
-                        target_section = tab_name
-
-                    if not config_parser_instance.has_section(target_section):
-                        config_parser_instance.add_section(target_section)
-                    config_parser_instance.set(target_section, setting_key, value_string_to_save)
-
+            config_parser_instance = read_config(use_cache=False)
+            self._apply_changes_to(config_parser_instance)
             self.update_callback(config_parser_instance)
-            speaker.speak("Configuration saved and applied.")
-            
+            self.config.config = config_parser_instance
         except Exception as e:
             logger.error(f"Error saving configuration: {e}")
-            error = DisplayableError(
-                f"Error saving configuration: {str(e)}",
-                "Configuration Error"
-            )
-            error.displayError(self)
-            return
-            
-        self.EndModal(wx.ID_OK)
+            speaker.speak("Error saving configuration.")
+            try:
+                if self.IsShownOnScreen():
+                    DisplayableError(
+                        f"Error saving configuration: {str(e)}",
+                        "Configuration Error"
+                    ).displayError(self)
+            except Exception:
+                pass
+            return False
+
+        self._dirty_keys.clear()
+        speaker.speak("Configuration saved and applied.")
+        return True
 
 
 class _SettingSearchDialog(wx.Dialog):
@@ -1570,22 +1806,36 @@ class _SettingSearchDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
 
+class ConfigGUI(ViewDialog):
+    """ConfigView in a modal dialog; takes the same arguments as ConfigView."""
+
+    def __init__(self, parent, config, update_callback: Callable,
+                 default_config_str=None, tabs: Optional[List[str]] = None):
+        super().__init__(
+            parent,
+            lambda host: ConfigView(host, config, update_callback, tabs=tabs,
+                                    default_config_str=default_config_str),
+            size=(700, 600),
+        )
+        self.SetMinSize((400, 350))
+
+
 def launch_config_gui(config_obj: 'Config',
                      update_callback: Callable[[configparser.ConfigParser], None],
                      default_config_str: Optional[str] = None) -> None:
-    """Launch the configuration GUI"""
+    """Show the configuration: the hub's Settings page, or a dialog without the hub."""
     try:
         app = wx.GetApp()
         if app is None:
             app = wx.App(False)
-        
-        dlg = ConfigGUI(None, config_obj, update_callback, default_config_str)
-        
-        ensure_window_focus_and_center_mouse(dlg)
-        
-        result = dlg.ShowModal()
-        dlg.Destroy()
-        
+
+        show_view(
+            'settings',
+            lambda host: ConfigView(host, config_obj, update_callback,
+                                    default_config_str=default_config_str),
+            size=(700, 600),
+        )
+
     except Exception as e:
         logger.exception(f"Error launching configuration GUI: {e}")
         error = DisplayableError(

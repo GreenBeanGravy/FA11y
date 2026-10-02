@@ -17,7 +17,8 @@ def test_main_wires_account_monitor_and_quest_hotkey():
     assert "'open quest browser': open_quest_browser" in source
     assert 'quest_account_monitor.start_monitoring()' in source
     assert source.count('quest_account_monitor.stop_monitoring()') == 2
-    assert '"Fortnite Quests"' in source
+    # The quest browser is an FA11y window, so game keybinds stay quiet while it's focused.
+    assert '_foreground_window_pid() == own_pid' in source
     config = (ROOT / 'lib/utilities/utilities.py').read_text(encoding='utf-8')
     assert 'Open Quest Browser = lalt+q' in config
     assert 'QuestAnnouncements = true' in config

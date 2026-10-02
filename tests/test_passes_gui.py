@@ -12,12 +12,13 @@ def dialog(monkeypatch):
     app=wx.App.Get() or wx.App(False)
     monkeypatch.setattr(gui,'Auto',lambda:Mock())
     # Exercise real native controls without account requests or visible windows.
-    monkeypatch.setattr(gui.PassesDialog,'refresh',lambda *args:None)
+    monkeypatch.setattr(gui.PassesView,'refresh',lambda *args:None)
     api=Mock(definitions=load_pass_catalog())
-    dlg=gui.PassesDialog(None,None,api=api)
+    host=gui.PassesDialog(None,None,api=api)
+    dlg=host.view
     yield dlg
     dlg.closed=True
-    dlg.Destroy()
+    host.Destroy()
     app.ProcessPendingEvents()
 
 
@@ -82,7 +83,8 @@ def test_scoped_quest_dialog_keeps_active_and_completed_item_quests(dialog):
     catalog={tid:dict(name='Complete the item task',hidden=True,objectives=[dict(key='obj0',required=3)])}
     q=normalize_quest('instance',dict(templateId=tid,attributes=dict(quest_state='Claimed',completion_obj0=3)),catalog,100)
     store=QuestStore();store.replace_api(dict(quests=[q],updated_at=100))
-    child=QuestDialog(dialog,None,store=store,autoload=False,quest_templates={tid},heading='Selected reward',initial_mode='All modes',scope_label='Battle Royale Pass quests')
+    host=QuestDialog(dialog,None,store=store,autoload=False,quest_templates={tid},heading='Selected reward',initial_mode='All modes',scope_label='Battle Royale Pass quests')
+    child=host.view
     try:
         assert child.filter.GetStringSelection()=='All'
         assert child.category.GetStringSelection()=='Battle Royale Pass quests'
@@ -90,7 +92,7 @@ def test_scoped_quest_dialog_keeps_active_and_completed_item_quests(dialog):
         assert '3 of 3' in child.details.GetValue()
         assert 'Completed (reward claimed)' in child.details.GetValue()
     finally:
-        child._closed=True;child.Destroy()
+        child._closed=True;host.Destroy()
 
 
 def test_pass_button_scopes_to_selected_tab_including_empty_pass(dialog, monkeypatch):

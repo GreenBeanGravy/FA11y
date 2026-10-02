@@ -154,52 +154,68 @@ def run_updater(speaker) -> bool:
     return update_performed
 
 
-def check_for_updates(speaker, shutdown_event, update_sound) -> None:
-    """Periodically check for updates with shutdown awareness.
+def check_once() -> Optional[bool]:
+    """Compare local VERSION with GitHub's.
 
-    Call as a daemon thread target: thread wakes every 15 s and compares
-    local ``VERSION`` against the remote file. Each new remote version is
-    announced at most once (``last_announced_remote_version`` guard).
+    Returns True if a newer version exists (and records it for the hub),
+    False if up to date, None if the check couldn't run.
+    """
+    local_version = None
+    if os.path.exists('VERSION'):
+        with open('VERSION', 'r') as f:
+            local_version = f.read().strip()
+    remote_version = get_version()
+    if not local_version or not remote_version:
+        return None
+    try:
+        newer = parse_version(local_version) < parse_version(remote_version)
+    except ValueError:
+        return None
+    from lib.hub import status
+    status.set_available_update(remote_version if newer else None)
+    return newer
+
+
+def announce_update(speaker, version: str) -> None:
+    """Tell the user about a new version: quiet sound, speech, and a Windows notification."""
+    from lib.hub import get_hub, sounds, status
+    sounds.update_available()
+    if status.can_restart_to_update():
+        message = f"FA11y {version} is available. Restart FA11y to update."
+    else:
+        message = f"FA11y {version} is available. Run the updater to update."
+    speaker.speak(message)
+    print(message)
+    hub = get_hub()
+    if hub is not None:
+        hub.notify("FA11y update available", message)
+        hub.update_available_changed()
+
+
+def check_for_updates(speaker, shutdown_event, update_sound=None) -> None:
+    """Check for updates now, then every 15 s, with shutdown awareness.
+
+    Call as a daemon thread target. Each new remote version is announced
+    at most once.
     """
     last_announced_remote_version = None
+    first = True
 
     while not shutdown_event.is_set():
-        # 15 s sleep that wakes promptly on shutdown.
-        for _ in range(150):
-            if shutdown_event.is_set():
+        if not first:
+            # 15 s sleep that wakes promptly on shutdown.
+            if shutdown_event.wait(15):
                 return
-            time.sleep(0.1)
-        if shutdown_event.is_set():
-            return
+        first = False
 
-        local_version = None
-        if os.path.exists('VERSION'):
-            with open('VERSION', 'r') as f:
-                local_version = f.read().strip()
-
-        remote_version = get_version()
-        if not local_version or not remote_version:
-            continue
-
-        try:
-            local_v = parse_version(local_version)
-            remote_v = parse_version(remote_version)
-        except ValueError:
-            continue
-
-        if local_v < remote_v:
-            if (remote_version != last_announced_remote_version
-                    and not shutdown_event.is_set()):
-                try:
-                    update_sound.play()
-                except Exception:
-                    pass
-                speaker.speak(
-                    "An update is available for FA11y! Restart FA11y to update!"
-                )
-                print(
-                    "An update is available for FA11y! Restart FA11y to update!"
-                )
-                last_announced_remote_version = remote_version
-        elif local_v >= remote_v:
+        newer = check_once()
+        if newer is False:
             last_announced_remote_version = None
+        if not newer:
+            continue
+
+        from lib.hub import status
+        remote_version = status.available_update()
+        if remote_version and remote_version != last_announced_remote_version and not shutdown_event.is_set():
+            announce_update(speaker, remote_version)
+            last_announced_remote_version = remote_version

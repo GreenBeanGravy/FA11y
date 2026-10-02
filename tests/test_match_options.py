@@ -87,7 +87,8 @@ def test_hotkey_and_gui_input_guard_are_wired():
     main=(root/'FA11y.py').read_text(encoding='utf-8')
     defaults=(root/'lib/utilities/utilities.py').read_text(encoding='utf-8')
     assert "'open match options': open_match_options" in main
-    assert '"FA11y Match Options"' in main
+    # Every FA11y window (match options included) mutes game keybinds while focused.
+    assert '_foreground_window_pid() == own_pid' in main
     assert '_app_state.match_options_busy.is_set()' in main
     assert 'Open Match Options = lalt+o ' in defaults
 

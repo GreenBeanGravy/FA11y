@@ -409,6 +409,9 @@ ResetSensitivity = false "Toggles between two sensitivity values for certain mou
 AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weapons."
 AutoUpdates = true "Toggles automatic updates of FA11y."
 CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
+StartFortniteOnLaunch = false "Starts Fortnite automatically when FA11y opens."
+HideHubWhenFortniteStarts = true "Hides the FA11y window to the system tray when Fortnite starts. Open it again with the Open FA11y keybind or the tray icon."
+NavigationSounds = true "Plays soft sounds when you move between pages in the FA11y window and when actions finish."
 AutoTurn = false "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
 AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
 AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
@@ -464,6 +467,7 @@ MaxInstancesForGameObjectPositioning = 20 "Maximum number of instances of an obj
 
 [Keybinds]
 Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."
+Open FA11y = lalt+f "Opens the FA11y window, or hides it if it's already in front."
 Fire = lctrl "Invokes a left click for firing or using your currently held item."
 Target = rctrl "Invokes a right click for aiming your currently held item."
 Turn Left = num 1 "Turns the player camera left by moving the mouse using the TurnSensitivity sensitivity."
@@ -532,6 +536,14 @@ selected_poi = closest, 0, 0
 current_map = main
 feature_detector = sift "Feature-matching algorithm for position detection on maps without a hard-coded override. Options: sift (default, best in varied terrain), akaze (better on low-contrast / uniform terrain like reload arenas and snow), orb (fastest, lower accuracy)."
 feature_clahe = false "Apply CLAHE histogram equalization before feature matching. Dramatically improves match rate on snow / ice / sand / other low-contrast terrain at a ~0.5 ms cost. Reload arenas already have this enabled per-map."
+
+[Fortnite]
+LaunchAPI = default "Graphics API used when FA11y launches Fortnite. Options: default, dx11, dx12, performance."
+SkipSplash = false "Adds -NOSPLASH when FA11y launches Fortnite."
+ExtraLaunchArgs = "Extra command line arguments passed to Fortnite when FA11y launches it."
+
+[Hub]
+CloseAction = ask "What closing the FA11y window does: ask, tray (keep FA11y running in the system tray), or quit."
 
 [Setup]
 FirstRunComplete = false "Whether the first-run setup wizard has been completed. Uncheck (set to false) and restart FA11y to re-run the onboarding wizard." """

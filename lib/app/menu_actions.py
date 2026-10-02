@@ -21,6 +21,14 @@ def open_config_gui(reload_config: Optional[Callable] = None) -> None:
     from lib.guis.gui_utilities import launch_gui_thread_safe
     from lib.utilities.utilities import Config, read_config, save_config
 
+    # With the hub, Settings is a page: just switch to it (show_page is safe
+    # from any thread). Only the dialog fallback needs the already-open guard.
+    from lib.hub import get_hub
+    hub = get_hub()
+    if hub is not None and hub.has_page('settings'):
+        hub.show_page('settings', summon=True)
+        return
+
     if state.config_gui_open.is_set():
         speaker.speak("Configuration is already open")
         focus_window("FA11y Configuration")
@@ -105,7 +113,12 @@ def open_locker_selector() -> None:
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
     def _do_open_locker():
-        if state.locker_gui_open.is_set():
+        from lib.hub import get_hub
+        hub = get_hub()
+        # With the hub the locker is a page and show_view returns at once;
+        # only the dialog fallback needs the already-open guard.
+        uses_hub = hub is not None and hub.has_page('locker')
+        if not uses_hub and state.locker_gui_open.is_set():
             speaker.speak("Locker is already open")
             focus_window("Locker")
             return
@@ -113,11 +126,14 @@ def open_locker_selector() -> None:
         _stop_active_pinger_for_menu()
         try:
             from lib.guis.locker_gui import launch_locker_gui
-            state.locker_gui_open.set()
-            try:
+            if uses_hub:
                 launch_locker_gui()
-            finally:
-                state.locker_gui_open.clear()
+            else:
+                state.locker_gui_open.set()
+                try:
+                    launch_locker_gui()
+                finally:
+                    state.locker_gui_open.clear()
         except Exception as e:
             print(f"Error opening locker: {e}")
             speaker.speak("Error opening locker")

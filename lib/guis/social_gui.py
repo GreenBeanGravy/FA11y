@@ -7,13 +7,10 @@ import wx
 import threading
 from datetime import datetime, timezone
 from typing import Optional
-from lib.utilities.mouse import instant_click
 from accessible_output2.outputs.auto import Auto
 
-from lib.guis.gui_utilities import (
-    AccessibleDialog, BoxSizerHelper, ButtonHelper,
-    messageBox, BORDER_FOR_DIALOGS
-)
+from lib.guis.gui_utilities import BORDER_FOR_DIALOGS
+from lib.guis.view_host import EmbeddedView, show_view
 from lib.utilities.epic_social import Friend, FriendRequest, PartyMember, PartyInvite
 
 logger = logging.getLogger(__name__)
@@ -43,32 +40,31 @@ def _is_pre_rank_expansion(last_updated: str) -> bool:
     return ts < _RANK_EXPANSION_UTC
 
 
-class SocialDialog(AccessibleDialog):
-    """Dialog for managing social features"""
+class SocialView(EmbeddedView):
+    """View for managing social features"""
+
+    view_title = "Social Menu"
 
     def __init__(self, parent, social_manager):
-        super().__init__(parent, title="Social Menu", helpId="SocialMenu")
+        super().__init__(parent)
         self.social_manager = social_manager
-        self._is_destroying = False  # Flag to track if dialog is being destroyed
-        self.setupDialog()
-        self.SetSize((800, 600))
-        self.CentreOnParent()
+        self._is_destroying = False  # True while the view is hidden or closing
+        self._activated_once = False
 
         # Type-to-search state
         self.type_search_buffer = ""
         self.type_search_timer = None
 
-        # Bind Escape key to close dialog
-        self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
-        # Bind close event to mark destruction
-        self.Bind(wx.EVT_CLOSE, self.on_close)
+        self._build_controls()
 
-    def makeSettings(self, sizer: BoxSizerHelper):
-        """Create dialog content"""
+    def _build_controls(self):
+        """Create view content"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create notebook for tabs
         self.notebook = wx.Notebook(self)
-        sizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
+        sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, BORDER_FOR_DIALOGS)
+        self.SetSizer(sizer)
 
         # Create tabs
         self.friends_panel = self._create_friends_panel()
@@ -83,6 +79,34 @@ class SocialDialog(AccessibleDialog):
 
         # Bind tab change event
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_tab_changed)
+
+    def activate(self):
+        """The view became visible"""
+        self._is_destroying = False
+        if not self._activated_once:
+            self._activated_once = True
+            # Refresh the initial tab
+            self.refresh_friends_list()
+            return
+        # Later activations just redraw the current tab from cached data
+        page = self.notebook.GetSelection()
+        if page == 0:
+            self.refresh_friends_list()
+        elif page == 1:
+            self.refresh_requests_list()
+        elif page == 2:
+            self.refresh_party_list()
+
+    def deactivate(self):
+        """The view was hidden or its host is closing"""
+        self._is_destroying = True
+        if self.type_search_timer:
+            self.type_search_timer.Stop()
+            self.type_search_timer = None
+        self.type_search_buffer = ""
+
+    def initial_focus(self):
+        return self.friends_list
 
     def _create_me_panel(self):
         """Create Me tab showing account information in 3 separate boxes"""
@@ -858,38 +882,6 @@ class SocialDialog(AccessibleDialog):
         # Refresh to update the star and sorting
         wx.CallAfter(self.refresh_friends_list)
 
-    def on_close(self, event):
-        """Handle dialog close event"""
-        self._is_destroying = True
-        event.Skip()
-
-    def on_char_hook(self, event):
-        """Handle key press for dialog (Escape to close)"""
-        keycode = event.GetKeyCode()
-        if keycode == wx.WXK_ESCAPE:
-            self._is_destroying = True
-            self.EndModal(wx.ID_CANCEL)
-            wx.CallAfter(self._return_focus_to_game)
-        else:
-            event.Skip()
-
-    def _return_focus_to_game(self):
-        """Return focus to Fortnite using window management"""
-        try:
-            from lib.utilities.window_utils import focus_window
-            
-            # Try to focus Fortnite window directly
-            if focus_window("Fortnite"):
-                logger.debug("Focused Fortnite window")
-            else:
-                logger.debug("Could not find Fortnite window to focus")
-                # Fallback to click method if window not found
-                import time
-                instant_click(1850, 540)
-            
-        except Exception as e:
-            logger.debug(f"Could not return focus to game: {e}")
-
     def on_friends_double_click(self, event):
         """Handle double-click on friend - sends party invite"""
         self.on_invite_to_party(event)
@@ -1110,27 +1102,17 @@ def show_social_gui(social_manager):
         if app is None:
             app = wx.App(False)
 
-        dialog = SocialDialog(None, social_manager)
+        show_view('social', lambda host: SocialView(host, social_manager), size=(800, 600))
 
-        # Focus window and center mouse
-        try:
-            from lib.guis.gui_utilities import ensure_window_focus_and_center_mouse
-            ensure_window_focus_and_center_mouse(dialog)
-        except Exception as e:
-            logger.debug(f"Could not focus window: {e}")
-
-        # Refresh the initial tab
-        dialog.refresh_friends_list()
-
-        dialog.ShowModal()
-        dialog.Destroy()
-
-        # Return focus to Fortnite after closing
-        try:
-            from lib.utilities.window_utils import focus_window
-            focus_window("Fortnite")
-        except Exception as e:
-            logger.debug(f"Could not return focus to game: {e}")
+        # Dialog fallback only: return focus to Fortnite after closing
+        from lib.hub import get_hub
+        hub = get_hub()
+        if hub is None or not hub.has_page('social'):
+            try:
+                from lib.utilities.window_utils import focus_window
+                focus_window("Fortnite")
+            except Exception as e:
+                logger.debug(f"Could not return focus to game: {e}")
     except Exception as e:
         logger.error(f"Error showing social GUI: {e}")
         speaker.speak("Error opening social menu")

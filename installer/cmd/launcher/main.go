@@ -4,6 +4,10 @@
 // missing, or a quick update check when the AutoUpdates setting is on.
 // Updates happen here, before Python starts, because pip cannot replace
 // files that a running FA11y has loaded from the venv.
+//
+// FA11y runs under pythonw.exe without a console: its window is the user
+// interface. Pass --console to run it under python.exe in this console
+// instead, which shows FA11y's printed output for troubleshooting.
 package main
 
 import (
@@ -11,6 +15,9 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"slices"
+	"syscall"
 
 	"github.com/GreenBeanGravy/FA11y/installer/internal/console"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fa11yconfig"
@@ -44,7 +51,12 @@ func main() {
 	if err := repairVenv(l); err != nil {
 		console.Fail(2, "FA11y's Python environment is damaged: %v. Run Updater.exe to repair it.", err)
 	}
-	os.Exit(runFA11y(l))
+	if slices.Contains(os.Args[1:], "--console") {
+		os.Exit(runFA11y(l))
+	}
+	if err := startFA11yWindowed(l); err != nil {
+		console.Fail(2, "could not start FA11y: %v", err)
+	}
 }
 
 func installed(l layout.Layout) bool {
@@ -84,14 +96,35 @@ func runUpdater(l layout.Layout, args ...string) int {
 	return run(cmd)
 }
 
-func runFA11y(l layout.Layout) int {
+func fa11yCommand(l layout.Layout, python string) *exec.Cmd {
 	// -E ignores any PYTHON* variables that CleanEnv missed.
-	cmd := exec.Command(l.VenvPython(), "-E", l.Entry())
+	cmd := exec.Command(python, "-E", l.Entry())
 	cmd.Dir = l.Files
 	cmd.Env = append(pyenv.CleanEnv(os.Environ()),
 		"FA11Y_LAUNCHER="+l.Launcher(),
 	)
-	return run(cmd)
+	return cmd
+}
+
+// runFA11y runs FA11y in this console and returns its exit code.
+func runFA11y(l layout.Layout) int {
+	return run(fa11yCommand(l, l.VenvPython()))
+}
+
+// startFA11yWindowed starts FA11y under pythonw.exe, detached from this
+// console, and returns without waiting so the console window closes.
+func startFA11yWindowed(l layout.Layout) error {
+	pythonw := filepath.Join(filepath.Dir(l.VenvPython()), "pythonw.exe")
+	if _, err := os.Stat(pythonw); err != nil {
+		os.Exit(runFA11y(l))
+	}
+	cmd := fa11yCommand(l, pythonw)
+	const detachedProcess = 0x00000008
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: detachedProcess | syscall.CREATE_NEW_PROCESS_GROUP}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
 }
 
 func run(cmd *exec.Cmd) int {

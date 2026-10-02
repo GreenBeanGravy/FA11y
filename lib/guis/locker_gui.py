@@ -22,8 +22,10 @@ from lib.utilities.mouse import (
 
 from lib.guis.gui_utilities import (
     AccessibleDialog, BoxSizerHelper, messageBox,
-    ensure_window_focus_and_center_mouse, SPACE_BETWEEN_VERTICAL_DIALOG_ITEMS
+    ensure_window_focus_and_center_mouse, SPACE_BETWEEN_VERTICAL_DIALOG_ITEMS,
+    BORDER_FOR_DIALOGS
 )
+from lib.guis.view_host import EmbeddedView, show_view
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -1166,23 +1168,36 @@ class CategoryView(AccessibleDialog):
         self.EndModal(wx.ID_CLOSE)
 
 
-class LockerGUI(AccessibleDialog):
-    """Main Locker GUI - Category Selection Menu"""
+class LockerView(EmbeddedView):
+    """Main Locker view - Category Selection Menu"""
+
+    view_title = "Fortnite Locker"
 
     def __init__(self, parent, cosmetics_data: List[dict], auth_instance=None, owned_only: bool = False):
-        super().__init__(parent, title="Fortnite Locker", helpId="LockerGUI")
+        super().__init__(parent)
         self.cosmetics_data = cosmetics_data
         self.auth = auth_instance
         self.owned_only = owned_only
         self.owned_ids = set()
+        self._startup_checked = False
 
-        # Check auth and fetch owned IDs on startup if logged in
-        if self.auth and self.auth.display_name:
-            wx.CallAfter(self._check_auth_on_startup)
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        settings_sizer = BoxSizerHelper(self, orientation=wx.VERTICAL)
+        self.makeSettings(settings_sizer)
+        main_sizer.Add(
+            settings_sizer.sizer,
+            border=BORDER_FOR_DIALOGS,
+            flag=wx.ALL | wx.EXPAND,
+            proportion=1
+        )
+        self.SetSizer(main_sizer)
 
-        self.setupDialog()
-        self.SetSize((600, 700))
-        self.CentreOnScreen()
+    def activate(self):
+        # Check auth and fetch owned IDs the first time the view is shown
+        if not self._startup_checked:
+            self._startup_checked = True
+            if self.auth and self.auth.display_name:
+                wx.CallAfter(self._check_auth_on_startup)
 
     def _calculate_stats(self) -> Dict[str, int]:
         """Calculate statistics about cosmetics"""
@@ -1371,26 +1386,9 @@ class LockerGUI(AccessibleDialog):
 
         sizer.addItem(button_sizer, flag=wx.EXPAND)
 
-        # Bind key events
-        self.Bind(wx.EVT_CHAR_HOOK, self.onKeyEvent)
-
-    def onKeyEvent(self, event):
-        """Handle key events"""
-        key_code = event.GetKeyCode()
-
-        if key_code == wx.WXK_ESCAPE:
-            self.EndModal(wx.ID_CANCEL)
-            return
-
-        event.Skip()
-
     def on_passes(self, event):
         from lib.guis.passes_gui import PassesDialog
-        dialog = PassesDialog(self, self.auth, self.cosmetics_data)
-        try:
-            dialog.ShowModal()
-        finally:
-            dialog.Destroy()
+        PassesDialog(self, self.auth, self.cosmetics_data).run()
 
     def on_category_selected(self, category_name: str):
         """Handle category button click - open category view"""
@@ -1411,9 +1409,6 @@ class LockerGUI(AccessibleDialog):
             ensure_window_focus_and_center_mouse(dlg)
             result = dlg.ShowModal()
             dlg.Destroy()
-
-            # Restore main menu focus
-            ensure_window_focus_and_center_mouse(self)
 
         except Exception as e:
             logger.error(f"Error opening category view: {e}")
@@ -2218,7 +2213,7 @@ class LockerGUI(AccessibleDialog):
 
     def on_close(self, event):
         """Handle close button"""
-        self.EndModal(wx.ID_CLOSE)
+        self.request_close(wx.ID_CLOSE)
 
     def on_login(self, event):
         """Handle Login button"""
@@ -2345,6 +2340,13 @@ class LockerGUI(AccessibleDialog):
 
 def launch_locker_gui():
     """Launch the unified locker GUI"""
+    # The hub's Locker page loads its own data in the background.
+    from lib.hub import get_hub
+    hub = get_hub()
+    if hub is not None and hub.has_page('locker'):
+        hub.show_page('locker', summon=True)
+        return None
+
     current_window = ctypes.windll.user32.GetForegroundWindow()
     app = None
     app_created = False
@@ -2407,21 +2409,20 @@ def launch_locker_gui():
         if default_owned_only:
             logger.info(f"User authenticated as {auth_instance.display_name}, defaulting to owned cosmetics")
 
-        # Create and show dialog with auth instance
-        dlg = LockerGUI(None, cosmetics_data, auth_instance=auth_instance, owned_only=default_owned_only)
+        if default_owned_only:
+            speaker.speak(f"Fortnite Locker. Logged in as {auth_instance.display_name}. Loading owned cosmetics.")
+        else:
+            speaker.speak(f"Fortnite Locker. {len(cosmetics_data)} cosmetics loaded.")
 
+        # Show as a hub page, or a modal dialog when the hub isn't running
         try:
-            ensure_window_focus_and_center_mouse(dlg)
-            if default_owned_only:
-                speaker.speak(f"Fortnite Locker. Logged in as {auth_instance.display_name}. Loading owned cosmetics.")
-            else:
-                speaker.speak(f"Fortnite Locker. {len(cosmetics_data)} cosmetics loaded.")
-            result = dlg.ShowModal()
-            return result
-
+            show_view(
+                'locker',
+                lambda host: LockerView(host, cosmetics_data, auth_instance=auth_instance,
+                                        owned_only=default_owned_only),
+                size=(600, 700)
+            )
         finally:
-            if dlg:
-                dlg.Destroy()
             if app:
                 app.ProcessPendingEvents()
 

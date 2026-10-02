@@ -6,13 +6,12 @@ import logging
 import re
 import wx
 import threading
+import time
 import pyperclip
 from accessible_output2.outputs.auto import Auto
 
-from lib.guis.gui_utilities import (
-    AccessibleDialog, BoxSizerHelper, ButtonHelper,
-    messageBox, BORDER_FOR_DIALOGS
-)
+from lib.guis.gui_utilities import BORDER_FOR_DIALOGS
+from lib.guis.view_host import EmbeddedView, show_view
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -37,8 +36,10 @@ def is_standard_code_format(code: str) -> bool:
     return bool(re.match(r'^\d{4}-\d{4}-\d{4}$', code) or re.match(r'^\d{12}$', code))
 
 
-class DiscoveryDialog(AccessibleDialog):
-    """Dialog for browsing Fortnite Creative islands"""
+class DiscoveryView(EmbeddedView):
+    """View for browsing Fortnite Creative islands"""
+
+    view_title = "Discovery GUI"
 
     # Sort filter options
     SORT_OPTIONS = [
@@ -48,10 +49,14 @@ class DiscoveryDialog(AccessibleDialog):
         ("A-Z", "alpha"),
     ]
 
+    # Reload the Epic and Browse tabs on activation when older than this
+    STALE_AFTER_SECONDS = 300
+
     def __init__(self, parent, discovery_api):
-        super().__init__(parent, title="Discovery GUI", helpId="DiscoveryGUI")
+        super().__init__(parent)
         self.discovery_api = discovery_api
-        self._is_destroying = False  # Flag to track if dialog is being destroyed
+        self._is_destroying = False  # True while the view is hidden or closing
+        self._last_loaded = None
 
         # Pagination state (for browse)
         self.current_page = 1
@@ -65,25 +70,20 @@ class DiscoveryDialog(AccessibleDialog):
         # Current sort filter
         self.current_sort = "popular"
 
-        self.setupDialog()
-        self.SetSize((800, 600))
-        self.CentreOnParent()
-
         # Type-to-search state
         self.type_search_buffer = ""
         self.type_search_timer = None
 
-        # Bind Escape key to close dialog
-        self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
-        # Bind close event to mark destruction
-        self.Bind(wx.EVT_CLOSE, self.on_close)
+        self._build_controls()
 
-    def makeSettings(self, sizer: BoxSizerHelper):
-        """Create dialog content"""
+    def _build_controls(self):
+        """Create view content"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create notebook for tabs
         self.notebook = wx.Notebook(self)
-        sizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
+        sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, BORDER_FOR_DIALOGS)
+        self.SetSizer(sizer)
 
         # Create tabs (Epic Gamemodes first as default)
         self.epic_panel = self._create_epic_gamemodes_panel()
@@ -98,11 +98,30 @@ class DiscoveryDialog(AccessibleDialog):
         self.notebook.AddPage(self.creator_panel, "By Creator")
         self.notebook.AddPage(self.bycode_panel, "By Code")
 
-        # Pre-load all tabs on startup
-        wx.CallAfter(self._preload_all_tabs)
-
         # Bind tab change event
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_tab_changed)
+
+    def activate(self):
+        """The view became visible"""
+        self._is_destroying = False
+        stale = (
+            self._last_loaded is None
+            or time.monotonic() - self._last_loaded > self.STALE_AFTER_SECONDS
+        )
+        if stale:
+            # Pre-load all tabs (first show, or data has gone stale)
+            self._preload_all_tabs()
+
+    def deactivate(self):
+        """The view was hidden or its host is closing"""
+        self._is_destroying = True
+        if self.type_search_timer:
+            self.type_search_timer.Stop()
+            self.type_search_timer = None
+        self.type_search_buffer = ""
+
+    def initial_focus(self):
+        return self.epic_list
 
     def _create_epic_gamemodes_panel(self):
         """Create Epic Gamemodes tab - Epic Games creator maps from fortnite.gg"""
@@ -378,6 +397,7 @@ class DiscoveryDialog(AccessibleDialog):
         self.load_epic_gamemodes()
         # Load Browse tab
         self.load_browse_islands()
+        self._last_loaded = time.monotonic()
         # Search and By Code tabs are loaded on-demand only
         # Creator tab is loaded on-demand only
 
@@ -1065,42 +1085,12 @@ class DiscoveryDialog(AccessibleDialog):
         
         event.Skip()
 
-    def on_close(self, event):
-        """Handle dialog close event"""
-        self._is_destroying = True
-        event.Skip()
-
-    def on_char_hook(self, event):
-        """Handle key press for dialog (Escape to close)"""
-        keycode = event.GetKeyCode()
-        if keycode == wx.WXK_ESCAPE:
-            self._is_destroying = True
-            self.EndModal(wx.ID_CANCEL)
-            wx.CallAfter(self._return_focus_to_game)
-        else:
-            event.Skip()
-
-    def _return_focus_to_game(self):
-        """Return focus to Fortnite using window management"""
-        try:
-            from lib.utilities.window_utils import focus_window
-
-            # Try to focus Fortnite window directly
-            if focus_window("Fortnite"):
-                logger.debug("Focused Fortnite window")
-            else:
-                logger.debug("Could not find Fortnite window to focus")
-
-        except Exception as e:
-            logger.debug(f"Could not return focus to game: {e}")
-
     def _launch_gamemode(self, code: str, title: str):
         """Launch a gamemode by code using in-game automation"""
         speaker.speak(f"Launching {title}")
 
-        # Close dialog first
-        self._is_destroying = True
-        self.EndModal(wx.ID_OK)
+        # Close the view first
+        self.request_close(wx.ID_OK)
 
         # Run automation in separate thread to not block
         def _do_automation():
@@ -1128,24 +1118,17 @@ def show_discovery_gui(discovery_api):
         if app is None:
             app = wx.App(False)
 
-        dialog = DiscoveryDialog(None, discovery_api)
+        show_view('discover', lambda host: DiscoveryView(host, discovery_api), size=(800, 600))
 
-        # Focus window and center mouse
-        try:
-            from lib.guis.gui_utilities import ensure_window_focus_and_center_mouse
-            ensure_window_focus_and_center_mouse(dialog)
-        except Exception as e:
-            logger.debug(f"Could not focus window: {e}")
-
-        dialog.ShowModal()
-        dialog.Destroy()
-
-        # Return focus to Fortnite after closing
-        try:
-            from lib.utilities.window_utils import focus_window
-            focus_window("Fortnite")
-        except Exception as e:
-            logger.debug(f"Could not return focus to game: {e}")
+        # Dialog fallback only: return focus to Fortnite after closing
+        from lib.hub import get_hub
+        hub = get_hub()
+        if hub is None or not hub.has_page('discover'):
+            try:
+                from lib.utilities.window_utils import focus_window
+                focus_window("Fortnite")
+            except Exception as e:
+                logger.debug(f"Could not return focus to game: {e}")
     except Exception as e:
         logger.error(f"Error showing discovery GUI: {e}")
         speaker.speak("Error opening discovery GUI")

@@ -11,12 +11,24 @@ from lib.app import state
 from lib.utilities.window_utils import focus_window
 
 
+def _hub_has_page(key: str) -> bool:
+    """True when the hub is running and hosts the given page."""
+    try:
+        from lib.hub import get_hub
+        hub = get_hub()
+        return hub is not None and hub.has_page(key)
+    except Exception:
+        return False
+
+
 def open_social_menu() -> None:
     """Open the social menu."""
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
     speaker = state.speaker
-    if state.social_gui_open.is_set():
+    # The already-open guard only applies to the dialog fallback; the hub
+    # just switches to its page.
+    if state.social_gui_open.is_set() and not _hub_has_page("social"):
         speaker.speak("Social menu is already open")
         focus_window("Social Menu")
         return
@@ -34,6 +46,11 @@ def open_social_menu() -> None:
                     "Timeout waiting for social data, opening anyway"
                 )
 
+        if _hub_has_page("social"):
+            from lib.guis.social_gui import show_social_gui
+            show_social_gui(social_manager)
+            return
+
         state.social_gui_open.set()
         try:
             from lib.guis.social_gui import show_social_gui
@@ -49,7 +66,7 @@ def open_discovery_gui() -> None:
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
     speaker = state.speaker
-    if state.discovery_gui_open.is_set():
+    if state.discovery_gui_open.is_set() and not _hub_has_page("discover"):
         speaker.speak("Discovery GUI is already open")
         focus_window("Discovery GUI")
         return
@@ -63,6 +80,11 @@ def open_discovery_gui() -> None:
             discovery_api = EpicDiscovery(
                 epic_auth if epic_auth and epic_auth.is_valid else None
             )
+
+        if _hub_has_page("discover"):
+            from lib.guis.discovery_gui import show_discovery_gui
+            show_discovery_gui(discovery_api)
+            return
 
         state.discovery_gui_open.set()
         try:

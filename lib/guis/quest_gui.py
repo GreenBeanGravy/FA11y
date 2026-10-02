@@ -4,17 +4,21 @@ import threading
 
 import wx
 
+from lib.guis.view_host import EmbeddedView, ViewDialog, show_view
 from lib.managers.quest_manager import quest_store
 from lib.utilities.epic_quests import EpicQuestAPI, QuestQueryError
 from lib.utilities.quest_presentation import (prepare_quests, filter_quests, natural_key,
                                             list_labels, details_text, matches_mode)
 
 
-class QuestDialog(wx.Dialog):
+class QuestView(EmbeddedView):
+    view_title = 'Quests'
+
     def __init__(self, parent, auth, api=None, store=None, autoload=True,
                  quest_templates=None, heading=None, initial_mode=None, scope_label=None):
-        super().__init__(parent, title='FA11y Locker Pass Quests' if heading else 'Fortnite Quests', size=(920, 680),
-                         style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.view_title = 'FA11y Locker Pass Quests' if heading else 'Fortnite Quests'
+        super().__init__(parent)
+        self._autoload = autoload
         self.api = api or EpicQuestAPI(auth)
         self.store = store or quest_store
         self._closed = False
@@ -59,12 +63,11 @@ class QuestDialog(wx.Dialog):
         layout.Add(self.status, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         buttons = wx.BoxSizer(wx.HORIZONTAL)
         self.refresh_button = wx.Button(self, label='&Refresh')
-        close = wx.Button(self, wx.ID_CANCEL, label='&Close')
+        close = wx.Button(self, label='&Close')
         buttons.Add(self.refresh_button, 0, wx.RIGHT, 10)
         buttons.Add(close, 0)
         layout.Add(buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
         self.SetSizer(layout)
-        self.SetMinSize((620, 480))
         self.search.Bind(wx.EVT_TEXT, self._render)
         self.filter.Bind(wx.EVT_CHOICE, self._render)
         self.mode.Bind(wx.EVT_CHOICE, self._mode_changed)
@@ -72,25 +75,28 @@ class QuestDialog(wx.Dialog):
         self.expired.Bind(wx.EVT_CHECKBOX, self._render)
         self.list.Bind(wx.EVT_LISTBOX, self._selection)
         self.refresh_button.Bind(wx.EVT_BUTTON, self.refresh)
-        close.Bind(wx.EVT_BUTTON, lambda event: self.Close())
-        self.Bind(wx.EVT_CLOSE, self._close)
-        self.Bind(wx.EVT_CHAR_HOOK, self._key)
+        close.Bind(wx.EVT_BUTTON, lambda event: self.request_close())
         self.account_timer = wx.Timer(self)
         self.packet_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.refresh, self.account_timer)
         self.Bind(wx.EVT_TIMER, self._packet_tick, self.packet_timer)
-        if autoload:
+        self._render()
+
+    def activate(self):
+        self._closed = False
+        if self._autoload:
             self.account_timer.Start(60_000)
             self.packet_timer.Start(500)
             self.refresh()
         self._render()
-        self.search.SetFocus()
 
-    def _key(self, event):
-        if event.GetKeyCode() == wx.WXK_ESCAPE:
-            self.Close()
-        else:
-            event.Skip()
+    def deactivate(self):
+        self._closed = True
+        self.account_timer.Stop()
+        self.packet_timer.Stop()
+
+    def initial_focus(self):
+        return self.search
 
     def refresh(self, event=None):
         if self._closed or self._loading:
@@ -198,19 +204,15 @@ class QuestDialog(wx.Dialog):
             self.details.SetInsertionPoint(min(position, len(value)))
         self._details_id = selected_id
 
-    def _close(self, event):
-        self._closed = True
-        self.account_timer.Stop()
-        self.packet_timer.Stop()
-        if self.IsModal():
-            self.EndModal(wx.ID_CANCEL)
-        else:
-            self.Destroy()
+
+
+class QuestDialog(ViewDialog):
+    """QuestView in a modal dialog; takes the same arguments as QuestView."""
+
+    def __init__(self, parent, auth, **kwargs):
+        super().__init__(parent, lambda host: QuestView(host, auth, **kwargs), size=(920, 680))
+        self.SetMinSize((620, 480))
 
 
 def show_quest_gui(auth):
-    dialog = QuestDialog(None, auth)
-    try:
-        dialog.ShowModal()
-    finally:
-        dialog.Destroy()
+    show_view('quests', lambda host: QuestView(host, auth), size=(920, 680))

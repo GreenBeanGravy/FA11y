@@ -1,6 +1,12 @@
 import os
 os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 import sys
+# FA11y Launcher.exe starts FA11y with pythonw.exe, which has no console:
+# give print() and tracebacks somewhere harmless to go.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, 'w', encoding='utf-8')
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, 'w', encoding='utf-8')
 import configparser
 import threading
 import time
@@ -46,8 +52,9 @@ import win32api
 import win32con
 import winshell
 
-# Set the command window title
-os.system("title FA11y")
+# Set the console title when there is a console (SetConsoleTitleW, not
+# "title", which would flash a cmd window under pythonw).
+ctypes.windll.kernel32.SetConsoleTitleW("FA11y")
 
 # Check Python version and create mock imp if necessary
 if sys.version_info >= (3, 12):
@@ -164,6 +171,7 @@ else:
 # Initialize pygame mixer and load sounds
 pygame.mixer.init()
 update_sound = pygame.mixer.Sound("assets/sounds/update.ogg")
+update_sound.set_volume(0.3)
 
 # GitHub URLs and update-check machinery now live in lib/app/updater_check.
 from lib.app.updater_check import (
@@ -422,6 +430,7 @@ def reload_config() -> None:
             'announce reload map rotation': announce_reload_map_rotation,
             'sync current map to reload rotation': sync_current_map_to_reload_rotation,
             'open configuration menu': open_config_gui,
+            'open fa11y': open_hub,
             'exit match': exit_match,
             'open match options': open_match_options,
             'create custom p o i': handle_custom_poi_gui,
@@ -535,15 +544,15 @@ def key_listener() -> None:
     allowed_gui_actions = {
         'accept notification',
         'decline notification',
-        'toggle keybinds' # Always allowed
+        'toggle keybinds', # Always allowed
+        'open fa11y',
     }
 
     # Cache config booleans outside the inner loop — refresh once per cycle, not per keybind
     _cached_config_ref = None
     _cached_mouse_keys = True
     _cached_ignore_numlock = False
-    # Cache GUI titles tuple (immutable, allocated once)
-    gui_titles = ("Fortnite Quests", "FA11y Match Options", "Social Menu", "Discovery GUI", "FA11y Configuration", "Locker", "Gamemode Selector", "Create Custom POI", "Visited Objects Manager", "Epic Games Login")
+    own_pid = os.getpid()
 
     while not stop_key_listener.is_set() and not _shutdown_requested.is_set():
         # Quick exit check at start of loop
@@ -554,9 +563,9 @@ def key_listener() -> None:
             time.sleep(0.05)
             continue
 
-        # Check active window for GUI focus management
-        active_title = get_active_window_title()
-        is_gui_focused = any(title in active_title for title in gui_titles)
+        # Any FA11y window (the hub or a popup) has focus: keys are typing
+        # into FA11y, not playing, so most keybinds stay quiet.
+        is_gui_focused = _foreground_window_pid() == own_pid
 
         numlock_on = is_numlock_on()
         if config is None:
@@ -624,6 +633,23 @@ def key_listener() -> None:
         
         # Reduced sleep time for faster shutdown response
         time.sleep(0.005)
+
+def _foreground_window_pid() -> int:
+    hwnd = ctypes.windll.user32.GetForegroundWindow()
+    if not hwnd:
+        return 0
+    pid = ctypes.wintypes.DWORD()
+    ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return pid.value
+
+
+def open_hub() -> None:
+    """Open FA11y keybind: bring the hub forward, or hide it when it's already in front."""
+    from lib.hub import get_hub
+    hub = get_hub()
+    if hub is not None:
+        wx.CallAfter(hub.toggle)
+
 
 def create_desktop_shortcut() -> None:
     """Create a desktop shortcut for FA11y."""
@@ -746,283 +772,237 @@ def get_legendary_username() -> Optional[str]:
 def validate_epic_auth(epic_auth) -> bool:
     return _validate_epic_auth_ext(epic_auth)
 
+def _create_hub():
+    """Create and show the hub window."""
+    from lib.hub.frame import HubFrame, HubServices
+    from lib.hub.pages import default_pages
+
+    def quit_fa11y():
+        _shutdown_requested.set()
+        app = wx.GetApp()
+        if app is not None:
+            app.ExitMainLoop()
+
+    hub = HubFrame(HubServices(quit=quit_fa11y, reload_config=reload_config,
+                               speak=lambda text: speaker.speak(text)),
+                   default_pages())
+    hub.start()
+
+    from lib.hub import single_instance
+    single_instance.listen(lambda: wx.CallAfter(hub.summon), _shutdown_requested)
+    return hub
+
+
+def _start_background_systems() -> None:
+    """Key listener, monitors, and periodic checks. Runs on the main thread after the hub is up."""
+    global key_listener_thread
+
+    reload_config()
+
+    try:
+        mouse_passthrough_service = get_mouse_passthrough()
+        mouse_passthrough_service.initialize(speaker)
+    except Exception as e:
+        print(f"Mouse passthrough initialization failed: {e}")
+        speaker.speak("Mouse passthrough initialization failed")
+
+    stop_key_listener.clear()
+    key_listener_thread = threading.Thread(target=key_listener, daemon=True)
+    key_listener_thread.start()
+
+    threading.Thread(target=check_for_updates, daemon=True).start()
+    threading.Thread(target=check_for_map_list_updates, daemon=True).start()
+    threading.Thread(target=check_auth_expiration, daemon=True).start()
+
+    # height_monitor is a BaseMonitor that spawns its own daemon thread.
+    start_height_monitor()
+
+    monitor.start_monitoring()
+    material_monitor.start_monitoring()
+    resource_monitor.start_monitoring()
+    # dynamic_object_monitor.start_monitoring()
+    storm_monitor.start_monitoring()
+    bloom_monitor.start_monitoring()
+    match_event_monitor.start_monitoring()
+    quest_account_monitor.start_monitoring()
+
+    # FA11y-OW companion-service consumer (passive equip / pickup /
+    # teammate-feed announcements). The SSE client is idle when the
+    # helper isn't running, so this is safe to start unconditionally.
+    fa11y_ow_client.start()
+    fa11y_ow_announcer.start()
+
+    match_tracker.start_monitoring()
+    match_tracker._start_new_match()
+    initialize_hotbar_detection()
+
+    current_map = read_config().get('POI', 'current_map', fallback='main')
+    game_object_types = game_object_manager.get_available_object_types(current_map)
+    if game_object_types:
+        print(f"Game objects available on {current_map} map: {len(game_object_types)} types")
+
+
+def _restore_epic_session() -> bool:
+    """Validate or refresh the saved Epic login without any UI. Runs on a worker thread."""
+    from lib.utilities.epic_auth import get_epic_auth_instance
+    epic_auth = get_epic_auth_instance()
+    if validate_epic_auth(epic_auth):
+        return True
+    # The saved access token expires after a few hours, so on most launches
+    # it is already stale; mint a fresh one from the saved refresh token.
+    if epic_auth and epic_auth.refresh_token:
+        print("Restoring saved Epic Games session...")
+        if epic_auth.refresh_access_token():
+            logger.info("Epic auth restored from saved refresh token")
+            return True
+        logger.debug("Saved refresh token invalid/expired; will try silent WebView")
+    return False
+
+
+def _finish_epic_login(restored: bool, first_run: bool) -> None:
+    """Main-thread half of the Epic login: silent WebView fallback, then wire up social features."""
+    global social_manager, discovery_api
+    from lib.hub import get_hub
+    from lib.utilities.epic_auth import get_epic_auth_instance
+
+    epic_auth = get_epic_auth_instance()
+    if not restored and epic_auth:
+        print("Attempting silent authentication...")
+        restored = epic_auth.try_silent_webview_auth(timeout=10.0)
+
+    if restored and epic_auth and epic_auth.access_token:
+        _on_auth_success(epic_auth)
+        social_manager = _app_state.get_social_manager()
+        discovery_api = _app_state.get_discovery_api()
+        # Let MatchEventMonitor turn partial Fortnite-log ids into display
+        # names, and suppress self-adds.
+        match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
+        match_event_monitor.local_account_id = epic_auth.account_id
+        print(f"Social features enabled for {epic_auth.display_name}")
+        if not first_run:
+            speaker.speak(f"Welcome back {epic_auth.display_name}! FA11y is ready.")
+    else:
+        print("Epic Games sign-in needed for account features")
+        speaker.speak("FA11y is ready. Sign in to your Epic account on the Epic account page.")
+        hub = get_hub()
+        if hub is not None and hub.IsShown():
+            hub.show_page("account", focus_sidebar=True)
+
+    hub = get_hub()
+    if hub is not None:
+        hub.reset_views(("social", "quests", "discover", "locker"))
+        home = hub.page("home")
+        if home is not None and home.built and hub.current_page() is home:
+            home.refresh()
+
+
+def _finish_startup(first_run: bool) -> None:
+    """Everything after the hub is visible. Runs on the main thread via wx.CallAfter."""
+    temp_config = read_config()
+    if get_config_boolean(temp_config, 'CreateDesktopShortcut', True):
+        try:
+            create_desktop_shortcut()
+        except Exception as e:
+            print(f"Could not create desktop shortcut: {e}")
+
+    # Refresh the downloadable available-maps list in the background (best-effort).
+    def sync_maps():
+        try:
+            _sync_available_maps_ext(timeout=5.0)
+        except Exception as e:
+            print(f"Available-maps list sync failed: {e}")
+    threading.Thread(target=sync_maps, name="MapListSync", daemon=True).start()
+
+    _start_background_systems()
+
+    def login_worker():
+        try:
+            restored = _restore_epic_session()
+        except Exception as e:
+            logger.warning(f"Restoring the Epic session failed: {e}")
+            restored = False
+        wx.CallAfter(_finish_epic_login, restored, first_run)
+    threading.Thread(target=login_worker, name="EpicLogin", daemon=True).start()
+
+    if get_config_boolean(temp_config, 'StartFortniteOnLaunch', False):
+        from lib.hub import game_watch, get_hub
+        hub = get_hub()
+        if hub is not None and not game_watch.is_fortnite_running():
+            hub.play_fortnite()
+
+
+def _after_onboarding(egl_choice) -> None:
+    """Setup finished or was skipped: start FA11y, then apply the Fortnite choice."""
+    clear_config_cache()
+    _finish_startup(True)
+    from lib.hub import get_hub
+    hub = get_hub()
+    if hub is None:
+        return
+    from lib.hub.pages.fortnite import apply_setup_choice
+    apply_setup_choice(hub, egl_choice)
+    if egl_choice is None:
+        speaker.speak("FA11y is ready.")
+
+
 def main() -> None:
-    """Main entry point for FA11y with instant shutdown capability."""
+    """Main entry point: show the hub, finish starting up behind it, then run the wx main loop."""
     global config, action_handlers, key_bindings, key_listener_thread, stop_key_listener, social_manager, discovery_api
+    from lib.hub import single_instance
+    if not single_instance.acquire():
+        # Another FA11y is running; it brings its window forward.
+        print("FA11y is already running.")
+        os._exit(0)
+
     try:
         print("Starting FA11y...")
 
         # Register shutdown handlers early
         register_shutdown_handlers()
 
-        # wx.App must exist before the wizard (or any GUI) can show.
+        # wx.App must exist, in dark mode, before any window does.
         from lib.guis.gui_utilities import initialize_global_wx_app
+        from lib.hub import theme as hub_theme
+        app = initialize_global_wx_app()
+        hub_theme.enable_dark_mode(app)
+
         try:
-            initialize_global_wx_app()
-            logger.debug("Global wx.App initialized successfully")
+            from lib.guis.welcome_wizard import is_first_run
+            first_run = is_first_run()
         except Exception as e:
-            logger.error(f"Failed to initialize wx.App: {e}")
+            logger.exception(f"First-run check failed: {e}")
+            first_run = False
 
-        # First-run wizard runs before anything else — nothing speaks,
-        # nothing polls, no monitors, no key listener.
-        first_run = False
-        try:
-            from lib.guis.welcome_wizard import is_first_run, run_welcome_wizard
-            if is_first_run():
-                first_run = True
-                logger.info("First-run wizard triggered.")
-                # Block until the FakerInput .NET runtime finishes
-                # loading so its "[INFO] Loading…/loaded" messages don't
-                # interleave with the wizard, and so any input the
-                # wizard depends on is ready before the user sees a
-                # control.
-                _faker_input.ensure_loaded()
-                run_welcome_wizard()
-                clear_config_cache()
-        except Exception as e:
-            logger.exception(f"First-run wizard failed to launch: {e}")
-
-        local_username = get_legendary_username()
-        if local_username:
-            print(f"Welcome back {local_username}!")
-            if not first_run:
-                speaker.speak(f"Welcome back {local_username}!")
-        else:
-            print("You are not logged into Legendary.")
-            if not first_run:
-                speaker.speak("You are not logged into Legendary.")
-
-        # Check startup settings
-        temp_config = read_config()
         # FA11y Launcher.exe has already run the updater before starting us.
+        temp_config = read_config()
         if get_config_boolean(temp_config, 'AutoUpdates', True) and not os.environ.get('FA11Y_LAUNCHER'):
             if run_updater():
                 sys.exit(0)
-        if get_config_boolean(temp_config, 'CreateDesktopShortcut', True):
-            create_desktop_shortcut()
 
-        # Refresh the downloadable available-maps list (best-effort). The
-        # auto-updater only syncs repo files on version bumps, so this call
-        # is what actually pulls a changed map list in on restart.
-        try:
-            _sync_available_maps_ext(timeout=5.0)
-        except Exception as e:
-            print(f"Available-maps list sync failed: {e}")
-
-        # Initialize core systems
-        reload_config()
-
-        # Initialize mouse passthrough
-        try:
-            mouse_passthrough_service = get_mouse_passthrough()
-            mouse_passthrough_service.initialize(speaker)
-        except Exception as e:
-            print(f"Mouse passthrough initialization failed: {e}")
-            speaker.speak("Mouse passthrough initialization failed")
-
-        # Start key listener thread as daemon
-        stop_key_listener.clear()
-        key_listener_thread = threading.Thread(target=key_listener, daemon=True)
-        key_listener_thread.start()
-
-        # Start update checker thread as daemon
-        update_thread = threading.Thread(target=check_for_updates, daemon=True)
-        update_thread.start()
-
-        # Start available-maps list watcher thread as daemon
-        map_list_thread = threading.Thread(target=check_for_map_list_updates, daemon=True)
-        map_list_thread.start()
-
-        # Start auth expiration checker thread as daemon
-        auth_check_thread = threading.Thread(target=check_auth_expiration, daemon=True)
-        auth_check_thread.start()
-
-        # Start auxiliary systems — height_monitor is a BaseMonitor that
-        # spawns its own daemon thread, so no outer wrapper needed.
-        start_height_monitor()
-        
-        # Start monitoring systems
-        monitor.start_monitoring()
-        material_monitor.start_monitoring()
-        resource_monitor.start_monitoring()
-        # dynamic_object_monitor.start_monitoring()
-        storm_monitor.start_monitoring()
-        bloom_monitor.start_monitoring()
-        match_event_monitor.start_monitoring()
-        quest_account_monitor.start_monitoring()
-
-        # FA11y-OW companion-service consumer (passive equip / pickup /
-        # teammate-feed announcements). The SSE client is idle when the
-        # helper isn't running, so this is safe to start unconditionally.
-        fa11y_ow_client.start()
-        fa11y_ow_announcer.start()
-
-        # Start new game object system
-        match_tracker.start_monitoring()
-
-        # Auto-start a new match
-        match_tracker._start_new_match()
-
-        # Initialize hotbar detection
-        initialize_hotbar_detection()
-
-        # Initialize Epic authentication and social features
-        try:
-            from lib.utilities.epic_auth import get_epic_auth_instance
-            from lib.guis.epic_login_dialog import LoginDialog
-
-            epic_auth = get_epic_auth_instance()
-
-            # Validate auth token (checks if exists and if valid via API request)
-            auth_valid = validate_epic_auth(epic_auth)
-
-            # The saved access token expires after a few hours, so on most
-            # launches it is already stale. Before falling back to any browser
-            # flow, mint a fresh access token from the saved refresh token.
-            # This is what makes a saved login actually persist across restarts
-            # instead of silently re-authenticating through the WebView every
-            # time (which looked like the credentials "never got saved").
-            if not auth_valid and epic_auth and epic_auth.refresh_token:
-                print("Restoring saved Epic Games session...")
-                if epic_auth.refresh_access_token():
-                    auth_valid = True
-                    print(f"Authenticated as {epic_auth.display_name}")
-                    logger.info("Epic auth restored from saved refresh token")
-                else:
-                    logger.debug("Saved refresh token invalid/expired; will try silent WebView")
-
-            # Try silent WebView authentication before showing GUI
-            if not auth_valid and epic_auth:
-                print("Attempting silent authentication...")
-                if epic_auth.try_silent_webview_auth(timeout=10.0):
-                    auth_valid = True
-                    print(f"Authenticated as {epic_auth.display_name}")
-                    logger.info("Silent WebView authentication succeeded")
-                else:
-                    logger.debug("Silent WebView authentication failed; will show login dialog")
-
-            # Only show GUI if we couldn't authenticate automatically
-            if not auth_valid:
-                print("Epic Games authentication required for social features")
-                speaker.speak("Epic Games authentication required. Opening login dialog.")
-
-                # Show login dialog (app already initialized in main())
-                app = wx.GetApp()
-                if app is None:
-                    app = wx.App(False)
-
-                login_dialog = LoginDialog(None, epic_auth)
-                login_dialog.ShowModal()
-                authenticated = login_dialog.authenticated
-                success_announced = getattr(login_dialog, "success_announced", False)
-                login_dialog.Destroy()
-                # Don't destroy app - keep it alive for future GUI usage
-
-                if not authenticated:
-                    print("Social features disabled: Authentication cancelled")
-                    speaker.speak("Social features disabled")
-                    epic_auth = None
-                else:
-                    # Refresh auth instance after login
-                    epic_auth = get_epic_auth_instance()
-                    if epic_auth and epic_auth.access_token and not success_announced:
-                        speaker.speak(f"Authenticated as {epic_auth.display_name}")
-                    auth_valid = True
-
-            # Start social manager, discovery API, and other Epic auth-dependent features
-            if epic_auth and epic_auth.access_token:
-                # Use the same initialization path as manual re-authentication.
-                # Social actions read these instances from lib.app.state, so
-                # assigning only FA11y's legacy module globals made startup say
-                # social features were enabled while the friends-list keybind
-                # still saw no manager until the user logged in manually.
-                _on_auth_success(epic_auth)
-                social_manager = _app_state.get_social_manager()
-                discovery_api = _app_state.get_discovery_api()
-
-                # Wire MatchEventMonitor's party-id resolver to the social
-                # manager's cache so it can turn partial Fortnite-log ids
-                # (e.g. "e7571...92503") into display names. Also pass the
-                # local account id so the monitor can suppress self-adds.
-                match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
-                match_event_monitor.local_account_id = epic_auth.account_id
-
-                logger.debug("Discovery API initialized at startup")
-
-                print(f"Social features enabled for {epic_auth.display_name}")
-                speaker.speak(f"Social features enabled for {epic_auth.display_name}")
-            else:
-                print("Social features disabled: Not authenticated")
-
-        except Exception as e:
-            print(f"Social features disabled: {e}")
-            logger.warning(f"Failed to initialize social features: {e}")
-
-        '''
-        # Print available dynamic objects for reference (reduced spam)
-        dynamic_objects = get_dynamic_object_configs()
-        if dynamic_objects:
-            print(f"Dynamic object monitoring configured for {len(dynamic_objects)} object types")
-            '''
-
-        # Print game objects info (reduced spam)
-        config = read_config()
-        current_map = config.get('POI', 'current_map', fallback='main')
-        game_object_types = game_object_manager.get_available_object_types(current_map)
-        if game_object_types:
-            print(f"Game objects available on {current_map} map: {len(game_object_types)} types")
-
-        # Notify user and wait for input with immediate response capability
-        speaker.speak("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
-        print("FA11y is now running in the background. Press Enter in this window to stop FA11y.")
-
-        # Get wx app to pump events while waiting
-        import wx as wx_import
-        wx_app = wx_import.GetApp()
-
-        # Use a loop to check for shutdown request while waiting for Enter key
-        if sys.platform == 'win32':
-            # Windows - use msvcrt for non-blocking input, but only respond to Enter
-            import msvcrt
-            while not _shutdown_requested.is_set():
-                # CRITICAL: Process pending wx events from background threads
-                # Without this, wx.CallAfter() calls from key_listener never execute
-                if wx_app:
-                    try:
-                        wx_app.Yield(True)
-                    except:
-                        pass
-
-                if msvcrt.kbhit():
-                    key = msvcrt.getch()
-                    # Only exit on Enter key (carriage return)
-                    if key == b'\r' or key == b'\n':
-                        break
-                    # Ignore all other keys (including Escape)
-                time.sleep(0.1)
+        hub = _create_hub()
+        if first_run:
+            # Setup runs before anything else: no monitors, no key
+            # listener, and no startup speech until it's finished.
+            logger.info("First-run setup triggered.")
+            hub.start_onboarding(_after_onboarding)
         else:
-            # Non-Windows: Use select for non-blocking input
-            import select
-            while not _shutdown_requested.is_set():
-                # CRITICAL: Process pending wx events
-                if wx_app:
-                    try:
-                        wx_app.Yield(True)
-                    except:
-                        pass
-
-                # Check for input with timeout
-                if select.select([sys.stdin], [], [], 0.1)[0]:
-                    sys.stdin.readline()
-                    break
-                time.sleep(0.1)
+            wx.CallAfter(_finish_startup, False)
+        print("FA11y is running. Close it from the FA11y window or its tray icon.")
+        app.MainLoop()
 
     except KeyboardInterrupt:
         # Handle CTRL+C gracefully
         _shutdown_requested.set()
     except Exception as e:
+        logger.exception("FA11y stopped because of an error")
         print(f"An error occurred: {str(e)}")
         speaker.speak(f"An error occurred: {str(e)}")
+        # Without a console (pythonw), this dialog is the only visible sign.
+        try:
+            wx.MessageBox(f"FA11y stopped because of an error:\n\n{e}\n\n"
+                          f"Details are in the log file: {log_file_path}", "FA11y", wx.OK | wx.ICON_ERROR)
+        except Exception:
+            pass
     finally:
         # Set shutdown flag
         _shutdown_requested.set()
@@ -1045,8 +1025,9 @@ def main() -> None:
             fa11y_ow_client.stop()
 
             # Stop social manager
-            if social_manager:
-                social_manager.stop_monitoring()
+            current_social = _app_state.get_social_manager()
+            if current_social:
+                current_social.stop_monitoring()
 
             # Clean up object detection resources
             cleanup_object_detection()
