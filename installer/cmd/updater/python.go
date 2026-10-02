@@ -153,7 +153,7 @@ func ensureRequirements(l layout.Layout, lockName, installedHash string, repair 
 		console.Say("Reinstalling Python packages to repair the install...")
 		args = append(args, "--force-reinstall")
 	} else {
-		console.Say("Installing Python packages. The first install downloads about 1 GB and can take several minutes...")
+		console.Say("Installing Python packages. The first install downloads about 200 MB and can take a few minutes...")
 	}
 	err = runPython(l, l.VenvPython(), args...)
 	if err != nil {

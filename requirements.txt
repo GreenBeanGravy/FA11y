@@ -1,8 +1,8 @@
 accessible_output2
 cloudscraper
-easyocr
 mss
 numpy==1.26.4
+onnxruntime
 opencv-python
 packaging
 Pillow
@@ -13,6 +13,7 @@ pygame
 pyperclip
 pythonnet
 pywin32
+rapidocr
 requests
 soundfile
 winshell

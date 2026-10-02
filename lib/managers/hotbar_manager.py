@@ -487,7 +487,7 @@ def _ocr_detect_item_name(current_map='main'):
     """
     OCR-based item name detection for any map with a loot list file.
     Captures the item name region, filters to near-white pixels with 2px dilation,
-    upscales 2x, runs EasyOCR, and fuzzy-matches against that map's item list.
+    upscales 2x, runs OCR, and fuzzy-matches against that map's item list.
 
     Returns:
         str or None: Best matching item name, or None if detection fails.
@@ -524,7 +524,7 @@ def _ocr_detect_item_name(current_map='main'):
         # Upscale 2x
         binary = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
 
-        # Run EasyOCR
+        # Run OCR
         results = ocr_manager.read_text(binary, paragraph=False, min_size=5, text_threshold=0.4)
         if not results:
             logger.info("OCR hotbar: no text detected")
