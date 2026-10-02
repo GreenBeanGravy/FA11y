@@ -119,6 +119,8 @@ class PlayerPositionTracker:
 
     def _on_config_change(self, config):
         """Update cached config values when config changes."""
+        self.last_position = None
+        self.last_angle = None
         self._cached_update_interval = get_config_float(config, 'PositionUpdateInterval', 0.5)
     
     def get_cached_position(self) -> Optional[Tuple[int, int]]:
@@ -140,13 +142,13 @@ class PlayerPositionTracker:
             # player facing.
             position = find_player_position()
             if position is not None:
-                self.last_position = position
                 _, angle = find_minimap_icon_direction()
-            
-            if angle is not None:
-                self.last_angle = angle
+            self.last_position = position
+            self.last_angle = angle
         
         except Exception as e:
+            self.last_position = None
+            self.last_angle = None
             print(f"Error updating player position: {e}")
         
         return self.last_position, self.last_angle

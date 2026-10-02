@@ -1,0 +1,549 @@
+{
+  "build": "Release-42.30+cl58554363",
+  "rows": [
+    {
+      "rank": 1,
+      "name": "Hunter Rank 1",
+      "benefits": "No benefits gained",
+      "quest": "quest:quest_s42_ltm_mash_q01",
+      "objective": "quest_s42_ltm_mash_q01_obj0",
+      "required": null,
+      "requirement": "Horde progression activated",
+      "token": "token:athena_s42_mash_progression_token_01",
+      "exact_values": {
+        "MaxHealth": 0.0,
+        "Shield": 0.0,
+        "DiceCritChance": 0.0,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.0,
+        "DiceCritMultiplier": 0.0,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 0.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 0,
+      "exact_description": "No numerical bonuses."
+    },
+    {
+      "rank": 2,
+      "name": "Hunter Rank 2",
+      "benefits": "MINOR: Crit Chance\r\nRESOURCES: Monster Parts",
+      "quest": "quest:quest_s42_ltm_mash_q02",
+      "objective": "quest_s42_ltm_mash_q02_obj0",
+      "required": 200,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_02",
+      "exact_values": {
+        "MaxHealth": 0.0,
+        "Shield": 0.0,
+        "DiceCritChance": 0.025,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.0,
+        "DiceCritMultiplier": 0.0,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 40.0,
+        "MonsterPartsThisRank": 40.0
+      },
+      "effect_level": 1.0,
+      "exact_description": "Critical hit chance bonus: 2.5 percentage points. Monster Parts rank allowance: 40 cumulative; 40 added by this rank."
+    },
+    {
+      "rank": 3,
+      "name": "Hunter Rank 3",
+      "benefits": "MINOR: Health, Shield, Crit Chance\r\nRESOURCES: Monster Parts",
+      "quest": "quest:quest_s42_ltm_mash_q03",
+      "objective": "quest_s42_ltm_mash_q03_obj0",
+      "required": 400,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_03",
+      "exact_values": {
+        "MaxHealth": 15.0,
+        "Shield": 15.0,
+        "DiceCritChance": 0.025,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.0,
+        "DiceCritMultiplier": 0.0,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 80.0,
+        "MonsterPartsThisRank": 40.0
+      },
+      "effect_level": 2.0,
+      "exact_description": "Maximum health bonus: 15. Shield bonus: 15. Critical hit chance bonus: 2.5 percentage points. Monster Parts rank allowance: 80 cumulative; 40 added by this rank."
+    },
+    {
+      "rank": 4,
+      "name": "Hunter Rank 4",
+      "benefits": "MINOR: Health, Shield, Crit Chance\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_q04",
+      "objective": "quest_s42_ltm_mash_q04_obj0",
+      "required": 600,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_04",
+      "exact_values": {
+        "MaxHealth": 30.0,
+        "Shield": 30.0,
+        "DiceCritChance": 0.025,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.0,
+        "DiceCritMultiplier": 0.0,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 80.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 3.0,
+      "exact_description": "Maximum health bonus: 30. Shield bonus: 30. Critical hit chance bonus: 2.5 percentage points. Monster Parts rank allowance: 80 cumulative; 0 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent."
+    },
+    {
+      "rank": 5,
+      "name": "Hunter Rank 5",
+      "benefits": "MINOR: Health, Shield, Damage, Crit Chance, Crit Damage\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_q05",
+      "objective": "quest_s42_ltm_mash_q05_obj0",
+      "required": 800,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_05",
+      "exact_values": {
+        "MaxHealth": 30.0,
+        "Shield": 30.0,
+        "DiceCritChance": 0.075,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.1,
+        "DiceCritMultiplier": 0.05,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 80.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 4.0,
+      "exact_description": "Maximum health bonus: 30. Shield bonus: 30. Critical hit chance bonus: 7.5 percentage points. Damage multiplier: 1.1 times. Critical damage multiplier bonus: +0.05. Monster Parts rank allowance: 80 cumulative; 0 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent."
+    },
+    {
+      "rank": 6,
+      "name": "Hunter Rank 6",
+      "benefits": "MODERATE: Health, Shield\r\nMINOR: Damage, Crit Chance, Crit Damage\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_q06",
+      "objective": "quest_s42_ltm_mash_q06_obj0",
+      "required": 1050,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_06",
+      "exact_values": {
+        "MaxHealth": 45.0,
+        "Shield": 45.0,
+        "DiceCritChance": 0.075,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.1,
+        "DiceCritMultiplier": 0.05,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 120.0,
+        "MonsterPartsThisRank": 40.0
+      },
+      "effect_level": 5.0,
+      "exact_description": "Maximum health bonus: 45. Shield bonus: 45. Critical hit chance bonus: 7.5 percentage points. Damage multiplier: 1.1 times. Critical damage multiplier bonus: +0.05. Monster Parts rank allowance: 120 cumulative; 40 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent."
+    },
+    {
+      "rank": 7,
+      "name": "Hunter Rank 7",
+      "benefits": "MODERATE: Health, Shield\r\nMINOR: Damage, Crit Chance, Crit Damage, Regen\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_q07",
+      "objective": "quest_s42_ltm_mash_q07_obj0",
+      "required": 1300,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_07",
+      "exact_values": {
+        "MaxHealth": 45.0,
+        "Shield": 45.0,
+        "DiceCritChance": 0.075,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.1,
+        "DiceCritMultiplier": 0.05,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 165.0,
+        "MonsterPartsThisRank": 45.0
+      },
+      "effect_level": 6.0,
+      "exact_description": "Maximum health bonus: 45. Shield bonus: 45. Critical hit chance bonus: 7.5 percentage points. Damage multiplier: 1.1 times. Critical damage multiplier bonus: +0.05. Monster Parts rank allowance: 165 cumulative; 45 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield."
+    },
+    {
+      "rank": 8,
+      "name": "Hunter Rank 8",
+      "benefits": "MODERATE: Health, Shield\r\nMINOR: Damage, Crit Chance, Crit Damage, Regen\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_q08",
+      "objective": "quest_s42_ltm_mash_q08_obj0",
+      "required": 1550,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_08",
+      "exact_values": {
+        "MaxHealth": 60.0,
+        "Shield": 60.0,
+        "DiceCritChance": 0.075,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.1,
+        "DiceCritMultiplier": 0.05,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 210.0,
+        "MonsterPartsThisRank": 45.0
+      },
+      "effect_level": 7.0,
+      "exact_description": "Maximum health bonus: 60. Shield bonus: 60. Critical hit chance bonus: 7.5 percentage points. Damage multiplier: 1.1 times. Critical damage multiplier bonus: +0.05. Monster Parts rank allowance: 210 cumulative; 45 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield."
+    },
+    {
+      "rank": 9,
+      "name": "Hunter Rank 9",
+      "benefits": "GREAT: Health, Shield\r\nMODERATE: Crit Chance\r\nMINOR: Damage, Crit Damage, Regen\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_q09",
+      "objective": "quest_s42_ltm_mash_q09_obj0",
+      "required": 1800,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_09",
+      "exact_values": {
+        "MaxHealth": 75.0,
+        "Shield": 75.0,
+        "DiceCritChance": 0.1,
+        "WeaponReloadSpeed": 1.0,
+        "OutgoingAbilityDamage": 1.1,
+        "DiceCritMultiplier": 0.05,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 210.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 8.0,
+      "exact_description": "Maximum health bonus: 75. Shield bonus: 75. Critical hit chance bonus: 10 percentage points. Damage multiplier: 1.1 times. Critical damage multiplier bonus: +0.05. Monster Parts rank allowance: 210 cumulative; 0 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield."
+    },
+    {
+      "rank": 10,
+      "name": "Hunter Rank 10",
+      "benefits": "GREAT: Health, Shield\r\nMODERATE: Damage, Crit Damage, Crit Chance\r\nMINOR: Regen, Reload Speed\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_q10",
+      "objective": "quest_s42_ltm_mash_q10_obj0",
+      "required": 2050,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_10",
+      "exact_values": {
+        "MaxHealth": 75.0,
+        "Shield": 75.0,
+        "DiceCritChance": 0.1,
+        "WeaponReloadSpeed": 1.05,
+        "OutgoingAbilityDamage": 1.25,
+        "DiceCritMultiplier": 0.15,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 210.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 9.0,
+      "exact_description": "Maximum health bonus: 75. Shield bonus: 75. Critical hit chance bonus: 10 percentage points. Reload speed multiplier: 1.05 times. Damage multiplier: 1.25 times. Critical damage multiplier bonus: +0.15. Monster Parts rank allowance: 210 cumulative; 0 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield."
+    },
+    {
+      "rank": 11,
+      "name": "Hunter Rank 11",
+      "benefits": "GREAT: Health, Shield\r\nMODERATE: Damage, Crit Damage, Crit Chance\r\nMINOR: Regen, Reload Speed\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q11",
+      "objective": "quest_s42_ltm_mash_expertise_q11_obj0",
+      "required": 2500,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_11",
+      "exact_values": {
+        "MaxHealth": 95.0,
+        "Shield": 95.0,
+        "DiceCritChance": 0.1,
+        "WeaponReloadSpeed": 1.05,
+        "OutgoingAbilityDamage": 1.25,
+        "DiceCritMultiplier": 0.15,
+        "WeaponRateOfFire": 1.0,
+        "MonsterPartsTotal": 260.0,
+        "MonsterPartsThisRank": 50.0
+      },
+      "effect_level": 10.0,
+      "exact_description": "Maximum health bonus: 95. Shield bonus: 95. Critical hit chance bonus: 10 percentage points. Reload speed multiplier: 1.05 times. Damage multiplier: 1.25 times. Critical damage multiplier bonus: +0.15. Monster Parts rank allowance: 260 cumulative; 50 added by this rank. Starting ammo amounts: 75 medium, 75 light, 10 heavy, 25 shells, 2 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 25 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield."
+    },
+    {
+      "rank": 12,
+      "name": "Hunter Rank 12",
+      "benefits": "GREAT: Health, Shield\r\nMODERATE: Damage, Crit Damage, Crit Chance\r\nMINOR: Regen, Reload Speed, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q12",
+      "objective": "quest_s42_ltm_mash_expertise_q12_obj0",
+      "required": 3000,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_12",
+      "exact_values": {
+        "MaxHealth": 95.0,
+        "Shield": 95.0,
+        "DiceCritChance": 0.1,
+        "WeaponReloadSpeed": 1.05,
+        "OutgoingAbilityDamage": 1.25,
+        "DiceCritMultiplier": 0.15,
+        "WeaponRateOfFire": 1.05,
+        "MonsterPartsTotal": 260.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 11.0,
+      "exact_description": "Maximum health bonus: 95. Shield bonus: 95. Critical hit chance bonus: 10 percentage points. Reload speed multiplier: 1.05 times. Damage multiplier: 1.25 times. Critical damage multiplier bonus: +0.15. Fire rate multiplier: 1.05 times. Monster Parts rank allowance: 260 cumulative; 0 added by this rank. Starting ammo amounts: 110 medium, 110 light, 20 heavy, 55 shells, 4 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 50 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    },
+    {
+      "rank": 13,
+      "name": "Hunter Rank 13",
+      "benefits": "GREAT: Health, Shield\r\nMODERATE: Damage, Crit Damage, Crit Chance\r\nMINOR: Regen, Reload Speed, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q13",
+      "objective": "quest_s42_ltm_mash_expertise_q13_obj0",
+      "required": 3500,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_13",
+      "exact_values": {
+        "MaxHealth": 115.0,
+        "Shield": 115.0,
+        "DiceCritChance": 0.1,
+        "WeaponReloadSpeed": 1.05,
+        "OutgoingAbilityDamage": 1.25,
+        "DiceCritMultiplier": 0.15,
+        "WeaponRateOfFire": 1.05,
+        "MonsterPartsTotal": 310.0,
+        "MonsterPartsThisRank": 50.0
+      },
+      "effect_level": 12.0,
+      "exact_description": "Maximum health bonus: 115. Shield bonus: 115. Critical hit chance bonus: 10 percentage points. Reload speed multiplier: 1.05 times. Damage multiplier: 1.25 times. Critical damage multiplier bonus: +0.15. Fire rate multiplier: 1.05 times. Monster Parts rank allowance: 310 cumulative; 50 added by this rank. Starting ammo amounts: 110 medium, 110 light, 20 heavy, 55 shells, 4 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 50 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    },
+    {
+      "rank": 14,
+      "name": "Hunter Rank 14",
+      "benefits": "MAJOR: Health, Shield\r\nMODERATE: Damage, Crit Damage, Crit Chance\r\nMINOR: Regen, Reload Speed, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q14",
+      "objective": "quest_s42_ltm_mash_expertise_q14_obj0",
+      "required": 4100,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_14",
+      "exact_values": {
+        "MaxHealth": 140.0,
+        "Shield": 140.0,
+        "DiceCritChance": 0.1,
+        "WeaponReloadSpeed": 1.05,
+        "OutgoingAbilityDamage": 1.25,
+        "DiceCritMultiplier": 0.15,
+        "WeaponRateOfFire": 1.05,
+        "MonsterPartsTotal": 360.0,
+        "MonsterPartsThisRank": 50.0
+      },
+      "effect_level": 13.0,
+      "exact_description": "Maximum health bonus: 140. Shield bonus: 140. Critical hit chance bonus: 10 percentage points. Reload speed multiplier: 1.05 times. Damage multiplier: 1.25 times. Critical damage multiplier bonus: +0.15. Fire rate multiplier: 1.05 times. Monster Parts rank allowance: 360 cumulative; 50 added by this rank. Starting ammo amounts: 110 medium, 110 light, 20 heavy, 55 shells, 4 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 50 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    },
+    {
+      "rank": 15,
+      "name": "Hunter Rank 15",
+      "benefits": "MAJOR: Health, Shield\r\nGREAT: Damage, Crit Damage\r\nMODERATE: Crit Chance, Reload Speed\r\nMINOR: Regen, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q15",
+      "objective": "quest_s42_ltm_mash_expertise_q15_obj0",
+      "required": 4750,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_15",
+      "exact_values": {
+        "MaxHealth": 140.0,
+        "Shield": 140.0,
+        "DiceCritChance": 0.1,
+        "WeaponReloadSpeed": 1.1,
+        "OutgoingAbilityDamage": 1.35,
+        "DiceCritMultiplier": 0.3,
+        "WeaponRateOfFire": 1.05,
+        "MonsterPartsTotal": 360.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 14.0,
+      "exact_description": "Maximum health bonus: 140. Shield bonus: 140. Critical hit chance bonus: 10 percentage points. Reload speed multiplier: 1.1 times. Damage multiplier: 1.35 times. Critical damage multiplier bonus: +0.3. Fire rate multiplier: 1.05 times. Monster Parts rank allowance: 360 cumulative; 0 added by this rank. Starting ammo amounts: 110 medium, 110 light, 20 heavy, 55 shells, 4 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 50 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    },
+    {
+      "rank": 16,
+      "name": "Hunter Rank 16",
+      "benefits": "MAJOR: Health, Shield\r\nGREAT: Damage, Crit Damage, Crit Chance\r\nMODERATE: Reload Speed\r\nMINOR: Regen, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q16",
+      "objective": "quest_s42_ltm_mash_expertise_q16_obj0",
+      "required": 5500,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_16",
+      "exact_values": {
+        "MaxHealth": 140.0,
+        "Shield": 140.0,
+        "DiceCritChance": 0.15,
+        "WeaponReloadSpeed": 1.1,
+        "OutgoingAbilityDamage": 1.35,
+        "DiceCritMultiplier": 0.3,
+        "WeaponRateOfFire": 1.05,
+        "MonsterPartsTotal": 420.0,
+        "MonsterPartsThisRank": 60.0
+      },
+      "effect_level": 15.0,
+      "exact_description": "Maximum health bonus: 140. Shield bonus: 140. Critical hit chance bonus: 15 percentage points. Reload speed multiplier: 1.1 times. Damage multiplier: 1.35 times. Critical damage multiplier bonus: +0.3. Fire rate multiplier: 1.05 times. Monster Parts rank allowance: 420 cumulative; 60 added by this rank. Starting ammo amounts: 110 medium, 110 light, 20 heavy, 55 shells, 4 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 50 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    },
+    {
+      "rank": 17,
+      "name": "Hunter Rank 17",
+      "benefits": "MASSIVE: Health, Shield\r\nGREAT: Damage, Crit Damage, Crit Chance\r\nMODERATE: Reload Speed\r\nMINOR: Regen, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q17",
+      "objective": "quest_s42_ltm_mash_expertise_q17_obj0",
+      "required": 6300,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_17",
+      "exact_values": {
+        "MaxHealth": 165.0,
+        "Shield": 165.0,
+        "DiceCritChance": 0.15,
+        "WeaponReloadSpeed": 1.1,
+        "OutgoingAbilityDamage": 1.35,
+        "DiceCritMultiplier": 0.3,
+        "WeaponRateOfFire": 1.05,
+        "MonsterPartsTotal": 420.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 16.0,
+      "exact_description": "Maximum health bonus: 165. Shield bonus: 165. Critical hit chance bonus: 15 percentage points. Reload speed multiplier: 1.1 times. Damage multiplier: 1.35 times. Critical damage multiplier bonus: +0.3. Fire rate multiplier: 1.05 times. Monster Parts rank allowance: 420 cumulative; 0 added by this rank. Starting ammo amounts: 220 medium, 220 light, 35 heavy, 100 shells, 6 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 100 percent. Regeneration: 2 health and shield every 4 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    },
+    {
+      "rank": 18,
+      "name": "Hunter Rank 18",
+      "benefits": "MASSIVE: Health, Shield\r\nGREAT: Damage, Crit Damage, Crit Chance\r\nMODERATE: Reload Speed, Regen\r\nMINOR: Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q18",
+      "objective": "quest_s42_ltm_mash_expertise_q18_obj0",
+      "required": 7100,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_18",
+      "exact_values": {
+        "MaxHealth": 165.0,
+        "Shield": 165.0,
+        "DiceCritChance": 0.15,
+        "WeaponReloadSpeed": 1.1,
+        "OutgoingAbilityDamage": 1.35,
+        "DiceCritMultiplier": 0.3,
+        "WeaponRateOfFire": 1.05,
+        "MonsterPartsTotal": 480.0,
+        "MonsterPartsThisRank": 60.0
+      },
+      "effect_level": 17.0,
+      "exact_description": "Maximum health bonus: 165. Shield bonus: 165. Critical hit chance bonus: 15 percentage points. Reload speed multiplier: 1.1 times. Damage multiplier: 1.35 times. Critical damage multiplier bonus: +0.3. Fire rate multiplier: 1.05 times. Monster Parts rank allowance: 480 cumulative; 60 added by this rank. Starting ammo amounts: 220 medium, 220 light, 35 heavy, 100 shells, 6 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 100 percent. Regeneration: 2 health and shield every 2 seconds, up to full health and shield."
+    },
+    {
+      "rank": 19,
+      "name": "Hunter Rank 19",
+      "benefits": "MASSIVE: Health, Shield\r\nGREAT: Damage, Crit Damage, Crit Chance\r\nMODERATE: Reload Speed, Regen, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q19",
+      "objective": "quest_s42_ltm_mash_expertise_q19_obj0",
+      "required": 7950,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_19",
+      "exact_values": {
+        "MaxHealth": 165.0,
+        "Shield": 165.0,
+        "DiceCritChance": 0.15,
+        "WeaponReloadSpeed": 1.1,
+        "OutgoingAbilityDamage": 1.35,
+        "DiceCritMultiplier": 0.3,
+        "WeaponRateOfFire": 1.1,
+        "MonsterPartsTotal": 540.0,
+        "MonsterPartsThisRank": 60.0
+      },
+      "effect_level": 18.0,
+      "exact_description": "Maximum health bonus: 165. Shield bonus: 165. Critical hit chance bonus: 15 percentage points. Reload speed multiplier: 1.1 times. Damage multiplier: 1.35 times. Critical damage multiplier bonus: +0.3. Fire rate multiplier: 1.1 times. Monster Parts rank allowance: 540 cumulative; 60 added by this rank. Starting ammo amounts: 220 medium, 220 light, 35 heavy, 100 shells, 6 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 100 percent. Regeneration: 2 health and shield every 2 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    },
+    {
+      "rank": 20,
+      "name": "Hunter Rank 20",
+      "benefits": "MASSIVE: Health, Shield, Damage, Crit Damage\r\nGREAT: Crit Chance\r\nMODERATE: Reload Speed, Regen, Ammo Drip\r\nRESOURCES: Monster Parts, Ammo on match start",
+      "quest": "quest:quest_s42_ltm_mash_expertise_q20",
+      "objective": "quest_s42_ltm_mash_expertise_q20_obj0",
+      "required": 8850,
+      "requirement": "Horde eliminations",
+      "token": "token:athena_s42_mash_progression_token_20",
+      "exact_values": {
+        "MaxHealth": 200.0,
+        "Shield": 200.0,
+        "DiceCritChance": 0.15,
+        "WeaponReloadSpeed": 1.1,
+        "OutgoingAbilityDamage": 1.5,
+        "DiceCritMultiplier": 0.5,
+        "WeaponRateOfFire": 1.1,
+        "MonsterPartsTotal": 540.0,
+        "MonsterPartsThisRank": 0.0
+      },
+      "effect_level": 19.0,
+      "exact_description": "Maximum health bonus: 200. Shield bonus: 200. Critical hit chance bonus: 15 percentage points. Reload speed multiplier: 1.1 times. Damage multiplier: 1.5 times. Critical damage multiplier bonus: +0.5. Fire rate multiplier: 1.1 times. Monster Parts rank allowance: 540 cumulative; 0 added by this rank. Starting ammo amounts: 220 medium, 220 light, 35 heavy, 100 shells, 6 rockets. The starting ammo grant is disabled in the installed game data. After-phase healing: 100 percent. Regeneration: 2 health and shield every 2 seconds, up to full health and shield. Ammo drip: exact drop amounts and chance are not yet verified."
+    }
+  ],
+  "sources": [
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_01",
+      "sha256": "ee9e209c1c8ee774c0fdfbceb5b7d501d30cb6d1776f8ba48ee870b64950c9e2"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_02",
+      "sha256": "a94cdf1753727bd9b2ea19c0a7bf78063280baae051dfa12867419bfead86ba4"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_03",
+      "sha256": "4e987c8e60d50ab776f3e84ae0a50b1d0426f209175a2c42d773e3956e70fd03"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_04",
+      "sha256": "d872b80134a47dc0fe80b62de7fd3711b6b560ae6eb1148e2755b8c8f0aab77b"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_05",
+      "sha256": "7dd45f4e17b280a4f67f8103bcb84867786d98fb48e82fed6873a853a79cb843"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_06",
+      "sha256": "46adc153fee06ec34cc051ddc70c493094ceca2317d7ceaf1482d0ef93d414ac"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_07",
+      "sha256": "d8b1f0e475bcd7f882f924b7d76063ab2eeb7b2b8024ea1367f30f5197c28fb9"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_08",
+      "sha256": "ba29a787e144a75dd1b4c05ed8c815d9451df5a017278061d47fc03349080a4a"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_09",
+      "sha256": "31a3c3fafb3e7d7bce207c76f3af7dbcc43478b9c11c5be02d804459e8526192"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_10",
+      "sha256": "1c3531f9e11004c0df96aae7091bcc56b12ca531240ca14dee2cbaa0afb72e2d"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_11",
+      "sha256": "6fd38d3ad62cfca12cf0d8914f4a743ae665601991bed94fc9b9127f9e02d21a"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_12",
+      "sha256": "9ec1693ad7898235c01bbdd152036ca5db96556fc3d10f3e6f1313a742943ff9"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_13",
+      "sha256": "a07e850e8c66453ac76f583da7cf4370e31e1051fcd1f3f27f83154ff7a5416f"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_14",
+      "sha256": "6a7f72e81628cf279748c60804cea2f1a712e77796bcda32ae285fed5ce4afec"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_15",
+      "sha256": "4e92864011e77daa64ebf18f50d7d2c4bcb3c975084ef8cc96c566654f13eb63"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_16",
+      "sha256": "89122c68bf5db8a78b808533fc9aabfa7445c4a21ccd548697678bb2a4ebe879"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_17",
+      "sha256": "b0de9ee0b3dc4a60620c60b0f92cc63b2f007e1003152124f6019b07be5f49b8"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_18",
+      "sha256": "b83ddc254871b5a0ccd6e1ce5bb8ac0fa8409386ccb48dfbd9ebef41e86f9e45"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_19",
+      "sha256": "6262fa009813c50e3dc5f9f495094608cfd39a0194ace412f6e0c3530d8b8b04"
+    },
+    {
+      "asset": "/Smash/Gameplay/Expertise/Augments/PAID_MashExpertise_Buff_20",
+      "sha256": "726f2b07079549625194825d100e98a20ef9957d221a53ac60c2605706ee1ee7"
+    }
+  ],
+  "quest_source": "quest_supplement_4230.json",
+  "numeric_source": "42.30 cooked effect modifiers, per-rank LevelForEffect and SmashQuests_GameData curves"
+}

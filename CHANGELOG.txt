@@ -1,3 +1,11 @@
+10/2/2026 #1:
+
+- Added Horde Rush Ranks to the Social menu's Me tab: current account rank, elimination progress toward the next rank, and all 20 ranks with their benefits and exact values. Uses the existing Epic login; Refresh Account Information updates the account data.
+
+- Fixed chest and object navigation reusing old positions and directions after detection failures. Visit tracking now respects per-map settings.
+
+- Fixed Horde Rush storm boundary selection and directional audio. Storm detection includes inner safe-circle boundaries and converts positions using the actual transform from the same minimap capture.
+
 10/1/2026 #1:
 - Updated the main Battle Royale map for Fortnitemares, with 13 POIs, 27 landmarks, and aligned chest, ammo box, and other object locations.
 - Updated the main-map loot list for Fortnite 42.30, including loot hacks and Zero Build items, excluding Sprites.

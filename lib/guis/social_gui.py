@@ -86,7 +86,8 @@ class SocialDialog(AccessibleDialog):
 
     def _create_me_panel(self):
         """Create Me tab showing account information in 3 separate boxes"""
-        panel = wx.Panel(self.notebook)
+        panel = wx.ScrolledWindow(self.notebook)
+        panel.SetScrollRate(0, 10)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Title
@@ -148,12 +149,25 @@ class SocialDialog(AccessibleDialog):
         self.ranked_stats_text.SetFont(font)
         sizer.Add(self.ranked_stats_text, 1, wx.ALL | wx.EXPAND, 10)
 
+        horde_label = wx.StaticText(panel, label="Horde Rush Ranks")
+        horde_label.SetFont(horde_label.GetFont().Bold())
+        sizer.Add(horde_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self.horde_rank_text = wx.TextCtrl(panel,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP, size=(-1, 170))
+        self.horde_rank_text.SetName("Horde Rush Ranks")
+        sizer.Add(self.horde_rank_text, 0, wx.ALL | wx.EXPAND, 10)
+        self._horde_refresh_id = 0
+        from lib.utilities.horde_ranks import rank_text
+        self.horde_rank_text.SetValue(rank_text())
+
         # Refresh button
         refresh_btn = wx.Button(panel, label="Refresh Account Information")
         refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh_account_info)
         sizer.Add(refresh_btn, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
         panel.SetSizer(sizer)
+
+        panel.FitInside()
 
         # Set initial loading message (will be loaded when tab is first shown)
         loading_msg = "Loading... (switch to this tab to load data)"
@@ -239,6 +253,7 @@ class SocialDialog(AccessibleDialog):
     def load_account_info(self):
         """Load account information from Epic Games API into 3 separate boxes"""
         try:
+            self._refresh_horde_ranks()
             # Get account info from social manager's auth
             if not self.social_manager or not self.social_manager.auth:
                 self.epic_account_text.SetValue("Not authenticated. Please authenticate using ALT+SHIFT+V.")
@@ -399,6 +414,34 @@ class SocialDialog(AccessibleDialog):
             self.epic_account_text.SetValue(f"Error: {str(e)}")
             self.fortnite_stats_text.SetValue(f"Error: {str(e)}")
             self.ranked_stats_text.SetValue(f"Error: {str(e)}")
+
+    def _refresh_horde_ranks(self):
+        from lib.utilities.horde_ranks import HordeRankAPI, rank_text
+        from lib.utilities.epic_quests import QuestQueryError
+        self._horde_refresh_id += 1
+        request_id = self._horde_refresh_id
+        auth = getattr(self.social_manager, 'auth', None)
+        if not auth or not auth.is_valid:
+            self.horde_rank_text.SetValue(rank_text(error='Sign in through FA11y to load your Horde rank.'))
+            return
+        account = auth.account_id
+        self.horde_rank_text.SetValue(rank_text(error='Loading your Horde rank...'))
+        def apply(text):
+            if (self._is_destroying or request_id != self._horde_refresh_id
+                    or getattr(getattr(self.social_manager, 'auth', None), 'account_id', None) != account):
+                return
+            self.horde_rank_text.SetValue(text)
+            self.horde_rank_text.SetInsertionPoint(0)
+        def worker():
+            try:
+                text = rank_text(HordeRankAPI(auth).query())
+            except QuestQueryError as exc:
+                text = rank_text(error='Horde rank unavailable. '+str(exc))
+            except Exception:
+                logger.exception('Horde rank lookup failed')
+                text = rank_text(error='Could not load your Horde rank. Refresh to retry.')
+            wx.CallAfter(apply, text)
+        threading.Thread(target=worker, name='horde-rank-query', daemon=True).start()
 
     def on_refresh_account_info(self, event):
         """Refresh account information"""
