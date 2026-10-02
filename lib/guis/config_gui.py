@@ -6,7 +6,6 @@ ConfigView is a panel that the hub shows as the Settings and Keybinds pages
 (each with its own subset of tabs) and that ViewDialog shows as a popup
 when the hub isn't running.
 """
-import os
 import logging
 import time
 import configparser
@@ -23,17 +22,14 @@ from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import DisplayableError
 from lib.guis.view_host import EmbeddedView, ViewDialog, show_view
-from lib.utilities.spatial_audio import SpatialAudio
-from lib.utilities.utilities import (
-    DEFAULT_CONFIG, get_default_config_value_string, read_config,
-    get_available_sounds, is_audio_setting, is_game_objects_setting,
-    get_maps_with_game_objects, is_map_specific_game_object_setting,
-    get_game_objects_config_order
-)
+from lib.utilities.utilities import DEFAULT_CONFIG, read_config, get_maps_with_game_objects
 from lib.utilities.input import (
-    VK_KEYS, is_mouse_button, get_pressed_key_combination, parse_key_combination,
-    validate_key_combination, get_supported_modifiers, is_modifier_key,
-    get_pressed_main_keys, is_key_pressed
+    get_pressed_key_combination, validate_key_combination, get_pressed_main_keys, is_key_pressed
+)
+from lib.config_schema import (
+    ALL_TABS, CANT_USE_KEY, TRACKED_ELSEWHERE, KeybindTable, VolumeTester, bind_message, default_section_for_key,
+    default_value_string, extract_value_and_description, get_value_range, key_name, map_items, number_spec,
+    target_section, tab_items, volume_percent,
 )
 
 if TYPE_CHECKING:
@@ -43,62 +39,9 @@ logger = logging.getLogger(__name__)
 speaker = Auto()
 
 
-# Keys routed to the "Advanced" tab regardless of source section.
-ADVANCED_KEYS = frozenset({
-    "SimplifySpeechOutput",
-    "IgnoreNumlock",
-    "ResetSensitivity",
-    "TurnAroundSensitivity",
-    "RecenterDelay",
-    "TurnDelay",
-    "RecenterStepDelay",
-    "RecenterStepSpeed",
-    "RecenterLookDown",
-    "RecenterLookUp",
-    "ResetRecenterLookDown",
-    "ResetRecenterLookUp",
-    "StormPingInterval",
-    "ContinuousPingMinInterval",
-    "ContinuousPingMaxInterval",
-    "ContinuousPingDistanceExponent",
-    "PositionUpdateInterval",
-    "MaxInstancesForGameObjectPositioning",
-    # Onboarding wizard re-run toggle.
-    "FirstRunComplete",
-})
-
-# Settings shown on the "General" tab, with the config section each one is
-# saved back to. They're removed from their natural tabs while General is shown.
-GENERAL_TOGGLE_KEYS = (
-    "StartFortniteOnLaunch",
-    "HideHubWhenFortniteStarts",
-    "NavigationSounds",
-    "AutoUpdates",
-    "CreateDesktopShortcut",
-)
-GENERAL_KEY_SECTIONS = {key: "Toggles" for key in GENERAL_TOGGLE_KEYS}
-GENERAL_KEY_SECTIONS["CloseAction"] = "Hub"
-
-CLOSE_ACTION_LABEL = "When I close the FA11y window"
-# (config value, label shown to the user)
-CLOSE_ACTION_CHOICES = (
-    ("ask", "Ask me"),
-    ("tray", "Keep running in the tray"),
-    ("quit", "Quit FA11y"),
-)
-
-# Config sections whose settings appear on another tab. Their widgets are
-# tracked under the section's own name so they save back to it.
-TRACKED_ELSEWHERE = {"MatchEvents": "Toggles"}
-
-# Every tab ConfigView knows, in display order.
-ALL_TABS = ("General", "Toggles", "Values", "Audio", "GameObjects", "Keybinds", "Advanced")
-
-
-def _key_name(combo: str) -> str:
-    """Friendly name for a stored key combination, e.g. 'lalt+f' -> 'Left Alt + F'."""
-    from lib.hub.status import key_display_name
-    return key_display_name(combo)
+# Tab routing, labels, groups, defaults and keybind rules live in lib/config_schema.py,
+# which the new window reads too.
+_key_name = key_name
 
 
 class ConfigView(EmbeddedView):
@@ -126,9 +69,8 @@ class ConfigView(EmbeddedView):
 
         # Quick initialization
         self.maps_with_objects = get_maps_with_game_objects() if "GameObjects" in self.tab_names else {}
-        self.key_to_action: Dict[str, str] = {}
-        self.action_to_key: Dict[str, str] = {}
-        self.test_audio_instances = {}
+        self.keytable = KeybindTable({})
+        self.volume_tester = VolumeTester()
         self.tab_widgets = {}
         self.tab_variables = {}
         self.capturing_key = False
@@ -219,12 +161,7 @@ class ConfigView(EmbeddedView):
         event.Skip()
 
     def _cleanup_test_audio(self):
-        for audio_instance in self.test_audio_instances.values():
-            try:
-                audio_instance.cleanup()
-            except Exception:
-                pass
-        self.test_audio_instances.clear()
+        self.volume_tester.cleanup()
 
     def _ensure_populated(self):
         """Populate the active tab now (once); queue the rest for background build."""
@@ -393,82 +330,11 @@ class ConfigView(EmbeddedView):
             panel.SetSizer(sizer)
     
     def analyze_config(self):
-        """Analyze configuration to determine appropriate tab mappings"""
-        self.build_key_binding_maps()
-        
-        self.section_tab_mapping = {
-            "General": {},
-            "Toggles": {},
-            "Values": {},
-            "Audio": {},
-            "GameObjects": {},
-            "Keybinds": {},
-        }
-        
-        for map_name in sorted(self.maps_with_objects.keys()):
-            display_name = f"{map_name.title()}GameObjects"
-            self.section_tab_mapping[display_name] = {}
-        
-        for section in self.config.config.sections():
-            if section == "POI": 
-                continue
-                
-            for key in self.config.config[section]:
-                value_string = self.config.config[section][key]
-                value, _ = self.extract_value_and_description(value_string)
+        """Read the keybinds, for conflict checks."""
+        self.keytable = KeybindTable.from_parser(self.config.config)
 
-                if section == "Toggles":
-                    self.section_tab_mapping["Toggles"][key] = "Toggles"
-                elif section == "Values":
-                    self.section_tab_mapping["Values"][key] = "Values"
-                elif section == "Audio":
-                    self.section_tab_mapping["Audio"][key] = "Audio"
-                elif section == "GameObjects":
-                    self.section_tab_mapping["GameObjects"][key] = "GameObjects"
-                elif section == "Keybinds":
-                    self.section_tab_mapping["Keybinds"][key] = "Keybinds"
-                elif section.endswith("GameObjects"):
-                    tab_name = section
-                    if tab_name not in self.section_tab_mapping:
-                        self.section_tab_mapping[tab_name] = {}
-                    self.section_tab_mapping[tab_name][key] = tab_name
-                elif section == "SETTINGS":
-                    if is_audio_setting(key):
-                        self.section_tab_mapping["Audio"][key] = "Audio"
-                    elif is_game_objects_setting(key):
-                        self.section_tab_mapping["GameObjects"][key] = "GameObjects"
-                    elif is_map_specific_game_object_setting(key):
-                        for map_name in self.maps_with_objects.keys():
-                            if map_name == 'main':
-                                map_tab = f"{map_name.title()}GameObjects"
-                                if map_tab not in self.section_tab_mapping:
-                                    self.section_tab_mapping[map_tab] = {}
-                                self.section_tab_mapping[map_tab][key] = map_tab
-                                break
-                    elif value.lower() in ['true', 'false']:
-                        self.section_tab_mapping["Toggles"][key] = "Toggles"
-                    else:
-                        self.section_tab_mapping["Values"][key] = "Values"
-                elif section == "SCRIPT KEYBINDS":
-                    self.section_tab_mapping["Keybinds"][key] = "Keybinds"
-    
-    def build_key_binding_maps(self):
-        """Build maps of keys to actions and actions to keys for conflict detection"""
-        self.key_to_action.clear()
-        self.action_to_key.clear()
-        
-        if self.config.config.has_section("Keybinds"):
-            for action in self.config.config["Keybinds"]:
-                value_string = self.config.config["Keybinds"][action]
-                key, _ = self.extract_value_and_description(value_string)
-                
-                if key and key.strip(): 
-                    key_lower = key.lower()
-                    self.key_to_action[key_lower] = action
-                    self.action_to_key[action] = key_lower
-    
     def create_widgets(self, target_tab: Optional[str] = None):
-        """Create widgets. ``target_tab`` filters to one tab; ADVANCED_KEYS divert to "Advanced"."""
+        """Create widgets. ``target_tab`` filters to one tab (None means all of them)."""
         # GameObjects gets a special map-dropdown layout; route there.
         if target_tab == "GameObjects":
             self._build_gameobjects_tab_layout()
@@ -491,145 +357,28 @@ class ConfigView(EmbeddedView):
             panel.SetSizer(panel.sizer)
             reset_sections(panel)
 
-        def _matches(actual_tab: str) -> bool:
-            return target_tab is None or actual_tab == target_tab
-
-        def _resolve(natural_tab: str, key_name: str) -> str:
-            return "Advanced" if key_name in ADVANCED_KEYS else natural_tab
-
-        for section in self.config.config.sections():
-            if section == "POI":
-                continue
-
-            for key in self.config.config[section]:
-                value_string = self.config.config[section][key]
-
-                # General-tab settings render there only, never twice.
-                if self._general_active and key in GENERAL_KEY_SECTIONS:
-                    continue
-
-                if section == "Toggles":
-                    actual_tab = _resolve("Toggles", key)
-                    if _matches(actual_tab):
-                        self.create_checkbox(actual_tab, key, value_string)
-                elif section == "Values":
-                    actual_tab = _resolve("Values", key)
-                    if _matches(actual_tab):
-                        self.create_value_entry(actual_tab, key, value_string)
-                elif section == "Audio":
-                    actual_tab = _resolve("Audio", key)
-                    if _matches(actual_tab):
-                        value, _ = self.extract_value_and_description(value_string)
-                        if value.lower() in ['true', 'false']:
-                            self.create_checkbox(actual_tab, key, value_string)
-                        elif key.endswith('Volume') or key == 'MasterVolume':
-                            self.create_volume_entry(actual_tab, key, value_string)
-                        else:
-                            self.create_value_entry(actual_tab, key, value_string)
-                elif section == "GameObjects":
-                    # Universal [GameObjects] keys are rendered by
-                    # _build_gameobjects_tab_layout; only the advanced-
-                    # routed ones need standard handling.
-                    actual_tab = _resolve("GameObjects", key)
-                    if actual_tab == "GameObjects":
-                        continue
-                    if _matches(actual_tab):
-                        value, _ = self.extract_value_and_description(value_string)
-                        if value.lower() in ['true', 'false']:
-                            self.create_checkbox(actual_tab, key, value_string)
-                        else:
-                            self.create_value_entry(actual_tab, key, value_string)
-                elif section.endswith("GameObjects"):
-                    # Per-map sections live entirely inside the
-                    # GameObjects tab's map sub-panels.
-                    continue
-                elif section == "Keybinds":
-                    # Keybinds aren't candidates for Advanced - they're
-                    # all user-facing customisation by definition.
-                    if _matches("Keybinds"):
-                        self.create_keybind_entry("Keybinds", key, value_string)
-                elif section == "Setup":
-                    # [Setup] keys are wizard-related toggles; route via
-                    # ADVANCED_KEYS so they live on the Advanced tab.
-                    actual_tab = _resolve("Advanced", key)
-                    if _matches(actual_tab):
-                        value, _ = self.extract_value_and_description(value_string)
-                        if value.lower() in ['true', 'false']:
-                            self.create_checkbox(actual_tab, key, value_string)
-                        else:
-                            self.create_value_entry(actual_tab, key, value_string)
-                elif section == "SETTINGS":
-                    val_part, _ = self.extract_value_and_description(value_string)
-                    if is_audio_setting(key):
-                        actual_tab = _resolve("Audio", key)
-                        if not _matches(actual_tab):
-                            continue
-                        if val_part.lower() in ['true', 'false']:
-                            self.create_checkbox(actual_tab, key, value_string)
-                        elif key.endswith('Volume') or key == 'MasterVolume':
-                            self.create_volume_entry(actual_tab, key, value_string)
-                        else:
-                            self.create_value_entry(actual_tab, key, value_string)
-                    elif is_game_objects_setting(key):
-                        actual_tab = _resolve("GameObjects", key)
-                        if not _matches(actual_tab):
-                            continue
-                        if val_part.lower() in ['true', 'false']:
-                            self.create_checkbox(actual_tab, key, value_string)
-                        else:
-                            self.create_value_entry(actual_tab, key, value_string)
-                    elif is_map_specific_game_object_setting(key):
-                        legacy_target = "MainGameObjects"
-                        for map_name in self.maps_with_objects.keys():
-                            if map_name == 'main':
-                                legacy_target = f"{map_name.title()}GameObjects"
-                                break
-                        actual_tab = _resolve(legacy_target, key)
-                        if not _matches(actual_tab):
-                            continue
-                        if val_part.lower() in ['true', 'false']:
-                            self.create_checkbox(actual_tab, key, value_string)
-                        else:
-                            self.create_value_entry(actual_tab, key, value_string)
-                    elif val_part.lower() in ['true', 'false']:
-                        actual_tab = _resolve("Toggles", key)
-                        if _matches(actual_tab):
-                            self.create_checkbox(actual_tab, key, value_string)
-                    else:
-                        actual_tab = _resolve("Values", key)
-                        if _matches(actual_tab):
-                            self.create_value_entry(actual_tab, key, value_string)
-                elif section == "SCRIPT KEYBINDS":
-                    if _matches("Keybinds"):
-                        self.create_keybind_entry("Keybinds", key, value_string)
-                elif section in TRACKED_ELSEWHERE:
-                    actual_tab = _resolve(TRACKED_ELSEWHERE[section], key)
-                    if not _matches(actual_tab):
-                        continue
-                    tracking = section if actual_tab == TRACKED_ELSEWHERE[section] else actual_tab
-                    value, _ = self.extract_value_and_description(value_string)
-                    if value.lower() in ['true', 'false']:
-                        self.create_checkbox(tracking, key, value_string)
-                    else:
-                        self.create_value_entry(tracking, key, value_string)
-
-        for _tab_name, panel in panels_to_reset:
+        for tab_name, panel in panels_to_reset:
+            for item in tab_items(self.config.config, tab_name, self._general_active, self.maps_with_objects):
+                self._create_item(item)
             panel.SetupScrolling(scroll_x=False, scroll_y=True)
+
+    def _create_item(self, item, parent_override=None) -> None:
+        """Create the control for one setting."""
+        args = (item.tracking, item.key, item.value_string)
+        if item.kind == "check":
+            self.create_checkbox(*args, parent_override=parent_override)
+        elif item.kind == "volume":
+            self.create_volume_entry(*args, parent_override=parent_override)
+        elif item.kind == "keybind":
+            self.create_keybind_entry(*args, parent_override=parent_override)
+        elif item.kind == "choice":
+            self.create_choice_entry(*args, item.choices, label_text=item.label, parent_override=parent_override)
+        else:
+            self.create_value_entry(*args, parent_override=parent_override)
 
     # ------------------------------------------------------------------
     # General tab - a few settings pulled out of other sections.
     # ------------------------------------------------------------------
-
-    def _general_value_string(self, key: str) -> str:
-        """The stored ``value "description"`` string for a General-tab key."""
-        section = GENERAL_KEY_SECTIONS[key]
-        parser = self.config.config
-        if parser.has_option(section, key):
-            return parser.get(section, key)
-        for other in parser.sections():
-            if parser.has_option(other, key):
-                return parser.get(other, key)
-        return get_default_config_value_string(section, key) or ""
 
     def _build_general_tab_layout(self) -> None:
         """Lay out the General tab: startup/update toggles, then what closing the window does."""
@@ -645,12 +394,8 @@ class ConfigView(EmbeddedView):
         self.tab_widgets["General"] = []
         self.tab_variables["General"] = {}
 
-        for key in GENERAL_TOGGLE_KEYS:
-            self.create_checkbox("General", key, self._general_value_string(key))
-        self.create_choice_entry(
-            "General", "CloseAction", self._general_value_string("CloseAction"),
-            CLOSE_ACTION_CHOICES, label_text=CLOSE_ACTION_LABEL,
-        )
+        for item in tab_items(self.config.config, "General"):
+            self._create_item(item)
 
         panel.SetupScrolling(scroll_x=False, scroll_y=True)
 
@@ -675,16 +420,8 @@ class ConfigView(EmbeddedView):
         self.tab_variables["GameObjects"] = {}
 
         # 1. Universal [GameObjects] settings (skip ADVANCED_KEYS - those go on Advanced).
-        if self.config.config.has_section("GameObjects"):
-            for key in self.config.config["GameObjects"]:
-                if key in ADVANCED_KEYS:
-                    continue
-                value_string = self.config.config["GameObjects"][key]
-                value, _ = self.extract_value_and_description(value_string)
-                if value.lower() in ['true', 'false']:
-                    self.create_checkbox("GameObjects", key, value_string)
-                else:
-                    self.create_value_entry("GameObjects", key, value_string)
+        for item in tab_items(self.config.config, "GameObjects"):
+            self._create_item(item)
 
         # 2. Map dropdown row.
         available_maps = sorted(self.maps_with_objects.keys()) if self.maps_with_objects else []
@@ -775,17 +512,8 @@ class ConfigView(EmbeddedView):
         self.tab_widgets[section_name] = []
         self.tab_variables[section_name] = {}
 
-        for key in self.config.config[section_name]:
-            if key in ADVANCED_KEYS:
-                continue  # would render on Advanced, not here
-            value_string = self.config.config[section_name][key]
-            value, _ = self.extract_value_and_description(value_string)
-            if value.lower() in ['true', 'false']:
-                self.create_checkbox(section_name, key, value_string,
-                                     parent_override=parent_panel)
-            else:
-                self.create_value_entry(section_name, key, value_string,
-                                        parent_override=parent_panel)
+        for item in map_items(self.config.config, map_name):
+            self._create_item(item, parent_override=parent_panel)
 
     def _resolve_widget_parent(self, tab_name: str, parent_override=None):
         """Pick the wx parent for a widget. ``parent_override`` lets the
@@ -835,21 +563,16 @@ class ConfigView(EmbeddedView):
     def _number_control(self, parent, key: str, value: str):
         """A SpinCtrl for whole numbers or a SpinCtrlDouble for decimals, or
         None when ``value`` isn't a number."""
-        try:
-            number = float(value)
-        except (ValueError, TypeError):
+        spec = number_spec(key, value)
+        if spec is None:
             return None
-        min_val, max_val = self.get_value_range(key)
         size = (parent.FromDIP(CONTROL_WIDTH), -1)
-        if "." in value:
-            digits = min(max(len(value.split(".", 1)[1]), 1), 3)
-            control = wx.SpinCtrlDouble(parent, size=size, min=min(min_val, number),
-                                        max=max(max_val, number), initial=number, inc=10 ** -digits)
-            control.SetDigits(digits)
+        if spec["decimals"]:
+            control = wx.SpinCtrlDouble(parent, size=size, min=spec["min"], max=spec["max"],
+                                        initial=spec["value"], inc=spec["step"])
+            control.SetDigits(spec["decimals"])
             return control
-        number = int(number)
-        return wx.SpinCtrl(parent, size=size, min=min(min_val, number), max=max(max_val, number),
-                           initial=number)
+        return wx.SpinCtrl(parent, size=size, min=spec["min"], max=spec["max"], initial=spec["value"])
 
     def create_value_entry(self, tab_name: str, key: str, value_string: str, parent_override=None):
         """Create a number box (or a text field for non-numbers) for a value setting."""
@@ -881,11 +604,7 @@ class ConfigView(EmbeddedView):
 
         value, description = self.extract_value_and_description(value_string)
         label = wx.StaticText(section.parent, label=setting_label(key, tab_name))
-
-        try:
-            scaled_value = int(float(value) * 100)
-        except (ValueError, TypeError):
-            scaled_value = 100
+        scaled_value = volume_percent(value)
 
         entry = wx.SpinCtrl(section.parent, size=(section.parent.FromDIP(CONTROL_WIDTH), -1),
                             min=0, max=100, initial=scaled_value)
@@ -1019,81 +738,22 @@ class ConfigView(EmbeddedView):
     
     def get_value_range(self, key: str) -> tuple:
         """Get reasonable min/max values for numeric settings"""
-        key_lower = key.lower()
-        
-        if 'volume' in key_lower:
-            return (0, 1000)
-        elif 'sensitivity' in key_lower:
-            return (1, 50000)
-        elif 'delay' in key_lower:
-            return (0, 10000)
-        elif 'steps' in key_lower:
-            return (1, 10000)
-        elif 'speed' in key_lower:
-            return (0, 10000)
-        elif 'distance' in key_lower or 'radius' in key_lower:
-            return (1, 10000)
-        elif 'dpi' in key_lower:
-            return (100, 50000)
-        elif 'interval' in key_lower or 'exponent' in key_lower:
-            return (0, 100)
-        else:
-            return (-10000, 10000)
-    
+        return get_value_range(key)
+
     def test_volume(self, volume_key: str, volume_value: str):
         """Test a volume setting by playing an appropriate sound"""
         try:
             volume = float(volume_value)
-            volume = max(0.0, min(volume, 1.0))
-            
-            sound_file = None
-            if volume_key == 'MasterVolume':
-                sound_file = 'assets/sounds/poi.ogg'
-            elif volume_key == 'POIVolume':
-                sound_file = 'assets/sounds/poi.ogg'
-            elif volume_key == 'StormVolume':
-                sound_file = 'assets/sounds/storm.ogg'
-            elif volume_key == 'DynamicObjectVolume':
-                sound_file = 'assets/sounds/dynamicobject.ogg'
-            else:
-                clean_key = volume_key.replace('Volume', '').lower()
-                for sound_name in get_available_sounds():
-                    if clean_key in sound_name.lower():
-                        sound_file = f'assets/sounds/{sound_name}.ogg'
-                        break
-
-                if not sound_file:
-                    sound_file = 'assets/sounds/poi.ogg'
-            
-            if not os.path.exists(sound_file):
-                return
-            
-            if volume_key not in self.test_audio_instances:
-                self.test_audio_instances[volume_key] = SpatialAudio(sound_file)
-            
-            audio_instance = self.test_audio_instances[volume_key]
-            
-            if volume_key == 'MasterVolume':
-                audio_instance.set_master_volume(volume)
-                audio_instance.set_individual_volume(1.0)
-            else:
-                master_vol = 1.0
-                if 'MasterVolume' in self.tab_variables.get("Audio", {}):
-                    try:
-                        master_vol = float(self.tab_variables["Audio"]['MasterVolume'].GetValue()) / 100.0
-                    except:
-                        master_vol = 1.0
-                
-                audio_instance.set_master_volume(master_vol)
-                audio_instance.set_individual_volume(volume)
-            
-            audio_instance.play_audio(left_weight=0.5, right_weight=0.5, volume=1.0)
-            
         except ValueError:
-            pass
-        except Exception as e:
-            logger.error(f"Error testing volume: {e}")
-    
+            return
+        master = 1.0
+        if 'MasterVolume' in self.tab_variables.get("Audio", {}):
+            try:
+                master = float(self.tab_variables["Audio"]['MasterVolume'].GetValue()) / 100.0
+            except Exception:
+                master = 1.0
+        self.volume_tester.play(volume_key, volume, master)
+
     def _set_keybind_value(self, action_name: str, button: wx.Button, value: str) -> None:
         """Store a key combination on its button and show a readable label.
 
@@ -1163,14 +823,11 @@ class ConfigView(EmbeddedView):
 
     def _clear_key(self, action_name: str, button: wx.Button) -> bool:
         """Unbind ``action_name``. Returns True if it had a key."""
-        old_value = getattr(button, 'key_value', "")
-        old_lower = self.action_to_key.pop(action_name, "") or old_value.lower()
-        if old_lower and self.key_to_action.get(old_lower) == action_name:
-            self.key_to_action.pop(old_lower, None)
+        changed = self.keytable.clear(action_name)
         self._set_keybind_value(action_name, button, "")
-        if old_value:
+        if changed:
             self._dirty_keys.add(("Keybinds", action_name))
-        return bool(old_value)
+        return bool(changed)
 
     def _bind_key(self, action_name: str, button: wx.Button, new_key: str) -> str:
         """Bind ``new_key`` to ``action_name``, swapping with any action that already uses it.
@@ -1179,39 +836,13 @@ class ConfigView(EmbeddedView):
         if there wasn't one). Returns a sentence describing the swap, or ""
         when the key was free.
         """
-        new_lower = new_key.lower()
-        previous = getattr(button, 'key_value', "")
-        conflict = self.key_to_action.get(new_lower)
-        if conflict == action_name:
-            conflict = None
-
-        old_lower = self.action_to_key.pop(action_name, "") or previous.lower()
-        if old_lower and self.key_to_action.get(old_lower) == action_name:
-            self.key_to_action.pop(old_lower, None)
-
-        note = ""
-        if conflict:
-            other = self._find_keybind_button(conflict)
-            self.action_to_key.pop(conflict, None)
-            used = f"{_key_name(new_key)} was used by {conflict}."
-            if previous:
-                prev_lower = previous.lower()
-                self.key_to_action[prev_lower] = conflict
-                self.action_to_key[conflict] = prev_lower
-                if other is not None:
-                    self._set_keybind_value(conflict, other, previous)
-                note = f"{used} Swapped: {conflict} is now {_key_name(previous)}."
-            else:
-                if other is not None:
-                    self._set_keybind_value(conflict, other, "")
-                note = f"{used} Swapped: {conflict} is now unbound."
-            self._dirty_keys.add(("Keybinds", conflict))
-
-        self.key_to_action[new_lower] = action_name
-        self.action_to_key[action_name] = new_lower
+        note, changed = self.keytable.bind(action_name, new_key)
+        for action, value in changed.items():
+            other = button if action == action_name else self._find_keybind_button(action)
+            if other is not None:
+                self._set_keybind_value(action, other, value)
+            self._dirty_keys.add(("Keybinds", action))
         self._set_keybind_value(action_name, button, new_key)
-        if previous.lower() != new_lower:
-            self._dirty_keys.add(("Keybinds", action_name))
         return note
 
     def handle_key_capture(self):
@@ -1233,10 +864,10 @@ class ConfigView(EmbeddedView):
             button = self.capture_widget
             if validate_key_combination(new_key):
                 note = self._bind_key(action, button, new_key)
-                message = note or f"{action} set to {_key_name(new_key)}"
+                message = bind_message(action, new_key, note)
             else:
                 self._set_keybind_value(action, button, self.original_capture_value)
-                message = "That key can't be used."
+                message = CANT_USE_KEY
 
             self._end_capture()
             speaker.speak(message)
@@ -1459,19 +1090,7 @@ class ConfigView(EmbeddedView):
         for tab_name in self.tab_variables:
             for key, stored_widget in self.tab_variables[tab_name].items():
                 if stored_widget == widget:
-                    lookup_section = tab_name
-                    if tab_name.endswith("GameObjects"):
-                        lookup_section = tab_name
-                    elif tab_name == "Audio":
-                        lookup_section = "Audio"
-                    elif tab_name == "GameObjects":
-                        lookup_section = "GameObjects"
-                    elif tab_name == "Advanced":
-                        lookup_section = self._default_section_for_key(key) or tab_name
-                    elif tab_name == "General":
-                        lookup_section = GENERAL_KEY_SECTIONS.get(key, tab_name)
-
-                    default_full_value = get_default_config_value_string(lookup_section, key)
+                    default_full_value = default_value_string(tab_name, key)
 
                     if not default_full_value:
                         return
@@ -1528,32 +1147,12 @@ class ConfigView(EmbeddedView):
     
     def extract_value_and_description(self, value_string: str) -> tuple:
         """Extract value and description from a config string"""
-        value_string = value_string.strip()
-        if '"' in value_string:
-            quote_pos = value_string.find('"')
-            value = value_string[:quote_pos].strip()
-            description = value_string[quote_pos+1:]
-            if description.endswith('"'):
-                description = description[:-1]
-            return value, description
-        return value_string, ""
+        return extract_value_and_description(value_string)
 
     def _default_section_for_key(self, key: str) -> Optional[str]:
-        """Return the default-config section that owns ``key`` (cached parser)."""
-        from lib.utilities.utilities import (
-            DEFAULT_CONFIG,
-            _create_config_parser_with_case_preserved,
-        )
-        parser = getattr(self, "_default_section_parser", None)
-        if parser is None:
-            parser = _create_config_parser_with_case_preserved()
-            parser.read_string(DEFAULT_CONFIG)
-            self._default_section_parser = parser
-        for section in parser.sections():
-            if parser.has_option(section, key):
-                return section
-        return None
-    
+        """Return the default-config section that owns ``key``."""
+        return default_section_for_key(key)
+
     def _widget_value(self, tab_name: str, setting_key: str, widget) -> str:
         """The value to store for ``widget`` (without its description)."""
         if isinstance(widget, wx.CheckBox):
@@ -1579,19 +1178,7 @@ class ConfigView(EmbeddedView):
 
     def _target_section(self, config_parser_instance, tab_name: str, setting_key: str) -> Optional[str]:
         """The config section a widget on ``tab_name`` is saved to."""
-        if tab_name == "General":
-            section = GENERAL_KEY_SECTIONS.get(setting_key)
-            if section and config_parser_instance.has_option(section, setting_key):
-                return section
-        if tab_name in ("Advanced", "General"):
-            # Advanced and General widgets save back to their real section.
-            for sec in config_parser_instance.sections():
-                if config_parser_instance.has_option(sec, setting_key):
-                    return sec
-            if tab_name == "General":
-                return GENERAL_KEY_SECTIONS.get(setting_key)
-            return self._default_section_for_key(setting_key)
-        return tab_name
+        return target_section(config_parser_instance, tab_name, setting_key)
 
     def _apply_changes_to(self, config_parser_instance) -> None:
         """Write this view's changed widgets onto ``config_parser_instance``."""

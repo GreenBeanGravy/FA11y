@@ -383,14 +383,36 @@ def get_pressed_key_combination(exclude_keys: Optional[Set[str]] = None) -> str:
 
     if not main_key:
         return ""
-    
-    # Combine modifiers and main key
-    if pressed_modifiers:
-        # Sort modifiers for consistency
-        pressed_modifiers.sort()
-        return "+".join(pressed_modifiers + [main_key])
-    else:
-        return main_key
+
+    return join_key_combination(pressed_modifiers, main_key)
+
+def join_key_combination(modifiers: List[str], main_key: str) -> str:
+    """Build the stored form of a combination: sorted modifiers, then the main key ('lalt+lshift+f')."""
+    if modifiers:
+        return "+".join(sorted(modifiers) + [main_key])
+    return main_key
+
+def key_name_for_vk(vk: int) -> Optional[str]:
+    """FA11y's name for a Windows virtual key code ('f', '5', 'num 5', 'grave'), or None if it has none."""
+    if ord('A') <= vk <= ord('Z'):
+        return chr(vk).lower()
+    if ord('0') <= vk <= ord('9'):
+        return chr(vk)
+    for name, code in VK_KEYS.items():
+        if code == vk:
+            return name
+    return None
+
+def combination_from_keys(main_vk: int, modifier_vks) -> str:
+    """The combination for a captured key press: the main key's virtual key code and the
+    codes of the Shift and Alt keys held with it (left and right ones, VK_LSHIFT and so on).
+    Returns '' when the main key has no FA11y name or is itself a modifier."""
+    main_key = key_name_for_vk(int(main_vk))
+    if not main_key or main_key in MODIFIER_KEYS:
+        return ""
+    held = {int(code) for code in modifier_vks or ()}
+    modifiers = [name for name, code in MODIFIER_KEYS.items() if code in held]
+    return join_key_combination(modifiers, main_key)
 
 def is_numlock_on():
     """Check if Num Lock is currently on."""

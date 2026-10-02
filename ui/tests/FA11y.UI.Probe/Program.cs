@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Windows.Automation;
 
 namespace FA11y.UI.Probe;
@@ -22,6 +23,10 @@ internal static class Program
     private static readonly List<string> Report = new();
     private static AutomationElement _window = null!;
     private static AutomationElement _pagesList = null!;
+    private static string _root = "";
+    private static bool _synthetic;
+    private static Process _core = null!;
+    private static int _uiPid;
 
     private static readonly (string Key, string Title, string Group)[] Pages =
     {
@@ -49,6 +54,7 @@ internal static class Program
             if (args[i] == "--root") root = args[i + 1];
         }
         fakeCore ??= FindFakeCore();
+        _root = root;
         Directory.CreateDirectory(root);
 
         var core = new Process
@@ -76,6 +82,7 @@ internal static class Program
             if (!lines.TryTake(out var started, 15000) || !started.StartsWith("STARTED "))
                 return Fail("The test core did not start the window.");
             uiPid = int.Parse(started.Split(' ')[1]);
+            _uiPid = uiPid;
 
             var startSw = Stopwatch.StartNew();
             AutomationElement? window = null;
@@ -162,6 +169,16 @@ internal static class Program
             WaitFor(() => Foreground() == Handle(_window), 3000);
             Thread.Sleep(300);
         }
+        _core = core;
+        _synthetic = Foreground() != Handle(_window);
+        if (_synthetic)
+        {
+            Info("Windows won't give this window the foreground (nothing has had real input for a long time), so keys can't be typed.");
+            Info("Pages are shown by the test core, every focusable element is read from the tree, and keys are sent to the focused");
+            Info("control through the test core. Tab order, arrow navigation between tabs, Ctrl+Tab and F6 are NOT checked in this run.");
+            RunWithoutForeground();
+            return;
+        }
         Check(Foreground() == Handle(_window), "the window is the foreground window");
         var focused = AutomationElement.FocusedElement;
         Check(InSidebar(focused) && focused.Current.Name == "Home", $"focus starts on the sidebar item Home (is \"{Safe(focused)}\")");
@@ -215,6 +232,9 @@ internal static class Program
             WaitFor(() => i == Pages.Length - 1 || _window.Current.Name == $"FA11y - {Pages[i + 1].Title}", 2000);
         }
 
+        Console.WriteLine("\n== Settings and Keybinds editor");
+        EditorChecks();
+
         Console.WriteLine("\n== Escape and the tray");
         Key(Vk.Home);
         WaitFor(() => _window.Current.Name == "FA11y - Home", 2000);
@@ -228,6 +248,42 @@ internal static class Program
         Check(InSidebar(f), $"summon puts focus on the sidebar (is \"{Safe(f)}\")");
     }
 
+    // Without the foreground ---------------------------------------------------------------------
+
+    /// <summary>The focusable elements of the page on screen, in tree order (the Tab order's stand-in).</summary>
+    private static List<AutomationElement> FocusableOnPage() =>
+        _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.IsKeyboardFocusableProperty, true))
+            .Cast<AutomationElement>()
+            .Where(e => !InSidebar(e) && e.Current.ControlType != ControlType.MenuBar && e.Current.ControlType != ControlType.MenuItem
+                        && e.Current.ControlType != ControlType.Tab && !(e.Current.ControlType == ControlType.List && e.Current.Name == "Pages"))
+            .ToList();
+
+    private static void RunWithoutForeground()
+    {
+        Console.WriteLine("\n== Each page, shown by the test core");
+        var times = new List<double>();
+        foreach (var page in Pages)
+        {
+            Console.WriteLine($"\n-- {page.Title}");
+            var sw = Stopwatch.StartNew();
+            _core.StandardInput.WriteLine($"show-page {page.Key}");
+            var shown = WaitFor(() => _window.Current.Name == $"FA11y - {page.Title}", 3000);
+            Check(shown, $"the page {page.Title} is shown ({sw.Elapsed.TotalMilliseconds:F0} ms)");
+            if (page.Key is "settings" or "keybinds")
+                WaitFor(() => FocusableOnPage().Count > 2, 5000);
+            Thread.Sleep(300);
+            times.Add(sw.Elapsed.TotalMilliseconds);
+            Check(PageContentIsFor(page.Key), $"only {page.Title}'s content is in the accessibility tree");
+            AuditPage(page, FocusableOnPage());
+        }
+
+        Console.WriteLine("\n== Settings and Keybinds editor");
+        EditorChecks();
+        Console.WriteLine("\n== Timings from the window's own log");
+        foreach (var line in ReadShared(Path.Combine(_root, "logs", "ui.log")).Split('\n').Where(l => l.Contains(" PERF ")).TakeLast(40))
+            Info(line.Trim());
+    }
+
     // One page --------------------------------------------------------------------
 
     private static void WalkPage(int index)
@@ -237,7 +293,7 @@ internal static class Program
 
         // Tab from the sidebar through every stop on the page, until focus wraps back to the sidebar.
         var seen = new List<AutomationElement>();
-        for (var n = 0; n < 40; n++)
+        for (var n = 0; n < 80; n++)
         {
             Key(Vk.Tab);
             Thread.Sleep(60);
@@ -246,7 +302,16 @@ internal static class Program
                 break;
             seen.Add(el);
         }
-        Check(seen.Count > 0, "Tab reaches something on the page");
+        AuditPage(page, seen);
+
+        // Enter from the sidebar lands on the page's first control; Escape comes back.
+        WalkEnter(page);
+    }
+
+    /// <summary>Everything the screen reader sees on a page: names, roles, and what each page has to say.</summary>
+    private static void AuditPage((string Key, string Title, string Group) page, List<AutomationElement> seen)
+    {
+        Check(seen.Count > 0, "something on the page can be reached");
         foreach (var el in seen)
         {
             var c = el.Current;
@@ -273,13 +338,37 @@ internal static class Program
         if (page.Key == "account")
             Check(seen.Any(e => e.Current.Name == "TestPlayer. Signed in." && e.Current.ControlType == ControlType.Text),
                 "the account text reads \"TestPlayer. Signed in.\" as Text");
+        if (page.Key == "settings")
+        {
+            Check(seen[0].Current.ControlType == ControlType.TabItem && seen[0].Current.Name == "General",
+                "Tab goes first to the General tab");
+            Check(seen.Any(e => e.Current.Name == "Start Fortnite when FA11y opens" && e.Current.ControlType == ControlType.CheckBox),
+                "a toggle is a check box named by its label");
+            Check(seen.Any(e => e.Current.Name == "When I close the FA11y window" && e.Current.ControlType == ControlType.ComboBox),
+                "a choice is a combo box named by its label");
+            var group = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+                new PropertyCondition(AutomationElement.NameProperty, "Startup and updates"),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Group)));
+            Check(group != null, "groups are named, so focus entering one is announced");
+            var help = seen.FirstOrDefault(e => e.Current.Name == "Start Fortnite when FA11y opens")?.Current.HelpText ?? "";
+            Check(help.StartsWith("Starts Fortnite automatically"), $"a setting's description is its help text (\"{Clip(help)}\")");
+        }
+        if (page.Key == "keybinds")
+        {
+            Check(seen.Count > 0 && seen[0].Current.Name.StartsWith("Toggle Keybinds: "), "the first stop is the first keybind");
+            Check(seen.Any(e => e.Current.Name == "Fire: Left Control" && e.Current.ControlType == ControlType.Button),
+                "a keybind is a button named \"Fire: Left Control\"");
+        }
         if (page.Key == "about")
         {
             Check(names.Contains("FA11y 1.2.3"), "the version text is reachable");
             Check(seen.Any(e => e.Current.Name == "Changelog" && e.Current.ControlType == ControlType.Edit), "Changelog is a named edit box");
         }
 
-        // Enter from the sidebar lands on the page's first control; Escape comes back.
+    }
+
+    private static void WalkEnter((string Key, string Title, string Group) page)
+    {
         Key(Vk.Enter);
         Thread.Sleep(120);
         var first = AutomationElement.FocusedElement;
@@ -291,11 +380,357 @@ internal static class Program
                 Check(Safe(first) == "TestPlayer. Signed in.", "Enter on the account page lands on who is signed in");
             if (page.Key == "about")
                 Check(Safe(first) == "FA11y 1.2.3", "Enter on About lands on the version");
+            if (page.Key == "settings")
+                Check(Safe(first) == "Start Fortnite when FA11y opens", "Enter on Settings lands on the first setting");
+            if (page.Key == "keybinds")
+                Check(Safe(first).StartsWith("Toggle Keybinds: "), "Enter on Keybinds lands on the first keybind");
             Key(Vk.Escape);
             Thread.Sleep(150);
             var back = AutomationElement.FocusedElement;
             Check(InSidebar(back) && back.Current.Name == page.Title, $"Escape returns to the sidebar item {page.Title} (is \"{Safe(back)}\")");
         }
+    }
+
+    // The editor, checked against the config file the test core writes ----------------------------------
+    // With the foreground, keys are real key presses. Without it (see RunWithoutForeground), they are sent to the
+    // focused control through the test core, and the UI Automation patterns do the rest.
+
+    private static string ReadShared(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        catch (IOException)
+        {
+            return "";
+        }
+    }
+
+    private static string Config() => ReadShared(Path.Combine(_root, "config.txt"));
+    private static string Log() => ReadShared(Path.Combine(_root, "fake-core.log"));
+
+    private static string WpfKeyName(Vk key) => key switch
+    {
+        Vk.RControl => "RightCtrl",
+        Vk.LShift => "LeftShift",
+        _ => key.ToString(),
+    };
+
+    /// <summary>Press a key. mods are held while it goes down (Control, Shift); held are other keys to count as held (LeftShift).</summary>
+    private static void Press(Vk key, string mods = "", string held = "")
+    {
+        if (_synthetic)
+        {
+            var heldNames = string.Join(',', held.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(h => WpfKeyName(Enum.Parse<Vk>(h))));
+            _core.StandardInput.WriteLine($"key {WpfKeyName(key)}" + (mods.Length > 0 ? $" mods={mods}" : "")
+                                          + (heldNames.Length > 0 ? $" held={heldNames}" : ""));
+            Thread.Sleep(150);
+            return;
+        }
+        var modifiers = mods.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(m => m == "Control" ? Vk.Control : Vk.Shift).ToArray();
+        var holds = held.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(h => Enum.Parse<Vk>(h)).ToArray();
+        foreach (var h in holds) Send(h, false);
+        KeyWith(key, modifiers);
+        foreach (var h in holds.Reverse()) Send(h, true);
+    }
+
+    /// <summary>Every element of the FA11y window and its popups with this name (and type).</summary>
+    private static AutomationElement? Find(string name, ControlType? type = null)
+    {
+        var condition = type == null
+            ? new PropertyCondition(AutomationElement.NameProperty, name)
+            : (Condition)new AndCondition(new PropertyCondition(AutomationElement.NameProperty, name),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, type));
+        foreach (AutomationElement window in AutomationElement.RootElement.FindAll(TreeScope.Children,
+                     new PropertyCondition(AutomationElement.ProcessIdProperty, _uiPid)))
+        {
+            var found = window.FindFirst(TreeScope.Descendants, condition);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
+    /// <summary>Give an element focus the way a screen reader does.</summary>
+    private static bool FocusElement(string name, ControlType? type = null)
+    {
+        if (!WaitFor(() => Find(name, type) != null, 4000))
+            return false;
+        Find(name, type)!.SetFocus();
+        return true;
+    }
+
+    private static string FocusedName() => FocusedInfo().Name;
+
+    private static (string Name, string Type) FocusedInfo()
+    {
+        if (!_synthetic)
+        {
+            var f = AutomationElement.FocusedElement;
+            return (f.Current.Name, Short(f.Current.ControlType));
+        }
+        var before = Regex.Matches(Log(), "test\\.focused").Count;
+        _core.StandardInput.WriteLine("where");
+        WaitFor(() => Regex.Matches(Log(), "test\\.focused").Count > before, 2000);
+        var last = Regex.Matches(Log(), "test\\.focused \\{'name': (?:'|\")(.*?)(?:'|\"), 'type': '(.*?)'\\}").LastOrDefault();
+        return last == null ? ("", "") : (last.Groups[1].Value, last.Groups[2].Value);
+    }
+
+    private static string FocusedText()
+    {
+        var (name, type) = FocusedInfo();
+        return $"{type} \"{name}\"";
+    }
+
+    private static bool FocusIs(string name)
+    {
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < 3000)
+        {
+            try { if (FocusedName() == name) return true; } catch { /* the tree is changing */ }
+            Thread.Sleep(80);
+        }
+        return false;
+    }
+
+    private static void GoToPage(string title, string key)
+    {
+        if (_synthetic)
+        {
+            _core.StandardInput.WriteLine($"show-page {key}");
+            WaitFor(() => _window.Current.Name == $"FA11y - {title}", 3000);
+            Thread.Sleep(300);
+            WaitFor(() => FocusableOnPage().Count > 0, 3000);
+            FocusableOnPage().FirstOrDefault()?.SetFocus();
+            Thread.Sleep(100);
+            return;
+        }
+        Key(Vk.Home);
+        for (var i = 0; i < 12 && _window.Current.Name != $"FA11y - {title}"; i++)
+        {
+            Key(Vk.Down);
+            Thread.Sleep(40);
+        }
+        WaitFor(() => _window.Current.Name == $"FA11y - {title}", 2000);
+    }
+
+    private static void SelectTab(string name)
+    {
+        var tab = Find(name, ControlType.TabItem);
+        if (tab != null)
+            ((SelectionItemPattern)tab.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+    }
+
+    private static string SelectedTab()
+    {
+        foreach (AutomationElement tab in _window.FindAll(TreeScope.Descendants,
+                     new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem)))
+        {
+            if (((SelectionItemPattern)tab.GetCurrentPattern(SelectionItemPattern.Pattern)).Current.IsSelected)
+                return tab.Current.Name;
+        }
+        return "";
+    }
+
+    private static void SetText(AutomationElement edit, string text) =>
+        ((ValuePattern)edit.GetCurrentPattern(ValuePattern.Pattern)).SetValue(text);
+
+    private static string TextOf(AutomationElement edit) =>
+        ((ValuePattern)edit.GetCurrentPattern(ValuePattern.Pattern)).Current.Value;
+
+    private static AutomationElement? SearchWindowElement()
+    {
+        // An owned window is a top-level window, but UI Automation may list it under its owner.
+        var condition = new AndCondition(
+            new PropertyCondition(AutomationElement.NameProperty, "Search settings"),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window));
+        return AutomationElement.RootElement.FindFirst(TreeScope.Children, new AndCondition(
+                   new PropertyCondition(AutomationElement.ProcessIdProperty, _uiPid), condition))
+               ?? _window.FindFirst(TreeScope.Children, condition);
+    }
+
+    private static void TypeText(string text)
+    {
+        foreach (var c in text)
+        {
+            Key(c == ' ' ? Vk.Space : (Vk)char.ToUpperInvariant(c));
+            Thread.Sleep(15);
+        }
+    }
+
+    /// <summary>Ctrl+F, the words, the first result's text, Enter. Then the setting should have focus.</summary>
+    private static void SearchAndJump(string query, string firstResult, string focusedName)
+    {
+        Press(Vk.F, mods: "Control");
+        var opened = WaitFor(() => SearchWindowElement() != null, 3000);
+        Check(opened, $"Ctrl+F opens the search popup ({query})");
+        if (!opened)
+        {
+            foreach (AutomationElement w in _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window)))
+                Info($"window of the FA11y process: \"{w.Current.Name}\" ({Short(w.Current.ControlType)}, offscreen {w.Current.IsOffscreen})");
+            return;
+        }
+        Thread.Sleep(250);
+        var box = SearchWindowElement()!.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.NameProperty, "Search settings"),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit)));
+        if (_synthetic)
+        {
+            box!.SetFocus();
+            SetText(box, query);
+        }
+        else
+        {
+            TypeText(query);
+        }
+        Thread.Sleep(250);
+        var results = SearchWindowElement()!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "Results"));
+        var first = results?.FindFirst(TreeScope.Children, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem));
+        var firstName = first?.Current.Name ?? "";
+        Check(firstResult.EndsWith('*') ? firstName.StartsWith(firstResult[..^1]) : firstName == firstResult,
+            $"the first match for \"{query}\" reads \"{firstResult}\" (is \"{firstName}\")");
+        Press(Vk.Enter);
+        Check(WaitFor(() => SearchWindowElement() == null, 2000), "Enter closes the popup");
+        Check(FocusIs(focusedName), $"the setting \"{focusedName}\" has focus (is {FocusedText()})");
+    }
+
+    private static void EditorChecks()
+    {
+        var sw = new Stopwatch();
+
+        // Settings: toggles, tabs, search, numbers ------------------------------------------------------
+        GoToPage("Settings", "settings");
+        Check(FocusElement("Start Fortnite when FA11y opens", ControlType.CheckBox), "the first toggle is on the General tab");
+        var toggle = Find("Start Fortnite when FA11y opens", ControlType.CheckBox)!;
+        ((TogglePattern)toggle.GetCurrentPattern(TogglePattern.Pattern)).Toggle();
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"StartFortniteOnLaunch = true"), 3000), "toggling a setting saves it to config.txt");
+        Press(Vk.R);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"StartFortniteOnLaunch = false"), 3000), "R resets the focused setting to its default");
+        Check(FocusIs("Start Fortnite when FA11y opens"), "focus stays on the setting after R");
+        Check(WaitFor(() => ((TogglePattern)Find("Start Fortnite when FA11y opens", ControlType.CheckBox)!
+                .GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.Off, 2000), "the check box shows the default");
+
+        foreach (var tab in new[] { "Toggles", "Values", "Audio", "GameObjects", "Advanced", "General" })
+        {
+            sw.Restart();
+            SelectTab(tab);
+            var shown = WaitFor(() => SelectedTab() == tab && FocusableOnPage().Count > 2, 3000);
+            Check(shown, $"the {tab} tab shows its settings");
+        }
+        Check(_window.Current.Name == "FA11y - Settings", "switching tabs doesn't change the page");
+
+        if (!_synthetic)
+        {
+            FocusElement("General", ControlType.TabItem);
+            Key(Vk.Right);
+            Check(FocusIs("Toggles"), "Right arrow moves to the next tab and focus stays on the tabs");
+            KeyWith(Vk.Tab, Vk.Control);
+            Check(FocusIs("Values") && _window.Current.Name == "FA11y - Settings", "Ctrl+Tab inside the tabs goes to the next tab, not the next page");
+            KeyWith(Vk.Tab, Vk.Control, Vk.Shift);
+            Check(FocusIs("Toggles"), "Ctrl+Shift+Tab goes back a tab");
+            Key(Vk.Tab);
+            Check(FocusIs("Mouse keys (look around, click, and aim with the keyboard)"), "Tab from a tab goes to the tab's first setting");
+        }
+
+        SearchAndJump("turn sens", "Turn sensitivity, Values", "Turn sensitivity");
+        Check(SelectedTab() == "Values", "the search switched to the Values tab");
+        Press(Vk.Up);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"TurnSensitivity = 76"), 4000), "Up arrow steps a number and saves it");
+        Check(TextOf(Find("Turn sensitivity", ControlType.Edit)!) == "76", "the number box shows 76");
+        Press(Vk.Down);
+        Press(Vk.Down);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"TurnSensitivity = 74"), 4000), "quick arrow presses save the last value");
+        SetText(Find("Turn sensitivity", ControlType.Edit)!, "120");
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"TurnSensitivity = 120"), 4000), "typing a number saves it after a moment");
+        SetText(Find("Turn sensitivity", ControlType.Edit)!, "999999");
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"TurnSensitivity = 50000"), 4000), "a number above the range is held to the range");
+        Check(WaitFor(() => TextOf(Find("Turn sensitivity", ControlType.Edit)!) == "50000", 3000), "and the box shows what was saved");
+        FocusElement("Turn sensitivity", ControlType.Edit);
+        Press(Vk.R);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"TurnSensitivity = 75"), 3000), "R on a number box resets it");
+        Check(WaitFor(() => TextOf(Find("Turn sensitivity", ControlType.Edit)!) == "75", 3000), "the number box shows the default again");
+
+        SelectTab("Advanced");
+        WaitFor(() => Find("Recenter delay", ControlType.Edit) != null, 3000);
+        FocusElement("Recenter delay", ControlType.Edit);
+        Press(Vk.Up);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"RecenterDelay = 0\.02"), 4000), "a decimal setting steps by its last digit and keeps its format");
+
+        SearchAndJump("master", "Master volume, Audio", "Master volume");
+        Press(Vk.Down);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"MasterVolume = 0\.99"), 4000), "a volume steps by one percent and is saved as a fraction");
+        Press(Vk.T);
+        Check(WaitFor(() => Log().Contains("settings.test_volume"), 3000), "T asks the core to play the volume's test sound");
+        Check(Find("Test Master volume", ControlType.Button) != null, "a volume has a Test button named for it");
+        Press(Vk.R);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"MasterVolume = 1\.0"), 3000), "R on a volume resets it");
+
+        // Choices
+        SelectTab("General");
+        FocusElement("When I close the FA11y window", ControlType.ComboBox);
+        Press(Vk.Down);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"CloseAction = tray"), 3000), "arrowing through a choice saves the new value");
+        Check(FocusIs("When I close the FA11y window"), "focus stays on the choice");
+        Press(Vk.R);
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"CloseAction = ask"), 3000), "R on a choice resets it");
+
+        // The GameObjects tab: universal settings, a map picker, then the picked map's settings.
+        SearchAndJump("visit distance", "Visit distance (meters), GameObjects (*", "Visit distance (meters)");
+        Check(SelectedTab() == "GameObjects", "the search switched to the GameObjects tab and its map");
+        Check(Find("Map", ControlType.ComboBox) != null, "the Map picker is a combo box named Map");
+        Check(Find("Chests", ControlType.Group) != null, "a map's objects are groups named for the object");
+
+        // Keybinds: capture, cancel, unbind, swap -----------------------------------------------------------
+        GoToPage("Keybinds", "keybinds");
+        SearchAndJump("recenter", "Recenter, Keybinds", "Recenter: Numpad 5");
+        Press(Vk.Enter);
+        Check(FocusIs("Recenter: Press any key"), "Enter on a keybind waits for a key");
+        Check(WaitFor(() => Log().Contains("keybinds.capture {'active': True}"), 3000), "the core is told to silence its own keybinds");
+        Press(Vk.F9);
+        Check(FocusIs("Recenter: F9"), "the pressed key becomes the binding");
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"Recenter = f9"), 3000), "the binding is saved as f9");
+        Check(WaitFor(() => Log().Contains("keybinds.capture {'active': False}"), 3000), "the core is told capture ended");
+
+        Press(Vk.Enter);
+        Check(FocusIs("Recenter: Press any key"), "capturing again");
+        Press(Vk.Escape);
+        Check(FocusIs("Recenter: F9"), "Escape cancels and restores the key");
+        Check(IsVisible(_uiPid), "Escape while capturing doesn't hide the window");
+        Press(Vk.Delete);
+        Check(FocusIs("Recenter: Unbound"), "Delete unbinds the focused keybind");
+        Check(WaitFor(() => !Regex.IsMatch(Config(), @"Recenter = f9"), 3000), "the unbinding is saved");
+        Press(Vk.R);
+        Check(FocusIs("Recenter: Numpad 5"), "R puts the default key back");
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"Recenter = num 5"), 3000), "the default is saved");
+
+        Press(Vk.Enter);
+        Press(Vk.F8, held: "LShift");
+        Check(FocusIs("Recenter: Left Shift + F8"), "a modifier held with a key is part of the binding");
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"Recenter = lshift\+f8"), 3000), "it is saved as lshift+f8");
+        Press(Vk.R);
+        Check(FocusIs("Recenter: Numpad 5"), "R restores it");
+
+        Press(Vk.Enter);
+        Press(Vk.Space);
+        Check(FocusIs("Recenter: Space"), "Space can be bound");
+        Press(Vk.R);
+        Check(FocusIs("Recenter: Numpad 5"), "R restores it again");
+
+        SearchAndJump("fire", "Fire, Keybinds", "Fire: Left Control");
+        Press(Vk.Enter);
+        Press(Vk.RControl);
+        Check(FocusIs("Fire: Right Control"), "binding a key another action has takes it");
+        Check(WaitFor(() => Find("Target: Left Control", ControlType.Button) != null, 3000), "the other action got this action's old key (swap)");
+        Press(Vk.R);
+        Check(FocusIs("Fire: Left Control"), "R brings the default back, swapping again");
+        Check(WaitFor(() => Find("Target: Right Control", ControlType.Button) != null, 3000), "and the other action has its key back");
+        Check(Regex.Matches(Log(), Regex.Escape("keybinds.capture {'active': True}")).Count ==
+              Regex.Matches(Log(), Regex.Escape("keybinds.capture {'active': False}")).Count,
+            "every capture start has a matching end");
     }
 
     // UI Automation helpers ------------------------------------------------------------
@@ -391,8 +826,9 @@ internal static class Program
 
     private enum Vk : ushort
     {
-        Tab = 0x09, Enter = 0x0D, Shift = 0x10, Control = 0x11, Escape = 0x1B,
-        End = 0x23, Home = 0x24, Down = 0x28, F6 = 0x75,
+        Tab = 0x09, Enter = 0x0D, Shift = 0x10, Control = 0x11, Escape = 0x1B, Space = 0x20,
+        PageUp = 0x21, PageDown = 0x22, End = 0x23, Home = 0x24, Left = 0x25, Up = 0x26, Right = 0x27, Down = 0x28,
+        Delete = 0x2E, F = 0x46, R = 0x52, T = 0x54, F6 = 0x75, F8 = 0x77, F9 = 0x78, LShift = 0xA0, RControl = 0xA3,
     }
 
     private static void TypeLetter(char c) => Key((Vk)char.ToUpperInvariant(c));
@@ -401,7 +837,7 @@ internal static class Program
 
     private static void KeyWith(Vk key, params Vk[] modifiers)
     {
-        if (Foreground() != Handle(_window))
+        if (!ForegroundIsOurs())
             throw new InvalidOperationException("The FA11y window lost the foreground; refusing to type into another program.");
         foreach (var m in modifiers) Send(m, false);
         Send(key, false);
@@ -411,7 +847,8 @@ internal static class Program
 
     private static void Send(Vk key, bool up)
     {
-        var extended = key is Vk.Down or Vk.End or Vk.Home;
+        var extended = key is Vk.Down or Vk.End or Vk.Home or Vk.Up or Vk.Left or Vk.Right or Vk.Delete
+            or Vk.PageUp or Vk.PageDown or Vk.RControl;
         var input = new INPUT
         {
             type = 1,
@@ -433,6 +870,15 @@ internal static class Program
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, INPUT[] inputs, int size);
 
     private static IntPtr Foreground() => GetForegroundWindow();
+
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+
+    /// <summary>The foreground window belongs to the FA11y window process (the main window or one of its popups).</summary>
+    private static bool ForegroundIsOurs()
+    {
+        GetWindowThreadProcessId(Foreground(), out var pid);
+        return pid == _uiPid;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct KEYBDINPUT

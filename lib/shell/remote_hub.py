@@ -18,6 +18,7 @@ Events sent to the UI:
     fortnite.running   {running}
     update.available   {version}
     home.changed, account.changed, about.changed    a page's data changed
+    views.reset        {keys}, the Settings or Keybinds page should reload from the config
 Events from the UI:
     ui.ready           the window is on screen and listening
     ui.visibility      {visible, active}
@@ -35,7 +36,8 @@ from lib.shell.bridge import Bridge, registry
 
 logger = logging.getLogger(__name__)
 
-PORTED_PAGES = ("home", "account", "about")
+PORTED_PAGES = ("home", "account", "about", "settings", "keybinds")
+EDITOR_PAGES = ("settings", "keybinds")  # the config editor's two views: reloaded with views.reset
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
 
@@ -50,7 +52,10 @@ class _PageProxy:
         self.key = key
 
     def refresh(self) -> None:
-        self._hub.send(f"{self.key}.changed")
+        if self.key in EDITOR_PAGES:
+            self._hub.send("views.reset", {"keys": [self.key]})
+        else:
+            self._hub.send(f"{self.key}.changed")
 
 
 class RemoteHub:
@@ -78,7 +83,7 @@ class RemoteHub:
 
     @staticmethod
     def _load_handlers() -> None:
-        from lib.shell.handlers import about, account, app, home  # noqa: F401 (they register themselves)
+        from lib.shell.handlers import about, account, app, home, settings  # noqa: F401 (they register themselves)
 
     # Lifecycle -----------------------------------------------------------
 
@@ -178,7 +183,10 @@ class RemoteHub:
         self.send("ui.show_page", data)
 
     def reset_views(self, keys) -> None:
-        """Rebuild the wx views on these pages (after signing in or out)."""
+        """Rebuild the views on these pages (after signing in or out, or a config change)."""
+        editors = [key for key in keys if key in EDITOR_PAGES]
+        if editors:
+            self.send("views.reset", {"keys": editors})
         classic = self._classic
         if classic is None:
             return
@@ -277,6 +285,11 @@ class RemoteHub:
         self.send("fortnite.running", {"running": running})
         if running and settings.flag("HideHubWhenFortniteStarts", True) and self._shown:
             self.hide_to_tray()
+
+    def keybinds_edited(self) -> None:
+        """The user changed a keybind in the editor: the Open FA11y key shown on Home may have changed."""
+        from lib.app import state
+        self._on_keybinds_changed(state.are_keybinds_enabled())
 
     def _on_keybinds_changed(self, enabled: bool) -> None:
         self.send("keybinds.changed", {"enabled": enabled,
