@@ -34,9 +34,6 @@ what it currently does:
 
 ### Out of match
 
-- Install, verify, update, and launch Fortnite via `FortniteManager.py`
-  (uses [Legendary](https://github.com/derrod/legendary) — no Epic launcher
-  required)
 - Browse and equip cosmetics via the Locker selector
 - Select game modes via the Discovery selector (Left Alt + apostrophe)
 - Browse Creative islands via the Discovery menu
@@ -47,13 +44,21 @@ what it currently does:
 
 ## Setup
 
-1. Install Python 3.10+ (check "Add Python to PATH" during install)
-2. Download the latest FA11y release and extract it (avoid the Fortnite
-   install directory and system folders)
-3. From the extracted folder, run `pip install -r requirements.txt` to install
-   dependencies, then launch with `python FA11y.py`
+1. Download `Updater.exe` and `FA11y Launcher.exe` from the latest
+   `installer-v` release and put both in an empty folder (avoid the
+   Fortnite install directory and system folders)
+2. Run `Updater.exe`. It installs FA11y into a `FA11y Files` folder next to
+   it, together with its own copy of Python and everything FA11y needs, so
+   you don't need to install Python yourself. Windows asks once for
+   permission to install the drivers FA11y uses for mouse control.
+3. Start FA11y with `FA11y Launcher.exe`. It checks for updates each time
+   it starts (turn this off with the `AutoUpdates` setting).
 4. On first run, FA11y creates `config/config.txt` with default keybinds;
    press `F9` in-game to open the configuration menu
+
+If you already use an older FA11y, keep starting it as usual: the next
+update moves it to the new layout and keeps your settings. A backup of
+your settings is kept in a `FA11y_backup_` folder for two weeks.
 
 ## Default keybinds
 
@@ -124,23 +129,6 @@ All keybinds are configurable via `F9` → FA11y configuration menu.
 | `L-Alt + Y` / `L-Alt + N` | Accept / decline pending notification |
 | `L-Alt + Shift + M` | Recapture mouse (for passthrough) |
 | `L-Alt + Shift + P` | Toggle mouse passthrough |
-
-## Installing Fortnite (first time)
-
-1. Visit [Fortnite's store page](https://store.epicgames.com/en-US/p/fortnite)
-   and add it to your account ("GET")
-2. From your FA11y folder run `python FortniteManager.py`
-3. Log in with Legendary: in the Fortnite Manager press "Authenticate", or
-   open a command prompt in the FA11y folder and run `legendary auth`
-   (sighted help may be needed for the hCaptcha)
-4. Press "Install / Update Fortnite" in the Fortnite Manager
-5. During installation:
-   - `P`: announce progress
-   - `-` / `+`: adjust progress-update frequency
-   - `Escape`: cancel
-
-Launch Fortnite afterwards from the Fortnite Manager (performance mode is
-recommended).
 
 ## Troubleshooting
 

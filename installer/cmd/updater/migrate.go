@@ -44,7 +44,7 @@ var legacyConfigFiles = []string{
 
 // legacyExtras are generated files of the old layout that are not in the
 // repository.
-var legacyExtras = []string{"README.txt", "legendary.exe", "config", "logs", "debug", "whls", "__pycache__"}
+var legacyExtras = []string{"README.txt", "legendary.exe", "FortniteManager.py", "config", "logs", "debug", "whls", "__pycache__"}
 
 // isLegacy reports whether the root folder holds an old single-folder install.
 func isLegacy(l layout.Layout) bool {

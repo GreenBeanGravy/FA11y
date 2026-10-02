@@ -39,19 +39,21 @@ The updater detects updates by comparing the local `VERSION` file against the on
 FA11y exists for screen-reader users. For any change:
 
 - Every user-visible event needs spoken feedback
-- New GUIs must use the existing accessible wxPython patterns (see `AccessibleDialog` usage in `FortniteManager.py`) - full keyboard navigation, no mouse-only interactions
+- New GUIs must use the existing accessible wxPython patterns (see `AccessibleDialog` usage in `lib/guis/config_gui.py`) - full keyboard navigation, no mouse-only interactions
 - Never rely on color or visuals alone to convey information
 
 ## Dependencies
 
-- Add new packages to `requirements.txt`; the updater installs them automatically on user machines
+- Add new packages to `requirements.txt`, then regenerate the lockfile, which pins every package with hashes for the bundled Python:
+  `uv pip compile requirements.txt --python-version 3.12 --python-platform x86_64-pc-windows-msvc --generate-hashes --no-header -o requirements.lock`
+- The updater installs `requirements.lock` on user machines whenever it changes; CI checks the two files match
 - Keep additions compatible with the pinned `numpy==1.26.4`
 - Pin a version only when a newer release is known to break
 
 ## Before you push
 
 1. Run the test suite: `python -m pytest tests -q`
-2. Byte-compile to catch syntax/import errors: `python -m compileall -q FA11y.py updater.py FortniteManager.py lib`
+2. Byte-compile to catch syntax/import errors: `python -m compileall -q FA11y.py updater.py lib`
 3. Search for leftover references when removing a feature (imports, keybind handlers, config defaults, monitor start/stop calls in `FA11y.py`)
 
 ## Code patterns
