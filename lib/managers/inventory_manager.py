@@ -307,6 +307,10 @@ class InventoryManager:
         
         while not self.stop_monitoring.is_set():
             try:
+                from lib.monitors.base import BaseMonitor
+                if BaseMonitor.screen_paused():
+                    time.sleep(0.5)
+                    continue
                 current_inventory_state = self.detect_inventory_open()
                 
                 # Handle inventory state change

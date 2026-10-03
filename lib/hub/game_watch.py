@@ -55,20 +55,34 @@ def is_fortnite_foreground() -> bool:
         return False
 
 
+SETTLE_SECONDS = 2.0
+
 _on_screen_cache = (0.0, False)
+_in_front_since: Optional[float] = None
 
 
 def fortnite_on_screen() -> bool:
-    """Fortnite is running and its window is in front. Cached for a quarter second,
-    since the screen monitors ask several times a second each."""
-    global _on_screen_cache
+    """Fortnite is running and has been the window in front for SETTLE_SECONDS.
+
+    The wait skips the frames right after switching to Fortnite, when the
+    screen is still changing. Cached for a quarter second, since the screen
+    monitors ask several times a second each.
+    """
+    global _on_screen_cache, _in_front_since
     if not _running:
+        _in_front_since = None
         return False
     now = time.monotonic()
     checked, result = _on_screen_cache
     if now - checked < 0.25:
         return result
-    result = is_fortnite_foreground()
+    if is_fortnite_foreground():
+        if _in_front_since is None:
+            _in_front_since = now
+        result = now - _in_front_since >= SETTLE_SECONDS
+    else:
+        _in_front_since = None
+        result = False
     _on_screen_cache = (now, result)
     return result
 

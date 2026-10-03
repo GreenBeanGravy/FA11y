@@ -20,6 +20,8 @@ update_sound = None
 shutdown_requested: threading.Event = threading.Event()
 stop_key_listener: threading.Event = threading.Event()
 auth_expired: threading.Event = threading.Event()
+# Set once startup (including the Epic sign-in attempt) has finished.
+startup_done: threading.Event = threading.Event()
 
 # Per-GUI "is open" flags so we don't open the same window twice.
 config_gui_open: threading.Event = threading.Event()

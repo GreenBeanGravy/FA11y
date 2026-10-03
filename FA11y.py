@@ -941,16 +941,28 @@ def _restore_epic_session() -> bool:
 
 def _finish_epic_login(restored: bool, first_run: bool) -> None:
     """Main-thread half of the Epic login: silent WebView fallback, then wire up social features."""
+    from lib.utilities.epic_auth import get_epic_auth_instance
+
+    epic_auth = get_epic_auth_instance()
+    if not restored and epic_auth:
+        print("Attempting silent authentication...")
+        epic_auth.try_silent_webview_auth(lambda ok: _complete_epic_login(ok, first_run), timeout=10.0)
+        return
+    _complete_epic_login(restored, first_run)
+
+
+def _complete_epic_login(restored: bool, first_run: bool) -> None:
+    """Signed in or not: wire up social features and say FA11y is ready.
+
+    Never opens a sign-in window or switches the FA11y window to the Epic
+    account page; signing in is always the user's choice.
+    """
     global social_manager, discovery_api
     from lib.hub import get_hub
     from lib.utilities.epic_auth import get_epic_auth_instance
 
     epic_auth = get_epic_auth_instance()
     ready_notice = False
-    if not restored and epic_auth:
-        print("Attempting silent authentication...")
-        restored = epic_auth.try_silent_webview_auth(timeout=10.0)
-
     if restored and epic_auth and epic_auth.access_token:
         _on_auth_success(epic_auth)
         social_manager = _app_state.get_social_manager()
@@ -967,9 +979,6 @@ def _finish_epic_login(restored: bool, first_run: bool) -> None:
         print("Epic Games sign-in needed for account features")
         speaker.speak("FA11y is ready. Sign in to your Epic account on the Epic account page.")
         ready_notice = True
-        hub = get_hub()
-        if hub is not None and hub.IsShown():
-            hub.show_page("account", focus_sidebar=True)
 
     hub = get_hub()
     if hub is not None and ready_notice:
@@ -983,6 +992,8 @@ def _finish_epic_login(restored: bool, first_run: bool) -> None:
     # An update found at startup is spoken after the ready message.
     from lib.app import updater_check
     updater_check.startup_finished(speaker)
+    # Screen monitors wait for this, so nothing is read off the screen while FA11y loads.
+    _app_state.startup_done.set()
 
 
 def _finish_startup(first_run: bool) -> None:

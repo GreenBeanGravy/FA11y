@@ -178,26 +178,19 @@ class EpicAuth:
 
         threading.Thread(target=_auto_reauth, daemon=True, name="auto-reauth").start()
 
-    def try_silent_webview_auth(self, timeout: float = 10.0) -> bool:
-        """
-        Attempt silent authentication using hidden wx WebView.
-        Uses wx's native cookie management.
+    def try_silent_webview_auth(self, on_done, timeout: float = 10.0) -> None:
+        """Sign in from the WebView's saved Epic cookies in the background.
 
-        Args:
-            timeout: Maximum time to wait for auth
-
-        Returns:
-            True if authentication succeeded silently
+        Never shows a window or takes focus. ``on_done(success)`` runs on the
+        wx thread when it finishes.
         """
         try:
-            # Import here to avoid circular dependency
             from lib.guis.epic_browser_login import silent_webview_auth
-
             logger.debug("Attempting silent WebView authentication")
-            return silent_webview_auth(self, timeout)
+            silent_webview_auth(self, on_done, timeout)
         except Exception as e:
             logger.error(f"Error in silent WebView auth: {e}")
-            return False
+            on_done(False)
 
     def get_authorization_url(self) -> str:
         """

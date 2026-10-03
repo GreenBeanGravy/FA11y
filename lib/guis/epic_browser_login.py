@@ -17,37 +17,36 @@ EPIC_ACCOUNT_URL = "https://www.epicgames.com/account/personal"
 EPIC_REDIRECT_URL = "https://www.epicgames.com/id/api/redirect"
 
 
-class SilentAuthDialog(wx.Dialog):
+class SilentAuthDialog(wx.Frame):
     """
-    Minimized dialog for silent authentication attempts.
+    Off-screen window for silent authentication attempts. It never takes
+    focus or shows in the taskbar, and it doesn't block: ``on_done(success)``
+    is called on the wx thread when it finishes.
     Uses wx WebView to check if user has valid session cookies.
     """
 
-    def __init__(self, auth_instance, timeout: float = 10.0):
-        """
-        Initialize minimized auth dialog.
-
-        Args:
-            auth_instance: EpicAuth instance to update
-            timeout: Maximum time to wait for auth code
-        """
+    def __init__(self, auth_instance, timeout: float, on_done):
+        # WebView needs a real, shown window to navigate, so it is shown far
+        # off screen without being activated.
         super().__init__(
             None,
             title="Authenticating...",
-            size=(800, 600),  # Normal size for proper WebView initialization
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+            pos=(-32000, -32000),
+            size=(800, 600),
+            style=wx.FRAME_NO_TASKBAR | wx.FRAME_TOOL_WINDOW | wx.BORDER_NONE
         )
 
         self.auth_instance = auth_instance
         self.timeout = timeout
         self.auth_successful = False
         self.start_time = time.time()
+        self._on_done = on_done
+        self._finished = False
+        self._timer = None
 
-        # Create panel and sizer for WebView
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Create WebView
         try:
             self.browser = wx.html2.WebView.New(panel)
             self.browser.Bind(wx.html2.EVT_WEBVIEW_NAVIGATED, self._on_navigated)
@@ -60,43 +59,40 @@ class SilentAuthDialog(wx.Dialog):
             self.browser = None
 
         panel.SetSizer(sizer)
-
-        # Iconify (minimize) the window
-        self.Iconize(True)
-
-        # Start authentication attempt
         wx.CallAfter(self._start_silent_auth)
 
-    def _safe_end_modal(self, code: int) -> None:
-        """End the modal loop iff one is still running.
-
-        Multiple paths can race to close the dialog (success, timeout,
-        WebView error). Whichever lands second hits a no-running-loop
-        assertion otherwise.
-        """
+    def _finish(self, success: bool) -> None:
+        """Report the result once and close the window."""
+        if self._finished:
+            return
+        self._finished = True
+        if self._timer is not None:
+            self._timer.Stop()
+        logger.debug(f"Silent auth result: {success}")
         try:
-            if self.IsBeingDeleted():
-                return
-            if not self.IsModal():
-                return
-            self.EndModal(code)
-        except Exception as e:
-            logger.debug(f"EndModal skipped: {e}")
+            self.Destroy()
+        except Exception:
+            pass
+        try:
+            self._on_done(success)
+        except Exception:
+            logger.exception("Silent auth callback failed")
 
     def _start_silent_auth(self):
         """Start the silent authentication attempt"""
         if not self.browser:
             logger.error("No browser available for silent auth")
-            wx.CallAfter(self._safe_end_modal, wx.ID_CANCEL)
+            self._finish(False)
             return
 
-        # Navigate to Epic's redirect URL
         redirect_url = f"https://www.epicgames.com/id/api/redirect?clientId={self.auth_instance.CLIENT_ID}&responseType=code"
         logger.debug(f"Starting silent auth to: {redirect_url}")
         self.browser.LoadURL(redirect_url)
+        self._timer = wx.CallLater(int(self.timeout * 1000), self._check_timeout)
 
-        # Set up timeout
-        wx.CallLater(int(self.timeout * 1000), self._check_timeout)
+    def was_successful(self) -> bool:
+        """Check if authentication was successful"""
+        return self.auth_successful
 
     def _on_navigated(self, event):
         """Handle navigation events"""
@@ -151,6 +147,11 @@ class SilentAuthDialog(wx.Dialog):
                 if 'code=' in redirect_url_value:
                     logger.debug(f"Silent auth: Extracted redirectUrl from regex: {redirect_url_value[:100]}")
                     self._extract_and_complete(redirect_url_value)
+                    return
+
+            # Epic answered without a code: there is no signed-in session to reuse.
+            logger.debug("Silent auth: no saved Epic session in the WebView")
+            wx.CallAfter(self._finish, False)
 
         except Exception as e:
             logger.debug(f"Silent auth: Error checking page source: {e}")
@@ -178,7 +179,7 @@ class SilentAuthDialog(wx.Dialog):
                 if self.auth_instance.is_valid and self.auth_instance.access_token:
                     logger.info(f"Silent auth successful for {self.auth_instance.display_name}")
                     self.auth_successful = True
-                    wx.CallAfter(self._safe_end_modal, wx.ID_OK)
+                    wx.CallAfter(self._finish, True)
                     return
                 else:
                     logger.warning("Silent auth: Token exchange succeeded but auth not valid")
@@ -215,38 +216,21 @@ class SilentAuthDialog(wx.Dialog):
         if not self.auth_successful:
             elapsed = time.time() - self.start_time
             logger.debug(f"Silent auth timed out after {elapsed:.1f}s")
-            self._safe_end_modal(wx.ID_CANCEL)
-
-    def was_successful(self) -> bool:
-        """Check if authentication was successful"""
-        return self.auth_successful
+            self._finish(False)
 
 
-def silent_webview_auth(auth_instance, timeout: float = 10.0) -> bool:
+def silent_webview_auth(auth_instance, on_done, timeout: float = 10.0) -> None:
     """
-    Attempt authentication using a hidden WebView window.
-    If wx has valid cookies, this will succeed silently.
-
-    Args:
-        auth_instance: EpicAuth instance to update
-        timeout: Max time to wait for auth
-
-    Returns:
-        True if authentication succeeded
+    Try to sign in from the WebView's saved Epic cookies, without any visible
+    window. Returns at once; ``on_done(success)`` runs on the wx thread.
     """
     try:
-        logger.debug("Creating silent auth dialog")
-        dialog = SilentAuthDialog(auth_instance, timeout)
-        result = dialog.ShowModal()
-        success = dialog.was_successful()
-        dialog.Destroy()
-
-        logger.debug(f"Silent auth result: {success}")
-        return success
-
+        logger.debug("Creating silent auth window")
+        frame = SilentAuthDialog(auth_instance, timeout, on_done)
+        frame.ShowWithoutActivating()
     except Exception as e:
         logger.error(f"Error in silent WebView auth: {e}")
-        return False
+        on_done(False)
 
 
 class EpicBrowserLoginDialog(wx.Dialog):
