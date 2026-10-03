@@ -36,6 +36,20 @@ def legendary_login(auth) -> None:
     threading.Thread(target=work, name="LegendaryLogin", daemon=True).start()
 
 
+def ensure_legendary_login(auth) -> None:
+    """At startup: sign legendary in from FA11y's restored session if it has no login of its own."""
+    def work():
+        try:
+            from lib.fortnite import get_manager
+            manager = get_manager()
+            if manager.legendary_command() is None or manager.status().logged_in:
+                return
+            manager.login_with_exchange_code(auth.get_exchange_code())
+        except Exception:
+            pass
+    threading.Thread(target=work, name="LegendaryLogin", daemon=True).start()
+
+
 def after_sign_in(auth) -> None:
     """Wire up the account features once the user has signed in. Run on the wx thread."""
     from lib.app.auth_actions import on_auth_success

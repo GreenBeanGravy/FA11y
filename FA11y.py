@@ -950,6 +950,8 @@ def _complete_epic_login(restored: bool, first_run: bool) -> None:
         match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
         match_event_monitor.local_account_id = epic_auth.account_id
         print(f"Social features enabled for {epic_auth.display_name}")
+        from lib.hub import account_ops
+        account_ops.ensure_legendary_login(epic_auth)
         if not first_run:
             speaker.speak(simple(f"Welcome back {epic_auth.display_name}! FA11y is ready.", f"Welcome back {epic_auth.display_name}"))
             ready_notice = True
