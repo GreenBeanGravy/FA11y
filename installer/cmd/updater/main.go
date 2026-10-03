@@ -96,6 +96,7 @@ func run(l layout.Layout, opts options) (int, error) {
 		return exitError, err
 	}
 	selfupdate.CleanupOld(l.Updater(), l.Launcher())
+	fixLauncherName(l)
 	waitForExit(opts.waitPIDs)
 	legacy := isLegacy(l)
 	st, err := state.Load(l.Files)
@@ -349,12 +350,16 @@ func updateExecutables(l layout.Layout, branch string) (restarted bool, code int
 		return false, 0
 	}
 	console.Say("Updating the FA11y updater to version %s...", rel.Version)
-	if a, ok := rel.Assets[layout.LauncherExe]; ok {
+	a, ok := rel.Assets[layout.LauncherExe]
+	if !ok {
+		a, ok = rel.Assets[releaseName(layout.LauncherExe)]
+	}
+	if ok {
 		if err := selfupdate.Replace(l.Launcher(), a); err != nil {
 			console.Say("Could not update %s: %v", layout.LauncherExe, err)
 		}
 	}
-	a, ok := rel.Assets[layout.UpdaterExe]
+	a, ok = rel.Assets[layout.UpdaterExe]
 	if !ok {
 		return false, 0
 	}
@@ -363,6 +368,27 @@ func updateExecutables(l layout.Layout, branch string) (restarted bool, code int
 		return false, 0
 	}
 	return true, restartSelf(l)
+}
+
+// releaseName is the name GitHub gives a release file: it replaces spaces
+// with dots, so "FA11y Launcher.exe" is published as "FA11y.Launcher.exe".
+func releaseName(name string) string {
+	return strings.ReplaceAll(name, " ", ".")
+}
+
+// fixLauncherName renames a launcher downloaded from a release page
+// ("FA11y.Launcher.exe") to the name FA11y uses.
+func fixLauncherName(l layout.Layout) {
+	downloaded := filepath.Join(l.Root, releaseName(layout.LauncherExe))
+	if _, err := os.Stat(l.Launcher()); err == nil {
+		return
+	}
+	if _, err := os.Stat(downloaded); err != nil {
+		return
+	}
+	if err := os.Rename(downloaded, l.Launcher()); err != nil {
+		console.Say("Could not rename %s to %s: %v", releaseName(layout.LauncherExe), layout.LauncherExe, err)
+	}
 }
 
 func restartSelf(l layout.Layout) int {

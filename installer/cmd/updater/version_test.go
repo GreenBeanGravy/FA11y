@@ -1,6 +1,12 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/GreenBeanGravy/FA11y/installer/internal/layout"
+)
 
 func TestVersionNewer(t *testing.T) {
 	cases := []struct {
@@ -21,5 +27,21 @@ func TestVersionNewer(t *testing.T) {
 		if got := versionNewer(c.remote, c.local); got != c.want {
 			t.Errorf("versionNewer(%q, %q) = %v, want %v", c.remote, c.local, got, c.want)
 		}
+	}
+}
+
+func TestFixLauncherName(t *testing.T) {
+	dir := t.TempDir()
+	l := layout.New(dir)
+	downloaded := filepath.Join(dir, "FA11y.Launcher.exe")
+	if err := os.WriteFile(downloaded, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fixLauncherName(l)
+	if _, err := os.Stat(l.Launcher()); err != nil {
+		t.Fatalf("launcher not renamed: %v", err)
+	}
+	if _, err := os.Stat(downloaded); !os.IsNotExist(err) {
+		t.Fatalf("downloaded name still there")
 	}
 }
