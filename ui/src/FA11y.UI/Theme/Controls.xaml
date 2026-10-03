@@ -691,4 +691,89 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- Settings groups: a card with a heading (the wx SettingsGroup). The heading is read as the group's name. -->
+    <Style TargetType="c:SettingsGroup">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="Margin" Value="0,0,12,12" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="c:SettingsGroup">
+                    <Border Background="{StaticResource CardBg}" BorderBrush="{StaticResource CardBorder}"
+                            BorderThickness="1" CornerRadius="8" Padding="16,10,16,12">
+                        <StackPanel>
+                            <c:HiddenText Text="{TemplateBinding Header}" FontSize="{StaticResource SubheadingFontSize}"
+                                          FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,0,0,8" />
+                            <ContentPresenter />
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Pill tabs (the wx TabbedBook). Arrow keys move between the tabs, Ctrl+Tab cycles them. -->
+    <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Grid Margin="0,0,4,0">
+                        <Border x:Name="Ring" CornerRadius="9" BorderThickness="2" BorderBrush="Transparent" />
+                        <Border x:Name="Face" Margin="2" CornerRadius="8" BorderThickness="1"
+                                Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                Padding="12,4" MinHeight="26">
+                            <c:HiddenText x:Name="Label" Text="{TemplateBinding Header}" VerticalAlignment="Center"
+                                          Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{StaticResource HoverBg}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{StaticResource SelectedBg}" />
+                            <Setter TargetName="Face" Property="BorderBrush" Value="{StaticResource SelectedBg}" />
+                            <Setter TargetName="Label" Property="Foreground" Value="{StaticResource SelectedText}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="KeyboardNavigation.TabNavigation" Value="Cycle" />
+        <Setter Property="KeyboardNavigation.DirectionalNavigation" Value="Contained" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel x:Name="HeaderPanel" Grid.Row="0" Orientation="Horizontal" IsItemsHost="True"
+                                    Margin="0,0,0,10" KeyboardNavigation.TabIndex="1"
+                                    KeyboardNavigation.TabNavigation="Once"
+                                    KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" ContentSource="SelectedContent"
+                                          KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 </ResourceDictionary>

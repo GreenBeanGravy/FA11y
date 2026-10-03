@@ -562,13 +562,18 @@ def key_listener() -> None:
         if _shutdown_requested.is_set():
             break
 
-        if _app_state.wizard_open.is_set() or _app_state.match_options_busy.is_set():
+        if (_app_state.wizard_open.is_set() or _app_state.match_options_busy.is_set()
+                or _app_state.key_capture_active.is_set()):
             time.sleep(0.05)
             continue
 
-        # Any FA11y window (the hub or a popup) has focus: keys are typing
-        # into FA11y, not playing, so most keybinds stay quiet.
+        # Any FA11y window (the hub, its separate window program, or a popup)
+        # has focus: keys are typing into FA11y, not playing, so most keybinds
+        # stay quiet.
         is_gui_focused = _foreground_window_pid() == own_pid
+        if not is_gui_focused:
+            foreground_pid = _foreground_window_pid()
+            is_gui_focused = foreground_pid != 0 and foreground_pid == _hub_window_pid()
 
         numlock_on = is_numlock_on()
         keybinds_on = _app_state.are_keybinds_enabled()
@@ -639,6 +644,13 @@ def key_listener() -> None:
         
         # Reduced sleep time for faster shutdown response
         time.sleep(0.005)
+
+def _hub_window_pid() -> int:
+    """The process id of the separate window program (FA11y.UI.exe), or 0 when there isn't one."""
+    from lib.hub import get_hub
+    bridge = getattr(get_hub(), "bridge", None)
+    return getattr(bridge, "pid", None) or 0
+
 
 def _foreground_window_pid() -> int:
     hwnd = ctypes.windll.user32.GetForegroundWindow()

@@ -61,7 +61,7 @@
         </Setter>
     </Style>
 
-    <Style TargetType="c:NumberBox" BasedOn="{StaticResource {x:Type TextBox}}">
+    <Style TargetType="c:WholeNumberBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="MinWidth" Value="90" />
         <Setter Property="HorizontalAlignment" Value="Left" />
     </Style>

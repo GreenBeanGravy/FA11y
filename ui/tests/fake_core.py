@@ -13,7 +13,8 @@ While it runs it reads commands on its own stdin, one per line (the probe uses
 this): summon, summon-content, show-page KEY, hide, notify TITLE|MESSAGE,
 fortnite-running true|false, fortnite-state installed|none|egl, start-setup,
 screenshot PATH (the window draws itself to a PNG), locker-category NAME,
-social-tab HEADER (test builds only), quit. It prints "STARTED <ui pid>" when the
+social-tab HEADER, key NAME [mods=Control,Shift] [held=LeftShift] (press a key
+in the focused control; test builds only), quit. It prints "STARTED <ui pid>" when the
 window process starts and "READY <ui pid>" when the window sends ui.ready.
 """
 from __future__ import annotations
@@ -77,6 +78,26 @@ class FakeCore:
         self.favorite_friends = {"f3"}
         self.friends = [("f1", "Zed"), ("f2", "amy"), ("f3", "Bob"), ("f4", "Cy"), ("f5", "Dana")]
         self.party_leader = True
+        self.handlers = self.real_handlers(root)
+
+    @staticmethod
+    def real_handlers(root: str) -> dict:
+        """The core's own Settings and Keybinds handlers, running on a scratch config.txt (the default
+        config) so the real schema and saving are what the window is tested against."""
+        sys.path.insert(0, REPO)
+        os.chdir(REPO)
+        from lib.shell.handlers import settings as settings_handlers
+        from lib.shell.bridge import registry
+        from lib.utilities import utilities
+        utilities.CONFIG_FILE = os.path.join(root, "config.txt")
+        utilities.ensure_config_dir = lambda: None
+        utilities.migrate_config_files = lambda: None
+        if os.path.exists(utilities.CONFIG_FILE):
+            os.remove(utilities.CONFIG_FILE)
+        utilities.clear_config_cache()
+        settings_handlers._schedule_reload = lambda parser: None
+        settings_handlers._tester.play = lambda *args, **kwargs: None
+        return registry.handlers
 
     def log(self, text: str) -> None:
         with self.lock:
@@ -234,6 +255,8 @@ class FakeCore:
             return {"ok": True}
         if method == "app.state":
             return self.hello()
+        if method.startswith(("settings.", "keybinds.")) and method in self.handlers:
+            return self.handlers[method](params)
         if method.startswith(("discover.", "quests.", "passes.")):
             from fake_pages import Pages
             with self.lock:
@@ -415,6 +438,15 @@ class FakeCore:
             self.event("test.locker_category", {"name": rest.strip()})
         elif name == "social-tab":
             self.event("test.social_tab", {"tab": rest.strip()})
+        elif name == "where":
+            self.event("test.where")  # the window answers with a test.focused event
+        elif name == "key":
+            # A key press in whatever has focus, for tests without the foreground (WPF key names: Enter, F9, ...).
+            words = rest.split()
+            extra = dict(w.split("=", 1) for w in words[1:] if "=" in w)  # mods=Control,Shift held=LeftShift
+            data = {"key": words[0] if words else "", "mods": extra.get("mods", ""), "held": extra.get("held", "")}
+            self.event("test.key", {**data, "up": False})
+            self.event("test.key", {**data, "up": True})
         elif name == "quit":
             self.event("ui.quit")
             return False

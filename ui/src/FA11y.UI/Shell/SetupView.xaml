@@ -76,7 +76,7 @@
                 <c:ReadableText x:Name="AudioIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <StackPanel Orientation="Horizontal" Margin="12,0,12,0">
                     <c:HiddenText Text="Master volume:" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <c:NumberBox x:Name="VolumeBox" Minimum="0" Maximum="100" Text="100"
+                    <c:WholeNumberBox x:Name="VolumeBox" Minimum="0" Maximum="100" Text="100"
                                  AutomationProperties.Name="Master volume"
                                  AutomationProperties.HelpText="Master volume, 0 to 100 percent." Margin="0,0,10,0" />
                     <c:IconButton Content="_Test sound" Click="OnTestSoundClick" />
@@ -88,7 +88,7 @@
                 <c:ReadableText x:Name="MouseIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <StackPanel Orientation="Horizontal" Margin="12,0,12,0">
                     <c:HiddenText Text="Mouse DPI:" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <c:NumberBox x:Name="DpiBox" Minimum="100" Maximum="32000" Text="800"
+                    <c:WholeNumberBox x:Name="DpiBox" Minimum="100" Maximum="32000" Text="800"
                                  AutomationProperties.Name="Mouse DPI"
                                  AutomationProperties.HelpText="Your mouse's actual DPI. Check your mouse software if unsure." />
                 </StackPanel>

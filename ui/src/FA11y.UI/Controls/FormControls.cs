@@ -210,13 +210,13 @@ public sealed class AccessCaption : TextBlock
 /// A box for a whole number, like the wx spin control: digits only, Up and Down change it by 1,
 /// Page Up and Page Down by 10, and a value out of range is brought back to the limits when focus leaves.
 /// </summary>
-public sealed class NumberBox : TextBox
+public sealed class WholeNumberBox : TextBox
 {
     public static readonly DependencyProperty MinimumProperty =
-        DependencyProperty.Register(nameof(Minimum), typeof(int), typeof(NumberBox), new PropertyMetadata(0));
+        DependencyProperty.Register(nameof(Minimum), typeof(int), typeof(WholeNumberBox), new PropertyMetadata(0));
 
     public static readonly DependencyProperty MaximumProperty =
-        DependencyProperty.Register(nameof(Maximum), typeof(int), typeof(NumberBox), new PropertyMetadata(100));
+        DependencyProperty.Register(nameof(Maximum), typeof(int), typeof(WholeNumberBox), new PropertyMetadata(100));
 
     public int Minimum
     {
@@ -237,7 +237,7 @@ public sealed class NumberBox : TextBox
         set => Text = Clamp(value).ToString();
     }
 
-    public NumberBox()
+    public WholeNumberBox()
     {
         MaxLength = 6;
         InputScope = new InputScope { Names = { new InputScopeName(InputScopeNameValue.Number) } };

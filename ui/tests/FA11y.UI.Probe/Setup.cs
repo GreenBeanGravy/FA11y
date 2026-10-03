@@ -7,18 +7,18 @@ namespace FA11y.UI.Probe;
 /// <summary>The Fortnite page's operations and first-run setup, walked through UI Automation.</summary>
 internal static partial class Program
 {
-    private static string FocusedName() => Safe(AutomationElement.FocusedElement);
+    private static string FocusedNow() => Safe(AutomationElement.FocusedElement);
 
     private static bool TabTo(string name, int max = 20)
     {
         for (var i = 0; i < max; i++)
         {
-            if (FocusedName() == name)
+            if (FocusedNow() == name)
                 return true;
             Key(Vk.Tab);
             Thread.Sleep(60);
         }
-        return FocusedName() == name;
+        return FocusedNow() == name;
     }
 
     /// <summary>Every stop from the current focus until Tab comes back to it.</summary>
@@ -87,7 +87,7 @@ internal static partial class Program
         Thread.Sleep(500);
         Key(Vk.Enter);
         Thread.Sleep(150);
-        if (!Check(FocusedName() == "Play", "Enter on the Fortnite page lands on Play"))
+        if (!Check(FocusedNow() == "Play", "Enter on the Fortnite page lands on Play"))
             return;
 
         for (var round = 1; round <= 2; round++)
@@ -95,7 +95,7 @@ internal static partial class Program
             Check(TabTo("Verify and repair"), "Tab reaches Verify and repair");
             var sw = Stopwatch.StartNew();
             Key(Vk.Enter);
-            Check(WaitFor(() => FocusedName() == "Cancel", 3000), "starting an operation puts focus on Cancel");
+            Check(WaitFor(() => FocusedNow() == "Cancel", 3000), "starting an operation puts focus on Cancel");
             var bar = _window.FindFirst(TreeScope.Descendants, new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ProgressBar),
                 new PropertyCondition(AutomationElement.NameProperty, "Progress")));
@@ -111,7 +111,7 @@ internal static partial class Program
             }
             if (round == 1)
             {
-                Check(WaitFor(() => FocusedName() == "Play", 8000), "when the operation finishes focus lands on Play");
+                Check(WaitFor(() => FocusedNow() == "Play", 8000), "when the operation finishes focus lands on Play");
                 Check(_window.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "Progress")) == null,
                     "the progress bar is gone afterwards");
             }
@@ -119,7 +119,7 @@ internal static partial class Program
             {
                 Thread.Sleep(700);
                 Key(Vk.Enter); // Cancel
-                Check(WaitFor(() => FocusedName() == "Play", 3000) && sw.ElapsedMilliseconds < 2400,
+                Check(WaitFor(() => FocusedNow() == "Play", 3000) && sw.ElapsedMilliseconds < 2400,
                     $"Cancel ends the operation early and focus lands on Play ({sw.ElapsedMilliseconds} ms)");
             }
         }
@@ -218,8 +218,8 @@ internal static partial class Program
             $"step 2 tab order: intro, status, sign in, Skip, Back, Next (is {Names(stops)})");
 
         Advance("Fortnite.", 3);
-        Check(WaitFor(() => FocusedName().StartsWith("Fortnite. Fortnite is installed through the Epic Games Launcher"), 3000),
-            $"step 3 says what it found (is \"{Clip(FocusedName())}\")");
+        Check(WaitFor(() => FocusedNow().StartsWith("Fortnite. Fortnite is installed through the Epic Games Launcher"), 3000),
+            $"step 3 says what it found (is \"{Clip(FocusedNow())}\")");
         stops = TabStops();
         Check(Names(stops).Contains("Let FA11y manage it (recommended)") && Names(stops).Contains("Skip setup | Back | Next"),
             $"step 3 offers the Epic Games Launcher choice (is {Names(stops)})");
@@ -227,11 +227,11 @@ internal static partial class Program
         Check(IsSelected(AutomationElement.FocusedElement), "Let FA11y manage it is chosen by default");
         Key(Vk.Down);
         Thread.Sleep(100);
-        Check(FocusedName().StartsWith("Keep using the Epic Games Launcher") && IsSelected(AutomationElement.FocusedElement),
+        Check(FocusedNow().StartsWith("Keep using the Epic Games Launcher") && IsSelected(AutomationElement.FocusedElement),
             "Down arrow chooses the next option and keeps focus on it");
         Key(Vk.Up);
         Thread.Sleep(100);
-        Check(FocusedName().StartsWith("Let FA11y manage it") && IsSelected(AutomationElement.FocusedElement), "Up arrow goes back");
+        Check(FocusedNow().StartsWith("Let FA11y manage it") && IsSelected(AutomationElement.FocusedElement), "Up arrow goes back");
         BackToIntro();
 
         Advance("Starting FA11y.", 4);
@@ -245,14 +245,14 @@ internal static partial class Program
         Check(TabTo("Ask me"), "Tab reaches the close choices");
         Key(Vk.Down);
         Thread.Sleep(100);
-        Check(FocusedName() == "Keep running in the tray" && IsSelected(AutomationElement.FocusedElement), "Down chooses Keep running in the tray");
+        Check(FocusedNow() == "Keep running in the tray" && IsSelected(AutomationElement.FocusedElement), "Down chooses Keep running in the tray");
         BackToIntro();
 
         Advance("Speech preferences.", 5);
         Check(TabTo("Verbose: full sentences, more context (recommended for new users)"), "step 5: Tab reaches the speech choice");
         Key(Vk.Down);
         Thread.Sleep(100);
-        Check(FocusedName().StartsWith("Simplified") && IsSelected(AutomationElement.FocusedElement), "Down chooses Simplified");
+        Check(FocusedNow().StartsWith("Simplified") && IsSelected(AutomationElement.FocusedElement), "Down chooses Simplified");
         BackToIntro();
 
         Advance("Audio check.", 6);
@@ -322,8 +322,8 @@ internal static partial class Program
     private static void Advance(string titlePrefix, int step)
     {
         Key(Vk.Enter);
-        var ok = WaitFor(() => FocusedName().StartsWith(titlePrefix), 3000);
-        Check(ok, $"Next shows step {step} with its intro focused (is \"{Clip(FocusedName())}\")");
+        var ok = WaitFor(() => FocusedNow().StartsWith(titlePrefix), 3000);
+        Check(ok, $"Next shows step {step} with its intro focused (is \"{Clip(FocusedNow())}\")");
         var intro = AutomationElement.FocusedElement;
         Check(intro.Current.HelpText == $"Setup: step {step} of 8", $"step {step} is described as \"Setup: step {step} of 8\"");
     }

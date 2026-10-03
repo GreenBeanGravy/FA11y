@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Automation;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -171,17 +172,90 @@ public partial class MainWindow : Window
         bridge.On("account.changed", _ => PrefetchPages());
         bridge.On("views.reset", data =>
         {
+            // Signed in or out, or setup changed the config: account pages drop their data and
+            // load again, the settings editors reload, shown or not.
             if (!data.TryGetProperty("keys", out var keys) || keys.ValueKind != JsonValueKind.Array)
                 return;
             foreach (var key in keys.EnumerateArray().Select(k => k.GetString() ?? ""))
-                if (_items.ContainsKey(key) && GetPage(key) is IPrefetchPage page)
-                    page.ResetData();
+            {
+                if (!_items.ContainsKey(key))
+                    continue;
+                if (GetPage(key) is IPrefetchPage prefetch)
+                    prefetch.ResetData();
+                else if (_pages.TryGetValue(key, out var page))
+                    page.Refresh();
+            }
         });
         if (Environment.GetEnvironmentVariable("FA11Y_UI_TEST") == "1")
         {
             bridge.On("test.screenshot", data => SaveScreenshot(data.Str("path")));
             bridge.On("test.locker_category", data => (GetPage("locker") as LockerPage)?.OpenCategoryForTest(data.Str("name")));
             bridge.On("test.social_tab", data => (GetPage("social") as SocialPage)?.SelectTabForTest(data.Str("tab")));
+            bridge.On("test.where", _ => ReportTestFocus());
+            bridge.On("test.key", data => RaiseTestKey(data.Str("key"), data.Bool("up"), data.Str("mods"), data.Str("held")));
+        }
+    }
+
+    /// <summary>
+    /// Test builds only: press a key in the element that has focus, without needing the window to be in
+    /// front (Windows only lets a window that got the last real input take the foreground, which an
+    /// unattended test never has). The key goes through the same tunneling and bubbling events as a real one.
+    /// </summary>
+    /// <summary>Test builds only: the element with focus, in the front-most window that has one.</summary>
+    private static IInputElement? TestFocus()
+    {
+        if (Keyboard.FocusedElement is { } real)
+            return real;
+        foreach (var window in Application.Current.Windows.OfType<Window>().Reverse())
+        {
+            if (window.IsVisible && FocusManager.GetFocusedElement(window) is { } focused)
+                return focused;
+        }
+        return null;
+    }
+
+    private static void ReportTestFocus()
+    {
+        var focus = TestFocus() as DependencyObject;
+        var name = focus == null ? "" : AutomationProperties.GetName(focus);
+        if (focus is ContentControl { Content: string content } && name.Length == 0)
+            name = content;
+        App.Bridge.SendEvent("test.focused", new { name, type = focus?.GetType().Name ?? "" });
+    }
+
+    private void RaiseTestKey(string name, bool up, string mods, string held)
+    {
+        try
+        {
+            if (!Enum.TryParse<Key>(name, out var key))
+                return;
+            // mods: "Control,Shift" held while the key goes down; held: keys to report as held ("LeftShift").
+            KeyState.ModifiersOverride = Enum.TryParse<ModifierKeys>(mods.Length > 0 ? mods : "None", out var modifiers)
+                ? modifiers : ModifierKeys.None;
+            KeyState.HeldOverride = held.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(k => Enum.TryParse<Key>(k, out var parsed) ? parsed : Key.None).ToHashSet();
+            var target = TestFocus();
+            if (target is not Visual visual || PresentationSource.FromVisual(visual) is not { } source)
+                return;
+            var args = new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key)
+            {
+                RoutedEvent = up ? Keyboard.PreviewKeyUpEvent : Keyboard.PreviewKeyDownEvent,
+            };
+            target.RaiseEvent(args);
+            if (!args.Handled)
+            {
+                args.RoutedEvent = up ? Keyboard.KeyUpEvent : Keyboard.KeyDownEvent;
+                target.RaiseEvent(args);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error("Test key failed", e);
+        }
+        finally
+        {
+            KeyState.ModifiersOverride = null;
+            KeyState.HeldOverride = null;
         }
     }
 
@@ -266,6 +340,7 @@ public partial class MainWindow : Window
             "locker" => new LockerPage(),
             "discover" => new DiscoverPage(),
             "quests" => new QuestsPage(),
+            "settings" or "keybinds" => new SettingsPage(key),
             _ => new PlaceholderPage(key, Specs.First(s => s.Key == key).Label),
         };
         var element = (FrameworkElement)page;
@@ -445,6 +520,8 @@ public partial class MainWindow : Window
     {
         if (Setup.IsActive)
             return; // setup has its own keys
+        if (KeyCapture.Active)
+            return; // a keybind is waiting for any key, these included
         var modifiers = Keyboard.Modifiers;
         if (e.Key == Key.Tab && (modifiers & ModifierKeys.Control) != 0 && (modifiers & ModifierKeys.Alt) == 0)
         {

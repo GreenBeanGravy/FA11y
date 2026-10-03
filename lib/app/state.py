@@ -33,6 +33,9 @@ custom_poi_gui_open: threading.Event = threading.Event()
 # Wizard takes exclusive control - key listener short-circuits while set.
 wizard_open: threading.Event = threading.Event()
 
+# The window is waiting for a key press to bind - key listener short-circuits while set.
+key_capture_active: threading.Event = threading.Event()
+
 
 # Lazy singletons - use getters; ``import`` would freeze the reference.
 _poi_data_instance = None

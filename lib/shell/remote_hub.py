@@ -40,7 +40,9 @@ from lib.shell.bridge import Bridge, registry
 
 logger = logging.getLogger(__name__)
 
-PORTED_PAGES = ("home", "fortnite", "discover", "account", "locker", "social", "quests", "about")
+PORTED_PAGES = ("home", "fortnite", "discover", "account", "locker", "social", "quests", "settings",
+                "keybinds", "about")
+EDITOR_PAGES = ("settings", "keybinds")  # the config editor's two views
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
 
@@ -55,7 +57,10 @@ class _PageProxy:
         self.key = key
 
     def refresh(self) -> None:
-        self._hub.send(f"{self.key}.changed")
+        if self.key in EDITOR_PAGES:
+            self._hub.send("views.reset", {"keys": [self.key]})
+        else:
+            self._hub.send(f"{self.key}.changed")
 
 
 class RemoteHub:
@@ -84,7 +89,7 @@ class RemoteHub:
 
     @staticmethod
     def _load_handlers() -> None:
-        from lib.shell.handlers import about, account, app, fortnite, home, locker, setup, social  # noqa: F401 (they register themselves)
+        from lib.shell.handlers import about, account, app, fortnite, home, locker, settings, setup, social  # noqa: F401 (they register themselves)
         from lib.shell.handlers import discover, passes, quests  # noqa: F401
 
     # Lifecycle -----------------------------------------------------------
@@ -187,7 +192,7 @@ class RemoteHub:
         self.send("ui.show_page", data)
 
     def reset_views(self, keys) -> None:
-        """Reload the account-dependent pages (after signing in or out)."""
+        """Reload these pages (after signing in or out, or a config change)."""
         for key in keys:
             if key in self._proxies:
                 self.send(f"{key}.changed")
@@ -294,6 +299,11 @@ class RemoteHub:
         self.send("fortnite.running", {"running": running})
         if running and settings.flag("HideHubWhenFortniteStarts", True) and self._shown:
             self.hide_to_tray()
+
+    def keybinds_edited(self) -> None:
+        """The user changed a keybind in the editor: the Open FA11y key shown on Home may have changed."""
+        from lib.app import state
+        self._on_keybinds_changed(state.are_keybinds_enabled())
 
     def _on_keybinds_changed(self, enabled: bool) -> None:
         self.send("keybinds.changed", {"enabled": enabled,
