@@ -131,27 +131,9 @@ class MatchTracker:
             self.current_match = MatchSession()
             print(f"New match started: {self.current_match.match_id[:8]}")
             
-            # Clear visited objects cache
-            self._clear_visited_objects_cache()
-            
             # Announce if configured
             if announce and self._cached_announce_new_match:
                 self.speaker.speak("New match started")
-    
-    def _clear_visited_objects_cache(self):
-        """Clear the visited objects cache when starting a new match"""
-        try:
-            # Import here to avoid circular imports
-            from lib.guis.visited_objects_gui import ObjectData
-            
-            # Get the singleton instance and clear its cache
-            object_data = ObjectData()
-            object_data.clear_cache()
-            
-            print("Visited objects cache cleared for new match")
-            
-        except Exception as e:
-            print(f"Error clearing visited objects cache: {e}")
     
     def start_new_match(self):
         """Public method to manually start a new match"""
@@ -324,13 +306,6 @@ class MatchTracker:
                 stats[f'{obj_type}_visits'] = len(visits)
             
             return stats
-    
-    def get_visited_objects_of_type(self, obj_type: str) -> List[VisitedGameObject]:
-        """Get all visited objects of a specific type in the current match"""
-        with self.match_lock:
-            if not self.current_match or obj_type not in self.current_match.visited_objects:
-                return []
-            return self.current_match.visited_objects[obj_type].copy()
     
     def has_visited_object_type(self, obj_type: str) -> bool:
         """Check if any object of this type has been visited in the current match"""

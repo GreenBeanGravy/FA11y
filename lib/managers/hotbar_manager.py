@@ -1047,14 +1047,3 @@ def initialize_hotbar_detection():
     except Exception as e:
         print(f"Error initializing hotbar detection: {e}")
         return False
-
-def get_last_detected_rarity():
-    """
-    Get the rarity of the last detected item.
-    
-    Returns:
-        str: Rarity of the last detected item, or "Unknown" if not detected or None.
-    """
-    global last_detected_rarity
-    
-    return last_detected_rarity if last_detected_rarity is not None else "Unknown"

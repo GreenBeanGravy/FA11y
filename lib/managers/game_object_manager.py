@@ -330,18 +330,6 @@ class GameObjectManager:
         game_objects = self.get_game_objects_for_map(map_name)
         return {obj_type: len(objects) for obj_type, objects in game_objects.items()}
     
-    def reload_map_data(self, map_name: str = None):
-        """Force reload of map data (clears cache)"""
-        if map_name:
-            if map_name in self.loaded_maps:
-                del self.loaded_maps[map_name]
-            if map_name in self._last_spam_prevention:
-                del self._last_spam_prevention[map_name]
-        else:
-            self.loaded_maps.clear()
-            self._last_spam_prevention.clear()
-        print(f"Reloaded game object data for {'all maps' if not map_name else map_name}")
-    
     def create_sample_game_object_files(self):
         """Create sample game object files for testing"""
         sample_data = {

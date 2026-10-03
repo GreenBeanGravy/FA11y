@@ -100,7 +100,6 @@ to another action, the two actions swap keys.
 | Key | Action |
 |---|---|
 | `` ` `` (grave) | Start navigation to selected POI / game object |
-| `Shift + `` ` `` | Check hotspot POIs (requires map open) |
 | `]` | Open POI selector |
 | `[` | Open Locker selector |
 | `Tab` / `Shift+Tab` | Cycle POI categories (inside POI selector) |
@@ -123,7 +122,6 @@ to another action, the two actions swap keys.
 | `H` | Announce Health & Shields |
 | `J` | Announce ammo (mag + reserve) |
 | `;` | Announce direction you're facing |
-| `[` (inside inventory) | Announce rarity of selected item |
 | `L-Alt + M` | Match stats summary |
 | `1`-`5` | Announce details of hotbar slot 1-5 |
 

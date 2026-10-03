@@ -78,7 +78,6 @@ from accessible_output2.outputs.auto import Auto
 # Import from reorganized lib structure
 from lib.detection.hsr import (
     check_health_shields,
-    check_rarity,
 )
 from lib.utilities.mouse import (
     smooth_move_mouse,
@@ -209,7 +208,6 @@ config_gui_open = _app_state.config_gui_open
 social_gui_open = _app_state.social_gui_open
 discovery_gui_open = _app_state.discovery_gui_open
 locker_gui_open = _app_state.locker_gui_open
-visited_objects_gui_open = _app_state.visited_objects_gui_open
 custom_poi_gui_open = _app_state.custom_poi_gui_open
 _shutdown_requested = _app_state.shutdown_requested
 auth_expired = _app_state.auth_expired
@@ -426,7 +424,6 @@ def reload_config() -> None:
         action_handlers.update({
             'announce direction faced': speak_minimap_direction,
             'check health shields': check_health_shields,
-            'check rarity': check_rarity,
             'open locker selector': open_locker_selector,
             'open quest browser': open_quest_browser,
             'open locker viewer': open_locker_viewer,
@@ -441,7 +438,6 @@ def reload_config() -> None:
             'toggle keybinds': toggle_keybinds,
             'toggle continuous ping': toggle_continuous_ping,
             'toggle poi favorite': toggle_favorite_poi,
-            'mark bad game object': mark_last_reached_object_as_bad,
             'cycle map': lambda: cycle_map("forwards"),
             'cycle map backwards': lambda: cycle_map("backwards"),
             'cycle poi': lambda: cycle_poi("forwards"),
@@ -449,8 +445,6 @@ def reload_config() -> None:
             'cycle poi category': lambda: cycle_poi_category("forwards"),
             'cycle poi category backwards': lambda: cycle_poi_category("backwards"),
             'get match stats': get_match_stats,
-            'check hotspots': check_hotspots,
-            'open visited objects': open_visited_objects,
             'open social menu': open_social_menu,
             'open discovery gui': open_discovery_gui,
             'open authentication': open_authentication,
@@ -460,7 +454,6 @@ def reload_config() -> None:
             'recapture mouse': lambda: get_mouse_passthrough().recapture_mouse(),
             'toggle mouse passthrough': lambda: get_mouse_passthrough().toggle(),
             'calibrate fa11y-ow position': calibrate_fa11y_ow_position,
-            'check display mode': announce_display_mode,
             'read mode status': read_mode_status,
             'toggle fill': toggle_lobby_fill,
             'toggle ranked': toggle_ranked,
@@ -498,12 +491,7 @@ def is_valid_key_or_combination(key_combo: str) -> bool:
     from lib.utilities.input import validate_key_combination
     return validate_key_combination(key_combo)
 
-from lib.app.match_actions import (
-    get_match_stats,
-    mark_last_reached_object_as_bad,
-    check_hotspots,
-    open_visited_objects,
-)
+from lib.app.match_actions import get_match_stats
 
 # Auth expiration handling
 from lib.app.auth_actions import (
@@ -527,8 +515,6 @@ from lib.app.keybind_actions import (
     _refresh_poi_selector_after_favorite_toggle,
     toggle_favorite_poi,
 )
-
-from lib.app.display_actions import announce_display_mode
 
 
 def key_listener() -> None:

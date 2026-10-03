@@ -248,3 +248,20 @@ def test_setting_labels():
     assert schema.setting_label("Turn Left") == "Turn Left"
     assert schema.setting_label("ChestsVisitDistance", "MainGameObjects") == "Visit distance (meters)"
     assert schema.setting_label("NotifyWhenReady") == "Show a notification when FA11y is ready"
+
+
+REMOVED_KEYBINDS = ("Mark Bad Game Object", "Check Hotspots", "Open Visited Objects", "Check Display Mode", "Check Rarity")
+
+
+def test_removed_keybinds_are_dropped_from_old_configs(temp_config):
+    lines = "".join(f'{name} = lalt+x "old"\n' for name in REMOVED_KEYBINDS)
+    temp_config.write_text("[Toggles]\nMouseKeys = true\n\n[Keybinds]\nToggle Keybinds = f9\n" + lines, encoding="utf-8")
+    parser = utilities.read_config(use_cache=False)
+    assert parser.get("Keybinds", "Toggle Keybinds").startswith("f9")
+    on_disk = temp_config.read_text(encoding="utf-8")
+    for name in REMOVED_KEYBINDS:
+        assert name not in parser.options("Keybinds")
+        assert name not in on_disk
+    listed = [key for _heading, key in flat(handlers.settings_schema({"view": "keybinds"})["tabs"][0])]
+    for name in REMOVED_KEYBINDS:
+        assert name not in listed

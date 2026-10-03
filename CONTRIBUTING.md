@@ -17,7 +17,7 @@ Rules for entries:
 
 - Add a new block at the top of `CHANGELOG.txt`, formatted `M/D/YYYY #N:` (N counts multiple releases on the same day, starting at 1)
 - One `- ` bullet per change
-- Write in plain language about what the user experiences, not internals. Say "Added the Check Display Mode keybind (Left Alt + R)", not "Refactored display detection module"
+- Write in plain language about what the user experiences, not internals. Say "Added the Get Match Stats keybind (Left Alt + M)", not "Refactored display detection module"
 - Mention default keybinds and setting names so users can find them
 - Purely internal changes (refactors, test changes, CI) do **not** need an entry
 

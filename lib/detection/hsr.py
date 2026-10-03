@@ -24,7 +24,6 @@ If you need to re-calibrate: ``python dev_tools/health_calibrator.py``.
 from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean
-from lib.managers.hotbar_manager import get_last_detected_rarity
 from lib.detection.coordinate_config import get_health_shield_coords
 import requests
 
@@ -145,8 +144,3 @@ def check_health_shields():
     except Exception as e:
         print(f"Error in check_health_shields: {e}")
         speaker.speak("Error checking health and shields.")
-
-def check_rarity():
-    """Check and announce the rarity of the last detected item."""
-    rarity_str = get_last_detected_rarity()
-    speaker.speak(rarity_str)

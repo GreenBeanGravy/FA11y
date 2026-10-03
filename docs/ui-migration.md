@@ -134,7 +134,7 @@ ui/
 | 4 | Discover, Quests and passes | `lib/guis/discovery_gui.py`, `quest_gui.py`, `passes_gui.py` |
 | 5 | Social, Locker | `lib/guis/social_gui.py`, `locker_gui.py` |
 | 6 | Remove the wx hub, packaging: publish to `ui/bin`, Windows Desktop Runtime component in `installer/manifest.json`, sync excludes for `ui/src` and `ui/tests`, CI build check, Windows notifications | `lib/hub` wx code, `lib/guis` views, `installer/`, `.github/workflows/` |
-| Later | In-game dialogs (POI selector, visited objects, custom POI, match options, Epic sign-in) | `lib/guis/*` |
+| Later | In-game dialogs (POI selector, custom POI, match options, Epic sign-in) | `lib/guis/*` |
 
 ## Status
 
@@ -145,7 +145,7 @@ fallback window) was removed in phase 6; its last state is the git tag
 `legacy-wx-ui`.
 
 Still wx, in the core process (`wx.App` stays for them): the in-game
-dialogs (POI selector, visited objects, custom POI, match options), the
+dialogs (POI selector, custom POI, match options), the
 Epic sign-in dialogs (`lib/guis/epic_login_dialog.py`,
 `epic_browser_login.py`), and their helpers (`lib/guis/gui_utilities.py`,
 `lib/hub/controls.py`, `lib/hub/theme.py`, `lib/hub/accessibility.py`).
