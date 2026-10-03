@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using FA11y.UI.Controls;
 using FA11y.UI.Core;
@@ -42,6 +43,7 @@ public partial class FortnitePage : PageBase
         AppState.Changed += ApplyPlay;
         LoadLaunchOptions();
         LoadMouse();
+        LoadGameChecks();
     }
 
     public override string Key => "fortnite";
@@ -52,6 +54,7 @@ public partial class FortnitePage : PageBase
         if (!_busy)
             Refresh();
         LoadMouse();
+        LoadGameChecks();
     }
 
     public override void OnHidden() => SaveLaunchOptions();
@@ -451,6 +454,55 @@ public partial class FortnitePage : PageBase
     private void OnOptionChanged(object sender, RoutedEventArgs e) => SaveLaunchOptions();
 
     private void OnExtraBlur(object sender, KeyboardFocusChangedEventArgs e) => SaveLaunchOptions();
+
+    // Game check ---------------------------------------------------------------------------
+
+    private int _gameCheckToken;
+
+    private async void LoadGameChecks()
+    {
+        var token = ++_gameCheckToken;
+        try
+        {
+            var result = await App.Bridge.RequestAsync("fortnite.game_check", null, TimeSpan.FromSeconds(30));
+            if (token != _gameCheckToken)
+                return;
+            ShowGameChecks(result.GetProperty("checks"));
+        }
+        catch (Exception e)
+        {
+            Log.Error("fortnite.game_check failed", e);
+            if (token == _gameCheckToken && GameChecks.Children.Count <= 1)
+                GameChecksLoading.Text = "Couldn't check the game setup.";
+        }
+    }
+
+    private void ShowGameChecks(JsonElement checks)
+    {
+        var hadFocus = GameChecks.IsKeyboardFocusWithin;
+        GameChecks.Children.Clear();
+        foreach (var check in checks.EnumerateArray())
+        {
+            var brush = check.Str("status") switch
+            {
+                "ok" => (Brush)FindResource("Success"),
+                "problem" => (Brush)FindResource("Warning"),
+                _ => (Brush)FindResource("TextSecondary"),
+            };
+            var row = new ReadableText { MaxWidth = 640, Margin = new Thickness(0, 0, 0, 4), Foreground = brush };
+            row.Text = check.Str("text");
+            GameChecks.Children.Add(row);
+        }
+        if (hadFocus)
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, () => GameCheckButton.Focus());
+    }
+
+    private async void OnGameCheckClick(object sender, RoutedEventArgs e)
+    {
+        LoadGameChecks();
+        await Task.Delay(400);
+        Announcer.Announce(Anchor, "Checked.");
+    }
 
     // Mouse passthrough ------------------------------------------------------------------
 

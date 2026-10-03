@@ -52,6 +52,8 @@ internal static partial class Program
         {
             "Play", "31.10 · managed by FA11y · D:\\Fortnite · 60 GB", "Check for updates", "Verify and repair",
             "Move install", "Open folder", "Uninstall", "DirectX 12", "Skip the splash screen", "Extra arguments",
+            "Window mode: Windowed. Problem.", "Game resolution: 1920 by 1080. OK.", "Screen resolution: 1920 by 1080. OK.",
+            "FakerInput driver: Connected. OK.", "Check again",
             "No mouse selected for passthrough.", "Passthrough lets you", "Detect mouse",
         };
         Check(names.Count == expected.Length, $"the Fortnite page has {expected.Length} tab stops (found {names.Count}: {string.Join(" | ", names.Select(Clip))})");

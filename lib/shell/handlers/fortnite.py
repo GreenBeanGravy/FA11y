@@ -252,6 +252,15 @@ def save_launch_options(params: dict) -> dict:
     return {"ok": bool(ok)}
 
 
+# Game check ---------------------------------------------------------------------------
+
+@handler("fortnite.game_check")
+def game_check(_params: dict) -> dict:
+    """Is the game set up the way FA11y needs? Reads a log tail, so run it on request."""
+    from lib.app.display_actions import game_checks
+    return {"checks": game_checks()}
+
+
 # Mouse passthrough --------------------------------------------------------------------
 
 @handler("fortnite.mouse")

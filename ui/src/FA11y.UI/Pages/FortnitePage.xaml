@@ -87,6 +87,15 @@
             <TextBox x:Name="ExtraArgs" AutomationProperties.Name="Extra arguments" Margin="0,4,0,0"
                      LostKeyboardFocus="OnExtraBlur" />
 
+            <TextBlock Text="Game check" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
+                       FontWeight="SemiBold" />
+            <StackPanel x:Name="GameChecks" Margin="0,6,0,0">
+                <c:ReadableText x:Name="GameChecksLoading" MaxWidth="640" Text="Loading&#8230;"
+                                Foreground="{StaticResource TextSecondary}" />
+            </StackPanel>
+            <c:IconButton x:Name="GameCheckButton" Icon="{StaticResource Icon.refresh}" Content="Check _again"
+                          HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnGameCheckClick" />
+
             <TextBlock Text="Mouse passthrough" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
                        FontWeight="SemiBold" />
             <c:ReadableText x:Name="MouseText" Margin="0,6,0,0" MaxWidth="640"

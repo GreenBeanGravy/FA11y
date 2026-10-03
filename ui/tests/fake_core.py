@@ -220,6 +220,14 @@ class FakeCore:
         if method == "fortnite.launch_options":
             return {"api": "dx12", "skip_splash": True, "extra": "-nosound",
                     "choices": [{"key": "default", "label": "Default"}]}
+        if method == "fortnite.game_check":
+            return {"checks": [
+                {"name": "Window mode", "status": "problem", "detail": "Windowed", "fix": "Set Window Mode to Fullscreen in Fortnite's display settings.",
+                 "text": "Window mode: Windowed. Problem. Set Window Mode to Fullscreen in Fortnite's display settings."},
+                {"name": "Game resolution", "status": "ok", "detail": "1920 by 1080", "fix": "", "text": "Game resolution: 1920 by 1080. OK."},
+                {"name": "Screen resolution", "status": "ok", "detail": "1920 by 1080", "fix": "", "text": "Screen resolution: 1920 by 1080. OK."},
+                {"name": "FakerInput driver", "status": "ok", "detail": "Connected", "fix": "", "text": "FakerInput driver: Connected. OK."},
+            ]}
         if method == "fortnite.mouse":
             return {"available": True, "text": "No mouse selected for passthrough.", "detected": False}
         if method == "fortnite.detect_mouse":
