@@ -10,6 +10,7 @@ from mss import mss
 from accessible_output2.outputs.auto import Auto
 from threading import Thread, Event, Lock
 from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
+from lib.app.speech import simple, is_simple
 import zlib
 import pickle
 from threading import Thread, Event
@@ -148,12 +149,6 @@ rarity_colors = {
     'Epic': (118, 45, 211), 'Legendary': (191, 79, 0), 'Mythic': (191, 147, 35),
     'Exotic': (118, 191, 255),
 }
-rarity_tolerance = 30
-
-# New variables for averaged rarity colors
-rarity_color_averages = {}
-rarity_color_ranges = {}
-rarity_averages_initialized = False
 
 # Store last detected item information
 last_detected_slot = None
@@ -250,134 +245,6 @@ def initialize_item_rarity_map():
     except Exception as e:
         print(f"Error initializing item rarity map: {e}")
 
-def initialize_rarity_colors():
-    """Calculate average colors for each rarity from reference images."""
-    global rarity_color_averages, rarity_color_ranges, rarity_averages_initialized
-    
-    if rarity_averages_initialized:
-        return
-    
-    # Start with default colors
-    rarity_color_averages = rarity_colors.copy()
-    
-    # Initialize collections to store color samples for each rarity
-    rarity_samples = {rarity: [] for rarity in rarity_colors.keys()}
-    
-    # Count how many items we have for each rarity
-    items_per_rarity = {rarity: 0 for rarity in rarity_colors.keys()}
-    
-    # Go through all reference images and collect color samples
-    for name, img in reference_images.items():
-        item_rarity = None
-        
-        # Extract rarity from item name
-        for rarity in rarity_colors.keys():
-            if name.startswith(rarity):
-                item_rarity = rarity
-                items_per_rarity[rarity] += 1
-                break
-        
-        if item_rarity:
-            # Calculate the average color for this item
-            avg_color = np.mean(img, axis=(0, 1)).astype(int)
-            rarity_samples[item_rarity].append(avg_color)
-    
-    # Calculate the average color for each rarity
-    for rarity, samples in rarity_samples.items():
-        if samples:
-            # Calculate the average of all samples for this rarity
-            avg = np.mean(samples, axis=0).astype(int)
-            rarity_color_averages[rarity] = tuple(avg)
-            
-            # Calculate color ranges (min and max for each channel)
-            if len(samples) > 1:
-                samples_array = np.array(samples)
-                min_values = np.min(samples_array, axis=0)
-                max_values = np.max(samples_array, axis=0)
-                
-                # Add a small buffer to the range
-                buffer = 10
-                min_values = np.maximum(0, min_values - buffer)
-                max_values = np.minimum(255, max_values + buffer)
-                
-                rarity_color_ranges[rarity] = (
-                    tuple(min_values.astype(int)),
-                    tuple(max_values.astype(int))
-                )
-            else:
-                # If only one sample, use tolerance-based range
-                avg_color = np.array(rarity_color_averages[rarity])
-                rarity_color_ranges[rarity] = (
-                    tuple(np.maximum(0, avg_color - rarity_tolerance).astype(int)),
-                    tuple(np.minimum(255, avg_color + rarity_tolerance).astype(int))
-                )
-    
-    print("Rarity color averages initialized:")
-    for rarity, color in rarity_color_averages.items():
-        count = items_per_rarity[rarity]
-        print(f"  {rarity}: {color} (from {count} items)")
-        if rarity in rarity_color_ranges:
-            print(f"    Range: {rarity_color_ranges[rarity]}")
-    
-    rarity_averages_initialized = True
-
-def detect_rarity_by_color(slot_img):
-    """Detect rarity based on average color analysis of the item image."""
-    # Make sure rarity colors are initialized
-    if not rarity_averages_initialized:
-        initialize_rarity_colors()
-    
-    # Calculate the average color of the slot image
-    # First, filter out black pixels that are likely background
-    non_black_mask = ~np.all(slot_img < 40, axis=2)
-    if np.sum(non_black_mask) > 0:
-        # Calculate average color using only non-black pixels
-        avg_color = np.mean(slot_img[non_black_mask], axis=0).astype(int)
-    else:
-        # Fallback if no non-black pixels are found
-        avg_color = np.mean(slot_img, axis=(0, 1)).astype(int)
-    
-    # For each rarity, check if the average color falls within its range
-    best_match = None
-    best_match_score = 0
-    
-    for rarity, (min_color, max_color) in rarity_color_ranges.items():
-        # Check if the average color is within the range for this rarity
-        if all(min_color[i] <= avg_color[i] <= max_color[i] for i in range(3)):
-            # Calculate a match score based on how close to the center of the range
-            center_color = np.mean([min_color, max_color], axis=0)
-            distance = np.sum(np.abs(avg_color - center_color))
-            
-            # Invert distance to get a score (closer is better)
-            score = 1000 - distance
-            
-            if score > best_match_score:
-                best_match = rarity
-                best_match_score = score
-    
-    if best_match:
-        return best_match
-    
-    # Fallback to the old pixel-counting method if no range match is found
-    rarity_matches = {}
-    for rarity, color in rarity_color_averages.items():
-        # Create a color mask with tolerance
-        lower_bound = np.array([max(0, c - rarity_tolerance) for c in color])
-        upper_bound = np.array([min(255, c + rarity_tolerance) for c in color])
-        mask = cv2.inRange(slot_img, lower_bound, upper_bound)
-        
-        # Count matching pixels
-        pixel_count = np.count_nonzero(mask)
-        rarity_matches[rarity] = pixel_count
-    
-    # Find the rarity with the most matching pixels
-    max_rarity = max(rarity_matches.items(), key=lambda x: x[1]) if rarity_matches else (None, 0)
-    
-    # Set minimum pixel count threshold
-    if max_rarity[1] >= 50:  # At least 50 matching pixels
-        return max_rarity[0]
-    return None
-
 def load_reference_images():
     """
     Load weapon images from the cache file and resize them to slot dimensions.
@@ -451,33 +318,6 @@ def check_slot(coord):
     return max(((name, pixel_based_matching(screenshot, ref_img)) 
                 for name, ref_img in reference_images.items()), 
                key=lambda x: x[1], default=(None, 0))
-
-def detect_rarity_for_slot(slot_coord):
-    """
-    Detect rarity for a specific slot.
-    
-    Args:
-        slot_coord (tuple): Screen coordinates of the slot to check
-        
-    Returns:
-        str: Detected rarity or None if not detected
-    """
-    try:
-        with mss() as sct:
-            slot_img_rgba = np.array(sct.grab(slot_coord))
-            if slot_img_rgba.shape[2] == 4: # Check if image has alpha channel
-                slot_img = cv2.cvtColor(slot_img_rgba, cv2.COLOR_BGRA2BGR)
-            else:
-                slot_img = slot_img_rgba # Assuming it's already BGR
-            
-            color_rarity = detect_rarity_by_color(slot_img)
-            if color_rarity:
-                return color_rarity
-                
-    except Exception as e:
-        print(f"Error in rarity detection: {e}")
-    
-    return None
 
 def _ocr_detect_item_name(current_map='main'):
     """
@@ -690,49 +530,37 @@ def check_unknown_item_rarity(slot_index):
         timer_thread.start()
 
 def announce_ammo():
-    """Announce current and reserve ammo counts or consumable counts with simplified speech if enabled."""
+    """Announce current and reserve ammo counts or consumable counts."""
     if stop_event.is_set() or not ocr_manager.is_ready():
         return
-
-    config = read_config()
-    simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
 
     with mss() as sct:
         current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
 
     if consumable_count is not None:
-        if simplify:
-            speaker.speak(f"{consumable_count}")
-        else:
-            speaker.speak(f"{consumable_count} uses left")
+        speaker.speak(simple(f"{consumable_count} uses left", f"{consumable_count}"))
     elif current_ammo is not None or reserve_ammo is not None:
-        if simplify:
-            speaker.speak(f"{current_ammo or 0} mag {reserve_ammo or 0} reserves")
-        else:
-            speaker.speak(f"with {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
+        speaker.speak(simple(
+            f"with {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves",
+            f"{current_ammo or 0} mag {reserve_ammo or 0} reserves",
+        ))
     else:
         # Only print if not simplifying speech, to avoid console spam for no detection
-        if not simplify:
+        if not is_simple():
             print("OCR failed to detect any values for ammo/consumables.")
 
 def announce_ammo_manually():
-    """Manually announce ammo counts or consumable counts with simplified speech if enabled."""
-    config = read_config()
-    simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
-
+    """Manually announce ammo counts or consumable counts."""
     sct = mss()
     current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
 
     if consumable_count is not None:
-        if simplify:
-            speaker.speak(f"{consumable_count} uses")
-        else:
-            speaker.speak(f"You have {consumable_count} uses left")
+        speaker.speak(simple(f"You have {consumable_count} uses left", f"{consumable_count} uses"))
     elif current_ammo is not None or reserve_ammo is not None:
-        if simplify:
-            speaker.speak(f"{current_ammo or 0} mag {reserve_ammo or 0} reserves")
-        else:
-            speaker.speak(f"You have {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves")
+        speaker.speak(simple(
+            f"You have {current_ammo or 0} ammo in the mag and {reserve_ammo or 0} in reserves",
+            f"{current_ammo or 0} mag {reserve_ammo or 0} reserves",
+        ))
     else:
         speaker.speak("No ammo")
 
@@ -920,7 +748,6 @@ def initialize_hotbar_detection():
     try:
         load_reference_images()
         initialize_item_rarity_map()
-        initialize_rarity_colors()
         return True
     except FileNotFoundError as e:
         print(f"Error: {e}")

@@ -13,6 +13,7 @@ All state access goes through ``lib.app.state`` - no module-level globals.
 from __future__ import annotations
 
 from lib.app import state
+from lib.app.speech import simple
 from lib.app.constants import (
     POI_CATEGORY_CUSTOM,
     POI_CATEGORY_FAVORITE,
@@ -48,7 +49,7 @@ def toggle_continuous_ping() -> None:
     if active:
         active.stop()
         state.set_active_pinger(None)
-        speaker.speak("Continuous ping disabled.")
+        speaker.speak(simple("Continuous ping disabled.", "Ping off"))
         return
 
     config = read_config()
@@ -73,7 +74,7 @@ def toggle_continuous_ping() -> None:
     pinger = ContinuousPOIPinger(poi_coords)
     pinger.start()
     state.set_active_pinger(pinger)
-    speaker.speak(f"Continuous ping enabled for {poi_name}.")
+    speaker.speak(simple(f"Continuous ping enabled for {poi_name}.", f"Ping on, {poi_name}"))
 
 
 def _refresh_poi_selector_after_favorite_toggle(
@@ -195,9 +196,9 @@ def toggle_favorite_poi() -> None:
         _refresh_poi_selector_after_favorite_toggle(was_added, poi_name)
 
         if was_added:
-            speaker.speak(f"Added {poi_name} to favorites.")
+            speaker.speak(simple(f"Added {poi_name} to favorites.", f"Favorited {poi_name}"))
         else:
-            speaker.speak(f"Removed {poi_name} from favorites.")
+            speaker.speak(simple(f"Removed {poi_name} from favorites.", f"Unfavorited {poi_name}"))
 
     except Exception as e:
         state.logger.error(f"Error toggling favorite POI: {e}")

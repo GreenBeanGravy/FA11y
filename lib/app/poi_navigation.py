@@ -23,6 +23,7 @@ import os
 from typing import List, Tuple
 
 from lib.app import state
+from lib.app.speech import simple
 from lib.app.constants import (
     POI_CATEGORY_CUSTOM,
     POI_CATEGORY_FAVORITE,
@@ -268,7 +269,7 @@ def _stop_active_pinger(speaker) -> None:
     if pinger:
         pinger.stop()
         state.set_active_pinger(None)
-        speaker.speak("Continuous ping disabled.")
+        speaker.speak(simple("Continuous ping disabled.", "Ping off"))
 
 
 def cycle_poi_category(direction: str = "forwards") -> None:
@@ -325,7 +326,8 @@ def cycle_poi_category(direction: str = "forwards") -> None:
                         position_desc = f", {pd}"
                 display_poi = get_display_poi_name(first_poi[0])
                 speaker.speak(
-                    f"{display_name} POIs: {display_poi}{position_desc}"
+                    simple(f"{display_name} POIs: {display_poi}{position_desc}",
+                           f"{display_name}: {display_poi}{position_desc}")
                 )
             else:
                 speaker.speak("Error saving POI selection")
@@ -448,7 +450,7 @@ def cycle_map(direction: str = "forwards") -> None:
                 display_name = poi_data.maps[new_map].name
             except (KeyError, AttributeError):
                 display_name = new_map.replace('_', ' ').title()
-            speaker.speak(f"{display_name} map selected")
+            speaker.speak(simple(f"{display_name} map selected", f"{display_name} map"))
         else:
             speaker.speak("Error saving map selection")
 

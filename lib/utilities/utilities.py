@@ -432,7 +432,7 @@ def get_default_config():
     """Generate default config with map-specific game objects sections"""
     
     base_config = """[Toggles]
-SimplifySpeechOutput = false "Shortens some FA11y announcements."
+SimplifySpeechOutput = false "Shorter announcements across FA11y."
 MouseKeys = true "Turns on the keybinds for looking around and left and right clicking."
 IgnoreNumlock = false "Makes mouse keys work whether or not Num Lock is on."
 ResetSensitivity = false "Switches between two sensitivity values for some mouse movements, such as recentering the camera. New players should leave this off."

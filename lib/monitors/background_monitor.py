@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
+from lib.app.speech import simple
 from lib.managers.screenshot_manager import screenshot_manager as _ss_mgr
 
 from lib.monitors.base import BaseMonitor
@@ -160,7 +161,7 @@ class BackgroundMonitor(BaseMonitor):
                 self.map_open = is_map_color
                 if self.announce_map:
                     status = "opened" if is_map_color else "closed"
-                    self.speaker.speak(f"Map {status}")
+                    self.speaker.speak(simple(f"Map {status}", "Map" if is_map_color else None))
                     
         except Exception:
             current_time = time.time()
@@ -186,7 +187,7 @@ class BackgroundMonitor(BaseMonitor):
                 self.inventory_open = is_escape_visible
                 if self.announce_inventory:
                     status = "opened" if is_escape_visible else "closed"
-                    self.speaker.speak(f"Inventory {status}")
+                    self.speaker.speak(simple(f"Inventory {status}", "Inventory" if is_escape_visible else None))
                     
         except Exception:
             # Try to recover by cleaning up MSS instance

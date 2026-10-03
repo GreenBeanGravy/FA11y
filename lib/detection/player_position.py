@@ -12,6 +12,7 @@ import math
 from typing import Optional, Tuple
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int, on_config_change
+from lib.app.speech import simple, is_simple
 from lib.managers.screenshot_manager import capture_coordinates, get_pixel
 from lib.detection.dynamic_object_finder import optimized_finder, DYNAMIC_OBJECT_CONFIGS
 from lib.detection.ppi import find_player_position as ppi_find_player_position
@@ -221,7 +222,7 @@ def handle_closed_map_ppi(poi_name, poi_coords):
         time.sleep(0.1)
         
         # Announce the POI
-        speaker.speak(f"pinging {poi_name}")
+        speaker.speak(simple(f"pinging {poi_name}", poi_name))
         
         return player_position
         
@@ -389,7 +390,10 @@ def speak_minimap_direction():
     """Announce the player's current direction using the minimap icon"""
     direction, angle = find_minimap_icon_direction()
     if direction and angle is not None:
-        message = f"Facing {direction} at {angle:.0f} degrees"
+        message = simple(
+            f"Facing {direction} at {angle:.0f} degrees",
+            f"{direction} {angle:.0f} degrees",
+        )
         print(message)
         speaker.speak(message)
     else:
@@ -561,7 +565,7 @@ def get_gameobject_positioning_info(poi_name: str, poi_coordinates: Tuple[float,
             pois = []
         
         if not pois:
-            return f"{obj_type} {obj_id} is {int(distance)} meters away"
+            return simple(f"{obj_type} {obj_id} is {int(distance)} meters away", f"{obj_type} {obj_id} {int(distance)} meters")
         
         # Find closest POI
         closest_poi = None
@@ -610,9 +614,12 @@ def get_gameobject_positioning_info(poi_name: str, poi_coordinates: Tuple[float,
             else:
                 direction = "northeast"
             
-            return f"{obj_type} {obj_id} is {int(distance)} meters away, {min_distance:.0f} meters {direction} of {closest_poi}"
+            return simple(
+                f"{obj_type} {obj_id} is {int(distance)} meters away, {min_distance:.0f} meters {direction} of {closest_poi}",
+                f"{obj_type} {obj_id} {int(distance)} meters, {min_distance:.0f} meters {direction} of {closest_poi}",
+            )
         else:
-            return f"{obj_type} {obj_id} is {int(distance)} meters away"
+            return simple(f"{obj_type} {obj_id} is {int(distance)} meters away", f"{obj_type} {obj_id} {int(distance)} meters")
             
     except Exception as e:
         print(f"Error in game object positioning: {e}")
@@ -621,7 +628,7 @@ def get_gameobject_positioning_info(poi_name: str, poi_coordinates: Tuple[float,
 def generate_poi_message(poi_name, player_angle, poi_info, player_location=None):
     """Generate a message describing a POI's position relative to the player"""
     config = read_config()
-    simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
+    simplify = is_simple()
     
     distance, poi_angle, cardinal_direction, relative_direction = poi_info
     

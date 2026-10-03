@@ -25,6 +25,7 @@ from accessible_output2.outputs.auto import Auto
 from lib.monitors.base import BaseMonitor
 from lib.utilities.map_rotation import normalize_map_slug
 from lib.utilities.utilities import on_config_change, read_config
+from lib.app.speech import simple
 
 speaker = Auto()
 
@@ -145,7 +146,7 @@ class HeightMonitor(BaseMonitor):
                         meters = _interpolate_height(pixel_y)
                         if meters is not None:
                             print(f"Height detected: {meters:.2f} meters")
-                            speaker.speak(f"{meters:.0f} meters high")
+                            speaker.speak(simple(f"{meters:.0f} meters high", f"{meters:.0f} meters"))
                         else:
                             print("Height indicator outside expected range")
                     else:

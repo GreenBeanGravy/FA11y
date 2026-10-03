@@ -9,6 +9,7 @@ from typing import Dict, Set, List, Tuple, Optional
 from dataclasses import dataclass, field
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean, get_config_float, get_config_int, calculate_distance, on_config_change
+from lib.app.speech import simple
 
 @dataclass
 class VisitedGameObject:
@@ -133,7 +134,7 @@ class MatchTracker:
             
             # Announce if configured
             if announce and self._cached_announce_new_match:
-                self.speaker.speak("New match started")
+                self.speaker.speak(simple("New match started", "New match"))
     
     def start_new_match(self):
         """Public method to manually start a new match"""

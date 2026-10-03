@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 from accessible_output2.outputs.auto import Auto
 
 from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
+from lib.app.speech import simple
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,10 @@ _INTERESTING_STEPS = {
     'StormHolding': 'Storm holding',
     'StormShrinking': 'Storm shrinking',
     'GetReady': 'Get ready',
+}
+_SHORT_STEPS = {
+    'BusLocked': 'Bus locked',
+    'BusFlying': 'Bus flying',
 }
 
 
@@ -433,20 +438,20 @@ class MatchEventMonitor(BaseMonitor):
                     self._inventory_open = True
                     self._update_external_inventory_state(True)
                     if self.announce_inventory:
-                        self._speak("Inventory opened")
+                        self._speak(simple("Inventory opened", "Inventory"))
                 return
             if _RE_MAP_OPEN.search(line):
                 if not self._map_open:
                     self._map_open = True
                     self._update_external_map_state(True)
                     if self.announce_map:
-                        self._speak("Map opened")
+                        self._speak(simple("Map opened", "Map"))
                 return
             if _RE_SIDEBAR_OPEN.search(line):
                 if not self._sidebar_open:
                     self._sidebar_open = True
                     if self.announce_sidebar:
-                        self._speak("Sidebar opened")
+                        self._speak(simple("Sidebar opened", "Sidebar"))
                 return
 
             # Closes:
@@ -514,7 +519,7 @@ class MatchEventMonitor(BaseMonitor):
                     # First appearance per-mode is the match-start lobby
                     # population; quieter wording for that case.
                     if self._last_player_count is None or self._last_mode != mode:
-                        self._speak(f"{count} players in match")
+                        self._speak(simple(f"{count} players in match", f"{count} players"))
                     else:
                         self._speak(f"{count} left")
                     self._last_player_count = count
@@ -558,7 +563,7 @@ class MatchEventMonitor(BaseMonitor):
             step = m.group('step')
             if step != self._last_step and step in _INTERESTING_STEPS:
                 self._last_step = step
-                self._speak(_INTERESTING_STEPS[step])
+                self._speak(simple(_INTERESTING_STEPS[step], _SHORT_STEPS.get(step)))
             return
 
         # --- Death ---
@@ -606,7 +611,7 @@ class MatchEventMonitor(BaseMonitor):
             count = int(m.group('count'))
             if count != self._last_final_countdown:
                 self._last_final_countdown = count
-                self._speak(f"Final countdown: {count} players left")
+                self._speak(simple(f"Final countdown: {count} players left", f"Final countdown, {count} left"))
             return
 
         # --- Party invite received (someone invited you to their party) ---
@@ -614,7 +619,7 @@ class MatchEventMonitor(BaseMonitor):
         if m:
             sender = m.group('sender')
             name = self._resolve_party_identity(sender)
-            self._speak(f"Party invite from {name}")
+            self._speak(simple(f"Party invite from {name}", f"Invite from {name}"))
             return
 
         # --- Ping received (someone requesting to join your party) ---
@@ -622,7 +627,7 @@ class MatchEventMonitor(BaseMonitor):
         if m:
             sender = m.group('sender')
             name = self._resolve_party_identity(sender)
-            self._speak(f"{name} is requesting to join your party")
+            self._speak(simple(f"{name} is requesting to join your party", f"{name} wants to join"))
             return
 
         # --- You joined someone's party ---
@@ -630,7 +635,7 @@ class MatchEventMonitor(BaseMonitor):
         if m:
             name = m.group('name').strip()
             if name:
-                self._speak(f"Joined {name}'s party")
+                self._speak(simple(f"Joined {name}'s party", f"Joined {name}"))
             return
 
         # --- Party member added (this includes yourself on party create) ---
@@ -647,7 +652,7 @@ class MatchEventMonitor(BaseMonitor):
             if self.local_account_id and account_id == self.local_account_id:
                 return
             if name:
-                self._speak(f"{name} joined the party")
+                self._speak(simple(f"{name} joined the party", f"{name} joined"))
             return
 
         # --- Party member removed ---
@@ -665,7 +670,7 @@ class MatchEventMonitor(BaseMonitor):
             name = self._party_member_names.pop(account_id, None)
             if not name:
                 name = self._resolve_party_identity(account_id)
-            self._speak(f"{name} left the party")
+            self._speak(simple(f"{name} left the party", f"{name} left"))
             return
 
     def _resolve_party_identity(self, partial_or_full_id: str) -> str:

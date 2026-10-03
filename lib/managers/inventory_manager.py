@@ -12,6 +12,7 @@ import difflib
 import cv2
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config
+from lib.app.speech import simple
 from lib.utilities.input import is_key_pressed
 from lib.managers.ocr_manager import get_ocr_manager
 
@@ -317,7 +318,7 @@ class InventoryManager:
                 if current_inventory_state != prev_inventory_state:
                     if current_inventory_state:
                         # Inventory just opened - announce first
-                        self.speaker.speak("Inventory opened")
+                        self.speaker.speak(simple("Inventory opened", "Inventory"))
                         
                         with self.state_lock:
                             self.slot_name_cache.clear()
