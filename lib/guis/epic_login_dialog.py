@@ -25,7 +25,13 @@ class LoginDialog(AccessibleDialog):
         self.authenticated = False
         self.success_announced = False
         self.setupDialog()
-        self.SetSize((650, 550))
+        # Size to the content (scaled for the display) so no button is cut off,
+        # and never smaller than that.
+        self.Fit()
+        best = self.GetSize()
+        width = max(best.width, self.FromDIP(650))
+        self.SetSize((width, best.height))
+        self.SetMinSize((width, best.height))
         self.CentreOnParent()
 
     def makeSettings(self, sizer: BoxSizerHelper):

@@ -21,6 +21,14 @@ from lib.utilities.ranked_modes import (
 
 logger = logging.getLogger(__name__)
 
+
+def _error_code(response) -> str:
+    """Epic's error code from a failed response, without echoing tokens it may quote back."""
+    try:
+        return str(response.json().get("errorCode", ""))
+    except Exception:
+        return ""
+
 class EpicAuth:
     """Handle Epic Games authentication and cosmetic data fetching"""
 
@@ -322,7 +330,7 @@ class EpicAuth:
                 logger.info(f"Successfully refreshed access token for {self.display_name}")
                 return True
             else:
-                logger.error(f"Token refresh failed: {response.status_code} - {response.text}")
+                logger.error(f"Token refresh failed: {response.status_code} {_error_code(response)}")
                 self.refresh_token = None
                 return False
 
@@ -1027,7 +1035,7 @@ class EpicAuth:
                 return owned_ids
             elif response.status_code == 401:
                 # Token expired or invalid
-                logger.error(f"Auth token expired: {response.text}")
+                logger.error(f"Auth token expired: {_error_code(response)}")
                 # Clear cached auth
                 self.clear_auth()
                 self.access_token = None
