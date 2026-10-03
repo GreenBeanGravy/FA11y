@@ -829,6 +829,8 @@ def _create_hub(first_run: bool = False):
                 except Exception:
                     pass
             app.ExitMainLoop()
+            # Ask again once a dialog's loop has returned to the main one.
+            wx.CallLater(300, app.ExitMainLoop)
 
         def force_exit():
             # Normally main()'s cleanup has exited by now. If something still
