@@ -94,7 +94,7 @@ public partial class MainWindow : Window
         try
         {
             _tray = new TrayIcon(
-                open: () => Summon(false, false),
+                open: SummonFromTray,
                 play: () => App.Bridge.Notify("app.play_fortnite"),
                 settings: () => App.Bridge.Notify("app.show_page", new { key = "settings", summon = true }),
                 quit: RequestQuit);
@@ -449,6 +449,30 @@ public partial class MainWindow : Window
             else
                 FocusSidebar();
         });
+    }
+
+    /// <summary>
+    /// The tray icon was clicked or chosen with Enter. The hidden icons flyout closes after this
+    /// runs and Windows can hand the foreground back to the taskbar, so check again shortly after
+    /// and bring the window forward once more if it lost the foreground.
+    /// </summary>
+    private void SummonFromTray()
+    {
+        Summon(false, false);
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var tries = 0;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        timer.Tick += (_, _) =>
+        {
+            if (!IsVisible || ++tries > 4)
+            {
+                timer.Stop();
+                return;
+            }
+            if (NativeMethods.GetForegroundWindow() != hwnd)
+                Summon(false, false);
+        };
+        timer.Start();
     }
 
     private void RequestQuit()
