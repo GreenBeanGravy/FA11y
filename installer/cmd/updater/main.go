@@ -134,6 +134,22 @@ func run(l layout.Layout, opts options) (int, error) {
 			return exitError, fmt.Errorf("could not reach GitHub: %w", err)
 		}
 		src = filesync.GitHub{Repo: defaultRepo, Commit: commit}
+		// A first install with no branch chosen uses main once main can be
+		// installed this way; until then it uses the Beta branch.
+		if opts.branch == "" && st.Branch == "" && branch == defaultBranch {
+			if _, err := src.Read(manifest.Path); branchMissing(err) {
+				console.Say("Stable FA11y can't be installed with this updater yet, so FA11y installs from the Beta branch (%s).", betaBranch)
+				branch = betaBranch
+				commit, err = filesync.Commit(defaultRepo, branch)
+				if err != nil {
+					return exitError, fmt.Errorf("could not reach GitHub: %w", err)
+				}
+				src = filesync.GitHub{Repo: defaultRepo, Commit: commit}
+			}
+		}
+		if !opts.check {
+			ensureLauncher(l, branch)
+		}
 	}
 	m, err := loadManifest(l, src)
 	if err != nil {
@@ -368,6 +384,31 @@ func updateExecutables(l layout.Layout, branch string) (restarted bool, code int
 		return false, 0
 	}
 	return true, restartSelf(l)
+}
+
+// ensureLauncher downloads FA11y Launcher.exe from the newest installer
+// release when it isn't next to the updater, so Updater.exe alone is enough
+// to install FA11y.
+func ensureLauncher(l layout.Layout, branch string) {
+	if _, err := os.Stat(l.Launcher()); err == nil {
+		return
+	}
+	rel, err := selfupdate.Latest(defaultRepo, branch != defaultBranch)
+	if err != nil || rel == nil {
+		console.Say("Could not find %s on GitHub. Download it from the FA11y releases page.", layout.LauncherExe)
+		return
+	}
+	a, ok := rel.Assets[layout.LauncherExe]
+	if !ok {
+		a, ok = rel.Assets[releaseName(layout.LauncherExe)]
+	}
+	if !ok {
+		return
+	}
+	console.Say("Downloading %s...", layout.LauncherExe)
+	if err := selfupdate.Replace(l.Launcher(), a); err != nil {
+		console.Say("Could not download %s: %v", layout.LauncherExe, err)
+	}
 }
 
 // releaseName is the name GitHub gives a release file: it replaces spaces

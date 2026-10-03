@@ -42,13 +42,14 @@ Outside a match, the FA11y window lets you:
 
 ## Installing
 
-1. Download `Updater.exe` and `FA11y Launcher.exe` from the latest
-   `installer-v` release and put both in an empty folder. Avoid the Fortnite
-   install folder and system folders.
-2. Run `Updater.exe`. It installs FA11y into a `FA11y Files` folder next to
-   it, with its own copy of Python and the .NET runtime the window needs, so
-   you don't install anything yourself. Windows asks once for permission to
-   install the driver FA11y uses for mouse control.
+1. Download `Updater.exe` from the latest `installer-v` release and put it
+   in an empty folder. Avoid the Fortnite install folder and system folders.
+2. Run `Updater.exe`. It downloads `FA11y Launcher.exe` next to itself and
+   installs FA11y into a `FA11y Files` folder, with its own copy of Python
+   and the .NET runtime the window needs, so you don't install anything
+   yourself. Windows asks once for permission to install the driver FA11y
+   uses for mouse control. While Stable FA11y doesn't support this installer
+   yet, it installs the Beta branch.
 3. Start FA11y with `FA11y Launcher.exe`. It checks for updates each time it
    starts. The `AutoUpdates` setting turns that off.
 4. On the first run, FA11y walks you through setup: signing in to Epic,
@@ -90,8 +91,8 @@ rough edges. FA11y remembers its branch and keeps updating from it.
 
 To switch, open About and updates, pick a branch under "FA11y branch", and
 press "Switch branch". FA11y closes, updates and starts again, and your
-settings stay. For a fresh install of Beta, run `Updater.exe --branch
-overhaul`.
+settings stay. To pick the branch for a fresh install, run `Updater.exe
+--branch main` or `Updater.exe --branch overhaul`.
 
 ## Default keybinds
 

@@ -7,6 +7,10 @@ import (
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fetch"
 )
 
+// betaBranch is installed when no branch is chosen and main can't be
+// installed by this updater yet.
+const betaBranch = "overhaul"
+
 // resolveBranch picks the branch to use: an explicit --branch first, then
 // the branch recorded by the last install, then main.
 func resolveBranch(flagValue, remembered string) string {

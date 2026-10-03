@@ -507,7 +507,6 @@ from lib.app.social_actions import (
 from lib.app.keybind_actions import (
     toggle_keybinds,
     toggle_continuous_ping,
-    _refresh_poi_selector_after_favorite_toggle,
     toggle_favorite_poi,
 )
 

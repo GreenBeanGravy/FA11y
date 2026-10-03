@@ -5,8 +5,8 @@ Covers the keybind-toggle family:
 
 * ``toggle_keybinds`` - F8 hotkey; enables/disables FA11y response
 * ``toggle_continuous_ping`` - Alt+P; starts/stops the POI pinger
-* ``toggle_favorite_poi`` - Alt+Shift+F; adds/removes current POI from favorites
-* ``_refresh_poi_selector_after_favorite_toggle`` - helper
+* ``toggle_favorite_poi`` - Alt+Shift+B; adds/removes current POI from favorites
+* ``_refresh_favorites_after_toggle`` - helper
 
 All state access goes through ``lib.app.state`` - no module-level globals.
 """
@@ -77,11 +77,11 @@ def toggle_continuous_ping() -> None:
     speaker.speak(simple(f"Continuous ping enabled for {poi_name}.", f"Ping on, {poi_name}"))
 
 
-def _refresh_poi_selector_after_favorite_toggle(
+def _refresh_favorites_after_toggle(
     was_added: bool, poi_name: str,
 ) -> None:
-    """After adding/removing a favorite, reload favorites and ensure the
-    selector's currently-selected POI is still valid."""
+    """After adding/removing a favorite, reload favorites and make sure the
+    selected POI is still valid."""
     from lib.app.poi_navigation import get_pois_by_category
 
     try:
@@ -193,7 +193,7 @@ def toggle_favorite_poi() -> None:
         was_added = favorites_manager.toggle_favorite(
             poi_tuple, source_tab, current_map,
         )
-        _refresh_poi_selector_after_favorite_toggle(was_added, poi_name)
+        _refresh_favorites_after_toggle(was_added, poi_name)
 
         if was_added:
             speaker.speak(simple(f"Added {poi_name} to favorites.", f"Favorited {poi_name}"))
