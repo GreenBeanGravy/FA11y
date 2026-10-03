@@ -3,15 +3,15 @@ Locker logic for FA11y, without any window code.
 
 What the Locker shows (categories, filtering, sorting, details), what it does
 (favorites through the Locker API, equipping by mouse automation in Fortnite,
-loadouts) and the tables behind it. The wx view (lib/guis/locker_gui.py) and
-the hub page's requests (lib/shell/handlers/locker.py) both call this.
+loadouts) and the tables behind it. The Locker page's requests
+(lib/shell/handlers/locker.py) call this.
 """
 from __future__ import annotations
 
 import logging
 import random
 import time
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from accessible_output2.outputs.auto import Auto
 
@@ -1001,7 +1001,7 @@ def loadout_api_prompt(entry: dict) -> str:
 
 
 def equip_loadout_via_api(auth, entry: dict) -> bool:
-    """Apply a loadout on Epic's servers, speaking as the wx view does."""
+    """Apply a loadout on Epic's servers, speaking the result."""
     name = entry.get("displayName", "(unnamed)")
     cats = entry.get("categories", {})
     speaker.speak(f"Equipping '{name}' via API...")
@@ -1140,7 +1140,7 @@ def loadout_exists(name: str) -> bool:
 def save_loadout(auth, friendly_name: str, loadout_type: Optional[str], loadout_name: str) -> dict:
     """Save what is equipped now as a local loadout, replacing one with the same name.
 
-    Returns {"ok": True, "message": ...} or {"ok": False, "message": ...}. Speaks as the wx view does.
+    Returns {"ok": True, "message": ...} or {"ok": False, "message": ...}. Speaks the result.
     """
     speaker.speak(f"Saving loadout '{loadout_name}'...")
 

@@ -12,7 +12,7 @@ import numpy as np
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
+from typing import List, Tuple, Optional
 
 from lib.utilities.utilities import read_config
 

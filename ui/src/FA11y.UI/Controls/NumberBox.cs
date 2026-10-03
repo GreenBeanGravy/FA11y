@@ -7,7 +7,7 @@ using FA11y.UI.Core;
 namespace FA11y.UI.Controls;
 
 /// <summary>
-/// A text box for a number that behaves like the wx spin box: Up and Down step the value (Page Up and
+/// A text box for a number: Up and Down step the value (Page Up and
 /// Page Down by ten steps), typing is limited to digits, a number outside the range is held to it, and
 /// the new value is selected so a screen reader reads it. <see cref="Edited"/> is raised for every
 /// change the user makes; its argument is true when the change should be saved at once (Enter, leaving

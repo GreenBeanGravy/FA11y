@@ -1,7 +1,6 @@
 """Requests for the Quests tab (and the quests a pass reward links to).
 
-The wx QuestView and this module share lib.utilities.quest_view for what is
-shown. Quest changes from match packets or an account refresh reach the UI as
+lib.utilities.quest_view decides what is shown. Quest changes from match packets or an account refresh reach the UI as
 the event quests.changed {revision}, a short moment after the last change.
 """
 from __future__ import annotations
@@ -133,7 +132,7 @@ def view(params: dict) -> dict:
 
 @handler("quests.close")
 def close(_params: dict) -> dict:
-    """Escape from a page the way the wx views close: hide over a game, else back to the sidebar."""
+    """Escape from a page the way a page closes: hide over a game, else back to the sidebar."""
     hub = get_hub()
     if hub is not None:
         hub.leave_page()

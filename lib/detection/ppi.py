@@ -36,7 +36,7 @@ class MatchFailure(Enum):
     CV_ERROR = "cv2 raised an error during transform"
 
 
-# Legacy tunables - kept for backwards compat. The live values now come
+# Default tunables. The live values come
 # from ``MatcherConfig`` (per-map in ``coordinate_config``, or falling back
 # to the global config keys ``POI.feature_detector`` / ``POI.feature_clahe``).
 LOWE_RATIO = 0.75

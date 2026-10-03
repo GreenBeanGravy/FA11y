@@ -7,7 +7,7 @@ _hub = None
 
 
 def get_hub():
-    """Return the running HubFrame, or None before it exists or after it closes."""
+    """Return the running hub, or None before it exists or after it closes."""
     return _hub
 
 

@@ -27,9 +27,8 @@ _cache_range = 0
 
 # Lazy-load gating. Loading the DLL spins up the .NET CoreCLR runtime
 # and can spawn a PowerShell process for Unblock-File - together that's
-# multi-second work that used to run at module import and stall every
-# FA11y startup. Now the work runs at most once, on demand, and can be
-# kicked off from a background thread by ``preload_async``.
+# multi-second work, so it runs at most once, on demand, and can be
+# started from a background thread by ``preload_async``.
 _load_lock = threading.Lock()
 _load_attempted = False  # True after the first ensure_loaded() call.
 _load_event = threading.Event()  # Set once load is finished (success or failure).

@@ -1,6 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Every color of the wx window (lib/hub/theme.py), by the same names. -->
+    <!-- The window's colors, named as in lib/hub/theme.py. -->
 
     <!-- Surfaces, darkest to lightest. -->
     <Color x:Key="SidebarBgColor">#171717</Color>

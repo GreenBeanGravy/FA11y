@@ -2,15 +2,11 @@
 Visited Objects GUI for FA11y
 Provides interface for viewing visited objects and searching objects by ID
 """
-import os
 import logging
-import json
-import re
 import threading
 import time
 import numpy as np
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
+from typing import List, Tuple, Union
 
 import wx
 import wx.lib.scrolledpanel as scrolled

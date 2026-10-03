@@ -22,7 +22,7 @@ public sealed class PassSession
     /// <summary>Raised on the UI thread when Busy or Message changed, or the account's passes were reloaded.</summary>
     public event Action? Changed;
 
-    /// <summary>Show a result and have it spoken, like the wx view's message box and speech.</summary>
+    /// <summary>Show a result and have it spoken.</summary>
     public void Say(string message)
     {
         Message = message;

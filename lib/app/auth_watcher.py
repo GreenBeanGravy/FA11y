@@ -12,7 +12,6 @@ import logging
 import os
 import subprocess
 import threading
-import time
 from typing import Callable, Optional
 
 import requests

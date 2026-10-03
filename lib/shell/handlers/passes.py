@@ -1,7 +1,6 @@
 """Requests for the pass browser (the pass tabs of the Quests and passes page).
 
-Texts and button states come from lib.utilities.passes_view, shared with the wx
-PassesView. The core keeps the account snapshot; the UI asks for what to show.
+Texts and button states come from lib.utilities.passes_view, for the pass browser. The core keeps the account snapshot; the UI asks for what to show.
 Claiming or buying is two steps: passes.prepare returns the summary the UI asks
 the user to confirm, and passes.execute does it.
 """

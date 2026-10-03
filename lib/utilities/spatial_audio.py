@@ -190,7 +190,7 @@ class SpatialAudio:
             pass
 
     def update_panning(self, left_weight, right_weight, volume=None):
-        """Legacy panning update - now handled by update_spatial_position"""
+        """No-op; update_spatial_position handles panning."""
         pass
 
     def apply_pitch_shift(self, factor):

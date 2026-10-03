@@ -62,8 +62,6 @@ speaker = Auto()
 # Initialize spatial audio for POI sound
 spatial_poi = SpatialAudio('assets/sounds/poi.ogg')
 
-# pyautogui.FAILSAFE removed - no longer using pyautogui
-
 # Core constants for screen regions
 ROI_START_ORIG = (524, 84)
 ROI_END_ORIG = (1390, 1010)
@@ -238,7 +236,7 @@ def handle_closed_map_ppi(poi_name, poi_coords):
 
 def get_player_position_for_poi_creation():
     """Return the player's position for custom POI creation using the same
-    robust pipeline as navigation.
+    pipeline as navigation.
 
     PPI feature-matching reads the minimap, so the minimap must be visible
     (i.e. the full-screen map closed). This mirrors ``start_icon_detection``:
@@ -466,7 +464,7 @@ def get_position_in_quadrant(x, y, quad_width, quad_height):
         return f"{vertical}-{horizontal}"
 
 def get_player_position_description(location, poi_name=None, poi_location=None, player_angle=None):
-    """Generate a comprehensive description of the player's position"""
+    """Describe the player's position."""
     if location is None:
         return "Player position unknown"
         

@@ -185,7 +185,7 @@ public partial class SetupView : UserControl
         _signingIn = true;
         try
         {
-            // The sign in dialog is the core's (still wx); this returns when it closes.
+            // The sign in dialog is the core's (a wx dialog); this returns when it closes.
             await App.Bridge.RequestAsync("account.sign_in", null, Timeout.InfiniteTimeSpan);
             if (Window.GetWindow(this) is { } window && WindowTools.ForegroundIsFa11y(App.CoreProcessId))
                 WindowTools.BringToFront(window);

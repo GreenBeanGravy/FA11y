@@ -1,7 +1,6 @@
 """What the settings editor shows, with no window code.
 
-The wx editor (lib/guis/config_gui.py) and the WPF window (through
-lib/shell/handlers/settings.py) both read this: which tab and group each
+The WPF window reads this through lib/shell/handlers/settings.py: which tab and group each
 config key appears in, its label, what kind of control it gets, its range
 and default, how a keybind swap works, and how a value is stored back.
 """

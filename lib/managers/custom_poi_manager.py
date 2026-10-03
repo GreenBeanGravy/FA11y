@@ -2,7 +2,7 @@
 Custom POI manager for FA11y
 Provides functions for managing custom points of interest with map-specific support
 """
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List
 import os
 import logging
 from lib.config.config_manager import config_manager
@@ -50,7 +50,6 @@ def _save_custom_pois_file(filename: str, pois: List[Tuple[str, int, int, str]])
         True if saved successfully, False otherwise
     """
     try:
-        # Ensure directory exists
         directory = os.path.dirname(filename)
         if directory:
             os.makedirs(directory, exist_ok=True)

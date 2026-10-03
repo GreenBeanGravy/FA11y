@@ -9,13 +9,10 @@ logger = logging.getLogger(__name__)
 from mss import mss
 from accessible_output2.outputs.auto import Auto
 from threading import Thread, Event, Lock
-import configparser
 from lib.utilities.utilities import read_config, get_config_boolean, on_config_change
 import zlib
 import pickle
-from pathlib import Path
-from threading import Thread, Event, Lock
-from queue import Queue
+from threading import Thread, Event
 from lib.managers.ocr_manager import get_ocr_manager
 from lib.detection.coordinate_config import get_hotbar_coords
 

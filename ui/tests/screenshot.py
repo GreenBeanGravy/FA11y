@@ -1,4 +1,4 @@
-"""Save a window as a PNG with PrintWindow, for comparing the new window with the wx one.
+"""Save a window as a PNG with PrintWindow, for comparing the window across changes.
 
     python ui/tests/screenshot.py OUT.png --pid 1234
     python ui/tests/screenshot.py OUT.png --title "FA11y - Home"

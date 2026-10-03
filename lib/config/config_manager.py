@@ -26,7 +26,7 @@ import configparser
 import threading
 import time
 import logging
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Callable
 from io import StringIO
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,6 @@ class ConfigManager:
         self._registries: Dict[str, ConfigRegistry] = {}
         self._global_lock = threading.RLock()
 
-        # Ensure config directory exists
         os.makedirs('config', exist_ok=True)
 
     def register(self, config_id: str, filename: str,
@@ -277,7 +276,6 @@ class ConfigManager:
 
     def _load_config(self, registry: ConfigRegistry) -> Any:
         """Load config from disk"""
-        # Ensure directory exists
         directory = os.path.dirname(registry.filename)
         if directory:
             os.makedirs(directory, exist_ok=True)
@@ -345,7 +343,6 @@ class ConfigManager:
 
     def _save_config(self, registry: ConfigRegistry, data: Any) -> bool:
         """Save config to disk"""
-        # Ensure directory exists
         directory = os.path.dirname(registry.filename)
         if directory:
             os.makedirs(directory, exist_ok=True)

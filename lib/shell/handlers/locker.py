@@ -2,15 +2,15 @@
 
 The page loads the cosmetics once (locker.load), then asks for one category at
 a time as compact records and filters and sorts them itself. Everything it
-does (favorites, equipping, loadouts) calls lib/managers/locker_manager.py,
-the same code the wx view uses. Nothing here touches an Epic account except
+does (favorites, equipping, loadouts) calls lib/managers/locker_manager.py.
+Nothing here touches an Epic account except
 when the user presses a button that does.
 """
 from __future__ import annotations
 
 import logging
 import threading
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from lib.hub import get_hub
 from lib.managers import locker_manager as lm

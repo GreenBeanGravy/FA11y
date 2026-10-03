@@ -1,7 +1,7 @@
 """What the quest browser shows for a snapshot and a set of filters, without any window code.
 
-The wx QuestView and the new window's quests handler both call render_quests,
-so the filter choices, list items, details and status line are made once.
+The quests handler calls render_quests for the filter choices, list items,
+details and status line.
 """
 from __future__ import annotations
 

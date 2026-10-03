@@ -63,7 +63,7 @@ public partial class AccountPage : PageBase
         _busy = true;
         try
         {
-            // The sign in dialog is the core's (still wx); this returns when it closes.
+            // The sign in dialog is the core's (a wx dialog); this returns when it closes.
             var result = await App.Bridge.RequestAsync("account.sign_in", null, Timeout.InfiniteTimeSpan);
             Apply(result);
             BringBackIfOurs();

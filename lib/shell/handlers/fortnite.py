@@ -4,7 +4,7 @@ Long operations (install, update, verify, move, uninstall, the Epic Games
 Launcher choices) return an operation id at once. While one runs the core
 sends operation.progress {id, percent, message} (percent is null when it
 can't tell) and, at the end, operation.finished {id, ok, message, cancelled}.
-Only one operation runs at a time, like the wx page.
+Only one operation runs at a time.
 
 Other events: fortnite.mouse_detected {available, text, detected, found}.
 """

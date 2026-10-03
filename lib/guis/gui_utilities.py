@@ -21,7 +21,7 @@ SPACE_BETWEEN_ASSOCIATED_CONTROL_VERTICAL = 3
 class DisplayableError(Exception):
     """Error intended to be surfaced to the user via a dialog.
 
-    Shared across GUI modules - previously duplicated in five places.
+    Shared across GUI modules.
     """
 
     def __init__(self, displayMessage: str, titleMessage: str = "Error"):
@@ -426,7 +426,7 @@ def force_focus_window(window, speak_text: Optional[str] = None, focus_widget: O
 
 
 def ensure_window_focus_and_center_mouse(window):
-    """Comprehensive function to ensure window focus and center mouse"""
+    """Focus the window and center the mouse on it."""
     try:
         if not window:
             return

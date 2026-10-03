@@ -6,7 +6,7 @@ using System.Windows.Media;
 namespace FA11y.UI.Controls;
 
 /// <summary>
-/// A button with an optional icon before its label. Variant picks the look, like the wx StyledButton:
+/// A button with an optional icon before its label. Variant picks the look:
 /// "secondary" (default), "primary", "danger" or "ghost". Put an underscore before the access key
 /// letter in the label ("_Sign in").
 /// </summary>

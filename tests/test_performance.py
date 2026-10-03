@@ -2,8 +2,6 @@
 import os
 import sys
 import time
-import json
-import configparser
 import numpy as np
 import pytest
 

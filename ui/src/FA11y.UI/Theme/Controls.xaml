@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:c="clr-namespace:FA11y.UI.Controls">
 
-    <!-- Styles for every control FA11y's window uses, in the look of the wx window:
+    <!-- Styles for every control FA11y's window uses, in one look:
          dark surfaces, the blue accent, 8 px corners, and a 2 px rounded focus ring
          drawn inside each control's own template (so it follows the control's shape). -->
 
@@ -358,7 +358,7 @@
         </Setter>
     </Style>
 
-    <!-- Text boxes. The two on Home and About are read-only multi-line, like the wx ones. -->
+    <!-- Text boxes. The two on Home and About are read-only and multi-line. -->
     <Style TargetType="TextBox">
         <Setter Property="Background" Value="{StaticResource CardBg}" />
         <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -692,7 +692,7 @@
         </Setter>
     </Style>
 
-    <!-- Settings groups: a card with a heading (the wx SettingsGroup). The heading is read as the group's name. -->
+    <!-- Settings groups: a card with a heading. The heading is read as the group's name. -->
     <Style TargetType="c:SettingsGroup">
         <Setter Property="Foreground" Value="{StaticResource Text}" />
         <Setter Property="Margin" Value="0,0,12,12" />

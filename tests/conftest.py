@@ -1,9 +1,7 @@
 """Shared test fixtures for FA11y test suite."""
 import os
 import sys
-import json
 import tempfile
-import shutil
 import pytest
 import numpy as np
 from unittest.mock import MagicMock

@@ -116,7 +116,7 @@ def test_set_keeps_description_and_formats(temp_config):
     assert handlers.settings_set({"section": "Values", "key": "TurnSteps", "kind": "number", "value": 7.0}) \
         == {"value": 7}
     assert stored("Values", "TurnSteps").startswith('7 "')
-    # Out of range values are held to the range, like the wx spin boxes.
+    # Out of range values are held to the range.
     assert handlers.settings_set({"section": "Values", "key": "TurnSteps", "kind": "number", "value": -5})["value"] == 1
 
     assert handlers.settings_set({"section": "Audio", "key": "MasterVolume", "kind": "volume", "value": 70}) \

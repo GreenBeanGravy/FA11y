@@ -3,13 +3,13 @@
 The editor is described by lib/config_schema.py; these handlers send that
 description to the window and save what the user changes. A change is saved
 to config.txt at once, then the rest of FA11y picks it up (key bindings,
-navigation sounds), the way the wx editor's update callback does when it saves.
+navigation sounds).
 """
 from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from lib import config_schema as schema
 from lib.shell.bridge import handler

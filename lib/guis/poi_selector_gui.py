@@ -8,8 +8,8 @@ import json
 import numpy as np
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Union, Set, Any, Callable
+from dataclasses import dataclass
+from typing import List, Tuple, Optional, Union
 
 import wx
 import wx.lib.scrolledpanel as scrolled

@@ -10,8 +10,8 @@ public sealed record SearchEntry(string Id, string Label, string Tab, string Tab
 
 /// <summary>
 /// The Ctrl+F popup: type to filter the settings, Up and Down move through the matches without leaving the
-/// text box, Enter picks one, Escape closes. The matching and ordering are the wx search's: every word
-/// must appear in the label, key name or description, and exact and leading matches of the label come first.
+/// text box, Enter picks one, Escape closes. Every word must
+/// appear in the label, key name or description, and exact and leading matches of the label come first.
 /// </summary>
 public partial class SearchWindow : Window
 {

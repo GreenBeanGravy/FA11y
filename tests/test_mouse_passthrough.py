@@ -1,7 +1,6 @@
 """Tests for lib/mouse_passthrough/ module."""
 import os
 import sys
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 

@@ -3,7 +3,6 @@ Epic Games Authentication and Locker Data Fetcher
 Handles authentication with Epic Games and fetching cosmetic locker data
 """
 import os
-import json
 import logging
 import time
 import requests
@@ -101,10 +100,8 @@ class EpicAuth:
 
         Epic does not always rotate the refresh token on a token refresh; the
         response simply omits it and the previous refresh token stays valid.
-        In that case fall back to the refresh token we already hold so it is
-        never dropped from the cache. Previously an un-rotated refresh wiped
-        the refresh token from disk, so the next launch had nothing to restore
-        the session with and forced a fresh browser login every time.
+        In that case keep the refresh token we already hold, so the cache never
+        loses it and the next launch can restore the session.
         """
         try:
             expires_at = datetime.now() + timedelta(seconds=expires_in)
@@ -1350,11 +1347,9 @@ _epic_auth_singleton_lock = threading.Lock()
 def get_epic_auth_instance() -> EpicAuth:
     """Get or create the Epic auth singleton.
 
-    The instance was previously rebuilt every call - that meant each
-    locker / social / discovery open re-registered configs, reread the
-    cached auth JSON, and reset every transient field (EOS token,
-    refresh state, etc.). Cached EOS tokens were silently thrown away
-    on every GUI open. A process-lifetime singleton keeps that warm.
+    One instance lives for the whole process, so opening the locker, social
+    or discovery views doesn't re-register configs, reread the cached auth
+    JSON, or reset transient fields such as the EOS token and refresh state.
     """
     global _epic_auth_singleton
     if _epic_auth_singleton is None:

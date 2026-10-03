@@ -26,7 +26,7 @@ public sealed class RadioOption : RadioButton
 }
 
 /// <summary>
-/// A set of <see cref="RadioOption"/>s with a name, like the wx RadioBox. Screen readers see a
+/// A set of <see cref="RadioOption"/>s with a name. Screen readers see a
 /// group with that name around the radio buttons. Tab reaches the chosen one, the arrow keys move
 /// and choose. An underscore in the header ("_Graphics") makes an access key that focuses the
 /// chosen option.
@@ -207,7 +207,7 @@ public sealed class AccessCaption : TextBlock
 }
 
 /// <summary>
-/// A box for a whole number, like the wx spin control: digits only, Up and Down change it by 1,
+/// A box for a whole number: digits only, Up and Down change it by 1,
 /// Page Up and Page Down by 10, and a value out of range is brought back to the limits when focus leaves.
 /// </summary>
 public sealed class WholeNumberBox : TextBox

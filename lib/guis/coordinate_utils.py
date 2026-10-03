@@ -1,4 +1,3 @@
-import re
 from lib.detection.player_position import find_player_icon_location, ROI_START_ORIG, ROI_END_ORIG
 
 def get_current_coordinates():

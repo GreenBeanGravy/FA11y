@@ -91,7 +91,7 @@ class DynamicObjectAudioThread:
                 player_pos, player_angle, object_pos
             )
             
-            # Enhanced falloff parameters
+            # Falloff parameters
             max_distance = 250.0
             min_volume = 0.05
             max_volume = 0.3  # Reduced to avoid overwhelming with multiple objects

@@ -5,9 +5,8 @@ Handles friends, party, and presence management for Fortnite
 import logging
 import requests
 from typing import Optional, List, Dict
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass, asdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from lib.utilities.display_name_cache import get_display_name_cache
 
 logger = logging.getLogger(__name__)

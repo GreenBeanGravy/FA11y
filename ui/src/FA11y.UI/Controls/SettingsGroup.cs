@@ -4,7 +4,7 @@ using System.Windows.Controls;
 namespace FA11y.UI.Controls;
 
 /// <summary>
-/// A card with a heading holding related settings (the look of the wx SettingsGroup). Screen readers
+/// A card with a heading holding related settings. Screen readers
 /// hear the heading as the group's name when focus moves in, for example "Announcements grouping".
 /// </summary>
 public sealed class SettingsGroup : GroupBox

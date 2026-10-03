@@ -233,8 +233,8 @@ from lib.app.constants import (
     SPECIAL_POI_CLOSEST_LANDMARK,
 )
 
-# Shared mutable state now lives in lib.app.state. We publish the shared
-# speaker/update_sound onto it at startup so extracted action handlers can
+# Shared mutable state lives in lib.app.state. The shared
+# speaker/update_sound are published onto it at startup so extracted action handlers can
 # reach them via ``state.speaker``.
 from lib.app import state as _app_state
 
@@ -600,7 +600,7 @@ def key_listener() -> None:
             if action_lower not in action_handlers:
                 continue
 
-            # Off while Fortnite isn't running (see HubFrame); toggling and
+            # Off while Fortnite isn't running; toggling and
             # opening FA11y's window always work.
             if not keybinds_on and action_lower not in ('toggle keybinds', 'open fa11y'):
                 continue

@@ -6,7 +6,7 @@ import threading
 import time
 import logging
 from collections import OrderedDict
-from typing import Dict, Tuple, Optional, Union
+from typing import Dict, Optional
 import numpy as np
 from mss import mss
 import cv2

@@ -1,7 +1,6 @@
 """What the pass browser shows, without any window code.
 
-The wx PassesView and the new window's passes handler both build their texts
-and button states here: ownership line, page choices, reward list items,
+The passes handler builds its texts and button states here: ownership line, page choices, reward list items,
 reward details, and which buttons are usable.
 """
 from __future__ import annotations

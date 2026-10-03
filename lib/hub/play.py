@@ -1,4 +1,4 @@
-"""Starting Fortnite from the hub, shared by the wx Fortnite page and the Play buttons."""
+"""Starting Fortnite from the hub, shared by the Fortnite page and the Play buttons."""
 from __future__ import annotations
 
 from typing import Callable, Optional

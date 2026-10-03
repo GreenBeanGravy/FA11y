@@ -2,7 +2,6 @@
 
 import os
 import re
-import threading
 import time
 import logging
 from typing import List, Optional, Tuple

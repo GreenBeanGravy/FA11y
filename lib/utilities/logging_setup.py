@@ -2,7 +2,6 @@
 Logging setup module for FA11y
 Handles rotating log files (keeps last 3) and captures all output
 """
-import os
 import sys
 import logging
 from datetime import datetime

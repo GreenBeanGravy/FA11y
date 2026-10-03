@@ -4,7 +4,7 @@ Provides interface for creating custom points of interest
 """
 import os
 import logging
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple
 
 import wx
 from lib.utilities.mouse import click_mouse
@@ -353,7 +353,7 @@ def launch_custom_poi_creator(use_ppi: bool = False, player_detector=None, curre
             app = wx.App(False)
 
         # CustomPOIGUI.__init__ performs the position detection (via the
-        # robust PPI pipeline) and displays its own error if it fails, so we
+        # PPI pipeline) and displays its own error if it fails, so we
         # don't pre-fetch here - doing so would detect the position twice and
         # toggle the map twice when it's open.
         dlg = CustomPOIGUI(None, use_ppi, player_detector, current_map)

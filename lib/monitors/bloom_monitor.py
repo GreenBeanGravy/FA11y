@@ -8,7 +8,6 @@ center pixel pattern.
 Runs at 10 FPS, scanning a 300x300 region around screen center (960, 540).
 """
 
-import threading
 import time
 import numpy as np
 from accessible_output2.outputs.auto import Auto

@@ -13,7 +13,7 @@ public sealed record IslandRef(string Code, string Title);
 /// <summary>
 /// One Discover list: a heading, optional controls above, the list, and Copy code and Launch
 /// gamemode (Enter, a double click and Ctrl+C do the same on the selected row). The core builds
-/// every row's text, so it reads the same as the wx lists.
+/// every row's text.
 /// </summary>
 public partial class IslandPanel : UserControl
 {
@@ -123,7 +123,7 @@ public partial class IslandPanel : UserControl
         var island = (IslandRef)row.Tag!;
         try
         {
-            // On success the core speaks, then hides the window like the wx view closing.
+            // On success the core speaks, then hides the window.
             var result = await App.Bridge.RequestAsync("discover.launch", new { code = island.Code, title = island.Title });
             if (!result.Bool("launched"))
                 Announcer.Announce(this, result.Str("announce"));

@@ -24,7 +24,6 @@ public partial class MainWindow : Window
 {
     private sealed record PageSpec(string Key, string Label, string Icon, string Group);
 
-    // The same pages, order, icons and sections as the wx hub (lib/hub/pages/__init__.py).
     private static readonly PageSpec[] Specs =
     {
         new("home", "Home", "home", ""),

@@ -10,7 +10,7 @@ namespace FA11y.UI.Controls;
 /// <summary>
 /// One pass (Battle Royale, Rocket Racing and so on): ownership and level, pages of rewards, the
 /// selected reward's details, and the claim and unlock buttons. The core holds the account state
-/// and builds every text and button state (lib/utilities/passes_view.py), as for the wx view.
+/// and builds every text and button state (lib/utilities/passes_view.py).
 /// Page Up and Page Down change the page; nothing is claimed or bought without a confirmation.
 /// </summary>
 public partial class PassPanel : UserControl

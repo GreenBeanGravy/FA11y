@@ -27,7 +27,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 import threading
 from collections import deque
 from dataclasses import asdict, dataclass, field

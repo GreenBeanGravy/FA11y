@@ -15,7 +15,7 @@ namespace FA11y.UI.Pages;
 /// <summary>
 /// The Settings and Keybinds pages: one editor the core describes with settings.schema (tabs, groups,
 /// settings) and this page draws. A change is saved as it is made (settings.set); the numbers wait a moment
-/// after the last keystroke or arrow press. Shortcuts as in the wx editor: R resets the focused setting,
+/// after the last keystroke or arrow press. Shortcuts: R resets the focused setting,
 /// T tests a volume, Delete unbinds a keybind, Ctrl+F searches. Each tab's controls are built the first time
 /// the tab is shown, or while the window is idle. Messages that aren't tied to focus are announced.
 /// </summary>

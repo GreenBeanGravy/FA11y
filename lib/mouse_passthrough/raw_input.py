@@ -8,7 +8,7 @@ from ctypes import wintypes, Structure, POINTER, byref, windll
 import threading
 import time
 from typing import Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 # Win32 constants
 WM_QUIT = 0x0012

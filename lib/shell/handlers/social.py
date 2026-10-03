@@ -1,8 +1,8 @@
 """Requests for the Social page: friends, friend requests, party and the account stats.
 
 The lists come from the social manager's cached data (the manager polls Epic
-in the background). Actions call the same manager methods the wx view calls;
-those speak their own results through the core's speech, like before.
+in the background). Actions call the manager's methods, which speak their own
+results through the core's speech.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from lib.shell.bridge import handler
 
 logger = logging.getLogger(__name__)
 
-SETTLE_SECONDS = 0.5  # the wx view waits this long before reading back after an action
+SETTLE_SECONDS = 0.5  # wait this long before reading back after an action
 
 _listening: Optional[SocialManager] = None
 

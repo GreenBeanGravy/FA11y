@@ -7,7 +7,7 @@ import requests
 import re
 import time
 from html.parser import HTMLParser
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -361,7 +361,7 @@ class EpicDiscovery:
 
     def _parse_fortnite_gg_html(self, html: str, default_creator: Optional[str] = None) -> List[DiscoveryIsland]:
         """
-        Robust parser for fortnite.gg HTML content.
+        Parse fortnite.gg HTML content.
         Handles different attribute orders and HTML structures found in browse, search, and creator pages.
         """
         islands = []

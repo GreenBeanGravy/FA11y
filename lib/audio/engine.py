@@ -17,7 +17,7 @@ import time
 import logging
 from typing import Dict, Optional, Tuple
 from ctypes import *
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pyaudio

@@ -275,7 +275,7 @@ def test_loadouts_merge_epic_presets_by_name_then_add_local_ones(local_loadouts)
                                                                preset("", CHAR)]}
     entries = lm.load_loadouts(auth)
     # Epic's presets come first; the local ones follow, including the copies just imported from Epic
-    # (the wx view has always listed them twice the first time).
+    # (so they are listed twice the first time).
     assert [(e["displayName"], e["source"], sorted(e["categories"])) for e in entries] == [
         ("Set", "epic", [CHAR, EMOTES]), ("(unnamed)", "epic", [CHAR]), ("Mine", "local", [CHAR]),
         ("Set", "local", [CHAR, EMOTES]), ("(unnamed)", "local", [CHAR])]

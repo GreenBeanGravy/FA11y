@@ -5,8 +5,8 @@ This module provides map-specific screen coordinates for different Fortnite seas
 Coordinates are used for minimap detection, health/shield detection, hotbar detection, etc.
 """
 
-from typing import Dict, Tuple, List, Any, Optional
-from dataclasses import dataclass, field
+from typing import Dict, Tuple, List, Optional
+from dataclasses import dataclass
 
 from lib.detection.feature_matcher import DetectorType, MatcherConfig
 

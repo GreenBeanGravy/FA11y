@@ -9,7 +9,7 @@ namespace FA11y.UI.Controls;
 /// <summary>
 /// The quest browser: filters (mode, category, search, status, expired), the list of quests, and
 /// the selected quest's details. The core decides what each filter offers and what each row says
-/// (lib/utilities/quest_view.py), so it matches the wx view. With a scope it shows only the quests
+/// (lib/utilities/quest_view.py). With a scope it shows only the quests
 /// linked to a pass reward, and Close returns to the pass.
 /// </summary>
 public partial class QuestPanel : UserControl
@@ -85,7 +85,7 @@ public partial class QuestPanel : UserControl
                 SignedOut?.Invoke();
                 return;
             }
-            // A failed refresh stops the timer, like the wx view; the next good one restarts it.
+            // A failed refresh stops the timer; the next good one restarts it.
             if (result.Str("error").Length > 0)
                 _accountTimer.Stop();
             else if (_active)

@@ -373,7 +373,6 @@ class GameObjectManager:
         for map_name, objects in sample_data.items():
             file_path = self._get_game_object_file_path(map_name)
             try:
-                # Ensure maps directory exists
                 os.makedirs(os.path.join('data', 'maps'), exist_ok=True)
                 
                 with open(file_path, 'w', encoding='utf-8') as f:

@@ -23,7 +23,7 @@ public static class WindowTools
     /// Show the window, restore it if minimized, and make it the foreground window. Windows only
     /// lets the process that last received input take the foreground, so when plain activation
     /// isn't enough this sends a zero distance mouse move (nothing moves, nothing is pressed) and
-    /// tries again, the same trick the wx window used.
+    /// tries again.
     /// </summary>
     public static void BringToFront(Window window)
     {

@@ -54,7 +54,7 @@ def copy(params: dict) -> dict:
 
 @handler("discover.launch")
 def launch(params: dict) -> dict:
-    """Pick the gamemode in Fortnite. The window leaves first, like the wx view's close."""
+    """Pick the gamemode in Fortnite. The window leaves first."""
     code = str(params.get("code", ""))
     title = str(params.get("title", ""))
     if not code:

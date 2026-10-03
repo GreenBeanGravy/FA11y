@@ -56,7 +56,7 @@ public sealed class ListRow : INotifyPropertyChanged
 }
 
 /// <summary>
-/// A list of text rows, like the wx list boxes. One Tab stop (the selected row), arrow keys move
+/// A list of text rows. One Tab stop (the selected row), arrow keys move
 /// focus with the selection, typing a letter jumps to a row, and the list is virtualized so long
 /// lists stay fast. With <see cref="Wrap"/>, Up on the first row goes to the last and Down on the
 /// last goes to the first. Enter raises <see cref="Activated"/>, as does a double click.
@@ -190,7 +190,7 @@ public class RowList : ListBox
             }
             if (e.Key is Key.Left or Key.Right)
             {
-                e.Handled = true; // like the wx lists: sideways does nothing
+                e.Handled = true; // sideways does nothing
                 return;
             }
         }

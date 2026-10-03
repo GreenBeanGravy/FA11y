@@ -2,7 +2,6 @@
 Match tracking system for FA11y
 Tracks visited game objects per match and resets when a new match starts
 """
-import os
 import threading
 import time
 import uuid

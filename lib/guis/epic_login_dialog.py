@@ -7,7 +7,6 @@ from lib.hub.controls import StyledButton, TabbedBook
 import webbrowser
 import logging
 import json
-import re
 from accessible_output2.outputs.auto import Auto
 
 from lib.guis.gui_utilities import AccessibleDialog, BoxSizerHelper, messageBox

@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
-import os
-from threading import Thread, Event, Lock
+from threading import Lock
 from accessible_output2.outputs.auto import Auto
 import time
 from pathlib import Path
@@ -175,7 +174,7 @@ class ResourceMonitor(BaseMonitor):
         return detections
 
     def detect_count(self, screenshot, position: Tuple[int, int], name: str, current_time: float) -> Optional[int]:
-        """Enhanced count detection with position validation."""
+        """Count detection with position validation."""
         if not self.ocr_manager.is_ready():
             return None
 

@@ -5,14 +5,12 @@ Polls a few pixels of the skydive HUD every 2.5 s; when the indicator bar
 is visible, interpolates its y-pixel into meters and speaks the value.
 
 Scoped to the Fortnite OG map (``POI.current_map == "o_g"``): the modern
-BR mode's height bar isn't reliable, so outside OG this monitor idles. It
-no longer drives new-match detection - that now comes from the game log
-(see ``match_event_monitor``).
+BR mode's height bar isn't reliable, so outside OG this monitor idles. New
+match detection comes from the game log (see ``match_event_monitor``).
 
-This used to be a bare ``start_height_monitor()`` function. It's now a
-``BaseMonitor`` subclass so shutdown goes through the same lifecycle as
-the other monitors, but a module-level ``start_height_monitor()`` shim is
-kept for backward compatibility with existing call sites in FA11y.py.
+It is a ``BaseMonitor`` subclass, so shutdown follows the same lifecycle as
+the other monitors. The module-level ``start_height_monitor()`` shim is for
+call sites in FA11y.py.
 """
 from __future__ import annotations
 
@@ -32,7 +30,7 @@ speaker = Auto()
 
 # FA11y's canonical slug for the Fortnite OG map (data/maps/map_o_g_*). The
 # skydive altitude callouts run only on this map; the modern BR mode's height
-# bar is unreliable, and match-start detection now comes from the game log.
+# bar is unreliable.
 _OG_MAP_SLUG = "o_g"
 
 # Shared state indicating if the height indicator is currently visible.

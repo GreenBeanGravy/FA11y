@@ -1,8 +1,7 @@
 """
 POI categorization + selection cycling.
 
-Handles the big POI-navigation keybind cluster that was previously
-spaghettied through ``FA11y.py``:
+Handles the POI-navigation keybinds:
 
 * ``get_poi_category`` - which bucket does a POI name belong in?
 * ``get_pois_by_category`` - list POIs in a given category for the

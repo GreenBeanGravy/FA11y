@@ -1,7 +1,5 @@
 import cv2
 import numpy as np
-import os
-from threading import Thread, Event, Lock
 from accessible_output2.outputs.auto import Auto
 import time
 from pathlib import Path

@@ -39,7 +39,7 @@ def handle_custom_poi_gui(use_ppi: bool = False) -> None:
 
             class PlayerDetector:
                 def get_player_position(self, use_ppi_flag=True):
-                    # Custom POI always uses the robust PPI pipeline (same as
+                    # Custom POI always uses the PPI pipeline (same as
                     # navigation), handling map open/closed automatically.
                     return get_player_position_for_poi_creation()
 
