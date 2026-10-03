@@ -25,11 +25,8 @@ def open_social_menu() -> None:
 
     def _open():
         social_manager = state.get_social_manager()
-        if not social_manager:
-            speaker.speak("Social features not enabled")
-            return
-
-        if not social_manager.initial_data_loaded.is_set():
+        # Signed out: the page itself says how to sign in.
+        if social_manager and not social_manager.initial_data_loaded.is_set():
             speaker.speak("Loading social data")
             if not social_manager.wait_for_initial_data(timeout=10):
                 speaker.speak(

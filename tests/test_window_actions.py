@@ -48,6 +48,16 @@ def test_the_social_keybind_waits_for_data_then_opens_the_page(hub, monkeypatch)
     manager.wait_for_initial_data.assert_called_once()
 
 
+def test_the_social_keybind_opens_the_page_when_signed_out(hub, monkeypatch):
+    monkeypatch.setattr(state, "get_social_manager", lambda: None)
+    monkeypatch.setattr(state, "speaker", Mock())
+    social_actions.open_social_menu()
+    deadline = time.time() + 3
+    while not hub.show_page.called and time.time() < deadline:
+        time.sleep(0.02)
+    hub.show_page.assert_called_once_with("social", summon=True)
+
+
 def test_keybinds_do_nothing_without_a_hub():
     set_hub(None)
     menu_actions.open_config_gui(Mock())
