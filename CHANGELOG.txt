@@ -1,3 +1,17 @@
+10/3/2026 #1 (19.0.0-beta.1, Beta branch):
+- New FA11y window. It's a separate, native Windows program, so NVDA, JAWS and Narrator read every page directly, and the window stays responsive while FA11y works in the background. Every page from the old window is here: Home, Fortnite, Discover, Epic account, Locker, Social, Quests and passes, Settings, Keybinds, and About and updates.
+- FA11y shows a startup screen with a progress bar while it loads, then fades into Home.
+- Closing or minimizing the window can send FA11y to the system tray. Windows notifications say when FA11y is ready and when it is running in the background (both can be turned off in Settings).
+- Open FA11y is now Left Alt + Left Shift + F, because Left Alt + F opens the File menu in many programs. Toggle POI Favorite moves to Left Alt + Left Shift + B. Configs that still use the old defaults are moved automatically.
+- Keybinds that open a page (Discover, Social, Quests, Locker, Settings) also work while the FA11y window is in front.
+- New Game check section on the Fortnite page: window mode, game and screen resolution, and the FakerInput driver, each with how to fix a problem.
+- Simplify speech now shortens most FA11y announcements, not only position and ammo.
+- Screen checks (map, inventory, storm, materials and others) wait until FA11y has finished starting and Fortnite has been in front for 2 seconds, so the desktop and loading screens no longer cause false announcements.
+- The startup Epic sign-in runs silently in the background and never opens the Epic account page or a window by itself. Signing in to FA11y also signs in Fortnite downloads and updates.
+- Branches: About and updates shows your branch and can switch between Stable and Beta. FA11y keeps updating from the branch you chose.
+- Removed: Mark Bad Game Object, Check Hotspots, Open Visited Objects, Check Rarity and Check Display Mode keybinds (the Game check replaces Check Display Mode), Auto Turn, and FA11y-OW support (it will return later).
+- Fixed FA11y staying open without a window after closing it during startup.
+
 10/2/2026 #1:
 
 - Added Horde Rush Ranks to the Social menu's Me tab: current account rank, elimination progress toward the next rank, and all 20 ranks with their benefits and exact values. Uses the existing Epic login; Refresh Account Information updates the account data.

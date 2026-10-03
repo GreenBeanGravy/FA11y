@@ -57,3 +57,9 @@ def test_switch_starts_launcher_with_branch(monkeypatch, tmp_path):
     about.about_switch_branch({"name": "overhaul"})
     assert popen.call_args[0][0] == [str(launcher), "--update", "--branch", "overhaul"]
     hub.quit.assert_called_once()
+
+
+def test_versions_order_pre_releases_before_their_release():
+    from lib.app.updater_check import parse_version as v
+    assert v("18.11.17") < v("19.0.0-beta.1") < v("19.0.0-beta.2") < v("19.0.0")
+    assert v("18.11.16") < v("18.11.17")

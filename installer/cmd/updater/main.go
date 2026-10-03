@@ -435,24 +435,57 @@ func readVersion(l layout.Layout) string {
 }
 
 // versionNewer compares FA11y's dotted versions ("18.11.16").
+// versionNewer reports whether remote is newer than local. Versions look like
+// "18.11.17" or "19.0.0-beta.1"; a pre-release sorts before its release.
 func versionNewer(remote, local string) bool {
 	if local == "" {
 		return true
 	}
-	r, l := strings.Split(remote, "."), strings.Split(local, ".")
-	for i := 0; i < len(r) || i < len(l); i++ {
-		var a, b int
-		if i < len(r) {
-			fmt.Sscan(r[i], &a)
+	rCore, rPre, _ := strings.Cut(remote, "-")
+	lCore, lPre, _ := strings.Cut(local, "-")
+	if c := compareNumbers(rCore, lCore); c != 0 {
+		return c > 0
+	}
+	switch {
+	case rPre == "" && lPre == "":
+		return false
+	case rPre == "":
+		return true // the release after a pre-release
+	case lPre == "":
+		return false
+	}
+	return compareNumbers(rPre, lPre) > 0
+}
+
+// compareNumbers compares dot separated numbers, ignoring parts that aren't numbers.
+func compareNumbers(a, b string) int {
+	numbers := func(s string) []int {
+		var out []int
+		for _, part := range strings.Split(s, ".") {
+			var n int
+			if _, err := fmt.Sscan(part, &n); err == nil {
+				out = append(out, n)
+			}
 		}
-		if i < len(l) {
-			fmt.Sscan(l[i], &b)
+		return out
+	}
+	x, y := numbers(a), numbers(b)
+	for i := 0; i < len(x) || i < len(y); i++ {
+		var p, q int
+		if i < len(x) {
+			p = x[i]
 		}
-		if a != b {
-			return a > b
+		if i < len(y) {
+			q = y[i]
+		}
+		if p != q {
+			if p > q {
+				return 1
+			}
+			return -1
 		}
 	}
-	return false
+	return 0
 }
 
 func isElevated() bool {

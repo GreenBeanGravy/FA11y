@@ -60,8 +60,16 @@ def get_version() -> Optional[str]:
 
 
 def parse_version(version: str) -> tuple:
-    """Parse version string into tuple."""
-    return tuple(map(int, version.split('.')))
+    """Sortable key for a version such as '18.11.17' or '19.0.0-beta.1'.
+
+    A pre-release sorts before its release: 19.0.0-beta.1 < 19.0.0-beta.2 < 19.0.0.
+    """
+    core, _, pre = version.strip().partition('-')
+    numbers = tuple(int(part) for part in core.split('.') if part.isdigit())
+    if not pre:
+        return numbers + ((1,),)
+    pre_numbers = tuple(int(part) for part in pre.split('.') if part.isdigit())
+    return numbers + ((0,) + pre_numbers,)
 
 
 def handle_update_with_changelog(speaker) -> None:
