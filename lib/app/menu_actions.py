@@ -1,4 +1,4 @@
-"""GUI launchers (config, custom POI, gamemode, locker)."""
+"""Menu keybinds: the window pages and the in-game dialogs."""
 from __future__ import annotations
 
 import logging
@@ -11,55 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 def open_config_gui(reload_config: Optional[Callable] = None) -> None:
-    """Open the FA11y configuration GUI.
-
-    ``reload_config`` is the callback invoked after the user saves - lives
-    in FA11y.py and re-binds the action handlers / key bindings. Caller
-    must supply it; we refuse to open the GUI without a reload path.
-    """
-    speaker = state.speaker
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-    from lib.utilities.utilities import Config, read_config, save_config
-
-    # With the hub, Settings is a page: just switch to it (show_page is safe
-    # from any thread). Only the dialog fallback needs the already-open guard.
+    """Open the Settings page of the FA11y window (safe from any thread)."""
     from lib.hub import get_hub
     hub = get_hub()
-    if hub is not None and hub.has_page('settings'):
+    if hub is not None:
         hub.show_page('settings', summon=True)
-        return
-
-    if state.config_gui_open.is_set():
-        speaker.speak("Configuration is already open")
-        focus_window("FA11y Configuration")
-        return
-
-    def _do_open_config():
-        state.config_gui_open.set()
-        try:
-            from lib.guis.config_gui import launch_config_gui
-
-            config_instance = Config()
-            config_instance.config = read_config()
-
-            def update_callback(updated_config_parser):
-                save_config(updated_config_parser)
-                if reload_config is not None:
-                    reload_config()
-                print("Configuration updated and saved to disk")
-
-            launch_config_gui(config_instance, update_callback)
-
-        except Exception as e:
-            # Full traceback to the log; speak the actual error so bug
-            # reports carry something actionable instead of a generic line.
-            logger.exception("Error opening config GUI")
-            print(f"Error opening config GUI: {e}")
-            speaker.speak(f"Error opening configuration GUI: {e}")
-        finally:
-            state.config_gui_open.clear()
-
-    launch_gui_thread_safe(_do_open_config)
 
 
 def handle_custom_poi_gui(use_ppi: bool = False) -> None:
@@ -108,38 +64,13 @@ def _stop_active_pinger_for_menu() -> None:
 
 
 def open_locker_selector() -> None:
-    """Open the locker GUI (cosmetic browser/equipper)."""
-    speaker = state.speaker
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    def _do_open_locker():
-        from lib.hub import get_hub
-        hub = get_hub()
-        # With the hub the locker is a page and show_view returns at once;
-        # only the dialog fallback needs the already-open guard.
-        uses_hub = hub is not None and hub.has_page('locker')
-        if not uses_hub and state.locker_gui_open.is_set():
-            speaker.speak("Locker is already open")
-            focus_window("Locker")
-            return
-
-        _stop_active_pinger_for_menu()
-        try:
-            from lib.guis.locker_gui import launch_locker_gui
-            if uses_hub:
-                launch_locker_gui()
-            else:
-                state.locker_gui_open.set()
-                try:
-                    launch_locker_gui()
-                finally:
-                    state.locker_gui_open.clear()
-        except Exception as e:
-            print(f"Error opening locker: {e}")
-            speaker.speak("Error opening locker")
-            state.locker_gui_open.clear()
-
-    launch_gui_thread_safe(_do_open_locker)
+    """Open the Locker page of the FA11y window."""
+    from lib.hub import get_hub
+    hub = get_hub()
+    if hub is None:
+        return
+    _stop_active_pinger_for_menu()
+    hub.show_page('locker', summon=True)
 
 
 # ``open_locker_viewer`` is an identical alias for ``open_locker_selector`` - 

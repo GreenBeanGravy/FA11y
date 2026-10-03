@@ -1,8 +1,8 @@
-"""Tests for the hub's drawn controls: StyledButton, NavList, TabbedBook, PageStack and ReadableText."""
+"""Tests for the hub's drawn controls: StyledButton, TabbedBook and PageStack."""
 import pytest
 import wx
 
-from lib.hub.controls import NavItem, NavList, PageStack, ReadableText, StyledButton, TabbedBook, TextLine
+from lib.hub.controls import PageStack, StyledButton, TabbedBook
 
 
 @pytest.fixture
@@ -39,21 +39,6 @@ def test_styled_button_grows_with_its_label(frame):
     short = button.GetMinSize().width
     button.SetLabel("Go somewhere much further away")
     assert button.GetMinSize().width > short
-
-
-def test_nav_list_selection_and_type_ahead(frame):
-    items = [NavItem("home", "Home", "home"), NavItem("fortnite", "Fortnite", "home", "Play"),
-             NavItem("locker", "Locker", "home", "Account")]
-    nav = NavList(frame, items)
-    selected = []
-    nav.on_select = selected.append
-    nav.set_selection(0)
-    assert selected == []  # no notify
-    nav.set_selection(2, notify=True)
-    assert selected == [2]
-    nav._type_ahead("f")
-    assert nav.selection == 1
-    assert nav.item_description(1) == "Play"
 
 
 def test_tabbed_book_matches_notebook_api(frame):
@@ -105,16 +90,3 @@ def test_page_stack_switches_pages_without_moving_focus(frame):
         wx.SafeYield()
         assert wx.Window.FindFocus() is button
         assert pages[index].IsShown() and not pages[1 - index].IsShown()
-
-
-def test_readable_text_is_a_tab_stop_only_with_text(frame):
-    text = ReadableText(frame, "")
-    assert not text.AcceptsFocusFromKeyboard()
-    text.SetLabel("Keybinds are active.")
-    assert text.AcceptsFocusFromKeyboard()
-    assert text.GetLabel() == "Keybinds are active."
-    text.separator = ", "
-    text.set_lines([TextLine("Fortnite"), TextLine(""), TextLine("Ready")])
-    assert text.accessible_text() == "Fortnite, Ready"
-    assert text.GetAccessible().GetName(0) == (wx.ACC_OK, "Fortnite, Ready")
-    assert text.GetAccessible().GetRole(0) == (wx.ACC_OK, wx.ROLE_SYSTEM_STATICTEXT)

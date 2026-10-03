@@ -1,6 +1,6 @@
 """Epic account actions for the hub, without any window code.
 
-Shared by the wx Epic account page and the requests the new window sends.
+Used by the requests the window sends.
 """
 from __future__ import annotations
 

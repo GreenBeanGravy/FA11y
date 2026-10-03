@@ -11,6 +11,7 @@ import pytest
 from lib.app import state
 from lib.hub import game_watch, settings, sounds, status
 from lib.hub.services import HubServices
+from lib.shell.remote_hub import NO_WINDOW_MESSAGE, RemoteHub
 
 FAKE_UI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "fake_ui.py")
 
@@ -65,14 +66,12 @@ def world(monkeypatch):
 @pytest.fixture
 def make_hub(tmp_path, world):
     from lib.hub import set_hub
-    from lib.shell.remote_hub import RemoteHub
-
     hubs = []
 
-    def make(ui_args=(), fallback=None, show=True):
+    def make(ui_args=(), show=True):
         log = str(tmp_path / "ui.log")
         services = HubServices(quit=Mock(), reload_config=Mock(), speak=Mock())
-        hub = RemoteHub(services, [sys.executable, FAKE_UI, "--log", log, *ui_args], str(tmp_path), fallback=fallback)
+        hub = RemoteHub(services, [sys.executable, FAKE_UI, "--log", log, *ui_args], str(tmp_path))
         hubs.append(hub)
         hub.start(show=show)
         wait_for(lambda: events(log, "core.hello"))  # the UI said ui.ready and got its hello
@@ -89,13 +88,8 @@ def visible(active=True):
     return json.dumps([{"name": "ui.visibility", "data": {"visible": True, "active": active}}])
 
 
-def test_only_the_ported_pages_count_as_pages(make_hub):
+def test_every_page_has_a_proxy(make_hub):
     hub, _ = make_hub()
-    for key in ("home", "fortnite", "discover", "account", "locker", "social", "quests", "settings", "keybinds",
-                "about"):
-        assert hub.has_page(key)
-    for key in ("nope", "help"):
-        assert not hub.has_page(key)
     assert hub.page("home") is not None and hub.page("home").built
     assert hub.page("nope") is None
 
@@ -305,8 +299,128 @@ def test_quit_stops_the_window_and_calls_the_service(make_hub):
     assert any(m.get("name") == "ui.quit" for m in read_log(log))
 
 
-def test_falls_back_when_the_window_keeps_crashing(make_hub):
-    fell_back = threading.Event()
-    hub, _ = make_hub(ui_args=("--exit-after", "0.2"), fallback=fell_back.set)
-    assert fell_back.wait(30)
+def test_keeps_running_without_a_window_when_it_keeps_crashing(make_hub):
+    hub, _ = make_hub(ui_args=("--exit-after", "0.2"))
+    wait_for(lambda: hub._no_window, timeout=30)
+    hub.services.speak.assert_called_with(NO_WINDOW_MESSAGE)
     assert not hub.IsShown()
+    hub.show_page("settings", summon=True)  # nothing to show it in, and nothing breaks
+    hub.summon()
+
+
+def test_no_window_when_the_program_is_missing(tmp_path, world):
+    from lib.hub import set_hub
+    services = HubServices(quit=Mock(), reload_config=Mock(), speak=Mock())
+    hub = RemoteHub(services, None, str(tmp_path))
+    try:
+        hub.start()
+        services.speak.assert_called_once_with(NO_WINDOW_MESSAGE)
+        assert not hub.IsShown()
+        hub.apply_setup_choice(None)
+    finally:
+        hub.watcher.stop()
+        set_hub(None)
+
+
+def test_no_window_when_it_never_says_ready(tmp_path, world):
+    from lib.hub import set_hub
+    services = HubServices(quit=Mock(), reload_config=Mock(), speak=Mock())
+    log = str(tmp_path / "ui.log")
+    hub = RemoteHub(services, [sys.executable, FAKE_UI, "--log", log, "--no-ready"], str(tmp_path), ready_timeout=0.3)
+    try:
+        hub.start()
+        wait_for(lambda: hub._no_window)
+        services.speak.assert_called_once_with(NO_WINDOW_MESSAGE)
+    finally:
+        hub.watcher.stop()
+        hub.bridge.stop(timeout=2)
+        set_hub(None)
+
+
+def test_setup_finishes_when_there_is_no_window(tmp_path, world, monkeypatch):
+    import wx
+    from lib.hub import set_hub
+    monkeypatch.setattr(wx, "CallAfter", lambda func, *args: func(*args))
+    services = HubServices(quit=Mock(), reload_config=Mock(), speak=Mock())
+    hub = RemoteHub(services, None, str(tmp_path))
+    done = []
+    try:
+        hub._setup_done = done.append
+        hub._window_unavailable("test")
+        assert hub._setup_done is None  # handed on, so FA11y starts without waiting for a window
+        assert done == [None]
+    finally:
+        hub.watcher.stop()
+        set_hub(None)
+
+
+def notices(log):
+    return events(log, "ui.notify")
+
+
+def test_ready_notification_follows_its_setting(make_hub, world):
+    hub, log = make_hub()
+    hub.notify_ready()
+    wait_for(lambda: notices(log))
+    assert notices(log) == [{"title": "FA11y", "message": "FA11y is ready"}]
+    world.flags["NotifyWhenReady"] = False
+    hub.notify_ready()
+    time.sleep(0.2)
+    assert len(notices(log)) == 1
+
+
+def test_closing_to_the_tray_says_how_to_open_fa11y_again(make_hub, world):
+    hub, log = make_hub(ui_args=("--emit", visible()))
+    wait_for(lambda: hub.IsShown())
+    hub.window_hidden(refocus_game=False)
+    wait_for(lambda: notices(log))
+    assert notices(log)[0]["message"] == "FA11y is still running in the system tray. Open it with Left Alt + F."
+    hub._shown = True
+    hub.window_hidden(refocus_game=False)  # closing by hand tells you every time
+    wait_for(lambda: len(notices(log)) == 2)
+
+
+def test_hiding_over_the_game_is_announced_once_per_session(make_hub, world):
+    hub, log = make_hub(ui_args=("--emit", visible()))
+    wait_for(lambda: hub.IsShown())
+    world.running = True
+    hub._on_fortnite_changed(True)
+    wait_for(lambda: notices(log))
+    for _ in range(2):
+        hub._shown = True
+        hub._on_fortnite_changed(True)
+        hub._shown = True
+        hub.window_hidden(refocus_game=True)  # Escape in the game
+    time.sleep(0.3)
+    assert len(notices(log)) == 1
+
+
+def test_tray_notification_follows_its_setting(make_hub, world):
+    world.flags["NotifyWhenHiddenToTray"] = False
+    hub, log = make_hub(ui_args=("--emit", visible()))
+    wait_for(lambda: hub.IsShown())
+    hub.window_hidden(refocus_game=False)
+    world.running = True
+    hub._shown = True
+    hub._on_fortnite_changed(True)
+    wait_for(lambda: events(log, "ui.hide"))
+    time.sleep(0.2)
+    assert not notices(log)
+
+
+def test_hiding_with_the_keybind_or_by_leaving_a_page_does_not_notify(make_hub, world):
+    hub, log = make_hub(ui_args=("--emit", visible()))
+    wait_for(lambda: hub.IsShown())
+    hub.toggle()
+    wait_for(lambda: events(log, "ui.hide"))
+    time.sleep(0.2)
+    assert not notices(log)
+
+
+def test_no_tray_notice_when_fortnite_starts_with_the_window_already_hidden(make_hub, world):
+    hub, log = make_hub(ui_args=("--emit", json.dumps([{"name": "ui.visibility", "data": {"visible": False}}])))
+    world.running = True
+    hub._on_fortnite_changed(True)
+    wait_for(lambda: events(log, "fortnite.running"))
+    time.sleep(0.2)
+    assert not notices(log)

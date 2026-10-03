@@ -173,5 +173,5 @@ def fortnite_status() -> dict:
 
 
 def _short_version(build: str) -> str:
-    from lib.hub.pages.fortnite import _short_version as short
-    return short(build) or "Installed"
+    from lib.hub.fortnite_ops import short_version
+    return short_version(build) or "Installed"

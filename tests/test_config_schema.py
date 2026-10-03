@@ -239,54 +239,12 @@ def test_keybind_table_matches_the_old_swap_rules():
     assert table.clear("Fire") == {}
 
 
-# The schema is what the wx editor shows ---------------------------------------------------
+# Labels and groups -----------------------------------------------------------------------
 
-def test_schema_matches_the_wx_editor(temp_config, monkeypatch):
-    import wx
-    import lib.guis.config_gui as config_gui
-    monkeypatch.setattr(config_gui, "speaker", Mock())
-    app = wx.App.Get() or wx.App(False)
-    frame = wx.Frame(None)
-    try:
-        for tabs, view in ((handlers.schema.SETTINGS_TABS, "settings"), (handlers.schema.KEYBINDS_TABS, "keybinds")):
-            config = utilities.Config()
-            config.config = utilities.read_config(use_cache=False)
-            editor = config_gui.ConfigView(frame, config, lambda parser: None, tabs=list(tabs))
-            editor._ensure_populated()
-            for tab in editor.tab_names:
-                editor._build_tab(tab)
-            data = handlers.settings_schema({"view": view})
-            for tab in data["tabs"]:
-                panel = editor.tabs[tab["name"]]
-                sections = panel._settings_sections
-                wx_groups = [item.GetSizer().GetStaticBox().GetLabel() for item in panel.GetSizer().GetChildren()
-                             if isinstance(item.GetSizer(), wx.StaticBoxSizer)]
-                wx_groups = [g for g in wx_groups if g != "Each map"]  # the map picker, which the window adds itself
-                assert [g["heading"] for g in tab["groups"]] == wx_groups, tab["name"]
-                for group in tab["groups"]:
-                    box = sections[group["heading"]].box
-                    wx_keys = [key for tracking, widgets in editor.tab_variables.items()
-                               for key, widget in widgets.items() if widget.GetParent() is box]
-                    assert [s["key"] for s in group["settings"]] == wx_keys, (tab["name"], group["heading"])
-                    for setting in group["settings"]:
-                        widget = next(w for widgets in editor.tab_variables.values() for k, w in widgets.items()
-                                      if k == setting["key"] and w.GetParent() is box)
-                        if isinstance(widget, wx.CheckBox):
-                            kind = "toggle"
-                        elif isinstance(widget, wx.Choice):
-                            kind = "choice"
-                        elif isinstance(widget, wx.TextCtrl):
-                            kind = "text"
-                        elif isinstance(widget, (wx.SpinCtrl, wx.SpinCtrlDouble)):
-                            kind = "volume" if setting["key"].endswith("Volume") else "number"
-                        else:
-                            kind = "keybind"
-                        assert setting["kind"] == kind, setting["key"]
-                        label = widget.GetLabel() if kind in ("toggle", "keybind") else widget.GetName()
-                        if kind == "keybind":
-                            assert label == f"{setting['key']}: {setting['display']}"
-                        elif kind == "toggle":
-                            assert label == setting["label"]
-    finally:
-        frame.Destroy()
-        app.ProcessPendingEvents()
+def test_setting_labels():
+    assert schema.setting_label("AnnounceKillFeed") == "Announce kill feed"
+    assert schema.setting_label("MousePassthroughDPI") == "Mouse DPI"
+    assert schema.setting_label("StormPingInterval") == "Storm ping interval"
+    assert schema.setting_label("Turn Left") == "Turn Left"
+    assert schema.setting_label("ChestsVisitDistance", "MainGameObjects") == "Visit distance (meters)"
+    assert schema.setting_label("NotifyWhenReady") == "Show a notification when FA11y is ready"

@@ -347,6 +347,6 @@ def test_quest_scope_registers_templates(pass_world):
     assert whole["heading"].endswith("quests linked to this pass and its rewards.")
 
 
-def test_the_new_pages_count_as_pages():
-    from lib.shell.remote_hub import PORTED_PAGES
-    assert "discover" in PORTED_PAGES and "quests" in PORTED_PAGES
+def test_the_new_pages_are_known_to_the_hub():
+    from lib.shell.remote_hub import PAGE_KEYS
+    assert "discover" in PAGE_KEYS and "quests" in PAGE_KEYS

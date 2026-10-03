@@ -2,36 +2,26 @@
 Social & discovery keybind handlers.
 
 Wrappers around ``social_manager`` and ``discovery_api`` that handle the
-GUI-launch + thread-safe-dispatch mechanics; the underlying managers
+window-page and thread-safe-dispatch mechanics; the underlying managers
 already live in ``lib/managers``.
 """
 from __future__ import annotations
 
+import threading
+
 from lib.app import state
-from lib.utilities.window_utils import focus_window
 
 
-def _hub_has_page(key: str) -> bool:
-    """True when the hub is running and hosts the given page."""
-    try:
-        from lib.hub import get_hub
-        hub = get_hub()
-        return hub is not None and hub.has_page(key)
-    except Exception:
-        return False
+def _show_page(key: str) -> None:
+    from lib.hub import get_hub
+    hub = get_hub()
+    if hub is not None:
+        hub.show_page(key, summon=True)
 
 
 def open_social_menu() -> None:
-    """Open the social menu."""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
+    """Open the Social page, after giving its data a moment to load."""
     speaker = state.speaker
-    # The already-open guard only applies to the dialog fallback; the hub
-    # just switches to its page.
-    if state.social_gui_open.is_set() and not _hub_has_page("social"):
-        speaker.speak("Social menu is already open")
-        focus_window("Social Menu")
-        return
 
     def _open():
         social_manager = state.get_social_manager()
@@ -45,55 +35,15 @@ def open_social_menu() -> None:
                 speaker.speak(
                     "Timeout waiting for social data, opening anyway"
                 )
+        _show_page("social")
 
-        if _hub_has_page("social"):
-            from lib.guis.social_gui import show_social_gui
-            show_social_gui(social_manager)
-            return
-
-        state.social_gui_open.set()
-        try:
-            from lib.guis.social_gui import show_social_gui
-            show_social_gui(social_manager)
-        finally:
-            state.social_gui_open.clear()
-
-    launch_gui_thread_safe(_open)
+    # The wait can take seconds, so it must not hold up the keybind thread or the wx loop.
+    threading.Thread(target=_open, name="OpenSocial", daemon=True).start()
 
 
 def open_discovery_gui() -> None:
-    """Open the discovery GUI (does not require authentication)."""
-    from lib.guis.gui_utilities import launch_gui_thread_safe
-
-    speaker = state.speaker
-    if state.discovery_gui_open.is_set() and not _hub_has_page("discover"):
-        speaker.speak("Discovery GUI is already open")
-        focus_window("Discovery GUI")
-        return
-
-    def _open():
-        discovery_api = state.get_discovery_api()
-        if not discovery_api:
-            from lib.utilities.epic_auth import get_epic_auth_instance
-            from lib.utilities.epic_discovery import EpicDiscovery
-            epic_auth = get_epic_auth_instance()
-            discovery_api = EpicDiscovery(
-                epic_auth if epic_auth and epic_auth.is_valid else None
-            )
-
-        if _hub_has_page("discover"):
-            from lib.guis.discovery_gui import show_discovery_gui
-            show_discovery_gui(discovery_api)
-            return
-
-        state.discovery_gui_open.set()
-        try:
-            from lib.guis.discovery_gui import show_discovery_gui
-            show_discovery_gui(discovery_api)
-        finally:
-            state.discovery_gui_open.clear()
-
-    launch_gui_thread_safe(_open)
+    """Open the Discover page (does not require authentication)."""
+    _show_page("discover")
 
 
 def accept_notification() -> None:

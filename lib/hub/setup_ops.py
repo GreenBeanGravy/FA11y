@@ -1,8 +1,7 @@
 """First-run setup without any window code.
 
-Shared by the wx setup panel (lib/hub/onboarding.py) and the requests the
-new window sends. Setup writes its choices to the config when it finishes
-or is skipped.
+Used by the requests the window sends. Setup writes its choices to the
+config when it finishes or is skipped.
 """
 from __future__ import annotations
 
@@ -16,6 +15,22 @@ FIRST_RUN_DESCRIPTION = ('Set to true after the first-run setup finishes. '
                          'While false, FA11y shows setup when it starts.')
 
 CLOSE_CHOICES = ("ask", "tray", "quit")  # the order of the radio buttons on the startup step
+
+
+def is_first_run() -> bool:
+    """True if first-run setup hasn't been completed yet."""
+    from lib.utilities.utilities import read_config
+    try:
+        config = read_config()
+        # [Setup] is queried directly: get_config_value doesn't scan it.
+        if config.has_section("Setup") and config.has_option("Setup", "FirstRunComplete"):
+            raw = config.get("Setup", "FirstRunComplete")
+            value = raw.split('"')[0].strip()
+            return value.lower() not in ("true", "yes", "1", "on")
+        return True  # No [Setup] yet: never completed.
+    except Exception as e:
+        logger.warning(f"is_first_run check failed: {e}")
+        return False  # Fail closed: don't pester the user on a flaky read.
 
 
 def _bool(value: Any) -> str:

@@ -6,8 +6,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
-def test_account_dialogs_import_without_decoder():
-    result = subprocess.run([sys.executable, '-c', "import sys; import lib.guis.passes_gui; import lib.guis.quest_gui; import lib.monitors.quest_account_monitor; assert not any(n == 'lib.packet' or n.startswith('lib.packet.') for n in sys.modules)"], cwd=ROOT, capture_output=True, text=True)
+def test_account_monitor_imports_without_decoder():
+    result = subprocess.run([sys.executable, '-c', "import sys; import lib.monitors.quest_account_monitor; assert not any(n == 'lib.packet' or n.startswith('lib.packet.') for n in sys.modules)"], cwd=ROOT, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert not (ROOT / 'lib/packet').exists()
 

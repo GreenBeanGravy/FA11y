@@ -1,6 +1,6 @@
 """What the Fortnite page shows and does, without any window code.
 
-Shared by the wx Fortnite page and the requests the new window sends.
+Used by the requests the window sends.
 """
 from __future__ import annotations
 

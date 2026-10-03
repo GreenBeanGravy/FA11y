@@ -1,11 +1,13 @@
 """RemoteHub: the hub as the rest of FA11y sees it, with the window in another program.
 
-It has the public methods of the wx HubFrame (show_page, summon, toggle,
-quit, notify and so on), so FA11y.py and the action modules don't care
-which window is running. Calls turn into events for FA11y.UI.exe, and the
+It has the methods the rest of FA11y calls (show_page, summon, toggle,
+quit, notify and so on). Calls turn into events for FA11y.UI.exe, and the
 UI's own events (visible, active, current page) are tracked here. It also
-owns what HubFrame did besides drawing: watching for Fortnite and keeping
-the keybinds on while Fortnite runs.
+watches for Fortnite and keeps the keybinds on while Fortnite runs.
+
+When the window program can't start or keeps stopping, FA11y keeps running
+without a window: the keybinds still work and the user is told once how to
+repair it.
 
 Events sent to the UI:
     core.hello         the starting state, sent when the UI says ui.ready
@@ -40,8 +42,9 @@ from lib.shell.bridge import Bridge, registry
 
 logger = logging.getLogger(__name__)
 
-PORTED_PAGES = ("home", "fortnite", "discover", "account", "locker", "social", "quests", "settings",
-                "keybinds", "about")
+READY_TIMEOUT_SECONDS = 10.0
+NO_WINDOW_MESSAGE = "FA11y's window couldn't start. Run Updater.exe to repair FA11y."
+READY_MESSAGE = "FA11y is ready"
 EDITOR_PAGES = ("settings", "keybinds")  # the config editor's two views
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
@@ -64,24 +67,27 @@ class _PageProxy:
 
 
 class RemoteHub:
-    def __init__(self, services: HubServices, exe_path: Union[str, Sequence[str]], root: str,
-                 fallback: Optional[Callable[[], None]] = None):
+    def __init__(self, services: HubServices, exe_path: Union[None, str, Sequence[str]], root: str,
+                 ready_timeout: float = READY_TIMEOUT_SECONDS):
         self.services = services
         self.root = root
-        self._fallback = fallback
+        self._exe_path = exe_path
+        self._ready_timeout = ready_timeout
+        self._ready = False
+        self._no_window = False
+        self._hidden_notice_given = False
         self._current = "home"
         self._shown = False
         self._active = False
         self._summoned_over_game = False
         self._quitting = False
         self._login_settled = False
-        self._proxies: Dict[str, _PageProxy] = {key: _PageProxy(self, key) for key in PORTED_PAGES}
-        self._classic = None
+        self._proxies: Dict[str, _PageProxy] = {key: _PageProxy(self, key) for key in PAGE_KEYS}
         self._setup_done: Optional[Callable] = None
         self.watcher = game_watch.GameWatcher(self._on_fortnite_changed)
 
         self._load_handlers()
-        self.bridge = Bridge(exe_path, root, registry.handlers, on_give_up=self._on_give_up)
+        self.bridge = Bridge(exe_path or "", root, registry.handlers, on_give_up=self._on_give_up)
         self.bridge.subscribe("ui.ready", self._on_ready)
         self.bridge.subscribe("ui.visibility", self._on_visibility)
         self.bridge.subscribe("ui.page", self._on_page)
@@ -102,7 +108,7 @@ class RemoteHub:
         self._shown = show and not running
         args = [] if self._shown else ["--hidden"]
         state.add_keybinds_listener(self._on_keybinds_changed)
-        self.bridge.start(args)
+        self._start_window(args)
         self.watcher.start()
         game_watch.sync_keybinds_with_game(game_watch.is_fortnite_running())
         sounds.preload()
@@ -119,19 +125,46 @@ class RemoteHub:
         self.services.quit()
         self.bridge.stop()
 
+    def _start_window(self, args) -> None:
+        """Start FA11y.UI.exe and give it a few seconds to say it is ready."""
+        if not self._exe_path:
+            self._window_unavailable("FA11y.UI.exe was not found")
+            return
+        try:
+            self.bridge.start(args)
+        except Exception as e:
+            logger.exception("Could not start FA11y.UI.exe")
+            self._window_unavailable(f"FA11y.UI.exe could not be started: {e}")
+            return
+        timer = threading.Timer(self._ready_timeout, self._check_ready)
+        timer.daemon = True
+        timer.start()
+
+    def _check_ready(self) -> None:
+        if self._ready or self._quitting or self._no_window:
+            return
+        proc = getattr(self.bridge, "_proc", None)
+        code = proc.poll() if proc is not None else None
+        detail = "it is still starting" if code is None else f"it exited with code {code}"
+        self._window_unavailable(f"FA11y.UI.exe sent no ui.ready within {self._ready_timeout:g} seconds ({detail}). "
+                                 "A missing .NET Desktop Runtime is the usual cause")
+
     def _on_give_up(self) -> None:
-        """The UI keeps crashing: use the wx window instead."""
-        logger.error("Falling back to the wx window")
+        """The UI keeps crashing."""
+        self._window_unavailable("FA11y.UI.exe keeps stopping")
+
+    def _window_unavailable(self, reason: str) -> None:
+        """No window this session: say why once, and keep FA11y running so the keybinds still work."""
+        if self._no_window or self._quitting:
+            return
+        self._no_window = True
         self._shown = False
-        self.watcher.stop()  # the wx window starts its own
-        from lib.app import state
-        state.remove_keybinds_listener(self._on_keybinds_changed)
-        if self._fallback is not None and not self._quitting:
-            try:
-                self._fallback()
-            except Exception:
-                logger.exception("Could not create the wx window")
-        self.finish_onboarding(None)  # setup can't continue in the wx window; start FA11y without it
+        logger.error(f"{reason}. Running without a window.")
+        try:
+            self.services.speak(NO_WINDOW_MESSAGE)
+        except Exception:
+            logger.exception("Could not speak the window message")
+        self.finish_onboarding(None)  # setup can't run without the window; start FA11y anyway
 
     # State the UI reports ----------------------------------------------------
 
@@ -150,6 +183,7 @@ class RemoteHub:
             self._current = key
 
     def _on_ready(self, _data: dict) -> None:
+        self._ready = True
         self.send("core.hello", self.hello())
 
     def hello(self) -> dict:
@@ -170,10 +204,6 @@ class RemoteHub:
         self.bridge.send_event(name, data)
 
     # Pages ---------------------------------------------------------------
-
-    def has_page(self, key: str) -> bool:
-        """True for pages the new window has taken over; the others open wx windows."""
-        return key in PORTED_PAGES
 
     def page(self, key: str) -> Optional[_PageProxy]:
         return self._proxies.get(key)
@@ -197,14 +227,6 @@ class RemoteHub:
             if key in self._proxies:
                 self.send(f"{key}.changed")
         self.send("views.reset", {"keys": list(keys)})
-        classic = self._classic
-        if classic is None:
-            return
-        import wx
-        if wx.IsMainThread():
-            classic.reset_views(keys)
-        else:
-            wx.CallAfter(classic.reset_views, keys)
 
     def login_settled(self) -> None:
         """The startup Epic sign-in finished (or failed)."""
@@ -245,7 +267,9 @@ class RemoteHub:
         else:
             self.summon()
 
-    def hide_to_tray(self, refocus_game: bool = False) -> None:
+    def hide_to_tray(self, refocus_game: bool = False, notify: bool = False) -> None:
+        if notify and self._shown:
+            self._notify_hidden(in_game=True)
         if self._shown:
             sounds.ui("close")
         self._shown = False
@@ -265,6 +289,7 @@ class RemoteHub:
         self._summoned_over_game = False
         if was_shown:
             sounds.ui("close")
+            self._notify_hidden(in_game=refocus_game)
         if refocus_game and game_watch.is_fortnite_running():
             game_watch.focus_fortnite()
 
@@ -292,13 +317,30 @@ class RemoteHub:
         """Windows notification. Safe to call from any thread."""
         self.send("ui.notify", {"title": title, "message": message})
 
+    def notify_ready(self) -> None:
+        """Startup finished (the moment the core speaks its ready line): toast it if the user wants that."""
+        if settings.flag("NotifyWhenReady", True):
+            self.notify("FA11y", READY_MESSAGE)
+
+    def _notify_hidden(self, in_game: bool) -> None:
+        """The window went to the tray: say where FA11y is. Over a game it is said once per session."""
+        if not settings.flag("NotifyWhenHiddenToTray", True):
+            return
+        if in_game:
+            if self._hidden_notice_given:
+                return
+            self._hidden_notice_given = True
+        keybind = _safe(status.open_hub_keybind, "")
+        opener = f"Open it with {keybind}." if keybind else "Open it from the tray icon."
+        self.notify("FA11y", f"FA11y is still running in the system tray. {opener}")
+
     # Fortnite and keybinds -------------------------------------------------
 
     def _on_fortnite_changed(self, running: bool) -> None:
         game_watch.sync_keybinds_with_game(running)
         self.send("fortnite.running", {"running": running})
         if running and settings.flag("HideHubWhenFortniteStarts", True) and self._shown:
-            self.hide_to_tray()
+            self.hide_to_tray(notify=True)
 
     def keybinds_edited(self) -> None:
         """The user changed a keybind in the editor: the Open FA11y key shown on Home may have changed."""
@@ -309,14 +351,7 @@ class RemoteHub:
         self.send("keybinds.changed", {"enabled": enabled,
                                        "open_keybind": _safe(status.open_hub_keybind, "")})
 
-    # wx windows for pages the new window hasn't taken over -------------------------
-
-    def classic(self):
-        """The wx fallback windows (created on first use). Main thread only."""
-        if self._classic is None:
-            from lib.shell.classic_window import ClassicWindows
-            self._classic = ClassicWindows(self)
-        return self._classic
+    # First-run setup -------------------------------------------------------
 
     def start_onboarding(self, on_finished) -> None:
         """Show first-run setup in the window. on_finished(egl_choice) runs on the wx thread when it ends."""
@@ -339,12 +374,14 @@ class RemoteHub:
             import wx
             wx.CallAfter(callback, egl_choice)
 
-    def apply_egl_choice(self, choice: str) -> None:
-        """After setup: the Fortnite page takes over ("manage") or syncs with ("sync") the Epic Games Launcher install."""
+    def apply_setup_choice(self, egl_choice) -> None:
+        """After setup: the Fortnite page takes over ("manage") or syncs with ("sync") the Epic Games Launcher
+        install; otherwise go home."""
+        if egl_choice not in ("manage", "sync"):
+            self.show_page("home", focus_sidebar=True)
+            return
         self.show_page("fortnite")
-        self.send("fortnite.setup_choice", {"choice": choice})
-
-    is_remote = True
+        self.send("fortnite.setup_choice", {"choice": egl_choice})
 
 
 def _safe(func, default):

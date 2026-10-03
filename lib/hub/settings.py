@@ -18,13 +18,6 @@ def close_action() -> str:
     return value if value in (CLOSE_ASK, CLOSE_TRAY, CLOSE_QUIT) else CLOSE_ASK
 
 
-def interface() -> str:
-    """Which window to use: "classic" (the wx window) or "auto" (the new one when it's installed)."""
-    raw = read_config().get("Hub", "Interface", fallback="auto")
-    value = raw.split('"')[0].strip().lower()
-    return "classic" if value == "classic" else "auto"
-
-
 def set_value(section: str, key: str, value: str) -> bool:
     """Set section.key, keeping the description text stored after the value."""
     config = read_config(use_cache=False)

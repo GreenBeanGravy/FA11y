@@ -29,10 +29,12 @@ FA11y Launcher.exe
   anything else to stdout; it logs to `logs/ui.log`.
 * When the core exits, the UI sees end of file on stdin and exits. When
   the UI exits unexpectedly, the core starts it again (at most 3 times a
-  minute), then falls back to the wx window.
-* If `FA11y.UI.exe` is missing or the config says
-  `[Hub] Interface = classic`, the core uses the wx window as before. The
-  wx hub stays in the repo until every page is ported and tested.
+  minute).
+* There is no fallback window. If `FA11y.UI.exe` is missing, can't start
+  (a missing .NET Desktop Runtime is the usual cause), keeps stopping, or
+  doesn't send `ui.ready` within 10 seconds, the core logs why, says "FA11y's
+  window couldn't start. Run Updater.exe to repair FA11y." and keeps running
+  without a window. The keybinds still work.
 
 ### Messages
 
@@ -72,9 +74,8 @@ FA11y Launcher.exe
   methods the rest of FA11y calls on the wx `HubFrame` (`show_page`,
   `summon`, `toggle`, `quit`, `reset_views`, `login_settled`, `page`,
   `current_page`, `has_page`, `notify`, `update_available_changed`,
-  `start_onboarding`, `play_fortnite`, `services`, `IsShown`). Calls turn
-  into events. `has_page` is true only for pages the UI has ported, so
-  actions for unported pages keep opening their wx dialogs.
+  `start_onboarding`, `play_fortnite`, `services`, `IsShown`, `notify_ready`). Calls turn
+  into events. Keybinds that open a page call `show_page(key, summon=True)`.
 * `lib/shell/handlers/<page>.py`: the requests for each page. Handlers
   hold no UI code. Logic that lives inside wx views today moves into
   wx-free functions that both the old view and the handler call.
@@ -132,11 +133,33 @@ ui/
 | 3 | Fortnite page (install, update, verify, move, uninstall, launch options, mouse passthrough), first-run setup | `lib/hub/pages/fortnite.py`, `lib/hub/onboarding.py`, `lib/guis/welcome_wizard.py` |
 | 4 | Discover, Quests and passes | `lib/guis/discovery_gui.py`, `quest_gui.py`, `passes_gui.py` |
 | 5 | Social, Locker | `lib/guis/social_gui.py`, `locker_gui.py` |
-| 6 | Packaging: publish to `ui/bin`, Windows Desktop Runtime component in `installer/manifest.json`, sync excludes for `ui/src` and `ui/tests`, CI build check, clean install test in the VM | `installer/`, `.github/workflows/` |
-| Later | In-game dialogs (POI selector, visited objects, custom POI, match options, Epic sign-in) and removing wx | `lib/guis/*` |
+| 6 | Removed the wx hub, packaging: publish to `ui/bin`, Windows Desktop Runtime component in `installer/manifest.json`, sync excludes for `ui/src` and `ui/tests`, CI build check, Windows notifications | `lib/hub` wx code, `lib/guis` views, `installer/`, `.github/workflows/` |
+| Later | In-game dialogs (POI selector, visited objects, custom POI, match options, Epic sign-in) | `lib/guis/*` |
 
-Unported pages appear in the new sidebar with a button that opens the
-existing wx window, so nothing is lost between phases.
+## Status
+
+Done. Every hub page (Home, Fortnite, Discover, Epic account, Locker,
+Social, Quests and passes, Settings, Keybinds, About) and first-run setup
+are native WPF. The wx hub (frame, sidebar, pages, views and the classic
+fallback window) was removed in phase 6; its last state is the git tag
+`legacy-wx-ui`.
+
+Still wx, in the core process (`wx.App` stays for them): the in-game
+dialogs (POI selector, visited objects, custom POI, match options), the
+Epic sign-in dialogs (`lib/guis/epic_login_dialog.py`,
+`epic_browser_login.py`), and their helpers (`lib/guis/gui_utilities.py`,
+`lib/hub/controls.py`, `lib/hub/theme.py`, `lib/hub/accessibility.py`).
+
+Shipping: `ui/bin` (framework dependent, committed) is what users get. The
+installer's `sync.exclude` keeps `ui/src`, `ui/tests` and `ui/tools` off
+their machines, the `windowsdesktop10` component installs the runtime, and
+the `UI check` workflow fails a push that changes `ui/src` without `ui/bin`.
+Republish with `dotnet publish ui/src/FA11y.UI -c Release -o ui/bin`.
+
+Windows notifications (toasts through the tray icon, `ui.notify`): "FA11y is
+ready" at startup (`NotifyWhenReady`), "FA11y is still running in the system
+tray" when the window goes to the tray (`NotifyWhenHiddenToTray`; shown once
+per session when it hides over the game), and the update-available toast.
 
 ## Checks for every phase
 
@@ -160,4 +183,4 @@ The machine that builds this has the .NET 9 SDK. The app targets
 `net9.0-windows` with `RollForward=Major`, so it also runs on the .NET 10
 Windows Desktop Runtime. .NET 8 and 9 support ends in November 2026, so
 the installer component installs the .NET 10 Windows Desktop Runtime, and
-the target moves to `net10.0-windows` once a .NET 10 SDK is installed.
+retarget to `net10.0-windows` when a .NET 10 SDK is available.

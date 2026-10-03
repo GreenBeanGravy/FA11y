@@ -793,38 +793,15 @@ def get_legendary_username() -> Optional[str]:
 def validate_epic_auth(epic_auth) -> bool:
     return _validate_epic_auth_ext(epic_auth)
 
-def _create_classic_hub(services):
-    """The wx window: the fallback, and what first-run setup runs in."""
-    from lib.hub.frame import HubFrame
-    from lib.hub.pages import default_pages
-
-    hub = HubFrame(services, default_pages())
-    hub.start()
-    return hub
-
-
 def _create_remote_hub(services):
-    """The window as a separate program (FA11y.UI.exe), or None to use the wx window."""
-    from lib.hub import settings as hub_settings
+    """Start the window (FA11y.UI.exe). Without it FA11y still runs: the keybinds work and the user is told."""
     from lib.shell.bridge import find_ui_exe
     from lib.shell.remote_hub import RemoteHub
 
     root = os.path.dirname(os.path.abspath(__file__))
-    exe = find_ui_exe(root)
-    if exe is None or hub_settings.interface() == "classic":
-        return None
-
-    def fall_back():
-        logger.error("The FA11y window program keeps stopping; using the classic window.")
-        wx.CallAfter(_create_classic_hub, services)
-
-    try:
-        hub = RemoteHub(services, exe, root, fallback=fall_back)
-        hub.start()
-    except Exception:
-        logger.exception("Could not start the FA11y window program")
-        return None
-    # Pages and dialogs that are still wx come and go; the app must outlive them.
+    hub = RemoteHub(services, find_ui_exe(root), root)
+    hub.start()
+    # In-game dialogs are still wx and come and go; the app must outlive them.
     # wx's main loop ends at once when it has no window at all, so an
     # invisible frame keeps it running.
     app = wx.GetApp()
@@ -835,7 +812,7 @@ def _create_remote_hub(services):
 
 
 def _create_hub(first_run: bool = False):
-    """Create and show the hub window."""
+    """Create the hub: the window program and what watches over it."""
     from lib.hub import get_hub, single_instance
     from lib.hub.services import HubServices
 
@@ -848,8 +825,6 @@ def _create_hub(first_run: bool = False):
     services = HubServices(quit=quit_fa11y, reload_config=reload_config,
                            speak=lambda text: speaker.speak(text))
     hub = _create_remote_hub(services)
-    if hub is None:
-        hub = _create_classic_hub(services)
 
     def summon():
         current = get_hub()
@@ -933,6 +908,7 @@ def _finish_epic_login(restored: bool, first_run: bool) -> None:
     from lib.utilities.epic_auth import get_epic_auth_instance
 
     epic_auth = get_epic_auth_instance()
+    ready_notice = False
     if not restored and epic_auth:
         print("Attempting silent authentication...")
         restored = epic_auth.try_silent_webview_auth(timeout=10.0)
@@ -948,14 +924,18 @@ def _finish_epic_login(restored: bool, first_run: bool) -> None:
         print(f"Social features enabled for {epic_auth.display_name}")
         if not first_run:
             speaker.speak(f"Welcome back {epic_auth.display_name}! FA11y is ready.")
+            ready_notice = True
     else:
         print("Epic Games sign-in needed for account features")
         speaker.speak("FA11y is ready. Sign in to your Epic account on the Epic account page.")
+        ready_notice = True
         hub = get_hub()
         if hub is not None and hub.IsShown():
             hub.show_page("account", focus_sidebar=True)
 
     hub = get_hub()
+    if hub is not None and ready_notice:
+        hub.notify_ready()
     if hub is not None:
         hub.reset_views(("social", "quests", "discover", "locker"))
         hub.login_settled()
@@ -1010,10 +990,10 @@ def _after_onboarding(egl_choice) -> None:
     hub = get_hub()
     if hub is None:
         return
-    from lib.hub.pages.fortnite import apply_setup_choice
-    apply_setup_choice(hub, egl_choice)
+    hub.apply_setup_choice(egl_choice)
     if egl_choice is None:
         speaker.speak("FA11y is ready.")
+        hub.notify_ready()
 
 
 def main() -> None:
@@ -1038,7 +1018,7 @@ def main() -> None:
         hub_theme.enable_dark_mode(app)
 
         try:
-            from lib.guis.welcome_wizard import is_first_run
+            from lib.hub.setup_ops import is_first_run
             first_run = is_first_run()
         except Exception as e:
             logger.exception(f"First-run check failed: {e}")

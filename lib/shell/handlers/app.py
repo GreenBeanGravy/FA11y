@@ -1,4 +1,4 @@
-"""Requests about the window itself: closing, quitting, sounds, folders, and the wx windows."""
+"""Requests about the window itself: closing, quitting, sounds and folders."""
 from __future__ import annotations
 
 import threading
@@ -96,14 +96,6 @@ def restart_to_update(_params: dict) -> dict:
     return {}
 
 
-@handler("app.open_classic")
-def open_classic(params: dict) -> dict:
-    """Open the wx window for a page the new window doesn't have yet."""
-    key = str(params.get("key", ""))
-    hub = _hub()
-    return {"ok": bool(call_on_wx(lambda: hub.classic().open(key)))}
-
-
 @handler("app.start_setup")
 def start_setup(_params: dict) -> dict:
     """Run first-run setup again, in the window."""
@@ -112,8 +104,7 @@ def start_setup(_params: dict) -> dict:
     def finished(egl_choice) -> None:
         hub.reset_views(("settings", "keybinds"))
         if egl_choice in ("manage", "sync"):
-            from lib.hub.pages.fortnite import apply_setup_choice
-            apply_setup_choice(hub, egl_choice)
+            hub.apply_setup_choice(egl_choice)
         else:
             hub.show_page("home", summon=True)
 

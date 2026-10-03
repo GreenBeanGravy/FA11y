@@ -410,16 +410,9 @@ def test_setup_runs_through_the_remote_hub(monkeypatch):
     hub.finish_onboarding("sync")  # a second call does nothing
     done.assert_called_once()
     hub.show_page = Mock()
-    hub.apply_egl_choice("manage")
+    hub.apply_setup_choice("manage")
     hub.show_page.assert_called_once_with("fortnite")
     hub.send.assert_called_with("fortnite.setup_choice", {"choice": "manage"})
-
-
-def test_apply_setup_choice_goes_to_the_remote_hub():
-    from lib.hub.pages.fortnite import apply_setup_choice
-    hub = Mock(is_remote=True)
-    apply_setup_choice(hub, "sync")
-    hub.apply_egl_choice.assert_called_once_with("sync")
-    other = Mock(is_remote=True)
-    apply_setup_choice(other, None)
-    other.show_page.assert_called_once_with("home", focus_sidebar=True)
+    hub.show_page.reset_mock()
+    hub.apply_setup_choice(None)
+    hub.show_page.assert_called_once_with("home", focus_sidebar=True)

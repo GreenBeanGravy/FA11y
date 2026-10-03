@@ -251,8 +251,6 @@ class FakeCore:
             return self.locker(method, params)
         if method == "app.close_action":
             return {"action": self.close_action}
-        if method == "app.open_classic":
-            return {"ok": True}
         if method == "app.state":
             return self.hello()
         if method.startswith(("settings.", "keybinds.")) and method in self.handlers:

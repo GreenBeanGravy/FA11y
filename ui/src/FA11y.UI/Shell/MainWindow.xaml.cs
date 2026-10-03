@@ -341,7 +341,7 @@ public partial class MainWindow : Window
             "discover" => new DiscoverPage(),
             "quests" => new QuestsPage(),
             "settings" or "keybinds" => new SettingsPage(key),
-            _ => new PlaceholderPage(key, Specs.First(s => s.Key == key).Label),
+            _ => throw new ArgumentException($"Unknown page: {key}"),
         };
         var element = (FrameworkElement)page;
         element.Visibility = key == _current ? Visibility.Visible : Visibility.Collapsed;

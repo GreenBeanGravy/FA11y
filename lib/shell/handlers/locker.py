@@ -301,16 +301,9 @@ def locker_save_loadout(params: dict) -> dict:
 
 @handler("locker.open_passes")
 def locker_open_passes(_params: dict) -> dict:
-    """Battle passes: the Quests and passes page when the new window has it, otherwise the wx dialog."""
-    session = _require()
+    """Battle passes: the Quests and passes page."""
+    _require()
     hub = get_hub()
-    if hub is not None and hub.has_page("quests"):
+    if hub is not None:
         hub.show_page("quests", summon=True)
-        return {}
-
-    def run() -> None:
-        from lib.guis.passes_gui import PassesDialog
-        PassesDialog(None, session.auth, session.cosmetics).run()
-
-    call_on_wx(run)
     return {}
