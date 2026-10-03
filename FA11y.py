@@ -13,6 +13,7 @@ import time
 from lib.app import fast_speech
 fast_speech.install()  # before any module creates a speaker
 from lib.app import no_console
+from lib.app.speech import simple
 no_console.install()  # before pythonnet probes dotnet on import
 from lib.utilities.mouse import pixel as _pixel
 import subprocess
@@ -950,7 +951,7 @@ def _complete_epic_login(restored: bool, first_run: bool) -> None:
         match_event_monitor.local_account_id = epic_auth.account_id
         print(f"Social features enabled for {epic_auth.display_name}")
         if not first_run:
-            speaker.speak(f"Welcome back {epic_auth.display_name}! FA11y is ready.")
+            speaker.speak(simple(f"Welcome back {epic_auth.display_name}! FA11y is ready.", f"Welcome back {epic_auth.display_name}"))
             ready_notice = True
     else:
         print("Epic Games sign-in needed for account features")
@@ -1031,7 +1032,7 @@ def _after_onboarding(egl_choice) -> None:
         return
     hub.apply_setup_choice(egl_choice)
     if egl_choice is None:
-        speaker.speak("FA11y is ready.")
+        speaker.speak(simple("FA11y is ready.", "Ready"))
         hub.notify_ready()
 
 

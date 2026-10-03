@@ -17,6 +17,7 @@ from lib.guis.gui_utilities import (
 )
 from lib.managers.poi_data_manager import POIData
 from lib.utilities.utilities import read_config
+from lib.app.speech import simple
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -192,7 +193,7 @@ class CustomPOIGUI(AccessibleDialog):
                 self.coordinate_label.SetLabel(coord_text)
                 
                 if original_coords != new_coords:
-                    speaker.speak(f"Position updated to {self.coordinates[0]}, {self.coordinates[1]}")
+                    speaker.speak(simple(f"Position updated to {self.coordinates[0]}, {self.coordinates[1]}", f"Position {self.coordinates[0]}, {self.coordinates[1]}"))
                 else:
                     speaker.speak("Position unchanged")
                     
@@ -241,7 +242,7 @@ class CustomPOIGUI(AccessibleDialog):
         
         if success:
             self.creation_successful = True
-            speaker.speak(f"Custom POI '{poi_name}' created successfully")
+            speaker.speak(simple(f"Custom POI '{poi_name}' created successfully", f"Created {poi_name}"))
             self.EndModal(wx.ID_OK)
             wx.CallLater(500, self._return_focus_to_game)
         else:

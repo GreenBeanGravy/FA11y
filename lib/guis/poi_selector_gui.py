@@ -22,6 +22,7 @@ from lib.guis.gui_utilities import (
     BORDER_FOR_DIALOGS
 )
 from lib.utilities.utilities import read_config, Config, clear_config_cache, save_config, calculate_distance
+from lib.app.speech import simple
 from lib.detection.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
 from lib.managers.custom_poi_manager import load_custom_pois
 from lib.managers.game_object_manager import game_object_manager
@@ -733,7 +734,7 @@ class POIGUI(AccessibleDialog):
             self.current_button_index = 0
             self.current_buttons[0].SetFocus()
         
-        speaker.speak(f"Switched to {self.poi_data.maps[new_map].name}")
+        speaker.speak(simple(f"Switched to {self.poi_data.maps[new_map].name}", self.poi_data.maps[new_map].name))
     
     def should_speak_position(self, poi: Tuple[str, str, str]) -> bool:
         SPECIAL_POIS = [("Safe Zone", "0", "0"), ("Closest", "0", "0")]
@@ -810,7 +811,7 @@ class POIGUI(AccessibleDialog):
                         focused.SetFocus()
                         
                         action = "added to" if is_added else "removed from"
-                        speaker.speak(f"{button_text} {action} favorites")
+                        speaker.speak(simple(f"{button_text} {action} favorites", f"{button_text} {'added' if is_added else 'removed'}"))
                     else:
                         speaker.speak(f"Failed to update favorites for {button_text}")
                         

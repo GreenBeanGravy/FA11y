@@ -404,8 +404,11 @@ def speech_announcement(ranked: Optional[bool] = None) -> str:
     cur_rem = cur.time_until_end_seconds
     cur_rem_min = cur_rem // 60
     cur_rem_sec = cur_rem % 60
-    return (
+    from lib.app.speech import simple
+    return simple(
         f"Current {mode} Reload map: {cur.name}. "
         f"{cur_rem_min} minutes {cur_rem_sec} seconds remaining. "
-        f"Next: {nxt.name}."
+        f"Next: {nxt.name}.",
+        f"{mode} Reload, {cur.name}. {cur_rem_min} minutes {cur_rem_sec} seconds. "
+        f"Next: {nxt.name}.",
     )

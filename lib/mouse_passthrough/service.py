@@ -11,6 +11,7 @@ from typing import Optional
 from dataclasses import asdict
 
 from lib.config.config_manager import config_manager
+from lib.app.speech import simple
 from lib.mouse_passthrough.raw_input import MouseDevice, detect_mouse_device
 from lib.mouse_passthrough.hook import MouseHook
 from lib.mouse_passthrough.faker_input import send_mouse_move
@@ -177,7 +178,7 @@ class MousePassthroughService:
         self.start()
 
         if self.speaker:
-            self.speaker.speak(f"Mouse recaptured: {device.friendly_name} at {device.dpi} D P I.")
+            self.speaker.speak(simple(f"Mouse recaptured: {device.friendly_name} at {device.dpi} D P I.", f"{device.friendly_name}, {device.dpi} D P I"))
         return device
 
     def toggle(self):
@@ -185,13 +186,13 @@ class MousePassthroughService:
         if self.running:
             self.stop()
             if self.speaker:
-                self.speaker.speak("Mouse passthrough disabled.")
+                self.speaker.speak(simple("Mouse passthrough disabled.", "Passthrough off"))
             print("[INFO] Mouse passthrough disabled")
         else:
             if self.target_device:
                 self.start()
                 if self.speaker:
-                    self.speaker.speak("Mouse passthrough enabled.")
+                    self.speaker.speak(simple("Mouse passthrough enabled.", "Passthrough on"))
                 print("[INFO] Mouse passthrough enabled")
             else:
                 if self.speaker:

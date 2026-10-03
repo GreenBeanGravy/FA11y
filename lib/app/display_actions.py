@@ -1,9 +1,8 @@
 """
-Display-mode announcement action.
+Game setup checks.
 
-``announce_display_mode`` - lalt+r hotkey; reads Fortnite's local log to find
-the most recent window mode (Fullscreen / Windowed Fullscreen / Windowed) and
-render resolution, then announces them in the order window-mode, resolution.
+Reads Fortnite's local log to find the most recent window mode and render
+resolution.
 
 Fortnite writes a small block to ``FortniteGame.log`` every time the video
 settings are applied (and on most map / menu transitions), for example::
@@ -208,34 +207,3 @@ def game_checks() -> list[dict]:
         except OSError:
             pass
     return build_game_checks(text, primary_screen_size(), faker_connected())
-
-
-def announce_display_mode() -> None:
-    """Announce the current window mode then resolution from the Fortnite log."""
-    speaker = state.speaker
-
-    text = _read_log_text()
-    if text is None:
-        speaker.speak("Fortnite log not found.")
-        return
-
-    # If the tail didn't contain the block, fall back to a full scan.
-    mode, res = _parse_display_mode(text)
-    if mode is None and res is None:
-        try:
-            with open(_LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
-                mode, res = _parse_display_mode(f.read())
-        except OSError as e:
-            state.logger.error(f"Could not read Fortnite log: {e}")
-
-    if mode is None and res is None:
-        speaker.speak("Could not determine display mode from the Fortnite log.")
-        return
-
-    parts = []
-    if mode is not None:
-        parts.append(mode)
-    if res is not None:
-        parts.append(f"{res[0]} by {res[1]}")
-
-    speaker.speak(", ".join(parts))

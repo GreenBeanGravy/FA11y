@@ -14,6 +14,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 from accessible_output2.outputs.auto import Auto
+from lib.app.speech import simple
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -502,7 +503,7 @@ def toggle_favorite(auth, cosmetics_data: List[dict], cosmetic: dict) -> str:
                 if c.get("id") == cosmetic_id:
                     c["favorite"] = new_favorite
                     break
-            speaker.speak(f"{name} added to favorites" if new_favorite else f"{name} removed from favorites")
+            speaker.speak(simple(f"{name} added to favorites" if new_favorite else f"{name} removed from favorites", f"Favorited {name}" if new_favorite else f"Unfavorited {name}"))
             return "ok"
         speaker.speak("Failed to update favorite status")
         return "failed"
@@ -768,7 +769,7 @@ def plan_equip(request: EquipRequest) -> dict:
             speaker.speak("No cosmetics available to randomize")
             return {"error": "No cosmetics available to randomize."}
         request.cosmetic = random.choice(request.candidates)
-        speaker.speak(f"Randomly selected {request.cosmetic.get('name', 'Unknown')}")
+        speaker.speak(simple(f"Randomly selected {request.cosmetic.get('name', 'Unknown')}", f"Random, {request.cosmetic.get('name', 'Unknown')}"))
         kind = "cosmetic"
 
     if kind == "cosmetic":
@@ -821,7 +822,7 @@ def run_equip(request: EquipRequest, plan: dict, slot: int) -> Tuple[bool, str]:
 
     time.sleep(0.3)
     if success:
-        speaker.speak(f"{name} equipped!")
+        speaker.speak(simple(f"{name} equipped!", f"{name} equipped"))
     else:
         speaker.speak("Equip failed")
     return success, name
@@ -1004,7 +1005,7 @@ def equip_loadout_via_api(auth, entry: dict) -> bool:
     """Apply a loadout on Epic's servers, speaking the result."""
     name = entry.get("displayName", "(unnamed)")
     cats = entry.get("categories", {})
-    speaker.speak(f"Equipping '{name}' via API...")
+    speaker.speak(simple(f"Equipping '{name}' via API...", f"Equipping {name}"))
     put_data = {}
     for cat_type, cat_data in cats.items():
         formatted_slots = []
@@ -1022,7 +1023,7 @@ def equip_loadout_via_api(auth, entry: dict) -> bool:
         }
 
     if auth.update_active_loadout(put_data):
-        speaker.speak(f"Loadout '{name}' equipped via API ({len(cats)} categories)")
+        speaker.speak(simple(f"Loadout '{name}' equipped via API ({len(cats)} categories)", f"Loadout {name} equipped"))
         return True
     speaker.speak("Failed to equip loadout")
     return False
@@ -1142,7 +1143,7 @@ def save_loadout(auth, friendly_name: str, loadout_type: Optional[str], loadout_
 
     Returns {"ok": True, "message": ...} or {"ok": False, "message": ...}. Speaks the result.
     """
-    speaker.speak(f"Saving loadout '{loadout_name}'...")
+    speaker.speak(simple(f"Saving loadout '{loadout_name}'...", f"Saving {loadout_name}"))
 
     locker_data = auth.query_locker_items()
     if not locker_data:
@@ -1177,7 +1178,7 @@ def save_loadout(auth, friendly_name: str, loadout_type: Optional[str], loadout_
 
     cat_count = len(categories_to_save)
     slot_count = sum(len(c.get("loadoutSlots", [])) for c in categories_to_save.values())
-    speaker.speak(f"Loadout '{loadout_name}' saved! {cat_count} categories, {slot_count} slots.")
+    speaker.speak(simple(f"Loadout '{loadout_name}' saved! {cat_count} categories, {slot_count} slots.", f"Saved {loadout_name}, {cat_count} categories, {slot_count} slots"))
     return {"ok": True, "message": (
         f"Loadout '{loadout_name}' saved locally.\n\n"
         f"Categories: {', '.join(LOADOUT_SCHEMA_NAMES.get(k, k) for k in categories_to_save)}\n"

@@ -8,6 +8,7 @@ import threading
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
 from accessible_output2.outputs.auto import Auto
+from lib.app.speech import simple
 
 from lib.config.config_manager import config_manager
 from lib.utilities.epic_social import (
@@ -540,12 +541,12 @@ class SocialManager:
                             progress_pct = int(current_progress * 100)
 
                             announcement = f"{mode_name} ranked: Promoted to {current_rank} ({progress_pct}% towards {next_rank})!"
-                            speaker.speak(announcement)
+                            speaker.speak(simple(announcement, f"{mode_name}: promoted to {current_rank}, {progress_pct}% towards {next_rank}"))
                             logger.info(f"Ranked promotion: {announcement}")
                         elif current_div < prev_div:
                             # Demotion
                             announcement = f"{mode_name} ranked: Demoted to {current_rank}."
-                            speaker.speak(announcement)
+                            speaker.speak(simple(announcement, f"{mode_name}: demoted to {current_rank}"))
                             logger.info(f"Ranked demotion: {announcement}")
 
                     # Check for progress change within the same division
@@ -570,7 +571,7 @@ class SocialManager:
                                 delta_text = f"Lost {abs(diff_pct)} percent"
 
                             announcement = f"{mode_name} ranked: {current_pct}% towards {next_rank} - {delta_text}"
-                            speaker.speak(announcement)
+                            speaker.speak(simple(announcement, f"{mode_name}: {current_pct}% towards {next_rank}, {delta_text.lower()}"))
                             logger.info(f"Ranked progress update: {current_rank} ({prev_pct}% -> {current_pct}%) - {delta_text}")
 
                 # Update previous state (silent on first run)
@@ -615,7 +616,7 @@ class SocialManager:
                     latest_request = self.incoming_requests[0]  # Assuming newest first
                     self._show_notification(latest_request, "friend_request")
                 elif new_count > 1:
-                    speaker.speak(f"{new_count} new incoming friend requests. Open social menu to review.")
+                    speaker.speak(simple(f"{new_count} new incoming friend requests. Open social menu to review.", f"{new_count} new friend requests"))
 
             self.prev_incoming_count = current_incoming_count
 
@@ -712,17 +713,17 @@ class SocialManager:
         if item_type == "friend_request":
             if self.notification_queue:
                 # More notifications waiting
-                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.")
+                speaker.speak(simple(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.", f"Friend request from {name}. Alt Y accept, Alt N decline. Next in 15 seconds."))
             else:
                 # This is the only notification
-                speaker.speak(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline.")
+                speaker.speak(simple(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline.", f"Friend request from {name}. Alt Y accept, Alt N decline."))
         else:  # party_invite
             if self.notification_queue:
                 # More notifications waiting
-                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.")
+                speaker.speak(simple(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.", f"Party invite from {name}. Alt Y accept, Alt N decline. Next in 15 seconds."))
             else:
                 # This is the only notification
-                speaker.speak(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline.")
+                speaker.speak(simple(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline.", f"Party invite from {name}. Alt Y accept, Alt N decline."))
 
         # Start 15-second timer only if there are more notifications in queue
         if self.notification_queue:
@@ -1188,15 +1189,15 @@ class SocialManager:
 
         # Prepare announcement without holding lock
         if self.current_view == self.VIEW_ALL_FRIENDS:
-            speaker.speak(f"{view_name}. {count} friends")
+            speaker.speak(simple(f"{view_name}. {count} friends", f"{view_name}, {count}"))
         elif self.current_view == self.VIEW_INCOMING_REQUESTS:
-            speaker.speak(f"{view_name}. {count} incoming requests")
+            speaker.speak(simple(f"{view_name}. {count} incoming requests", f"{view_name}, {count}"))
         elif self.current_view == self.VIEW_OUTGOING_REQUESTS:
-            speaker.speak(f"{view_name}. {count} outgoing requests")
+            speaker.speak(simple(f"{view_name}. {count} outgoing requests", f"{view_name}, {count}"))
         elif self.current_view == self.VIEW_PARTY_MEMBERS:
-            speaker.speak(f"{view_name}. {count} members in party")
+            speaker.speak(simple(f"{view_name}. {count} members in party", f"{view_name}, {count}"))
         elif self.current_view == self.VIEW_PARTY_INVITES:
-            speaker.speak(f"{view_name}. {count} pending invites")
+            speaker.speak(simple(f"{view_name}. {count} pending invites", f"{view_name}, {count}"))
 
     def _announce_current_item(self):
         """Announce the currently selected item"""
@@ -1237,14 +1238,14 @@ class SocialManager:
 
         if request.direction == "inbound":
             if position_info:
-                speaker.speak(f"Friend request from {display_name}, {position_info.rstrip(', ')}")
+                speaker.speak(simple(f"Friend request from {display_name}, {position_info.rstrip(', ')}", f"Request from {display_name}, {position_info.rstrip(', ')}"))
             else:
-                speaker.speak(f"Friend request from {display_name}")
+                speaker.speak(simple(f"Friend request from {display_name}", f"Request from {display_name}"))
         else:
             if position_info:
-                speaker.speak(f"Friend request sent to {display_name}, {position_info.rstrip(', ')}")
+                speaker.speak(simple(f"Friend request sent to {display_name}, {position_info.rstrip(', ')}", f"Sent to {display_name}, {position_info.rstrip(', ')}"))
             else:
-                speaker.speak(f"Friend request sent to {display_name}")
+                speaker.speak(simple(f"Friend request sent to {display_name}", f"Sent to {display_name}"))
 
     def _announce_party_invite(self, invite: PartyInvite, position_info: str = ""):
         """Announce party invite details"""
@@ -1252,9 +1253,9 @@ class SocialManager:
         display_name = self._ensure_display_name(invite.from_display_name)
 
         if position_info:
-            speaker.speak(f"Party invite from {display_name}, {position_info.rstrip(', ')}")
+            speaker.speak(simple(f"Party invite from {display_name}, {position_info.rstrip(', ')}", f"Invite from {display_name}, {position_info.rstrip(', ')}"))
         else:
-            speaker.speak(f"Party invite from {display_name}")
+            speaker.speak(simple(f"Party invite from {display_name}", f"Invite from {display_name}"))
 
     def _announce_party_member(self, member: PartyMember, position_info: str = ""):
         """Announce party member details"""
@@ -1382,7 +1383,7 @@ class SocialManager:
 
     def _accept_friend_request(self, request: FriendRequest):
         """Accept a friend request"""
-        speaker.speak(f"Accepting friend request from {request.display_name}")
+        speaker.speak(simple(f"Accepting friend request from {request.display_name}", f"Accepting {request.display_name}"))
 
         try:
             success = self.social_api.accept_friend_request(request.account_id)
@@ -1400,13 +1401,13 @@ class SocialManager:
 
     def _decline_friend_request(self, request: FriendRequest):
         """Decline a friend request"""
-        speaker.speak(f"Declining friend request")
+        speaker.speak(simple(f"Declining friend request", "Declining"))
 
         try:
             success = self.social_api.decline_friend_request(request.account_id)
 
             if success:
-                speaker.speak("Friend request declined")
+                speaker.speak(simple("Friend request declined", "Declined"))
                 # Refresh data
                 threading.Thread(target=self.refresh_all_data, daemon=True).start()
             else:
@@ -1468,7 +1469,7 @@ class SocialManager:
 
     def _accept_party_invite(self, invite: PartyInvite, gui_window=None):
         """Accept a party invite using Fortnite client (ESC key method)"""
-        speaker.speak(f"Joining {invite.from_display_name}'s party")
+        speaker.speak(simple(f"Joining {invite.from_display_name}'s party", f"Joining {invite.from_display_name}"))
 
         try:
             import pyautogui
@@ -1542,7 +1543,7 @@ class SocialManager:
 
     def _auto_accept_party_invite(self, invite: PartyInvite, display_name: str):
         """Auto-accept a party invite (when they respond to our join request) using Fortnite client"""
-        speaker.speak(f"{display_name} accepted your request. Joining party...")
+        speaker.speak(simple(f"{display_name} accepted your request. Joining party...", f"{display_name} accepted. Joining party"))
 
         try:
             import pyautogui
@@ -1616,13 +1617,13 @@ class SocialManager:
 
     def _decline_party_invite(self, invite: PartyInvite):
         """Decline a party invite"""
-        speaker.speak("Declining party invite")
+        speaker.speak(simple("Declining party invite", "Declining"))
 
         try:
             success = self.social_api.decline_party_invite(invite.party_id, invite.invite_id)
 
             if success:
-                speaker.speak("Party invite declined")
+                speaker.speak(simple("Party invite declined", "Declined"))
                 # Refresh data
                 threading.Thread(target=self.refresh_all_data, daemon=True).start()
             else:
@@ -1634,13 +1635,13 @@ class SocialManager:
 
     def _remove_friend(self, friend: Friend):
         """Remove a friend"""
-        speaker.speak(f"Removing {friend.display_name} from friends list")
+        speaker.speak(simple(f"Removing {friend.display_name} from friends list", f"Removing {friend.display_name}"))
 
         try:
             success = self.social_api.remove_friend(friend.account_id)
 
             if success:
-                speaker.speak(f"{friend.display_name} removed from friends")
+                speaker.speak(simple(f"{friend.display_name} removed from friends", f"Removed {friend.display_name}"))
                 # Refresh data
                 threading.Thread(target=self.refresh_all_data, daemon=True).start()
             else:
@@ -1680,13 +1681,13 @@ class SocialManager:
 
     def _send_friend_request(self, username: str):
         """Send a friend request"""
-        speaker.speak(f"Sending friend request to {username}")
+        speaker.speak(simple(f"Sending friend request to {username}", f"Sending to {username}"))
 
         try:
             success = self.social_api.send_friend_request(username)
 
             if success:
-                speaker.speak(f"Friend request sent to {username}")
+                speaker.speak(simple(f"Friend request sent to {username}", f"Sent to {username}"))
                 # Refresh data
                 threading.Thread(target=self.refresh_all_data, daemon=True).start()
             else:
@@ -1698,7 +1699,7 @@ class SocialManager:
 
     def _send_friend_request_by_account_id(self, account_id: str, display_name: str):
         """Send a friend request by account ID"""
-        speaker.speak(f"Sending friend request to {display_name}")
+        speaker.speak(simple(f"Sending friend request to {display_name}", f"Sending to {display_name}"))
 
         try:
             # Send friend request directly using account ID
@@ -1711,7 +1712,7 @@ class SocialManager:
 
             if response.status_code in [200, 201, 204]:
                 logger.debug(f"Successfully sent friend request to {display_name}")
-                speaker.speak(f"Friend request sent to {display_name}")
+                speaker.speak(simple(f"Friend request sent to {display_name}", f"Sent to {display_name}"))
                 # Refresh data
                 threading.Thread(target=self.refresh_all_data, daemon=True).start()
             else:
@@ -1726,15 +1727,15 @@ class SocialManager:
         """Invite a friend to party"""
         # Ensure real display name
         display_name = self._ensure_display_name(friend.display_name)
-        speaker.speak(f"Inviting {display_name} to party")
+        speaker.speak(simple(f"Inviting {display_name} to party", f"Inviting {display_name}"))
 
         try:
             result = self.social_api.send_party_invite(friend.account_id)
 
             if result == True:
-                speaker.speak(f"Party invite sent to {display_name}")
+                speaker.speak(simple(f"Party invite sent to {display_name}", f"Invited {display_name}"))
             elif result == "already_sent":
-                speaker.speak(f"Party invite sent to {display_name}") # Treat as success for user feedback
+                speaker.speak(simple(f"Party invite sent to {display_name}", f"Invited {display_name}")) # Treat as success for user feedback
             else:
                 # Retry logic for party detection
                 logger.debug("Initial invite failed, retrying party detection...")
@@ -1743,7 +1744,7 @@ class SocialManager:
                 # Try 2 more times
                 for i in range(2):
                     if self.social_api.send_party_invite(friend.account_id):
-                        speaker.speak(f"Party invite sent to {display_name}")
+                        speaker.speak(simple(f"Party invite sent to {display_name}", f"Invited {display_name}"))
                         return
                 
                 speaker.speak("Failed to send party invite. Make sure you're in a party")
@@ -1756,7 +1757,7 @@ class SocialManager:
         """Request to join a friend's party"""
         # Ensure real display name
         display_name = self._ensure_display_name(friend.display_name)
-        speaker.speak(f"Requesting to join {display_name}'s party")
+        speaker.speak(simple(f"Requesting to join {display_name}'s party", f"Requesting to join {display_name}"))
 
         try:
             result = self.social_api.request_to_join_party(friend.account_id)
@@ -1792,13 +1793,13 @@ class SocialManager:
         """Promote a party member to leader"""
         # Ensure real display name
         display_name = self._ensure_display_name(member.display_name)
-        speaker.speak(f"Promoting {display_name} to party leader")
+        speaker.speak(simple(f"Promoting {display_name} to party leader", f"Promoting {display_name}"))
 
         try:
             success = self.social_api.promote_party_member(member.account_id)
 
             if success:
-                speaker.speak(f"{display_name} promoted to party leader")
+                speaker.speak(simple(f"{display_name} promoted to party leader", f"{display_name} promoted"))
                 # Refresh party data
                 self.refresh_all_data()
             else:
@@ -1817,7 +1818,7 @@ class SocialManager:
             speaker.speak("You are not in a party")
             return
 
-        speaker.speak(f"Leaving party of {party_size} members")
+        speaker.speak(simple(f"Leaving party of {party_size} members", "Leaving party"))
 
         try:
             success = self.social_api.leave_party()
@@ -1864,7 +1865,7 @@ class SocialManager:
         member = next((m for m in self.party_members if m.account_id == account_id), None)
         name = member.display_name if member else "Player"
         
-        speaker.speak(f"Kicking {name} from party")
+        speaker.speak(simple(f"Kicking {name} from party", f"Kicking {name}"))
         
         try:
             if self.social_api.kick_party_member(account_id):

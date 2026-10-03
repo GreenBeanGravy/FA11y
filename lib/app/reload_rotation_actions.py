@@ -10,6 +10,7 @@ Caller wires the shared ``speaker`` in; no FA11y imports.
 from __future__ import annotations
 
 import logging
+from lib.app.speech import simple
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def sync_current_map_to_reload_rotation(speaker) -> None:
         cfg = read_config()
         current = cfg.get('POI', 'current_map', fallback='main')
         if current.strip().lower() == target.strip().lower():
-            speaker.speak(f"Already on {target}.")
+            speaker.speak(simple(f"Already on {target}.", f"Already {target}"))
             return
 
         adapter = Config()
