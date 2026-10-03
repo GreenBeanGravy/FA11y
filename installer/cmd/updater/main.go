@@ -115,6 +115,12 @@ func run(l layout.Layout, opts options) (int, error) {
 		}
 		commit, err := filesync.Commit(defaultRepo, branch)
 		if err != nil && opts.branch == "" && branch != defaultBranch && branchMissing(err) {
+			if installed(l) && (opts.quick || opts.check) {
+				// Routine launches never move an install to another branch on their own;
+				// the branch may only be missing for a while.
+				console.Say("The %s branch isn't on GitHub, so FA11y wasn't updated. Switch branches from About and updates, or run Updater.exe --branch main.", branch)
+				return layout.ExitNoUpdate, nil
+			}
 			console.Say("The %s branch no longer exists on GitHub. Switching back to main.", branch)
 			branch = defaultBranch
 			commit, err = filesync.Commit(defaultRepo, branch)
