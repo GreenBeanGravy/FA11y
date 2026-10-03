@@ -551,6 +551,25 @@ def key_listener() -> None:
         'open fa11y',
     }
 
+    # Keybinds that open a page of the FA11y window also work from inside the
+    # window, as long as they can't be typed into a text box: the combination
+    # has to hold Alt or Ctrl, or be a function key.
+    page_actions = {
+        'open configuration menu', 'open locker selector', 'open locker viewer',
+        'open quest browser', 'open social menu', 'open discovery gui',
+    }
+
+    def _works_in_window(action: str, combo: str) -> bool:
+        if action in allowed_gui_actions:
+            return True
+        if action not in page_actions:
+            return False
+        parts = combo.lower().split('+')
+        if any(part.lstrip('lr') in ('alt', 'ctrl') for part in parts[:-1]):
+            return True
+        key = parts[-1]
+        return key.startswith('f') and key[1:].isdigit()
+
     # Cache config booleans outside the inner loop - refresh once per cycle, not per keybind
     _cached_config_ref = None
     _cached_mouse_keys = True
@@ -612,7 +631,7 @@ def key_listener() -> None:
                 continue
 
             # Check if we should block this action due to GUI focus
-            if is_gui_focused and action_lower not in allowed_gui_actions:
+            if is_gui_focused and not _works_in_window(action_lower, key_combo):
                 # Block!
                 # logger.debug(f"Blocked action '{action_lower}' because GUI is focused") # Uncomment for debugging
                 continue
