@@ -428,7 +428,7 @@ public partial class LockerPage : PageBase
         CategorySearch.Focus();
     }
 
-    /// <summary>Filter, sort and show the category's cosmetics (the same rules as the wx list).</summary>
+    /// <summary>Filter, sort and show the category's cosmetics.</summary>
     private void ApplyCategoryFilter(bool announce, string? keepId = null)
     {
         var favoritesOnly = FavoritesOnlyCheck.IsChecked == true;
@@ -542,10 +542,10 @@ public partial class LockerPage : PageBase
                     ApplyCategoryFilter(announce: false, keepId: row.Id);
                     break;
                 case "login":
-                    Prompts.Message(Host, "Login Required", "You must be logged in to use the favorites feature.");
+                    Prompts.Message(Host, "Sign in required", "Sign in to use favorites.");
                     break;
                 case "failed":
-                    Prompts.Message(Host, "Failed", "Failed to update favorite status via API. Check logs for details.");
+                    Prompts.Message(Host, "Failed", "Could not update the favorite. Check the logs for details.");
                     break;
                 case "error":
                     Prompts.Message(Host, "Error", "Error toggling favorite.");
@@ -633,7 +633,7 @@ public partial class LockerPage : PageBase
 
     /// <summary>
     /// Run something that clicks around in Fortnite. This window gets out of the way first (the core
-    /// brings Fortnite forward) and comes back when it is done, like the wx window did.
+    /// brings Fortnite forward) and comes back when it is done.
     /// </summary>
     private async Task<JsonElement?> RunInGame(string method, object parameters)
     {
@@ -702,7 +702,7 @@ public partial class LockerPage : PageBase
             if (result.Bool("expired"))
             {
                 loginAgain = Dialogs.Confirm(Host, "Login Expired",
-                    "Your Epic Games login has expired.\n\nWould you like to log in again?");
+                    "Your Epic Games login has expired. Log in again?");
             }
             else if (result.NullableStr("error") is { } error)
             {
@@ -985,7 +985,7 @@ public partial class LockerPage : PageBase
             }
             var names = choices.GetProperty("choices").EnumerateArray().Select(c => c.GetString() ?? "").ToList();
             var index = Prompts.Choose(Host, "Save Loadout",
-                "Which loadout type do you want to save?\n\nSelect 'All Categories' to save everything at once.", names);
+                "Which loadout type do you want to save? Choose All Categories to save everything.", names);
             if (index < 0)
                 return;
             var name = Prompts.Ask(Host, "Loadout Name", "Enter a name for this loadout:", $"My {names[index]} Loadout");

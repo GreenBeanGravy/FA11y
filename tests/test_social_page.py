@@ -191,9 +191,9 @@ def test_account_info_private_and_error_states(manager):
     manager.auth = auth
     _, fortnite, ranked = manager.account_info_texts()
     assert fortnite == "Statistics are set to private.\nChange privacy settings in-game to view stats."
-    assert ranked == "Error loading ranked stats. Please try refreshing."
+    assert ranked == "Couldn't load ranked stats. Try refreshing."
     auth.get_account_info.return_value = None
-    assert manager.account_info_texts()[0].startswith("Error loading account information")
+    assert manager.account_info_texts()[0].startswith("Couldn't load account information")
     auth.get_account_info.side_effect = RuntimeError("down")
     assert manager.account_info_texts() == ("Error: down",) * 3
 

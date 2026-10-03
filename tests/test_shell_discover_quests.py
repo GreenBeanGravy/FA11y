@@ -71,9 +71,9 @@ def test_epic_list_speaks_the_count_only_to_someone_on_the_list(api):
 def test_failed_loads_show_and_speak_an_error(api):
     api.epic, api.browse = [], []
     epic = discover.epic({})
-    assert epic["rows"][0] == {"label": "Error loading Epic gamemodes. Please try refreshing.", "code": "", "title": ""}
-    assert epic["announce"] == "Error loading Epic gamemodes" and not epic["only_if_focused"]
-    assert discover.browse({})["announce"] == "Error loading islands"
+    assert epic["rows"][0] == {"label": "Couldn't load Epic gamemodes. Try refreshing.", "code": "", "title": ""}
+    assert epic["announce"] == "Couldn't load Epic gamemodes" and not epic["only_if_focused"]
+    assert discover.browse({})["announce"] == "Couldn't load islands"
 
 
 def test_search_creator_and_lookup(api):

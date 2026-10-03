@@ -3,7 +3,7 @@ import time
 import ctypes
 import configparser
 import threading
-from typing import Dict, Tuple, Optional, Any, Union, List, Set
+from typing import Dict, Tuple, Optional, Any, Union, List
 
 import pywintypes 
 import win32gui
@@ -402,37 +402,37 @@ def get_default_config():
     """Generate default config with map-specific game objects sections"""
     
     base_config = """[Toggles]
-SimplifySpeechOutput = false "Toggles simplifying speech for various FA11y announcements."
-MouseKeys = true "Toggles the keybinds used to look around, left click, and right click."
-IgnoreNumlock = false "When enabled, mouse keys will work regardless of numlock state."
-ResetSensitivity = false "Toggles between two sensitivity values for certain mouse movements, like recentering the camera. Do not change this if you are a new player."
-AnnounceAmmo = true "Toggles the announcements of ammo count when equipping weapons."
-AutoUpdates = true "Toggles automatic updates of FA11y."
-CreateDesktopShortcut = true "Toggles the creation of a desktop shortcut for FA11y on launch."
+SimplifySpeechOutput = false "Shortens some FA11y announcements."
+MouseKeys = true "Turns on the keybinds for looking around and left and right clicking."
+IgnoreNumlock = false "Makes mouse keys work whether or not Num Lock is on."
+ResetSensitivity = false "Switches between two sensitivity values for some mouse movements, such as recentering the camera. New players should leave this off."
+AnnounceAmmo = true "Announces the ammo count when you equip a weapon."
+AutoUpdates = true "Checks for FA11y updates automatically."
+CreateDesktopShortcut = true "Creates a desktop shortcut for FA11y on launch."
 StartFortniteOnLaunch = false "Starts Fortnite automatically when FA11y opens."
 HideHubWhenFortniteStarts = true "Hides the FA11y window to the system tray when Fortnite starts. Open it again with the Open FA11y keybind or the tray icon."
 NavigationSounds = true "Plays soft sounds when you move between pages in the FA11y window and when actions finish."
 NotifyWhenReady = true "Shows a Windows notification when FA11y has finished starting."
 NotifyWhenHiddenToTray = true "Shows a Windows notification when the FA11y window goes to the system tray, saying how to open it again. While Fortnite runs it is shown once per session."
-AutoTurn = false "Toggles the automatic turning feature when navigating to a position. When toggled on, your player will automatically turn towards your selected location when getting navigation info."
-AnnounceMapStatus = true "Toggles announcements when the map is opened or closed."
-AnnounceInventoryStatus = true "Toggles announcements when the inventory is opened or closed."
-AnnounceSidebarStatus = true "Toggles announcements when the in-game sidebar / pause menu is opened or closed."
-QuestAnnouncements = true "Announces saved quest progress and completion using Epic account checks every 15 seconds. Initial snapshots are silent; errors back off automatically."
-AnnounceUITabs = true "Toggles announcing the active UI tab as you navigate the lobby (Play, Shop, Locker, Quests, Career, etc.) and the in-game sidebar (Profile, Social, Chats, Add Friends, Menu, Exit)."
-MousePassthrough = true "Toggles the mouse passthrough feature. When enabled, your configured mouse is captured and relayed through the FakerInput driver."
-AnnounceTeammateEvents = true "Toggles passive announcements when a teammate appears in the kill feed or message feed. Requires the FA11y-OW companion service to be running."
-AnnounceKillFeed = true "Toggles passive announcements for every elimination in the match kill feed (excluding teammate-involved kills, which AnnounceTeammateEvents already covers). Requires the FA11y-OW companion service."
-AnnounceItemEquip = true "Toggles passive announcements when you equip a new item from your hotbar. Requires the FA11y-OW companion service."
-AnnounceItemPickup = true "Toggles passive announcements when you pick up an item. Requires the FA11y-OW companion service."
-UseFA11yOWPosition = false "Use FA11y-OW's GEP location for player position (transformed via the calibration) instead of the visual minimap detection. Off by default because the bundled calibration can be unstable far from where it was sampled; turn on only if you have re-calibrated for your setup."
+AutoTurn = false "Turns your player toward the selected location when you get navigation info."
+AnnounceMapStatus = true "Announces when the map opens or closes."
+AnnounceInventoryStatus = true "Announces when the inventory opens or closes."
+AnnounceSidebarStatus = true "Announces when the in-game sidebar or pause menu opens or closes."
+QuestAnnouncements = true "Announces saved quest progress and completion, checking your Epic account every 15 seconds. The first check is silent, and failed checks are retried less often."
+AnnounceUITabs = true "Announces the active tab as you move through the lobby (Play, Shop, Locker, Quests, Career, and others) and the in-game sidebar (Profile, Social, Chats, Add Friends, Menu, Exit)."
+MousePassthrough = true "Captures your configured mouse and relays it through the FakerInput driver."
+AnnounceTeammateEvents = true "Announces when a teammate appears in the kill feed or message feed. Needs the FA11y-OW companion service running."
+AnnounceKillFeed = true "Announces every elimination in the kill feed, except kills involving a teammate, which AnnounceTeammateEvents covers. Needs the FA11y-OW companion service."
+AnnounceItemEquip = true "Announces when you equip a new item from your hotbar. Needs the FA11y-OW companion service."
+AnnounceItemPickup = true "Announces when you pick up an item. Needs the FA11y-OW companion service."
+UseFA11yOWPosition = false "Use FA11y-OW's GEP location for player position (transformed via the calibration) instead of the visual minimap detection. Off by default because the bundled calibration can be unstable far from where it was sampled. Turn it on only after calibrating for your setup."
 
 [Values]
-TurnSensitivity = 75 "The sensitivity used for primary turning left, primary turning right, looking up, and looking down when MouseKeys is enabled."
-SecondaryTurnSensitivity = 50 "The sensitivity used for secondary turning left and right when MouseKeys is enabled."
-TurnAroundSensitivity = 1158 "The sensitivity used when turning the player around. Only adjust this if you are having issues."
-ScrollSensitivity = 120 "The sensitivity used for the scroll up and down actions."
-RecenterDelay = 0.01 "The delay, in seconds, for certain values used when recentering the player camera. Only adjust this if you are having issues."
+TurnSensitivity = 75 "The sensitivity for turning left and right and looking up and down when MouseKeys is on."
+SecondaryTurnSensitivity = 50 "The sensitivity for secondary turning left and right when MouseKeys is on."
+TurnAroundSensitivity = 1158 "The sensitivity for turning around. Change this only if you have problems."
+ScrollSensitivity = 120 "The sensitivity for scrolling up and down."
+RecenterDelay = 0.01 "The delay, in seconds, for some values used when recentering the camera. Change this only if you have problems."
 TurnDelay = 0.01 "The delay, in seconds, between each TurnStep when turning the camera left, right, up, or down."
 TurnSteps = 5 "The number of steps to use when turning left, right, up, or down."
 RecenterSteps = 20 "The number of steps to use when recentering the camera."
@@ -441,15 +441,15 @@ RecenterStepSpeed = 0 "The speed, in milliseconds, in how long it should take fo
 MousePassthroughDPI = 800 "The DPI value for your mouse used by mouse passthrough. Must match your actual mouse DPI for correct sensitivity."
 RecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera."
 RecenterLookUp = -820 "The sensitivity used when moving the camera up when recentering the camera."
-ResetRecenterLookDown = 1500 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
-ResetRecenterLookUp = -580 "The sensitivity used when moving the camera down when recentering the camera on the ResetSensitivity."
+ResetRecenterLookDown = 1500 "The sensitivity for moving the camera down when recentering with ResetSensitivity."
+ResetRecenterLookUp = -580 "The sensitivity for moving the camera up when recentering with ResetSensitivity."
 
 [Audio]
 MasterVolume = 1.0 "Master volume control for all FA11y sounds."
-PlayPOISound = true "Toggles spatial audio feedback when using PPI to get directions to a POI."
-MonitorDynamicObjects = false "Toggles background monitoring and spatial audio for nearby dynamic objects while the map is closed."
-MonitorStorm = true "Toggles monitoring for storm detection on the minimap with spatial audio pings."
-MonitorBloom = false "Toggles crosshair bloom monitoring with audio pitch feedback."
+PlayPOISound = true "Plays spatial audio when you get directions to a POI."
+MonitorDynamicObjects = false "Plays spatial audio for nearby dynamic objects while the map is closed."
+MonitorStorm = true "Watches the minimap for the storm and plays spatial audio pings."
+MonitorBloom = false "Plays a pitch that follows crosshair bloom."
 POIVolume = 1.0 "Volume for POI navigation sounds."
 StormVolume = 0.5 "Volume for storm audio pings when storm monitoring is enabled."
 DynamicObjectVolume = 1.0 "Volume for dynamic object detection sounds."
@@ -468,14 +468,14 @@ PositionUpdateInterval = 0.5 "Interval in seconds for updating player position f
 MaxInstancesForGameObjectPositioning = 20 "Maximum number of instances of an object type to use detailed game object positioning information instead of standard directional info."
 
 [Keybinds]
-Toggle Keybinds = f8 "Toggles the use of all other FA11y keybinds when pressed, other than itself."
-Open FA11y = lalt+f "Opens the FA11y window, or hides it if it's already in front."
+Toggle Keybinds = f8 "Turns all other FA11y keybinds on or off."
+Open FA11y = lalt+f "Opens the FA11y window, or hides it if it is already in front."
 Fire = lctrl "Invokes a left click for firing or using your currently held item."
 Target = rctrl "Invokes a right click for aiming your currently held item."
 Turn Left = num 1 "Turns the player camera left by moving the mouse using the TurnSensitivity sensitivity."
 Turn Right = num 3 "Turns the player camera right by moving the mouse using the TurnSensitivity sensitivity."
 Secondary Turn Left = num 4 "Turns the player camera left by moving the mouse using the SecondaryTurnSensitivity sensitivity."
-Secondary Turn Right = num 6 "Turns the player camera right by moving the mouse using the TurnSensitivity sensitivity."
+Secondary Turn Right = num 6 "Turns the player camera right by moving the mouse using the SecondaryTurnSensitivity sensitivity."
 Look Up = num 8 "Turns the player camera up by moving the mouse using the TurnSensitivity sensitivity."
 Look Down = num 2 "Turns the player camera down by moving the mouse using the TurnSensitivity sensitivity."
 Turn Around = num 0 "Turns the player camera around 180 degrees by moving the mouse using the TurnAroundSensitivity sensitivity."
@@ -489,10 +489,10 @@ Cycle POI = equals "Cycles forward through POIs in the current category."
 Cycle POI Backwards = lshift+equals "Cycles backward through POIs in the current category."
 Cycle POI Category = minus "Cycles forward between POI categories (Special, Regular, Landmarks, Favorites, Custom, etc)."
 Cycle POI Category Backwards = lshift+minus "Cycles backward between POI categories (Special, Regular, Landmarks, Favorites, Custom, etc)."
-Start Navigation = grave "Starts the player navigation process based on the players selected P O I, Game Object, or location."
+Start Navigation = grave "Starts navigation to the selected P O I, game object, or location."
 Toggle Continuous Ping = lalt+p "Toggles a continuous ping for the currently selected object."
 Toggle POI Favorite = lalt+lshift+f "Toggles the currently selected POI as a favorite."
-Check Health Shields = h "Announces the players Health and Shield values."
+Check Health Shields = h "Announces your health and shield values."
 Check Display Mode = lalt+r "Announces Fortnite's current window mode (Fullscreen, Windowed Fullscreen, or Windowed) and render resolution, read from the game's log file, in the order window mode then resolution."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."
 Announce Ammo = j "Announces the current ammo in the mag and reserves."
@@ -501,7 +501,7 @@ Open Quest Browser = lalt+q "Browse quests, progress, and completion across mode
 Open Locker Selector = bracketright "Opens the Locker Selector menu, used for equipping cosmetic items."
 Announce Reload Map Rotation = lalt+lshift+r "Queries fortnite.gg for the current Reload map rotation and announces which map is live now, how much time is left, and which map is next."
 Sync Current Map To Reload Rotation =  "Queries fortnite.gg for the current Reload map and automatically sets FA11y's current_map to the matching POI data file. Use just before queuing into Reload."
-Create Custom P O I = lalt+c "Creates a custom P O I at the players current position and prompts the user for a name. Works whether the full-screen map is open or closed."
+Create Custom P O I = lalt+c "Creates a custom P O I at your current position and asks you for a name. Works with the full-screen map open or closed."
 Open Match Options = lalt+o "Open the accessible settings for the current Fortnite match options screen. Supports Battle Royale, Reload, Fortnite OG, and Blitz Royale, showing only the settings available in that mode."
 Open Configuration Menu = f9 "Opens the FA11y configuration menu for changing these settings."
 Exit Match = f12 "Exits the current match while the in-game quick-menu is open."
@@ -523,7 +523,7 @@ Toggle Mouse Passthrough = lalt+lshift+p "Toggles mouse passthrough on or off."
 Calibrate FA11y-OW Position =  "Captures FA11y's visual position and FA11y-OW's GEP location at the same instant. Press three times at three different positions on the open full-screen map; the resulting transform applies universally to every map (one calibration is enough). FA11y ships with a default calibration so this keybind is only needed if you want to override it for your specific setup."
 
 [MatchEvents]
-MonitorMatchEvents = true "Master toggle for the in-match log event monitor. Tails Fortnite's local log file to surface real-time events the screen reader otherwise cannot see."
+MonitorMatchEvents = true "Watches Fortnite's local log file for in-match events that are not visible on screen. Turns all match event announcements on or off."
 AnnounceReloadKnocked = true "Announce when you are knocked down in Reload mode."
 AnnounceReloadRespawn = true "Announce when you start respawning, finish respawning, or respawn becomes unavailable in Reload mode."
 AnnouncePlayersLeft = true "Announce the players-remaining count whenever it changes (parsed from Epic rich presence)."
@@ -537,7 +537,7 @@ AnnounceFinalCountdown = true "Announce the final countdown player count for Rel
 selected_poi = closest, 0, 0
 current_map = main
 feature_detector = sift "Feature-matching algorithm for position detection on maps without a hard-coded override. Options: sift (default, best in varied terrain), akaze (better on low-contrast / uniform terrain like reload arenas and snow), orb (fastest, lower accuracy)."
-feature_clahe = false "Apply CLAHE histogram equalization before feature matching. Dramatically improves match rate on snow / ice / sand / other low-contrast terrain at a ~0.5 ms cost. Reload arenas already have this enabled per-map."
+feature_clahe = false "Applies CLAHE histogram equalization before feature matching. This raises the match rate on snow, ice, sand, and other low-contrast terrain and costs about 0.5 ms. Reload arenas already have it enabled per map."
 
 [Fortnite]
 LaunchAPI = default "Graphics API used when FA11y launches Fortnite. Options: default, dx11, dx12, performance."
@@ -548,7 +548,7 @@ ExtraLaunchArgs = "Extra command line arguments passed to Fortnite when FA11y la
 CloseAction = ask "What closing the FA11y window does: ask, tray (keep FA11y running in the system tray), or quit."
 
 [Setup]
-FirstRunComplete = false "Whether the first-run setup wizard has been completed. Uncheck (set to false) and restart FA11y to re-run the onboarding wizard." """
+FirstRunComplete = false "Whether first-run setup is finished. Set it to false and restart FA11y to run setup again." """
 
     # Add map-specific game objects sections
     maps_with_objects = get_maps_with_game_objects()
@@ -569,14 +569,12 @@ FirstRunComplete = false "Whether the first-run setup wizard has been completed.
 DEFAULT_CONFIG = get_default_config()
 
 # Register app_config with ConfigManager as a ``custom`` format delegating
-# to the legacy ``read_config`` / ``save_config`` helpers in this module.
-# This unifies the two config paths - both ``config_manager.get('app_config')``
-# and ``read_config()`` now hit the same on-disk source and the same
-# in-memory cache (the legacy ``_config_cache``), so there's no drift.
+# to this module's ``read_config`` / ``save_config``, so
+# ``config_manager.get('app_config')`` and ``read_config()`` share one
+# on-disk source and one in-memory cache (``_config_cache``).
 #
 # ``cache_timeout=0`` disables ConfigManager's own cache; every get()
-# re-enters ``read_config()`` which carries the authoritative 1-second
-# cache. Single cache, single source.
+# re-enters ``read_config()``, which has the 1-second cache.
 config_manager.register(
     'app_config', CONFIG_FILE, format='custom',
     default=None, cache_timeout=0.0,
@@ -889,7 +887,6 @@ def save_config(config: configparser.ConfigParser) -> bool:
     should_notify = False
     with _config_lock:
         try:
-            # Ensure config directory exists
             ensure_config_dir()
 
             # Create string representation
@@ -1222,7 +1219,7 @@ def get_minimap_region(map_name: str = None) -> dict:
             'height': 300
         }
 
-# For backward compatibility, keep a constant that uses current map
+# Minimap region for the current map.
 MINIMAP_REGION = get_minimap_region()
 
 def process_minimap(capture_func=None) -> np.ndarray:

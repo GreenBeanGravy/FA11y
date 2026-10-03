@@ -20,9 +20,8 @@ public sealed record SocialRow(string Id, string Name, string Display, string Sp
 }
 
 /// <summary>
-/// Friends, friend requests, party and your own account stats. Same texts and keys as the wx view:
-/// Enter invites (friends) or accepts (requests), F favorites, Delete declines, up and down wrap, and
-/// typing jumps to a name. Lists come from the core's cached data; changing tab asks the core to refresh.
+/// Friends, friend requests, party and your own account stats. Enter invites (friends) or
+/// accepts (requests), F favorites, Delete declines, up and down wrap, and typing jumps to a name. Lists come from the core's cached data; changing tab asks the core to refresh.
 /// </summary>
 public partial class SocialPage : PageBase
 {
@@ -73,7 +72,7 @@ public partial class SocialPage : PageBase
             _ = ReloadCurrent(refresh: false, announce: false);
     }
 
-    // The list on the selected tab, like the wx view (which started on the friends list).
+    // The list on the selected tab.
     public override FrameworkElement? FirstFocus()
     {
         if (!_available)
@@ -402,7 +401,7 @@ public partial class SocialPage : PageBase
         if (Selected(FriendsList, "No friend selected") is not { } friend)
             return;
         if (!Dialogs.Confirm(Host, "Confirm Remove Friend",
-                $"Are you sure you want to remove {friend.Name} from your friends list?"))
+                $"Remove {friend.Name} from your friends list?"))
         {
             FocusRow(FriendsList, FriendsList.SelectedIndex);
             return;
@@ -509,7 +508,7 @@ public partial class SocialPage : PageBase
                 Say(refused.Str("message"));
             return;
         }
-        if (!Dialogs.Confirm(Host, "Confirm Kick Member", $"Are you sure you want to kick {member.Name}?"))
+        if (!Dialogs.Confirm(Host, "Confirm Kick Member", $"Kick {member.Name} from the party?"))
         {
             FocusRow(PartyList, PartyList.SelectedIndex);
             return;
@@ -533,7 +532,7 @@ public partial class SocialPage : PageBase
             Say(_partySummary);
             return;
         }
-        if (!Dialogs.Confirm(Host, "Confirm Leave Party", "Are you sure you want to leave the party?"))
+        if (!Dialogs.Confirm(Host, "Confirm Leave Party", "Leave the party?"))
         {
             LeaveButton.Focus();
             return;

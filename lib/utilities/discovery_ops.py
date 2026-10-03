@@ -1,7 +1,6 @@
 """Discover logic without any window code: list texts, copying and launching.
 
-Both the wx Discover view and the new window's handlers call these, so the
-list items read the same in both.
+The Discover handlers call these.
 """
 from __future__ import annotations
 
@@ -93,8 +92,8 @@ def list_result(islands: Optional[Iterable], kind: str, *, empty: str, found: st
 def load_epic(api) -> dict:
     islands = api.scrape_creator_maps("epic", limit=50)
     if not islands:
-        return list_result(None, "epic", empty="Error loading Epic gamemodes. Please try refreshing.",
-                           found="", spoken_empty="Error loading Epic gamemodes")
+        return list_result(None, "epic", empty="Couldn't load Epic gamemodes. Try refreshing.",
+                           found="", spoken_empty="Couldn't load Epic gamemodes")
     return list_result(islands, "epic", empty="No gamemodes found",
                        found="{n} Epic gamemodes loaded", only_if_focused=True)
 
@@ -102,8 +101,8 @@ def load_epic(api) -> dict:
 def load_browse(api) -> dict:
     islands = api.scrape_fortnite_gg(search_query="", limit=50)
     if not islands:
-        return list_result(None, "browse", empty="Error loading islands. Please try refreshing.",
-                           found="", spoken_empty="Error loading islands")
+        return list_result(None, "browse", empty="Couldn't load islands. Try refreshing.",
+                           found="", spoken_empty="Couldn't load islands")
     return list_result(islands, "browse", empty="No islands found", found="{n} islands loaded",
                        only_if_focused=True)
 

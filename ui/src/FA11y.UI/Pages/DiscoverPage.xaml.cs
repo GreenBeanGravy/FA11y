@@ -71,10 +71,10 @@ public partial class DiscoverPage : PageBase, IPrefetchPage
     }
 
     private void LoadEpic() => Load(EpicPanel, "discover.epic", null, "Loading Epic Games gamemodes...",
-        "Error loading Epic gamemodes. Please try refreshing.");
+        "Couldn't load Epic gamemodes. Try refreshing.");
 
     private void LoadBrowse() => Load(BrowsePanel, "discover.browse", null, "Loading islands from fortnite.gg...",
-        "Error loading islands. Please try refreshing.");
+        "Couldn't load islands. Try refreshing.");
 
     private async void Load(IslandPanel panel, string method, object? parameters, string loading, string failed)
     {

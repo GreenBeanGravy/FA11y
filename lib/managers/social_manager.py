@@ -2,8 +2,6 @@
 Social Manager for FA11y
 Background monitoring and virtual navigation for friends and party management
 """
-import os
-import json
 import time
 import logging
 import threading
@@ -626,7 +624,7 @@ class SocialManager:
             self.prev_outgoing_count = current_outgoing_count
 
             # Check for new party invites
-            # NOTE: Announcements for invites are now handled by
+            # NOTE: Announcements for invites come from
             # MatchEventMonitor, which parses `OnPartyInviteReceived` and
             # `OnPingReceived` from the Fortnite log with sub-second
             # latency. We keep the API-polled count-change logic here only
@@ -986,7 +984,7 @@ class SocialManager:
         """The three boxes of the Me tab: (Epic account, Fortnite stats, ranked stats). Calls the Epic API."""
         try:
             if not self.auth:
-                return ("Not authenticated. Please authenticate using ALT+SHIFT+V.",
+                return ("Not signed in. Press Left Alt + Shift + L to sign in.",
                         "Not authenticated.", "Not authenticated.")
 
             auth = self.auth
@@ -999,8 +997,8 @@ class SocialManager:
             if not account_info:
                 if not auth.is_valid:
                     return expired
-                return ("Error loading account information. Please try refreshing.",
-                        "Error loading stats.", "Error loading ranked stats.")
+                return ("Couldn't load account information. Try refreshing.",
+                        "Couldn't load stats.", "Couldn't load ranked stats.")
 
             epic = "\n".join([
                 f"Username: {account_info.get('displayName', 'N/A')}",
@@ -1019,7 +1017,7 @@ class SocialManager:
     def _fortnite_stats_lines(player_stats) -> List[str]:
         lines = []
         if player_stats is None:
-            lines.append("Error loading stats. Please try refreshing.")
+            lines.append("Couldn't load stats. Try refreshing.")
         elif player_stats.get('private'):
             lines.append("Statistics are set to private.")
             lines.append("Change privacy settings in-game to view stats.")
@@ -1065,7 +1063,7 @@ class SocialManager:
     def _ranked_stats_lines(self, ranked_data) -> List[str]:
         lines = []
         if ranked_data is None:
-            lines.append("Error loading ranked stats. Please try refreshing.")
+            lines.append("Couldn't load ranked stats. Try refreshing.")
         elif not ranked_data:
             lines.append("No ranked data available.")
             lines.append("Play ranked matches to see your progress here.")
