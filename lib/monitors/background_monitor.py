@@ -200,7 +200,7 @@ class BackgroundMonitor(BaseMonitor):
         try:
             while not self.stop_event.is_set():
                 try:
-                    if self.wizard_paused():
+                    if self.screen_paused():
                         time.sleep(0.25)
                         continue
                     if self.announce_map:

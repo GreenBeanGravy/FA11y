@@ -118,3 +118,28 @@ class TestDefaultConfig:
     def test_has_toggle_passthrough_keybind(self):
         config_str = get_default_config()
         assert "Toggle Mouse Passthrough" in config_str
+
+
+def test_open_fa11y_moves_off_left_alt_f(tmp_path, monkeypatch):
+    from lib.utilities import utilities
+    (tmp_path / "config").mkdir()
+    cfg = tmp_path / "config" / "config.txt"
+    cfg.write_text('[Keybinds]\nOpen FA11y = lalt+f "Opens."\nToggle POI Favorite = lalt+lshift+f "Favorite."\n',
+                   encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    utilities._migrate_open_fa11y_keybind()
+    assert cfg.read_text(encoding="utf-8") == (
+        '[Keybinds]\nOpen FA11y = lalt+lshift+f "Opens."\nToggle POI Favorite = lalt+lshift+b "Favorite."\n')
+    utilities._migrate_open_fa11y_keybind()  # nothing left to move
+    assert "Open FA11y = lalt+lshift+f" in cfg.read_text(encoding="utf-8")
+
+
+def test_open_fa11y_keeps_a_custom_keybind(tmp_path, monkeypatch):
+    from lib.utilities import utilities
+    (tmp_path / "config").mkdir()
+    cfg = tmp_path / "config" / "config.txt"
+    text = '[Keybinds]\nOpen FA11y = lalt+f "Opens."\nToggle POI Favorite = lalt+k "Favorite."\n'
+    cfg.write_text(text, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    utilities._migrate_open_fa11y_keybind()
+    assert cfg.read_text(encoding="utf-8") == text

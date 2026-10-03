@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import Callable, Optional
 
 import win32gui
@@ -52,6 +53,24 @@ def is_fortnite_foreground() -> bool:
         return psutil.Process(pid).name().lower() in GAME_PROCESSES
     except Exception:
         return False
+
+
+_on_screen_cache = (0.0, False)
+
+
+def fortnite_on_screen() -> bool:
+    """Fortnite is running and its window is in front. Cached for a quarter second,
+    since the screen monitors ask several times a second each."""
+    global _on_screen_cache
+    if not _running:
+        return False
+    now = time.monotonic()
+    checked, result = _on_screen_cache
+    if now - checked < 0.25:
+        return result
+    result = is_fortnite_foreground()
+    _on_screen_cache = (now, result)
+    return result
 
 
 def focus_fortnite() -> bool:

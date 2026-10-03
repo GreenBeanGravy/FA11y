@@ -2,6 +2,7 @@ import os
 import time
 import ctypes
 import configparser
+import re
 import threading
 from typing import Dict, Tuple, Optional, Any, Union, List
 
@@ -107,8 +108,37 @@ def migrate_config_files():
 
     _recover_lowercase_corrupted_config()
     _migrate_current_map_slug()
+    _migrate_open_fa11y_keybind()
 
     return migrated_count > 0
+
+
+def _migrate_open_fa11y_keybind() -> None:
+    """Move Open FA11y off Left Alt+F, which opens the File menu in many programs.
+
+    Only when both keybinds still have their old defaults: Open FA11y takes
+    Left Alt+Left Shift+F and Toggle POI Favorite moves to Left Alt+Left Shift+B.
+    Edits the two lines in place so the rest of the file stays as it is.
+    """
+    cfg_path = os.path.join('config', 'config.txt')
+    if not os.path.exists(cfg_path):
+        return
+    try:
+        with open(cfg_path, 'r', encoding='utf-8', newline='') as f:
+            text = f.read()
+        old_open = re.compile(r'^(Open FA11y\s*=\s*)lalt\+f(?=\s|"|$)', re.MULTILINE)
+        old_favorite = re.compile(r'^(Toggle POI Favorite\s*=\s*)lalt\+lshift\+f(?=\s|"|$)', re.MULTILINE)
+        if not (old_open.search(text) and old_favorite.search(text)):
+            return
+        if re.search(r'^[^=\n]+=\s*lalt\+lshift\+b(?=\s|"|$)', text, re.MULTILINE):
+            return
+        text = old_open.sub(r'\g<1>lalt+lshift+f', text, count=1)
+        text = old_favorite.sub(r'\g<1>lalt+lshift+b', text, count=1)
+        with open(cfg_path, 'w', encoding='utf-8', newline='') as f:
+            f.write(text)
+        print("Moved Open FA11y to Left Alt+Left Shift+F and Toggle POI Favorite to Left Alt+Left Shift+B")
+    except Exception as e:
+        print(f"Open FA11y keybind migration failed: {e}")
 
 
 def _recover_lowercase_corrupted_config() -> bool:
@@ -470,7 +500,7 @@ MaxInstancesForGameObjectPositioning = 20 "Maximum number of instances of an obj
 
 [Keybinds]
 Toggle Keybinds = f8 "Turns all other FA11y keybinds on or off."
-Open FA11y = lalt+f "Opens the FA11y window, or hides it if it is already in front."
+Open FA11y = lalt+lshift+f "Opens the FA11y window, or hides it if it is already in front."
 Fire = lctrl "Invokes a left click for firing or using your currently held item."
 Target = rctrl "Invokes a right click for aiming your currently held item."
 Turn Left = num 1 "Turns the player camera left by moving the mouse using the TurnSensitivity sensitivity."
@@ -492,7 +522,7 @@ Cycle POI Category = minus "Cycles forward between POI categories (Special, Regu
 Cycle POI Category Backwards = lshift+minus "Cycles backward between POI categories (Special, Regular, Landmarks, Favorites, Custom, etc)."
 Start Navigation = grave "Starts navigation to the selected P O I, game object, or location."
 Toggle Continuous Ping = lalt+p "Toggles a continuous ping for the currently selected object."
-Toggle POI Favorite = lalt+lshift+f "Toggles the currently selected POI as a favorite."
+Toggle POI Favorite = lalt+lshift+b "Toggles the currently selected POI as a favorite."
 Check Health Shields = h "Announces your health and shield values."
 Check Display Mode = lalt+r "Announces Fortnite's current window mode (Fullscreen, Windowed Fullscreen, or Windowed) and render resolution, read from the game's log file, in the order window mode then resolution."
 Announce Direction Faced = semicolon "Announces the direction the player is facing using information from the minimap."

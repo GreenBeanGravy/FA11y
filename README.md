@@ -66,7 +66,7 @@ page; F6 moves back. Ctrl+Tab and Ctrl+Shift+Tab switch pages from anywhere.
 
 FA11y's keybinds work while the window is open or hidden. When Fortnite
 starts, the window hides to the system tray. Bring it back with
-`Left Alt + F`, the tray icon, or by starting `FA11y Launcher.exe` again;
+`Left Alt + Left Shift + F`, the tray icon, or by starting `FA11y Launcher.exe` again;
 Escape hides it and returns you to Fortnite. Keybinds such as `F9` for
 settings and `Left Alt + .` for the social menu open the matching page.
 

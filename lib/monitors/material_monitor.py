@@ -146,7 +146,7 @@ class MaterialMonitor(BaseMonitor):
 
             while not self.stop_event.is_set():
                 try:
-                    if self.wizard_paused():
+                    if self.screen_paused():
                         time.sleep(0.5)
                         continue
                     # Capture material icon area via shared ScreenshotManager

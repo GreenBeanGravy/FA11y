@@ -91,6 +91,23 @@ class BaseMonitor:
         except Exception:
             return False
 
+    @classmethod
+    def screen_paused(cls) -> bool:
+        """True when screen reading would see something other than Fortnite.
+
+        Monitors that read pixels check this instead of ``wizard_paused``:
+        while Fortnite is closed or another window is in front, the screen
+        shows the desktop or FA11y's own window, and its pixels would set
+        off false announcements.
+        """
+        if cls.wizard_paused():
+            return True
+        try:
+            from lib.hub import game_watch
+            return not game_watch.fortnite_on_screen()
+        except Exception:
+            return False
+
     # ------------------------------------------------------------------
     # Internal: swallow uncaught exceptions so a buggy monitor doesn't
     # silently kill the whole thread and leave ``self.running`` stale.

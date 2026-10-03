@@ -174,7 +174,7 @@ class BloomMonitor(BaseMonitor):
             loop_start = time.perf_counter()
 
             try:
-                if self.wizard_paused():
+                if self.screen_paused():
                     self._last_bloom_dist = None
                     time.sleep(0.25)
                     continue

@@ -94,7 +94,7 @@ public partial class MainWindow : Window
         try
         {
             _tray = new TrayIcon(
-                open: SummonFromTray,
+                open: () => Summon(false, false),
                 play: () => App.Bridge.Notify("app.play_fortnite"),
                 settings: () => App.Bridge.Notify("app.show_page", new { key = "settings", summon = true }),
                 quit: RequestQuit);
@@ -437,11 +437,14 @@ public partial class MainWindow : Window
 
     // Showing and hiding -------------------------------------------------------
 
+    private DispatcherTimer? _foregroundTimer;
+
     /// <summary>Bring the window to the front, like the Open FA11y keybind or the tray icon does.</summary>
     public void Summon(bool focusContent, bool overGame)
     {
         _summonedOverGame = overGame;
         WindowTools.BringToFront(this);
+        KeepForeground();
         Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
         {
             if (focusContent)
@@ -452,13 +455,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The tray icon was clicked or chosen with Enter. The hidden icons flyout closes after this
-    /// runs and Windows can hand the foreground back to the taskbar, so check again shortly after
-    /// and bring the window forward once more if it lost the foreground.
+    /// Windows can take the foreground back right after the window comes forward: the hidden
+    /// icons flyout closing after a tray click, or the program that had focus when the Open FA11y
+    /// keybind was pressed. Check a few times over the next half second and bring the window
+    /// forward again if it lost the foreground.
     /// </summary>
-    private void SummonFromTray()
+    private void KeepForeground()
     {
-        Summon(false, false);
+        _foregroundTimer?.Stop();
         var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
         var tries = 0;
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
@@ -470,8 +474,9 @@ public partial class MainWindow : Window
                 return;
             }
             if (NativeMethods.GetForegroundWindow() != hwnd)
-                Summon(false, false);
+                WindowTools.BringToFront(this);
         };
+        _foregroundTimer = timer;
         timer.Start();
     }
 

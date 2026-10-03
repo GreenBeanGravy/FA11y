@@ -110,7 +110,7 @@ class HeightMonitor(BaseMonitor):
     def _monitor_loop(self) -> None:
         while not self.stop_event.is_set():
             try:
-                if self.wizard_paused():
+                if self.screen_paused():
                     time.sleep(0.5)
                     continue
                 # Altitude callouts are Fortnite-OG only; the modern mode's

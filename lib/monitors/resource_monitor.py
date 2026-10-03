@@ -224,7 +224,7 @@ class ResourceMonitor(BaseMonitor):
         try:
             while not self.stop_event.is_set():
                 try:
-                    if self.wizard_paused():
+                    if self.screen_paused():
                         time.sleep(0.5)
                         continue
                     screenshot = self._capture(SCAN_REGION)
