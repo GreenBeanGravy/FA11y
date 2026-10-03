@@ -56,6 +56,7 @@ class MatchTracker:
 
     def _on_config_change(self, config):
         """Update cached config values when config changes."""
+        self.current_player_position = None
         self._cached_config = config
         self._cached_current_map = config.get('POI', 'current_map', fallback='main')
         self._cached_announce_new_match = get_config_boolean(config, 'AnnounceNewMatch', True)
@@ -114,10 +115,9 @@ class MatchTracker:
         try:
             from lib.detection.player_position import find_player_position
             position = find_player_position()
-            if position:
-                self.current_player_position = position
+            self.current_player_position = position
         except Exception:
-            pass
+            self.current_player_position = None
     
     def _start_new_match(self, announce: bool = True):
         """Start a new match session. FA11y starts one silently at startup."""
@@ -129,6 +129,7 @@ class MatchTracker:
                 print(f"Match {self.current_match.match_id[:8]} completed")
             
             # Start new match
+            self.current_player_position = None
             self.current_match = MatchSession()
             print(f"New match started: {self.current_match.match_id[:8]}")
             
@@ -209,10 +210,7 @@ class MatchTracker:
     def _get_config_boolean_for_map(self, config, key: str, current_map: str, fallback: bool) -> bool:
         """Get a boolean config value from the appropriate map-specific section"""
         # Determine the appropriate section based on the map
-        if current_map == 'main':
-            section = 'GameObjects_Main'
-        else:
-            section = f'GameObjects_{current_map.title()}'
+        section = f'{current_map.title()}GameObjects'
         
         # Try map-specific section first
         if config.has_section(section) and config.has_option(section, key):
@@ -229,10 +227,7 @@ class MatchTracker:
     def _get_config_float_for_map(self, config, key: str, current_map: str, fallback: float) -> float:
         """Get a float config value from the appropriate map-specific section"""
         # Determine the appropriate section based on the map
-        if current_map == 'main':
-            section = 'GameObjects_Main'
-        else:
-            section = f'GameObjects_{current_map.title()}'
+        section = f'{current_map.title()}GameObjects'
         
         # Try map-specific section first
         if config.has_section(section) and config.has_option(section, key):

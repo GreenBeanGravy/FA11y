@@ -115,6 +115,8 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <c:HiddenText Grid.Row="0" Text="Epic Account Stats" FontWeight="SemiBold" Margin="0,0,0,4" />
                     <TextBox x:Name="EpicText" Grid.Row="1" IsReadOnly="True" IsReadOnlyCaretVisible="True"
@@ -128,7 +130,11 @@
                     <TextBox x:Name="RankedText" Grid.Row="5" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                              AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                              AutomationProperties.Name="Fortnite Ranked Stats" />
-                    <c:IconButton Grid.Row="6" Content="Refresh Account Information" Margin="0,10,0,0"
+                    <c:HiddenText Grid.Row="6" Text="Horde Rush Ranks" FontWeight="SemiBold" Margin="0,10,0,4" />
+                    <TextBox x:Name="HordeText" Grid.Row="7" IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                             AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             Height="170" AutomationProperties.Name="Horde Rush Ranks" />
+                    <c:IconButton Grid.Row="8" Content="Refresh Account Information" Margin="0,10,0,0"
                                   HorizontalAlignment="Center" Click="OnRefreshAccount" />
                 </Grid>
             </TabItem>

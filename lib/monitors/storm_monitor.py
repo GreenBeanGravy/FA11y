@@ -39,21 +39,24 @@ class StormAudioThread:
         self.thread = None
         self.current_position = None
         self.current_distance = None
+        self.current_player_position = None
         self.position_lock = threading.Lock()
 
-    def start(self, position: Tuple[int, int], distance: float):
+    def start(self, position: Tuple[int, int], distance: float, player_position=None):
         with self.position_lock:
             self.current_position = position
             self.current_distance = distance
+            self.current_player_position = player_position
         if not self.thread or not self.thread.is_alive():
             self.stop_event.clear()
             self.thread = threading.Thread(target=self._audio_loop, daemon=True)
             self.thread.start()
 
-    def update_position(self, position: Tuple[int, int], distance: float):
+    def update_position(self, position: Tuple[int, int], distance: float, player_position=None):
         with self.position_lock:
             self.current_position = position
             self.current_distance = distance
+            self.current_player_position = player_position
 
     def stop(self):
         self.stop_event.set()
@@ -71,10 +74,10 @@ class StormAudioThread:
                 with self.position_lock:
                     position = self.current_position
                     distance = self.current_distance
+                    player_pos = self.current_player_position
                 if position and distance is not None:
                     _, player_angle = _get_find_minimap_icon_direction()()
                     if player_angle is not None:
-                        player_pos = _get_position_tracker().get_cached_position()
                         if player_pos:
                             self._play_spatial_audio(player_pos, player_angle, position, distance)
                 if self.stop_event.wait(timeout=self.ping_interval):
@@ -118,6 +121,8 @@ class StormMonitor(BaseMonitor):
         # Color reference map (cached per map)
         self._color_ref = None
         self._color_ref_name = None
+        self._capture_to_map = None
+        self._detected_player_pos = None
 
         # Cached config values
         self._cached_enabled = True
@@ -197,7 +202,7 @@ class StormMonitor(BaseMonitor):
 
     def _get_ppi_capture_region(self) -> dict:
         """Get the PPI capture region for the current map."""
-        if self._cached_current_map == "o g":
+        if self._cached_current_map == "o_g":
             return PPI_CAPTURE_REGION_LEGACY
         return PPI_CAPTURE_REGION
 
@@ -205,67 +210,40 @@ class StormMonitor(BaseMonitor):
 
     def _get_ref_aligned(self, screenshot: np.ndarray) -> Optional[np.ndarray]:
         """
-        Use PPI's last matched region to crop and resize the reference map
-        so it aligns pixel-for-pixel with the live minimap capture.
+        Match this minimap frame and warp the reference using that transform.
         """
+        self._capture_to_map = None
+        self._detected_player_pos = None
         ref_map = self._get_color_ref()
         if ref_map is None:
             return None
 
-        matched = ppi_module.last_matched_region
+        # Match this frame instead of reusing another capture's old quad.
+        if not ppi_module.map_manager.switch_map(self._cached_current_map):
+            return None
+        matched = ppi_module.find_best_match(cv2.cvtColor(screenshot, cv2.COLOR_RGB2GRAY))
         if matched is None:
             return None
-
-        pts = matched.reshape(4, 2)  # 4 corners on map image
-
-        # Center of matched quad = player position on map image
-        center_x, center_y = np.mean(pts, axis=0)
-
-        # Size of quad = how much of the map image the minimap covers
-        # pts order: [top-left, bottom-left, bottom-right, top-right]
-        quad_w = (np.linalg.norm(pts[3] - pts[0]) + np.linalg.norm(pts[2] - pts[1])) / 2
-        quad_h = (np.linalg.norm(pts[1] - pts[0]) + np.linalg.norm(pts[2] - pts[3])) / 2
-
-        if quad_w < 10 or quad_h < 10:
-            return None
-
-        map_h, map_w = ref_map.shape[:2]
         cap_h, cap_w = screenshot.shape[:2]
-
-        # Crop reference map centered on player, sized to the matched quad
-        hw = int(quad_w / 2)
-        hh = int(quad_h / 2)
-        cx = int(center_x)
-        cy = int(center_y)
-
-        # Clamp + pad for edges
-        x1, y1 = cx - hw, cy - hh
-        x2, y2 = cx + hw, cy + hh
-
-        pad_left = max(0, -x1)
-        pad_top = max(0, -y1)
-        pad_right = max(0, x2 - map_w)
-        pad_bottom = max(0, y2 - map_h)
-
-        cx1 = max(0, x1)
-        cy1 = max(0, y1)
-        cx2 = min(map_w, x2)
-        cy2 = min(map_h, y2)
-
-        ref_crop = ref_map[cy1:cy2, cx1:cx2]
-        if ref_crop.size == 0:
+        corners = np.float32([[0, 0], [0, cap_h - 1],
+                              [cap_w - 1, cap_h - 1], [cap_w - 1, 0]])
+        transform = cv2.getPerspectiveTransform(corners, matched.reshape(4, 2).astype(np.float32))
+        if not np.all(np.isfinite(transform)):
             return None
-
-        if pad_left or pad_top or pad_right or pad_bottom:
-            ref_crop = cv2.copyMakeBorder(
-                ref_crop, pad_top, pad_bottom, pad_left, pad_right,
-                cv2.BORDER_CONSTANT, value=(0, 0, 0)
-            )
-
-        # Resize to match the minimap capture dimensions
-        return cv2.resize(ref_crop, (cap_w, cap_h), interpolation=cv2.INTER_LINEAR)
-
-    # ── Storm detection ─────────────────────────────────────────────
+        self._capture_to_map = transform
+        map_h, map_w = ref_map.shape[:2]
+        roi_start, roi_end = ppi_module.get_roi_coordinates(self._cached_current_map)
+        self._map_to_screen_scale = ((roi_end[0] - roi_start[0]) / map_w,
+                                     (roi_end[1] - roi_start[1]) / map_h)
+        self._map_screen_origin = roi_start
+        center = np.float32([[[cap_w // 2, cap_h // 2]]])
+        mapped_center = cv2.perspectiveTransform(center, transform)[0, 0]
+        self._detected_player_pos = (
+            float(mapped_center[0] * self._map_to_screen_scale[0] + roi_start[0]),
+            float(mapped_center[1] * self._map_to_screen_scale[1] + roi_start[1]),
+        )
+        # Preserve the match's translation, scale, and rotation.
+        return cv2.warpPerspective(ref_map, np.linalg.inv(transform), (cap_w, cap_h))
 
     def detect_storm_mask(self, screenshot: np.ndarray, ref_aligned: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -317,28 +295,30 @@ class StormMonitor(BaseMonitor):
             if ref_aligned is not None:
                 mask, purple_shift = self.detect_storm_mask(screenshot, ref_aligned)
 
-                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                if contours:
-                    storm_contour = max(contours, key=cv2.contourArea)
-                    if cv2.contourArea(storm_contour) >= self.min_contour_area:
-                        h, w = mask.shape
-                        mm_cx, mm_cy = w // 2, h // 2
-                        contour_points = storm_contour.reshape(-1, 2)
-                        edge_mask = (
-                            (contour_points[:, 0] > 1) & (contour_points[:, 0] < w - 2) &
-                            (contour_points[:, 1] > 1) & (contour_points[:, 1] < h - 2)
-                        )
-                        safe_pts = contour_points[edge_mask]
-                        if len(safe_pts) == 0:
-                            safe_pts = contour_points
-                        if len(safe_pts) > 0:
-                            center = np.array((mm_cx, mm_cy))
-                            dists = np.linalg.norm(safe_pts - center, axis=1)
-                            closest_point = safe_pts[np.argmin(dists)]
-                            result = (int(closest_point[0] + ppi_region['left']),
-                                      int(closest_point[1] + ppi_region['top']))
-                    else:
-                        storm_contour = None
+                # Safe circles are holes inside the storm mask. External-only
+                # retrieval loses their boundary when storm surrounds the player.
+                contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+                h, w = mask.shape
+                candidates = []
+                for contour in contours:
+                    if cv2.contourArea(contour) < self.min_contour_area:
+                        continue
+                    points = contour.reshape(-1, 2)
+                    interior = (
+                        (points[:, 0] > 1) & (points[:, 0] < w - 2) &
+                        (points[:, 1] > 1) & (points[:, 1] < h - 2)
+                    )
+                    if np.any(interior):
+                        candidates.append(points[interior])
+                # Capture edges are not storm boundaries. An entirely covered
+                # minimap provides no visible boundary to guide toward.
+                if candidates:
+                    safe_pts = np.concatenate(candidates)
+                    center = np.array((w // 2, h // 2))
+                    dists = np.linalg.norm(safe_pts - center, axis=1)
+                    closest_point = safe_pts[np.argmin(dists)]
+                    result = (int(closest_point[0] + ppi_region['left']),
+                              int(closest_point[1] + ppi_region['top']))
 
             return result
         except Exception as e:
@@ -346,19 +326,18 @@ class StormMonitor(BaseMonitor):
             return None
 
     def convert_minimap_to_fullmap_coords(self, minimap_coords: Tuple[int, int],
-                                        player_fullmap_pos: Tuple[int, int]) -> Tuple[int, int]:
-        minimap_x, minimap_y = minimap_coords
-        player_fullmap_x, player_fullmap_y = player_fullmap_pos
-        minimap_region = get_minimap_region()
-        minimap_center_x = minimap_region['left'] + minimap_region['width'] // 2
-        minimap_center_y = minimap_region['top'] + minimap_region['height'] // 2
-        offset_x = minimap_x - minimap_center_x
-        offset_y = minimap_y - minimap_center_y
-        fullmap_x = int(player_fullmap_x + (offset_x * self.minimap_scale_factor))
-        fullmap_y = int(player_fullmap_y + (offset_y * self.minimap_scale_factor))
-        return (fullmap_x, fullmap_y)
-
-    # ── Loop & lifecycle ────────────────────────────────────────────
+                                        player_fullmap_pos: Tuple[int, int]) -> Optional[Tuple[float, float]]:
+        region = self._get_ppi_capture_region()
+        local = np.float32([[[minimap_coords[0] - region['left'],
+                             minimap_coords[1] - region['top']]]])
+        transform = getattr(self, '_capture_to_map', None)
+        if transform is None:
+            return None
+        mapped = cv2.perspectiveTransform(local, transform)[0, 0]
+        scale_x, scale_y = self._map_to_screen_scale
+        origin_x, origin_y = self._map_screen_origin
+        return (float(mapped[0] * scale_x + origin_x),
+                float(mapped[1] * scale_y + origin_y))
 
     def _monitor_loop(self):
         last_detection_time = 0
@@ -376,7 +355,7 @@ class StormMonitor(BaseMonitor):
                 if current_time - last_detection_time >= self.detection_interval:
                     storm_minimap_coords = self.detect_storm_on_minimap()
                     if storm_minimap_coords:
-                        player_fullmap_pos = _get_position_tracker().get_cached_position()
+                        player_fullmap_pos = self._detected_player_pos
                         if player_fullmap_pos:
                             storm_fullmap_coords = self.convert_minimap_to_fullmap_coords(
                                 storm_minimap_coords, player_fullmap_pos
@@ -385,13 +364,13 @@ class StormMonitor(BaseMonitor):
                             volume = self.get_storm_volume()
                             ping_interval = self.get_storm_ping_interval()
                             if self.active_audio_thread:
-                                self.active_audio_thread.update_position(storm_fullmap_coords, distance)
+                                self.active_audio_thread.update_position(storm_fullmap_coords, distance, player_fullmap_pos)
                             else:
                                 if self.storm_audio:
                                     self.active_audio_thread = StormAudioThread(
                                         self.storm_audio, ping_interval, volume
                                     )
-                                    self.active_audio_thread.start(storm_fullmap_coords, distance)
+                                    self.active_audio_thread.start(storm_fullmap_coords, distance, player_fullmap_pos)
                     else:
                         self.cleanup_audio_thread()
                     last_detection_time = current_time
@@ -409,7 +388,7 @@ class StormMonitor(BaseMonitor):
             return None
         storm_minimap_coords = self.detect_storm_on_minimap()
         if storm_minimap_coords:
-            player_fullmap_pos = _get_position_tracker().get_cached_position()
+            player_fullmap_pos = self._detected_player_pos
             if player_fullmap_pos:
                 return self.convert_minimap_to_fullmap_coords(
                     storm_minimap_coords, player_fullmap_pos

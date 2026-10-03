@@ -321,6 +321,10 @@ class FakeCore:
                                 "Matches Played: 9,999\nK/D Ratio: 1.50\nWin Rate: 12.35%\n"
                                 "Time Played: 120 minutes (2.0 hours / 0.1 days)",
                     "ranked": "Battle Royale: Gold II (40% to Gold III)\n  Peak: Platinum I"}
+        if method == "social.horde_rank":
+            return {"text": "Current Horde rank: Rank 3\nCurrent benefits:\nExtra starting shield.\n"
+                            "Next: Rank 4\nProgress: 1,200 of 2,000 Horde eliminations.\n800 more needed.\n"
+                            "Source: Epic account API. Refresh Account Information after a match to update."}
         if method == "social.toggle_favorite":
             fid = params.get("id")
             self.favorite_friends ^= {fid}

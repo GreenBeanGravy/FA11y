@@ -48,7 +48,7 @@ public partial class SocialPage : PageBase
             _searchTimer.Stop();
             await LoadFriends(refresh: false, announce: true);
         };
-        EpicText.Text = FortniteText.Text = RankedText.Text = "Loading…";
+        EpicText.Text = FortniteText.Text = RankedText.Text = HordeText.Text = "Loading…";
         // Fill the lists in the background once the core has said hello, so the first visit is instant.
         AppState.Changed += PrefetchOnce;
     }
@@ -217,8 +217,31 @@ public partial class SocialPage : PageBase
         }
     }
 
+    private int _hordeRequest;
+
+    private async Task LoadHorde()
+    {
+        var request = ++_hordeRequest;
+        try
+        {
+            var result = await App.Bridge.RequestAsync("social.horde_rank", null, TimeSpan.FromSeconds(60));
+            if (request == _hordeRequest)
+            {
+                HordeText.Text = result.Str("text");
+                HordeText.CaretIndex = 0;
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error("social.horde_rank failed", e);
+            if (request == _hordeRequest)
+                HordeText.Text = "Could not load your Horde rank. Refresh to retry.";
+        }
+    }
+
     private async Task LoadAccount()
     {
+        var horde = LoadHorde();
         try
         {
             var result = await App.Bridge.RequestAsync("social.account_info", null, TimeSpan.FromSeconds(60));
@@ -233,6 +256,7 @@ public partial class SocialPage : PageBase
             if (!_accountLoaded)
                 EpicText.Text = FortniteText.Text = RankedText.Text = "Couldn't load your account information.";
         }
+        await horde;
     }
 
     /// <summary>Put rows in a list, keeping the selection on the same person (or the first row).</summary>

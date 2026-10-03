@@ -1,0 +1,198 @@
+{
+  "profileChanges": [
+    {
+      "changeType": "fullProfileUpdate",
+      "profile": {
+        "profileId": "athena",
+        "rvn": 59448,
+        "items": {
+          "0": {
+            "templateId": "Quest:quest_s42_ltm_mash_q10",
+            "quantity": 1,
+            "attributes": {
+              "completion_quest_s42_ltm_mash_q10_obj0": 473,
+              "quest_state": "Active"
+            }
+          },
+          "1": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q12",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q12_obj0": 473
+            }
+          },
+          "2": {
+            "templateId": "Token:athena_s42_mash_progression_gate_token",
+            "quantity": 1,
+            "attributes": {}
+          },
+          "3": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q20",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q20_obj0": 473
+            }
+          },
+          "4": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q18",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q18_obj0": 473
+            }
+          },
+          "5": {
+            "templateId": "Quest:quest_s42_ltm_mash_q09",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_q09_obj0": 473
+            }
+          },
+          "6": {
+            "templateId": "Quest:quest_s42_ltm_mash_q01",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Claimed",
+              "completion_quest_s42_ltm_mash_q01_obj0": 1
+            }
+          },
+          "7": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q16",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q16_obj0": 473
+            }
+          },
+          "8": {
+            "templateId": "Quest:quest_s42_ltm_mash_q04",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_q04_obj0": 473
+            }
+          },
+          "9": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q14",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q14_obj0": 473
+            }
+          },
+          "10": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q17",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q17_obj0": 473
+            }
+          },
+          "11": {
+            "templateId": "Quest:quest_s42_ltm_mash_q06",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_q06_obj0": 473
+            }
+          },
+          "12": {
+            "templateId": "Token:athena_s42_mash_progression_token_01",
+            "quantity": 1,
+            "attributes": {}
+          },
+          "13": {
+            "templateId": "Quest:quest_s42_ltm_mash_q02",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Claimed",
+              "completion_quest_s42_ltm_mash_q02_obj0": 200
+            }
+          },
+          "14": {
+            "templateId": "Token:athena_s42_mashexpertise_token",
+            "quantity": 3,
+            "attributes": {}
+          },
+          "15": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q15",
+            "quantity": 1,
+            "attributes": {
+              "completion_quest_s42_ltm_mash_expertise_q15_obj0": 473,
+              "quest_state": "Active"
+            }
+          },
+          "16": {
+            "templateId": "Quest:quest_s42_ltm_mash_q08",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_q08_obj0": 473
+            }
+          },
+          "17": {
+            "templateId": "Quest:quest_s42_ltm_mash_q07",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_q07_obj0": 473
+            }
+          },
+          "18": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q11",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q11_obj0": 473
+            }
+          },
+          "19": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q13",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q13_obj0": 473
+            }
+          },
+          "20": {
+            "templateId": "Quest:quest_s42_ltm_mash_q05",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_q05_obj0": 473
+            }
+          },
+          "21": {
+            "templateId": "Token:athena_s42_mash_progression_token_02",
+            "quantity": 1,
+            "attributes": {}
+          },
+          "22": {
+            "templateId": "Quest:quest_s42_ltm_mash_q03",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Claimed",
+              "completion_quest_s42_ltm_mash_q03_obj0": 400
+            }
+          },
+          "23": {
+            "templateId": "Token:athena_s42_mash_progression_token_03",
+            "quantity": 1,
+            "attributes": {}
+          },
+          "24": {
+            "templateId": "Quest:quest_s42_ltm_mash_expertise_q19",
+            "quantity": 1,
+            "attributes": {
+              "quest_state": "Active",
+              "completion_quest_s42_ltm_mash_expertise_q19_obj0": 473
+            }
+          }
+        }
+      }
+    }
+  ]
+}

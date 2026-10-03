@@ -116,6 +116,24 @@ def social_account_info(_params: dict) -> dict:
     return {"epic": epic, "fortnite": fortnite, "ranked": ranked}
 
 
+@handler("social.horde_rank")
+def social_horde_rank(_params: dict) -> dict:
+    """The Horde Rush rank box of the Me tab. Calls the Epic API."""
+    from lib.utilities.epic_quests import QuestQueryError
+    from lib.utilities.horde_ranks import HordeRankAPI, rank_text
+    auth = getattr(_require(), "auth", None)
+    if not auth or not auth.is_valid:
+        return {"text": rank_text(error="Sign in through FA11y to load your Horde rank.")}
+    try:
+        text = rank_text(HordeRankAPI(auth).query())
+    except QuestQueryError as exc:
+        text = rank_text(error="Horde rank unavailable. " + str(exc))
+    except Exception:
+        logger.exception("Horde rank lookup failed")
+        text = rank_text(error="Could not load your Horde rank. Refresh to retry.")
+    return {"text": text}
+
+
 def _friend(manager: SocialManager, params: dict):
     friend = manager.find_friend(str(params.get("id", "")))
     if friend is None:

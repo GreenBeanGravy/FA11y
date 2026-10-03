@@ -96,6 +96,9 @@ class EpicQuestAPI:
         self.lock = threading.Lock()
 
     def query(self):
+        return parse_profile_response(self.query_full_profile(), now=self.clock())
+
+    def query_full_profile(self):
         with self.lock:
             if not self.auth or not self.auth.account_id or not self.auth.access_token:
                 raise QuestQueryError('Sign in through FA11y\'s Epic Games login, then refresh quests.')
@@ -121,7 +124,7 @@ class EpicQuestAPI:
                     raise QuestQueryError('Epic Games returned an unreadable quest response.') from None
                 if not isinstance(data, dict) or data.get('errorCode'):
                     raise QuestQueryError('Epic Games rejected the quest query.')
-                return parse_profile_response(data, now=self.clock())
+                return data
             raise QuestQueryError('Epic Games login expired. Sign in again through FA11y.')
 
 
