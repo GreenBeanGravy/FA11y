@@ -261,7 +261,7 @@ class FakeCore:
             return {"to_tray": True}
         if method == "app.window_hidden":
             self.event("ui.notify", {"title": "FA11y", "message": "FA11y is running in the background. "
-                                                                 "Press Left Alt + Left Shift + F to open it again."})
+                                                                 "Press Left Alt + F to open it again."})
             return {}
         if method == "app.quit":
             self.event("ui.quit")
