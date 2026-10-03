@@ -1,5 +1,5 @@
 10/3/2026 #1 (19.0.0-beta.1, Beta branch):
-- New FA11y window. It's a separate, native Windows program, so NVDA, JAWS and Narrator read every page directly, and the window stays responsive while FA11y works in the background. Every page from the old window is here: Home, Fortnite, Discover, Epic account, Locker, Social, Quests and passes, Settings, Keybinds, and About and updates.
+- New FA11y window. It's a separate, native Windows program, so screen readers read every page directly, and the window stays responsive while FA11y works in the background. Every page from the old window is here: Home, Fortnite, Discover, Epic account, Locker, Social, Quests and passes, Settings, Keybinds, and About and updates.
 - FA11y shows a startup screen with a progress bar while it loads, then fades into Home.
 - Closing or minimizing the window can send FA11y to the system tray. Windows notifications say when FA11y is ready and when it is running in the background (both can be turned off in Settings).
 - Open FA11y is now Left Alt + Left Shift + F, because Left Alt + F opens the File menu in many programs. Toggle POI Favorite moves to Left Alt + Left Shift + B. Configs that still use the old defaults are moved automatically.

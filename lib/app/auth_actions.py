@@ -16,7 +16,7 @@ def handle_auth_expiration() -> None:
     state.auth_expired.set()
     if not state.is_auth_expiration_announced():
         state.speaker.speak(
-            "Authentication expired. Press ALT+E to re-authenticate."
+            "Epic sign-in expired. Sign in again on the Epic account page."
         )
         state.logger.warning("Epic Games authentication expired")
         state.set_auth_expiration_announced(True)
@@ -49,7 +49,7 @@ def on_auth_success(epic_auth) -> None:
 
 
 def open_authentication() -> None:
-    """Open Epic Games authentication dialog for re-authentication (ALT+E)."""
+    """Open Epic Games authentication dialog for re-authentication."""
     from lib.guis.gui_utilities import launch_gui_thread_safe
 
     def _do_authentication():

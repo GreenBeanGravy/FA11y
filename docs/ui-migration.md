@@ -10,8 +10,8 @@ Annotation, PageStack). The new window is a separate WPF program,
 `FA11y.UI.exe`, that does nothing but draw and handle input. Python
 becomes a background core that owns everything else.
 
-WPF exposes UI Automation for every control, which is what NVDA, JAWS
-and Narrator read, so focus, names, descriptions and announcements work
+WPF exposes UI Automation for every control, which is what screen readers
+read, so focus, names, descriptions and announcements work
 without workarounds.
 
 ## Shape

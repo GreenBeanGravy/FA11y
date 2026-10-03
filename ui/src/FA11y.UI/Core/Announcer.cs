@@ -6,7 +6,7 @@ namespace FA11y.UI.Core;
 
 /// <summary>
 /// Speaks messages that aren't tied to focus (for example "Signed out.") with UI Automation
-/// notification events, which NVDA, JAWS and Narrator read aloud.
+/// notification events, which screen readers read aloud.
 /// </summary>
 public static class Announcer
 {

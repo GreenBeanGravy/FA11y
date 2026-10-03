@@ -989,7 +989,7 @@ class SocialManager:
                         "Not authenticated.", "Not authenticated.")
 
             auth = self.auth
-            expired = ("Authentication expired. Press ALT+E to re-authenticate.",
+            expired = ("Epic sign-in expired. Sign in again on the Epic account page.",
                        "Authentication expired.", "Authentication expired.")
             if not auth.is_valid:
                 return expired

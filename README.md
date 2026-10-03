@@ -1,173 +1,175 @@
-# FA11y: Fortnite accessibility tool for blind and visually impaired players
+# FA11y: Fortnite accessibility for blind and visually impaired players
 
-## FA11y is NOT a mod
+FA11y runs alongside Fortnite and makes matches and many of the menus
+around them usable with a screen reader. It works with most screen reader
+software.
 
-FA11y runs alongside Fortnite. It does not modify, inject into, or read
-Fortnite's game files or memory. It announces what is visible on screen, what
-Fortnite writes to its local log files, and what Epic's public APIs return.
+## FA11y is not a mod
 
-Because FA11y reads the screen directly, you need Windows, a 1920x1080
-monitor resolution, and Fortnite running fullscreen with no overlays or
-notifications covering the HUD.
+FA11y doesn't modify, inject into, or read Fortnite's game files or memory.
+It reads what is on screen, what Fortnite writes to its local log files, and
+what Epic's public APIs return.
 
-## About
+Because it reads the screen, FA11y needs Windows 10 or 11, a 16:9 display
+(1920 by 1080 works best, since some features read fixed positions), and
+Fortnite in Fullscreen or Windowed Fullscreen with nothing covering the HUD.
+The Game check on FA11y's Fortnite page tells you if any of this is off and
+how to fix it.
 
-FA11y makes in-match Fortnite and many out-of-match menus accessible to
-blind and visually impaired players. It can do the following, among other
-things.
+## What it does
 
-### In-match
+In a match, FA11y can:
 
-- Get directions (stereo audio + spoken bearing) to POIs, landmarks, game
-  objects, custom POIs, custom favorite locations, and the safe zone
-- Announce health, shields, rarity, ammo, and held-item state
-- Announce height while skydiving
-- Announce the direction you are facing
-- Announce match events such as knockdowns, respawns, players remaining,
-  the battle bus, storm phases, death, and spectating info
-- Control the camera and mouse from the keyboard: recenter, turn, scroll, and
-  left and right click
+- give directions to POIs, landmarks, game objects, your own custom POIs and
+  favorites, with stereo audio and a spoken bearing
+- announce health, shields, ammo, the item you're holding, height while
+  skydiving, and the direction you're facing
+- announce match events: knockdowns, respawns, players left, the battle bus,
+  storm phases, your elimination, and who you're spectating
+- move the camera and click from the keyboard, and pass your own mouse
+  through to Fortnite
 
-### Out of match
+Outside a match, the FA11y window lets you:
 
-- The FA11y window: a sidebar of pages for your Epic account, locker,
-  friends and party, quests, Discover, settings, and keybinds
-- Install, update, verify, move, and uninstall Fortnite, and set its launch
-  options, from the Fortnite page (no Epic Games Launcher needed)
-- Browse and equip cosmetics with the Locker selector
-- Select game modes with the Discovery selector (Left Alt + apostrophe)
-- Browse Creative islands with the Discovery menu
-- Sign in to Epic and use the social menu (friends, party, requests)
-- Check the Reload map rotation on fortnite.gg and announce which map is live
-  now and which is next; optionally set FA11y's `current_map` to match
-- Custom POIs per map, favorites, visited-objects tracking
+- install, update, verify, move and uninstall Fortnite and set its launch
+  options, without the Epic Games Launcher
+- sign in to Epic and use your friends list, party and requests
+- browse and equip your locker
+- pick game modes and browse Creative islands on the Discover page
+- follow quests and passes
+- check which Reload map is live now and which is next
+- change every setting and keybind
 
-## Setup
+## Installing
 
 1. Download `Updater.exe` and `FA11y Launcher.exe` from the latest
-   `installer-v` release and put both in an empty folder (avoid the
-   Fortnite install directory and system folders)
+   `installer-v` release and put both in an empty folder. Avoid the Fortnite
+   install folder and system folders.
 2. Run `Updater.exe`. It installs FA11y into a `FA11y Files` folder next to
-   it, together with its own copy of Python and everything FA11y needs, so
-   you don't need to install Python yourself. Windows asks once for
-   permission to install the drivers FA11y uses for mouse control.
-3. Start FA11y with `FA11y Launcher.exe`. It checks for updates each time
-   it starts (turn this off with the `AutoUpdates` setting).
-4. The FA11y window opens. On first run it walks you through setup: signing
-   in to Epic Games, finding or installing Fortnite, and a few preferences.
+   it, with its own copy of Python and the .NET runtime the window needs, so
+   you don't install anything yourself. Windows asks once for permission to
+   install the driver FA11y uses for mouse control.
+3. Start FA11y with `FA11y Launcher.exe`. It checks for updates each time it
+   starts. The `AutoUpdates` setting turns that off.
+4. On the first run, FA11y walks you through setup: signing in to Epic,
+   finding or installing Fortnite, and a few preferences.
+
+If you already use an older FA11y, keep starting it as usual. The next update
+moves it to the new layout and keeps your settings, with a backup in a
+`FA11y_backup_` folder for two weeks.
 
 ## The FA11y window
 
-The window has a list of pages on the left (Home, Fortnite, Discover, Epic
-account, Locker, Social, Quests and passes, Settings, Keybinds, and About and
-updates). Use the arrow keys in the list, then Enter or F6 to move into a
-page; F6 moves back. Ctrl+Tab and Ctrl+Shift+Tab switch pages from anywhere.
+FA11y shows a short loading screen while it starts, then opens on Home. The
+pages are listed on the left: Home, Fortnite, Discover, Epic account, Locker,
+Social, Quests and passes, Settings, Keybinds, and About and updates. Arrow
+through the list to change pages, then press Enter or F6 to move into the
+page. F6 moves back to the list, and Ctrl+Tab and Ctrl+Shift+Tab change pages
+from anywhere.
 
-FA11y's keybinds work while the window is open or hidden. When Fortnite
-starts, the window hides to the system tray. Bring it back with
-`Left Alt + Left Shift + F`, the tray icon, or by starting `FA11y Launcher.exe` again;
-Escape hides it and returns you to Fortnite. Keybinds such as `F9` for
-settings and `Left Alt + .` for the social menu open the matching page.
+When Fortnite starts, the window hides to the system tray. Bring it back with
+Left Alt + Left Shift + F, the tray icon, or by starting
+`FA11y Launcher.exe` again. Escape hides it and returns you to Fortnite.
+Keybinds that open a page, such as F9 for settings or Left Alt + period for
+Social, also work while the window is in front.
 
 The first time you close the window, FA11y asks whether to keep running in
-the tray or quit. Change this later under Settings, General.
+the tray or quit. Minimizing also sends it to the tray. You can change both
+under Settings, General, where you can also turn the Windows notifications
+for "ready" and "running in the background" on or off.
 
-To see FA11y's printed output while troubleshooting, run
-`"FA11y Launcher.exe" --console`.
-
-If you already use an older FA11y, keep starting it as usual. The next
-update moves it to the new layout and keeps your settings, with a backup in
-a `FA11y_backup_` folder for two weeks.
+To see FA11y's output while troubleshooting, run
+`"FA11y Launcher.exe" --console`. The About and updates page opens the logs
+folder.
 
 ## Branches
 
 FA11y has two branches. Stable (`main`) is the tested release most people
-use. Beta (`overhaul`) has the new FA11y window and early features, with more
+use. Beta (`overhaul`) has the new FA11y window and early features, and more
 rough edges. FA11y remembers its branch and keeps updating from it.
 
 To switch, open About and updates, pick a branch under "FA11y branch", and
-press "Switch branch". FA11y closes, updates, and starts again. Your settings
-stay. For a fresh install of Beta, run `Updater.exe --branch overhaul`.
+press "Switch branch". FA11y closes, updates and starts again, and your
+settings stay. For a fresh install of Beta, run `Updater.exe --branch
+overhaul`.
 
 ## Default keybinds
 
-All keybinds can be changed on the Keybinds page (`F9`, then Keybinds):
-select an action, press Enter, then press the new keys. If the keys belong
-to another action, the two actions swap keys.
+Change any keybind on the Keybinds page: select an action, press Enter, then
+press the new keys. If another action already uses those keys, the two swap.
 
-### Meta
+FA11y's game keybinds are off while Fortnite isn't running. Open FA11y and
+Toggle keybinds always work.
 
-| Key | Action |
+### FA11y
+
+| Keys | Action |
 |---|---|
-| `F8` | Toggle all FA11y keybinds on/off |
-| `L-Alt + F` | Open or hide the FA11y window |
-| `F9` | Open FA11y settings |
-| `F12` | Exit current match (requires Fortnite quick menu open) |
+| F8 | Turn FA11y's keybinds on or off |
+| Left Alt + Left Shift + F | Open or hide the FA11y window |
+| F9 | Open Settings |
+| F12 | Leave the match (with Fortnite's quick menu open) |
 
 ### Navigation
 
-| Key | Action |
+| Keys | Action |
 |---|---|
-| `` ` `` (grave) | Start navigation to selected POI / game object |
-| `]` | Open POI selector |
-| `[` | Open Locker selector |
-| `Tab` / `Shift+Tab` | Cycle POI categories (inside POI selector) |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Cycle maps (inside POI selector) |
-| `=` | Cycle POI (forward) |
-| `Shift + =` | Cycle POI (backward) |
-| `-` | Cycle POI category (forward) |
-| `Shift + -` | Cycle POI category (backward) |
-| `0` | Cycle map (forward) |
-| `Shift + 0` | Cycle map (backward) |
-| `L-Alt + P` | Toggle continuous ping on selected object |
-| `L-Alt + Shift + F` | Toggle selected POI as favorite |
-| `\` | Create custom POI at player position (requires map open) |
-| `L-Alt + Delete` | Mark last reached game object as bad |
+| Grave (`` ` ``) | Start navigation to the selected POI or object |
+| = / Shift + = | Next / previous POI |
+| - / Shift + - | Next / previous POI category |
+| 0 / Shift + 0 | Next / previous map |
+| Left Alt + P | Continuous ping on the selected POI |
+| Left Alt + Left Shift + B | Add or remove the selected POI as a favorite |
+| Left Alt + C | Create a custom POI where you stand |
+| Left Alt + Left Shift + R | Announce the Reload map rotation |
 
 ### Information
 
-| Key | Action |
+| Keys | Action |
 |---|---|
-| `H` | Announce Health & Shields |
-| `J` | Announce ammo (mag + reserve) |
-| `;` | Announce direction you're facing |
-| `L-Alt + M` | Match stats summary |
-| `1`-`5` | Announce details of hotbar slot 1-5 |
+| H | Health and shields |
+| J | Ammo in the magazine and in reserve |
+| Semicolon | Direction you're facing |
+| 1 to 5 | Item in hotbar slot 1 to 5 |
+| Left Alt + M | Match stats |
 
-### Camera & mouse (keyboard-only control)
+### Camera and mouse
 
-| Key | Action |
+| Keys | Action |
 |---|---|
-| `L-Ctrl` | Left click / Fire |
-| `R-Ctrl` | Right click / Aim |
-| `Num5` | Recenter camera |
-| `Num4` / `Num6` | Turn slightly left / right |
-| `Num1` / `Num3` | Turn left / right |
-| `Num8` / `Num2` | Look up / down |
-| `Num0` | Turn 180 degrees |
-| `Num7` / `Num9` | Scroll up / down |
+| Left Ctrl | Left click (fire) |
+| Right Ctrl | Right click (aim) |
+| Numpad 5 | Recenter the camera |
+| Numpad 4 / 6 | Turn a little left / right |
+| Numpad 1 / 3 | Turn left / right |
+| Numpad 8 / 2 | Look up / down |
+| Numpad 0 | Turn around |
+| Numpad 7 / 9 | Scroll up / down |
+| Left Alt + Left Shift + M | Pick the mouse used for passthrough again |
+| Left Alt + Left Shift + P | Turn mouse passthrough on or off |
 
-### Menus
+### Pages and menus
 
-| Key | Action |
+| Keys | Action |
 |---|---|
-| `Left Alt + '` | Discovery game mode selector |
-| `L-Alt + V` | Visited-objects manager |
-| `L-Alt + .` | Social menu |
-| `L-Alt + '` | Discovery menu |
-| `L-Alt + Shift + L` | Epic authentication dialog |
-| `L-Alt + Y` / `L-Alt + N` | Accept / decline pending notification |
-| `L-Alt + Shift + M` | Recapture mouse (for passthrough) |
-| `L-Alt + Shift + P` | Toggle mouse passthrough |
+| Left Alt + apostrophe | Discover |
+| Left Alt + period | Social |
+| Left Alt + Q | Quests and passes |
+| Right bracket (`]`) | Locker |
+| Left Alt + O | Match options |
+| Left Alt + Left Shift + L | Epic sign-in |
+| Left Alt + Y / Left Alt + N | Accept / decline a friend request or party invite |
 
 ## Troubleshooting
 
-- Most issues come from a wrong screen resolution or Fortnite not being fullscreen. Set your resolution to 1920x1080 and put Fortnite in fullscreen (F11 toggles it while the game has focus).
+Most problems come from the display. Open the Fortnite page and read the Game
+check: it lists the window mode, game resolution, screen resolution and mouse
+driver, and says how to fix anything that's wrong.
 
 ## Contributing
 
-- Main repo: https://github.com/greenbeangravy/fa11y
-- Issues and feature requests are welcome there
+The repository is at https://github.com/greenbeangravy/fa11y. Issues and
+feature requests are welcome there.
 
 ## License
 

@@ -157,7 +157,7 @@ def test_account_info_without_auth_or_with_expired_auth(manager):
     manager.auth = None
     assert manager.account_info_texts()[1] == "Not authenticated."
     manager.auth = Mock(is_valid=False)
-    assert manager.account_info_texts()[0].startswith("Authentication expired")
+    assert manager.account_info_texts()[0].startswith("Epic sign-in expired")
 
 
 def test_account_info_text_for_each_box(manager):
