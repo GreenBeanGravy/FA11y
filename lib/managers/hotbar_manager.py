@@ -155,8 +155,7 @@ rarity_color_averages = {}
 rarity_color_ranges = {}
 rarity_averages_initialized = False
 
-# Store last detected rarity information
-last_detected_rarity = None
+# Store last detected item information
 last_detected_slot = None
 last_detected_item = None
 
@@ -562,7 +561,7 @@ def detect_hotbar_item(slot_index):
     Args:
         slot_index (int): Index of the slot to check (0-4)
     """
-    global current_detection_thread, timer_thread, stop_event, timer_stop_event, last_detected_rarity, last_detected_item, last_detected_slot
+    global current_detection_thread, timer_thread, stop_event, timer_stop_event, last_detected_item, last_detected_slot
     
     # Initialize the item rarity map if needed
     if not rarity_map_initialized:
@@ -581,7 +580,6 @@ def detect_hotbar_item(slot_index):
     timer_stop_event.clear()
     
     # Reset last detected info before new detection
-    last_detected_rarity = None
     last_detected_item = None
     last_detected_slot = slot_index
     
@@ -596,7 +594,7 @@ def detect_hotbar_item_thread(slot_index):
     Args:
         slot_index (int): Index of the slot to check (0-4)
     """
-    global timer_thread, last_detected_rarity, last_detected_slot, last_detected_item
+    global timer_thread, last_detected_slot, last_detected_item
 
     # Load configuration
     config = read_config()
@@ -615,7 +613,6 @@ def detect_hotbar_item_thread(slot_index):
         if item_name and not stop_event.is_set():
             speaker.speak(item_name)
             last_detected_item = item_name
-            last_detected_rarity = None
 
             if ocr_manager.is_ready() and announce_ammo_enabled:
                 timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
@@ -641,16 +638,6 @@ def detect_hotbar_item_thread(slot_index):
         # Update last detected information
         last_detected_item = best_match_name
 
-        # Update rarity from item name if available
-        if best_match_name in item_rarity_map:
-            last_detected_rarity = item_rarity_map[best_match_name]
-        else:
-            # Try to extract rarity from name
-            for rarity_key in rarity_colors.keys():
-                if best_match_name.startswith(rarity_key):
-                    last_detected_rarity = rarity_key
-                    break
-
         # Announce ammo if enabled
         if ocr_manager.is_ready() and announce_ammo_enabled:
             timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
@@ -662,7 +649,7 @@ def detect_hotbar_item_thread(slot_index):
 
 def check_secondary_slot(slot_index):
     """Check the secondary weapon slot if primary slot check fails."""
-    global last_detected_rarity, last_detected_slot, last_detected_item, timer_thread
+    global last_detected_slot, last_detected_item, timer_thread
     
     if stop_event.is_set():
         return
@@ -676,16 +663,6 @@ def check_secondary_slot(slot_index):
         # Update last detected information
         last_detected_item = best_match_name
         
-        # Update rarity from item name if available
-        if best_match_name in item_rarity_map:
-            last_detected_rarity = item_rarity_map[best_match_name]
-        else:
-            # Try to extract rarity from name
-            for rarity_key in rarity_colors.keys():
-                if best_match_name.startswith(rarity_key):
-                    last_detected_rarity = rarity_key
-                    break
-        
         config = read_config()
         announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
         if ocr_manager.is_ready() and announce_ammo_enabled:
@@ -697,109 +674,20 @@ def check_secondary_slot(slot_index):
         timer_thread.start()
 
 def check_unknown_item_rarity(slot_index):
-    """Check rarity for an unrecognized item. Does not speak."""
-    global last_detected_rarity, last_detected_slot, last_detected_item, timer_thread
-    
+    """Handle an unrecognized item. Does not speak the item."""
+    global last_detected_slot, last_detected_item, timer_thread
+
     if stop_event.is_set():
         return
-    
-    # Get dynamic coordinates
-    current_slot_coords = get_slot_coords()
 
-    # Detect rarity from primary slot
-    detected_rarity_value = detect_rarity_for_slot(current_slot_coords[slot_index])
-    
-    if detected_rarity_value:
-        last_detected_rarity = detected_rarity_value
-        last_detected_item = None
-        
-        # Announce ammo if enabled, as it might be a known item type without a specific image match
-        config = read_config()
-        announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
-        if ocr_manager.is_ready() and announce_ammo_enabled:
-            timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
-            timer_thread.start()
-    else:
-        # If we couldn't detect a rarity, clear last_detected_rarity
-        last_detected_rarity = None
-        last_detected_item = None
-        # If ammo should still be announced for completely unknown items (no name, no rarity):
-        config = read_config()
-        announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
-        if ocr_manager.is_ready() and announce_ammo_enabled:
-            timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
-            timer_thread.start()
+    last_detected_item = None
 
-# Map FA11y-OW ammo-type names (after stripping the optional 'Athena'
-# prefix) to the friendly word the user wants to hear.
-_OW_AMMO_TYPE_LABELS = {
-    'AmmoDataBulletsMedium': 'medium',
-    'AmmoDataBulletsLight': 'light',
-    'AmmoDataBulletsHeavy': 'heavy',
-    'AmmoDataShells': 'shells',
-    'AmmoDataRockets': 'rockets',
-}
-# Stable label order so the announcement reads consistently every time.
-_OW_AMMO_LABEL_ORDER = ['medium', 'light', 'heavy', 'shells', 'rockets']
-
-
-def _try_announce_ammo_via_ow(simplify: bool) -> bool:
-    """Speak ammo summary using FA11y-OW state. Returns True if it spoke,
-    False if OW data isn't available / equipped item isn't an ammo weapon
-    so the caller should fall back to OCR."""
-    try:
-        from lib.utilities.fa11y_ow_client import client as ow_client
-    except Exception:
-        return False
-
-    if not ow_client.is_connected():
-        return False
-
-    state = ow_client.get_state() or {}
-    equipped = state.get('equippedItem')
-    if not equipped:
-        return False
-    ammo_type = equipped.get('ammoType')
-    if not ammo_type:
-        # Not an ammo weapon (pickaxe, consumable, gadget). Let OCR cover
-        # the consumable-uses path and any weapons we couldn't classify.
-        return False
-
-    mag = int(equipped.get('ammoCurrent') or 0)
-    reserve = int(equipped.get('ammoReserve') or 0)
-
-    # Sum each ammo-data item's count across the inventory.
-    totals = {label: 0 for label in _OW_AMMO_LABEL_ORDER}
-    for item in (state.get('inventory') or {}).values():
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get('name') or '')
-        if not name:
-            continue
-        normalized = name[6:] if name.startswith('Athena') else name
-        label = _OW_AMMO_TYPE_LABELS.get(normalized)
-        if label is None:
-            continue
-        try:
-            totals[label] += int(item.get('count') or 0)
-        except (TypeError, ValueError):
-            pass
-
-    if simplify:
-        parts = [f"{mag} mag {reserve} reserves"]
-        inv_parts = [f"{totals[l]} {l}" for l in _OW_AMMO_LABEL_ORDER if totals[l] > 0]
-        if inv_parts:
-            parts.append("inventory " + " ".join(inv_parts))
-        speaker.speak(", ".join(parts))
-    else:
-        inv_parts = [f"{totals[l]} {l}" for l in _OW_AMMO_LABEL_ORDER]
-        speech = (
-            f"{mag} ammo in mag and {reserve} in reserves. "
-            f"You have {', '.join(inv_parts[:-1])}, and {inv_parts[-1]}."
-        )
-        speaker.speak(speech)
-    return True
-
+    # Ammo may still apply to an item without an image or name match
+    config = read_config()
+    announce_ammo_enabled = get_config_boolean(config, 'AnnounceAmmo', True)
+    if ocr_manager.is_ready() and announce_ammo_enabled:
+        timer_thread = Thread(target=timer_thread_function, args=(0.1, announce_ammo))
+        timer_thread.start()
 
 def announce_ammo():
     """Announce current and reserve ammo counts or consumable counts with simplified speech if enabled."""
@@ -808,9 +696,6 @@ def announce_ammo():
 
     config = read_config()
     simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
-
-    if _try_announce_ammo_via_ow(simplify):
-        return
 
     with mss() as sct:
         current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)
@@ -834,9 +719,6 @@ def announce_ammo_manually():
     """Manually announce ammo counts or consumable counts with simplified speech if enabled."""
     config = read_config()
     simplify = get_config_boolean(config, 'SimplifySpeechOutput', False)
-
-    if _try_announce_ammo_via_ow(simplify):
-        return
 
     sct = mss()
     current_ammo, reserve_ammo, consumable_count = detect_ammo(sct)

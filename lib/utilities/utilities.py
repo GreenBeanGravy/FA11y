@@ -445,18 +445,12 @@ NavigationSounds = true "Plays soft sounds when you move between pages in the FA
 MinimizeToTray = true "Minimizing the FA11y window hides it to the system tray instead of the taskbar."
 NotifyWhenReady = true "Shows a Windows notification when FA11y has finished starting."
 NotifyWhenHiddenToTray = true "Shows a Windows notification when the FA11y window goes to the system tray, saying how to open it again. While Fortnite runs it is shown once per session."
-AutoTurn = false "Turns your player toward the selected location when you get navigation info."
 AnnounceMapStatus = true "Announces when the map opens or closes."
 AnnounceInventoryStatus = true "Announces when the inventory opens or closes."
 AnnounceSidebarStatus = true "Announces when the in-game sidebar or pause menu opens or closes."
 QuestAnnouncements = true "Announces saved quest progress and completion, checking your Epic account every 15 seconds. The first check is silent, and failed checks are retried less often."
 AnnounceUITabs = true "Announces the active tab as you move through the lobby (Play, Shop, Locker, Quests, Career, and others) and the in-game sidebar (Profile, Social, Chats, Add Friends, Menu, Exit)."
 MousePassthrough = true "Captures your configured mouse and relays it through the FakerInput driver."
-AnnounceTeammateEvents = true "Announces when a teammate appears in the kill feed or message feed. Needs the FA11y-OW companion service running."
-AnnounceKillFeed = true "Announces every elimination in the kill feed, except kills involving a teammate, which AnnounceTeammateEvents covers. Needs the FA11y-OW companion service."
-AnnounceItemEquip = true "Announces when you equip a new item from your hotbar. Needs the FA11y-OW companion service."
-AnnounceItemPickup = true "Announces when you pick up an item. Needs the FA11y-OW companion service."
-UseFA11yOWPosition = false "Use FA11y-OW's GEP location for player position (transformed via the calibration) instead of the visual minimap detection. Off by default because the bundled calibration can be unstable far from where it was sampled. Turn it on only after calibrating for your setup."
 
 [Values]
 TurnSensitivity = 75 "The sensitivity for turning left and right and looking up and down when MouseKeys is on."
@@ -546,7 +540,6 @@ Accept Notification = lalt+y "Accept pending notification (friend request, party
 Decline Notification = lalt+n "Decline pending notification (friend request, party invite)."
 Recapture Mouse = lalt+lshift+m "Recapture the mouse device for passthrough. Use when changing mice."
 Toggle Mouse Passthrough = lalt+lshift+p "Toggles mouse passthrough on or off."
-Calibrate FA11y-OW Position =  "Captures FA11y's visual position and FA11y-OW's GEP location at the same instant. Press three times at three different positions on the open full-screen map; the resulting transform applies universally to every map (one calibration is enough). FA11y ships with a default calibration so this keybind is only needed if you want to override it for your specific setup."
 
 [MatchEvents]
 MonitorMatchEvents = true "Watches Fortnite's local log file for in-match events that are not visible on screen. Turns all match event announcements on or off."
@@ -759,7 +752,7 @@ def get_config_section_for_key(key: str, value: str) -> str:
     toggles_keys = [
         'SimplifySpeechOutput', 'MouseKeys', 'ResetSensitivity',
         'AnnounceAmmo', 'AutoUpdates',
-        'CreateDesktopShortcut', 'AutoTurn', 'AnnounceMapStatus', 'AnnounceInventoryStatus'
+        'CreateDesktopShortcut', 'AnnounceMapStatus', 'AnnounceInventoryStatus'
     ]
     if key in toggles_keys:
         return 'Toggles'

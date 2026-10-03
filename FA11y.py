@@ -99,9 +99,6 @@ from lib.monitors.bloom_monitor import bloom_monitor
 from lib.monitors.match_event_monitor import match_event_monitor
 from lib.monitors.quest_account_monitor import quest_account_monitor
 from lib.app.quest_actions import open_quest_browser
-from lib.monitors.fa11y_ow_announcer import announcer as fa11y_ow_announcer
-from lib.utilities.fa11y_ow_client import client as fa11y_ow_client
-from lib.utilities.fa11y_ow_calibration import calibrate_fa11y_ow_position
 
 from lib.managers.game_object_manager import game_object_manager
 from lib.utilities.window_utils import get_active_window_title, focus_window
@@ -264,8 +261,6 @@ def signal_handler(signum, frame):
         match_event_monitor.stop_monitoring()
         quest_account_monitor.stop_monitoring()
         match_tracker.stop_monitoring()
-        fa11y_ow_announcer.stop()
-        fa11y_ow_client.stop()
 
         # Stop social manager
         if social_manager:
@@ -453,7 +448,6 @@ def reload_config() -> None:
             'decline notification': decline_notification,
             'recapture mouse': lambda: get_mouse_passthrough().recapture_mouse(),
             'toggle mouse passthrough': lambda: get_mouse_passthrough().toggle(),
-            'calibrate fa11y-ow position': calibrate_fa11y_ow_position,
             'read mode status': read_mode_status,
             'toggle fill': toggle_lobby_fill,
             'toggle ranked': toggle_ranked,
@@ -894,12 +888,6 @@ def _start_background_systems() -> None:
     match_event_monitor.start_monitoring()
     quest_account_monitor.start_monitoring()
 
-    # FA11y-OW companion-service consumer (passive equip / pickup /
-    # teammate-feed announcements). The SSE client is idle when the
-    # helper isn't running, so this is safe to start unconditionally.
-    fa11y_ow_client.start()
-    fa11y_ow_announcer.start()
-
     _startup_progress(65, "Starting match tracking")
     match_tracker.start_monitoring()
     match_tracker._start_new_match(announce=False)  # a session to track in, not a real match
@@ -1123,8 +1111,6 @@ def main() -> None:
             match_event_monitor.stop_monitoring()
             quest_account_monitor.stop_monitoring()
             match_tracker.stop_monitoring()
-            fa11y_ow_announcer.stop()
-            fa11y_ow_client.stop()
 
             # Stop social manager
             current_social = _app_state.get_social_manager()

@@ -242,7 +242,7 @@ def test_keybind_table_matches_the_old_swap_rules():
 # Labels and groups -----------------------------------------------------------------------
 
 def test_setting_labels():
-    assert schema.setting_label("AnnounceKillFeed") == "Announce kill feed"
+    assert schema.setting_label("AnnounceMapStatus") == "Announce map opening and closing"
     assert schema.setting_label("MousePassthroughDPI") == "Mouse DPI"
     assert schema.setting_label("StormPingInterval") == "Storm ping interval"
     assert schema.setting_label("Turn Left") == "Turn Left"
@@ -250,7 +250,10 @@ def test_setting_labels():
     assert schema.setting_label("NotifyWhenReady") == "Show a notification when FA11y is ready"
 
 
-REMOVED_KEYBINDS = ("Mark Bad Game Object", "Check Hotspots", "Open Visited Objects", "Check Display Mode", "Check Rarity")
+REMOVED_KEYBINDS = ("Mark Bad Game Object", "Check Hotspots", "Open Visited Objects", "Check Display Mode", "Check Rarity",
+                    "Calibrate FA11y-OW Position")
+REMOVED_SETTINGS = ("AutoTurn", "AnnounceTeammateEvents", "AnnounceKillFeed", "AnnounceItemEquip",
+                    "AnnounceItemPickup", "UseFA11yOWPosition")
 
 
 def test_removed_keybinds_are_dropped_from_old_configs(temp_config):
@@ -261,6 +264,9 @@ def test_removed_keybinds_are_dropped_from_old_configs(temp_config):
     on_disk = temp_config.read_text(encoding="utf-8")
     for name in REMOVED_KEYBINDS:
         assert name not in parser.options("Keybinds")
+        assert name not in on_disk
+    for name in REMOVED_SETTINGS:
+        assert name not in parser.options("Toggles")
         assert name not in on_disk
     listed = [key for _heading, key in flat(handlers.settings_schema({"view": "keybinds"})["tabs"][0])]
     for name in REMOVED_KEYBINDS:

@@ -23,7 +23,6 @@ things.
 - Announce health, shields, rarity, ammo, and held-item state
 - Announce height while skydiving
 - Announce the direction you are facing
-- Auto-turn toward the selected POI when you start navigation
 - Announce match events such as knockdowns, respawns, players remaining,
   the battle bus, storm phases, death, and spectating info
 - Control the camera and mouse from the keyboard: recenter, turn, scroll, and

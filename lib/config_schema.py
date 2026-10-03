@@ -85,7 +85,6 @@ LABEL_OVERRIDES: Dict[str, str] = {
     "AutoUpdates": "Update FA11y automatically",
     "CreateDesktopShortcut": "Create a desktop shortcut",
     "MouseKeys": "Mouse keys (look around, click, and aim with the keyboard)",
-    "UseFA11yOWPosition": "Use FA11y-OW for player position",
     "AnnounceUITabs": "Announce lobby tabs",
     "AnnounceSidebarStatus": "Announce sidebar and pause menu",
     "AnnounceMapStatus": "Announce map opening and closing",
@@ -110,7 +109,7 @@ LABEL_OVERRIDES: Dict[str, str] = {
 }
 
 # Words kept in capitals (or their own spelling) when splitting CamelCase.
-_KEEP_CASE = {"POI", "UI", "DPI", "OW", "FA11y", "GEP", "OG", "API"}
+_KEEP_CASE = {"POI", "UI", "DPI", "FA11y", "OG", "API"}
 _WORD = re.compile(r"FA11y|[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|[A-Z]+|\d+")
 
 # Per-map object settings: TrackVisitsChests, ChestsVisitDistance, AnnounceChestsVisits.
@@ -172,12 +171,11 @@ GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {
                          "NotifyWhenHiddenToTray", "CloseAction")),
     ),
     "Toggles": (
-        ("Mouse and movement", ("MouseKeys", "MousePassthrough", "AutoTurn")),
-        ("Announcements", ("AnnounceAmmo", "AnnounceItemEquip", "AnnounceItemPickup", "AnnounceMapStatus",
+        ("Mouse and movement", ("MouseKeys", "MousePassthrough")),
+        ("Announcements", ("AnnounceAmmo", "AnnounceMapStatus",
                            "AnnounceInventoryStatus", "AnnounceSidebarStatus", "AnnounceUITabs",
-                           "AnnounceTeammateEvents", "AnnounceKillFeed", "QuestAnnouncements")),
+                           "QuestAnnouncements")),
         ("Match events", ()),
-        ("Position", ("UseFA11yOWPosition",)),
     ),
     "MatchEvents": (
         ("Match events", ()),
@@ -206,7 +204,7 @@ GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {
     ),
     "Keybinds": (
         ("FA11y", ("Toggle Keybinds", "Open FA11y", "Open Configuration Menu", "Recapture Mouse",
-                   "Toggle Mouse Passthrough", "Calibrate FA11y-OW Position")),
+                   "Toggle Mouse Passthrough")),
         ("Mouse and camera", ("Fire", "Target", "Turn Left", "Turn Right", "Secondary Turn Left",
                               "Secondary Turn Right", "Look Up", "Look Down", "Turn Around", "Recenter",
                               "Scroll Up", "Scroll Down")),

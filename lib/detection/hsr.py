@@ -1,23 +1,8 @@
 """
-Health / Shield / Rarity (HSR) detection.
+Health / Shield (HSR) detection.
 
-Two-path strategy:
-
-1. **Fast path - FA11y-OW companion service**
-   If a loopback HTTP service is running at ``http://127.0.0.1:6767/api``
-   (the "FA11y-OW" helper, a separate optional project) it gets queried
-   first. The service reads Fortnite memory/log signals directly and
-   returns exact values, bypassing image analysis.
-
-   The 10 ms timeout below is intentional: if the service isn't up, we
-   fall through instantly rather than block the UI. No state is kept
-   between calls; every H / shield keypress hits the endpoint fresh.
-
-2. **Fallback - visual bar scan**
-   When the service is unreachable (the common case), the functions below
-   walk the health/shield bars pixel-by-pixel against the calibrated
-   ``health_decreases`` step pattern. This is what ships by default and is
-   what the user's F9 settings actually tune.
+Walks the health/shield bars pixel-by-pixel against the calibrated
+``health_decreases`` step pattern. The F9 settings tune this.
 
 If you need to re-calibrate: ``python dev_tools/health_calibrator.py``.
 """
@@ -25,16 +10,10 @@ from PIL import ImageGrab
 from accessible_output2.outputs.auto import Auto
 from lib.utilities.utilities import read_config, get_config_boolean
 from lib.detection.coordinate_config import get_health_shield_coords
-import requests
 
 speaker = Auto()
 
-# Optional companion service (FA11y-OW). If not running, requests fail
-# instantly and we fall back to the visual bar scan below.
-API_BASE_URL = "http://127.0.0.1:6767/api"
-API_TIMEOUT = 0.01
-
-# Visual detection fallback settings
+# Visual detection settings
 health_color, shield_color = (247, 255, 26), (213, 255, 232)
 tolerance = 30
 
@@ -64,65 +43,9 @@ def check_value_visual(pixels, start_x, y, decreases, color, tolerance, name, no
 
     speaker.speak(no_value_msg)
 
-def get_health_shield_from_api():
-    """
-    Try to get health, shield, and overshield values from the FA11y-OW HTTP API.
-    Returns (health, shield, overshield) tuple if successful, or (None, None, None) if API is unavailable.
-    """
-    try:
-        # Get health
-        health_response = requests.get(f"{API_BASE_URL}/health", timeout=API_TIMEOUT)
-        health_data = health_response.json()
-        health = health_data.get('health')
-        
-        # Get shield and overshield (both in same endpoint)
-        shield_response = requests.get(f"{API_BASE_URL}/shield", timeout=API_TIMEOUT)
-        shield_data = shield_response.json()
-        shield = shield_data.get('shield')
-        overshield = shield_data.get('overShield')
-        
-        # Only return if health and shield are valid numbers
-        if health is not None and shield is not None:
-            return (health, shield, overshield or 0)
-        return (None, None, None)
-        
-    except (requests.RequestException, requests.Timeout, ValueError, KeyError) as e:
-        # API not available, connection failed, or invalid response
-        # Silently fall back to visual detection
-        return (None, None, None)
-
 def check_health_shields():
-    """Check and announce health and shield values using API first, visual fallback."""
+    """Check and announce health and shield values."""
     try:
-        # Try API first (fast and accurate when FA11y-OW is running)
-        health, shield, overshield = get_health_shield_from_api()
-
-        # Treat (health=0, shield=0) as "no data yet" instead of trusting it.
-        # GEP reports 0/0 in the lobby and during the brief window between
-        # match start and the first me/health update. If we returned the
-        # zeroes here the user would hear "0 Health, No Shield" instead of
-        # what's actually on screen, so let the visual scan run instead.
-        api_has_real_values = (
-            health is not None
-            and (health > 0 or (shield is not None and shield > 0))
-        )
-
-        if api_has_real_values:
-            # Successfully got values from API
-            speaker.speak(f'{health} Health')
-
-            if shield > 0:
-                speaker.speak(f'{shield} Shield')
-            else:
-                speaker.speak('No Shield')
-
-            # Announce overshield if present
-            if overshield > 0:
-                speaker.speak(f'{overshield} Overshield')
-
-            return
-        
-        # API failed or unavailable, fall back to visual detection
         # Get map-specific coordinates and settings
         config = read_config()
         current_map = config.get('POI', 'current_map', fallback='main')

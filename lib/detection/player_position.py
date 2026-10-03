@@ -52,7 +52,6 @@ def _ensure_dynamic_icon_paths():
         print(f"[warn] dynamic icon path normalization failed: {e}")
 
 from lib.utilities.spatial_audio import SpatialAudio
-from lib.utilities.mouse import smooth_move_mouse
 from lib.managers.custom_poi_manager import update_poi_handler
 from lib.monitors.background_monitor import monitor
 
@@ -133,9 +132,6 @@ class PlayerPositionTracker:
             position = None
             angle = None
 
-            # Position via FA11y-OW when calibrated, falling back to PPI
-            # otherwise. Angle is always minimap-only - GEP doesn't expose
-            # player facing.
             position = find_player_position()
             if position is not None:
                 self.last_position = position
@@ -215,7 +211,6 @@ def handle_closed_map_ppi(poi_name, poi_coords):
         player_position = None
 
         for attempt in range(max_attempts):
-            # Use OW-aware position; falls back to PPI when no calibration.
             player_position = find_player_position()
             if player_position is not None:
                 break
@@ -685,21 +680,7 @@ def generate_poi_message(poi_name, player_angle, poi_info, player_location=None)
         return message
 
 def find_player_position():
-    """Find player position. When the ``UseFA11yOWPosition`` toggle is on,
-    prefer FA11y-OW (when a calibration exists for the current map and the
-    helper is connected) over visual minimap detection. Otherwise, and on
-    any failure in the OW pipeline, fall back to PPI."""
-    try:
-        from lib.utilities.utilities import read_config, get_config_boolean
-        cfg = read_config()
-        if get_config_boolean(cfg, 'UseFA11yOWPosition', False):
-            from lib.utilities.fa11y_ow_calibration import get_position_from_ow
-            ow_pos = get_position_from_ow()
-            if ow_pos is not None:
-                return ow_pos
-    except Exception:
-        # Any failure in the OW path is a fall-through to visual.
-        pass
+    """Find player position from the minimap (PPI)."""
     return ppi_find_player_position()
 
 def find_closest_poi(icon_location, poi_list):
@@ -1204,19 +1185,6 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
     # Perform POI actions
     perform_poi_actions(poi_data_tuple, player_location, speak_info=False, use_ppi=use_ppi)
 
-    config = read_config()
-    auto_turn_enabled = get_config_boolean(config, 'AutoTurn', False)
-    auto_turn_success = False
-    
-    if auto_turn_enabled:
-        if not use_ppi:
-            pyautogui.press('escape')
-            time.sleep(0.1)
-        if player_location is not None:
-            auto_turn_success = auto_turn_towards_poi(player_location, poi_coords_resolved, poi_name_resolved)
-        else:
-            speaker.speak("Cannot auto-turn, player location unknown.")
-
     # Get final angle for speech
     if use_ppi:
         _, latest_player_angle = get_player_info_ppi()
@@ -1227,10 +1195,10 @@ def icon_detection_cycle(selected_poi_name, use_ppi, play_poi_sound_enabled=True
     if final_angle_for_speech is None:
         final_angle_for_speech = latest_player_angle if latest_player_angle is not None else player_angle
 
-    speak_auto_turn_result(poi_name_resolved, player_location, final_angle_for_speech, poi_coords_resolved, auto_turn_enabled, auto_turn_success)
+    speak_poi_result(poi_name_resolved, player_location, final_angle_for_speech, poi_coords_resolved)
 
-def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location, auto_turn_enabled, success):
-    """Speak auto-turn result"""
+def speak_poi_result(poi_name, player_location, player_angle, poi_location):
+    """Speak distance and direction to the selected POI"""
     if not isinstance(poi_location, tuple) or len(poi_location) != 2:
         speaker.speak(f"Error with {poi_name} location data.")
         return
@@ -1238,54 +1206,8 @@ def speak_auto_turn_result(poi_name, player_location, player_angle, poi_location
     poi_info = calculate_poi_info(player_location, player_angle, poi_location)
     message = generate_poi_message(poi_name, player_angle, poi_info, player_location)
 
-    if auto_turn_enabled:
-        if success:
-            pass
-        else:
-            if player_location is not None:
-                 message = f"Failed to fully auto-turn towards {poi_name}. {message}"
-    
     print(message)
     speaker.speak(message)
-
-def auto_turn_towards_poi(player_location, poi_location, poi_name):
-    """Automatically turn player towards POI"""
-    max_attempts = 20
-    base_turn_sensitivity_factor = 0.8
-    angle_threshold = 10
-    
-    config = read_config()
-    turn_sensitivity = get_config_int(config, 'TurnSensitivity', 75)
-    turn_delay = get_config_float(config, 'TurnDelay', 0.01)
-    turn_steps = get_config_int(config, 'TurnSteps', 5)
-
-    for attempts in range(max_attempts):
-        current_direction_str, current_angle_deg = find_minimap_icon_direction()
-        if current_direction_str is None or current_angle_deg is None:
-            if attempts < 3:
-                time.sleep(0.1)
-                continue
-            else:
-                speaker.speak("Cannot determine direction for auto-turn.")
-                return False
-        
-        poi_vector = np.array(poi_location) - np.array(player_location)
-        target_poi_angle_deg = (90 - np.degrees(np.arctan2(-poi_vector[1], poi_vector[0]))) % 360
-        
-        angle_difference = (target_poi_angle_deg - current_angle_deg + 180) % 360 - 180
-        
-        if abs(angle_difference) <= angle_threshold:
-            return True
-        
-        turn_magnitude_mickeys = int(min(abs(angle_difference) / 180.0 * turn_sensitivity * 2.0, turn_sensitivity) * base_turn_sensitivity_factor)
-        turn_magnitude_mickeys = max(5, turn_magnitude_mickeys)
-
-        dx_turn = turn_magnitude_mickeys if angle_difference > 0 else -turn_magnitude_mickeys
-        
-        smooth_move_mouse(dx_turn, 0, turn_delay, turn_steps)
-        time.sleep(0.05 + turn_delay * turn_steps)
-
-    return False
 
 def get_current_coordinates():
     """Get the player's current coordinates"""
@@ -1324,7 +1246,6 @@ def get_player_info_ppi():
     player_location = None
     player_angle = None
 
-    # OW-aware position; PPI fallback handled inside find_player_position.
     player_location = find_player_position()
     if player_location is not None:
         _, player_angle = find_minimap_icon_direction()
