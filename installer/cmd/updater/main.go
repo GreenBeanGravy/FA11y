@@ -109,7 +109,7 @@ func run(l layout.Layout, opts options) (int, error) {
 		src = filesync.Local{Dir: opts.source}
 	} else {
 		if os.Getenv(restartedEnv) == "" && !opts.check {
-			if restarted, code := updateExecutables(l); restarted {
+			if restarted, code := updateExecutables(l, branch); restarted {
 				return code, nil
 			}
 		}
@@ -340,11 +340,11 @@ func report(c manifest.Component, out components.Outcome, st *state.State) bool 
 // updateExecutables replaces Updater.exe and FA11y Launcher.exe with the
 // newest installer release. When Updater.exe itself was replaced, it
 // starts the new copy and returns its exit code.
-func updateExecutables(l layout.Layout) (restarted bool, code int) {
+func updateExecutables(l layout.Layout, branch string) (restarted bool, code int) {
 	if version == "dev" {
 		return false, 0
 	}
-	rel, err := selfupdate.Latest(defaultRepo)
+	rel, err := selfupdate.Latest(defaultRepo, branch != defaultBranch)
 	if err != nil || rel == nil || !selfupdate.Newer(rel.Version, version) {
 		return false, 0
 	}

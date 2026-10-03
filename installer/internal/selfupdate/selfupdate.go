@@ -32,7 +32,9 @@ type Asset struct {
 }
 
 // Latest returns the newest installer release, or nil when none exists.
-func Latest(repo string) (*Release, error) {
+// Pre-releases (Beta installer builds) count only when includePre is set,
+// which the updater does for installs on a branch other than main.
+func Latest(repo string, includePre bool) (*Release, error) {
 	data, err := fetch.Bytes(fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=50", repo))
 	if err != nil {
 		return nil, err
@@ -52,7 +54,7 @@ func Latest(repo string) (*Release, error) {
 	}
 	var best *Release
 	for _, r := range releases {
-		if r.Draft || r.Prerelease || !strings.HasPrefix(r.Tag, TagPrefix) {
+		if r.Draft || (r.Prerelease && !includePre) || !strings.HasPrefix(r.Tag, TagPrefix) {
 			continue
 		}
 		v := strings.TrimPrefix(r.Tag, TagPrefix)

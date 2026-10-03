@@ -21,6 +21,8 @@ jobs:
         shell: pwsh
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: installer/go.mod
@@ -43,6 +45,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y Launcher.exe" `
-            --title "FA11y installer ${{ github.ref_name }}" `
-            --notes "FA11y Launcher.exe and Updater.exe. Put both in an empty folder and run Updater.exe to install FA11y, or let an existing FA11y install update itself."
+          # A tag on a commit that isn't on main is a Beta installer: published as a
+          # pre-release. Only installs on a branch other than main update to pre-releases.
+          git merge-base --is-ancestor "${{ github.sha }}" origin/main
+          if ($LASTEXITCODE -eq 0) {
+            gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y Launcher.exe" `
+              --title "FA11y installer ${{ github.ref_name }}" `
+              --notes "FA11y Launcher.exe and Updater.exe. Put both in an empty folder and run Updater.exe to install FA11y, or let an existing FA11y install update itself."
+          } else {
+            gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y Launcher.exe" --prerelease `
+              --title "FA11y installer ${{ github.ref_name }} (Beta)" `
+              --notes "Beta installer for FA11y's Beta branch. Put both files in an empty folder, open a command prompt there, and run: Updater.exe --branch overhaul. FA11y then keeps updating from the Beta branch. Switch back to Stable from About and updates."
+          }
