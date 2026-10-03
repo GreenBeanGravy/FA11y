@@ -17,6 +17,11 @@
       "tests/",
       "tools/",
       "docs/",
+      "ui/src/",
+      "ui/tests/",
+      "ui/tools/",
+      "ui/FA11y.UI.sln",
+      "ui/.gitignore",
       "whls/",
       "pytest.ini",
       "CONTRIBUTING.md",
@@ -38,6 +43,32 @@
       "download": {
         "url": "https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0.31/dotnet-runtime-8.0.31-win-x64.exe",
         "sha512": "2dc2f346a4bcb53ab15ab6ab84348c02eb31b0a3d4e8e06aac73b4c89f1b001af01943ed4c5735fa5585f1dd731a942d2034577dfe937f4454367ff2d6edf929"
+      },
+      "install": {
+        "type": "exe",
+        "args": [
+          "/install",
+          "/quiet",
+          "/norestart"
+        ],
+        "success_codes": [
+          0,
+          1641,
+          3010
+        ]
+      },
+      "elevate": true
+    },
+    {
+      "id": "windowsdesktop10",
+      "name": ".NET 10 Desktop Runtime",
+      "reason": "Needed by the FA11y window.",
+      "detect": {
+        "path_glob": "%ProgramFiles%\\dotnet\\shared\\Microsoft.WindowsDesktop.App\\10.*\\PresentationFramework.dll"
+      },
+      "download": {
+        "url": "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.12/windowsdesktop-runtime-10.0.12-win-x64.exe",
+        "sha512": "0b907e9312867172a4eb82f4b5ab3f7c2d25e27d8349546d77eeb5d5b8cbecab9ebebfed189b13e9669dc578d892756c548366da539d47b3ddac5efcb7ae72fe"
       },
       "install": {
         "type": "exe",

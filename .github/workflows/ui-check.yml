@@ -1,0 +1,50 @@
+name: UI check
+
+# Builds the FA11y window (ui/) and makes sure the published copy in ui/bin
+# is updated whenever its source changes, because users only receive ui/bin.
+# Republish with: dotnet publish ui/src/FA11y.UI -c Release -o ui/bin
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ui:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build ui/FA11y.UI.sln -c Release
+
+      - name: ui/bin follows ui/src
+        run: |
+          $zero = "0000000000000000000000000000000000000000"
+          if ("${{ github.event_name }}" -eq "pull_request") {
+            $base = "${{ github.event.pull_request.base.sha }}"
+          } else {
+            $base = "${{ github.event.before }}"
+          }
+          if (-not $base -or $base -eq $zero) {
+            # A new branch or a manual run: compare with the previous commit.
+            $base = "HEAD~1"
+          }
+          git cat-file -e "$base^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) { $base = "HEAD~1" }
+          $changed = @(git diff --name-only "$base" HEAD)
+          $src = @($changed | Where-Object { $_ -like "ui/src/*" })
+          $bin = @($changed | Where-Object { $_ -like "ui/bin/*" })
+          Write-Host "ui/src files changed: $($src.Count), ui/bin files changed: $($bin.Count)"
+          if ($src.Count -gt 0 -and $bin.Count -eq 0) {
+            Write-Host "::error::ui/src changed but ui/bin did not. Run: dotnet publish ui/src/FA11y.UI -c Release -o ui/bin"
+            exit 1
+          }
