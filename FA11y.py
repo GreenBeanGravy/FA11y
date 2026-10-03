@@ -820,7 +820,24 @@ def _create_hub(first_run: bool = False):
         _shutdown_requested.set()
         app = wx.GetApp()
         if app is not None:
+            # A modal dialog (the silent Epic sign-in runs one at startup) has its own
+            # loop, and ExitMainLoop only ends that one; close them first.
+            for window in wx.GetTopLevelWindows():
+                try:
+                    if isinstance(window, wx.Dialog) and window.IsModal():
+                        window.EndModal(wx.ID_CANCEL)
+                except Exception:
+                    pass
             app.ExitMainLoop()
+
+        def force_exit():
+            # Normally main()'s cleanup has exited by now. If something still
+            # holds the main loop open, don't leave a windowless FA11y behind
+            # that blocks the next start.
+            time.sleep(5)
+            logger.warning("FA11y didn't exit 5 seconds after quitting; forcing it")
+            os._exit(0)
+        threading.Thread(target=force_exit, name="QuitWatchdog", daemon=True).start()
 
     services = HubServices(quit=quit_fa11y, reload_config=reload_config,
                            speak=lambda text: speaker.speak(text))

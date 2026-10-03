@@ -80,6 +80,10 @@ class MatchTracker:
         """Main monitoring loop"""
         while not self.stop_event.is_set():
             try:
+                from lib.monitors.base import BaseMonitor
+                if BaseMonitor.screen_paused():
+                    time.sleep(0.5)
+                    continue
                 current_time = time.time()
 
                 # Update position at configured interval
