@@ -878,6 +878,7 @@ def _start_background_systems() -> None:
     global key_listener_thread
 
     reload_config()
+    _startup_progress(35, "Starting keybinds")
 
     try:
         mouse_passthrough_service = get_mouse_passthrough()
@@ -890,6 +891,7 @@ def _start_background_systems() -> None:
     key_listener_thread = threading.Thread(target=key_listener, daemon=True)
     key_listener_thread.start()
 
+    _startup_progress(50, "Starting game monitors")
     threading.Thread(target=check_for_updates, daemon=True).start()
     threading.Thread(target=check_for_map_list_updates, daemon=True).start()
     threading.Thread(target=check_auth_expiration, daemon=True).start()
@@ -912,6 +914,7 @@ def _start_background_systems() -> None:
     fa11y_ow_client.start()
     fa11y_ow_announcer.start()
 
+    _startup_progress(65, "Starting match tracking")
     match_tracker.start_monitoring()
     match_tracker._start_new_match(announce=False)  # a session to track in, not a real match
     initialize_hotbar_detection()
@@ -994,10 +997,21 @@ def _complete_epic_login(restored: bool, first_run: bool) -> None:
     updater_check.startup_finished(speaker)
     # Screen monitors wait for this, so nothing is read off the screen while FA11y loads.
     _app_state.startup_done.set()
+    if hub is not None and hasattr(hub, "startup_finished"):
+        hub.startup_finished()
+
+
+def _startup_progress(percent: int, message: str) -> None:
+    """Tell the window's startup screen how far along FA11y is."""
+    from lib.hub import get_hub
+    hub = get_hub()
+    if hub is not None and hasattr(hub, "startup_progress"):
+        hub.startup_progress(percent, message)
 
 
 def _finish_startup(first_run: bool) -> None:
     """Everything after the hub is visible. Runs on the main thread via wx.CallAfter."""
+    _startup_progress(10, "Loading settings")
     temp_config = read_config()
     if get_config_boolean(temp_config, 'CreateDesktopShortcut', True):
         try:
@@ -1013,7 +1027,9 @@ def _finish_startup(first_run: bool) -> None:
             print(f"Available-maps list sync failed: {e}")
     threading.Thread(target=sync_maps, name="MapListSync", daemon=True).start()
 
+    _startup_progress(25, "Loading map data")
     _start_background_systems()
+    _startup_progress(80, "Signing in to Epic Games")
 
     def login_worker():
         try:

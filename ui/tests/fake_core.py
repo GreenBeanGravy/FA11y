@@ -7,7 +7,7 @@ update to 99.0.0 available.
 
     python ui/tests/fake_core.py [--exe PATH] [--log FILE] [--hidden]
                                  [--close-action ask|tray|quit] [--seconds N]
-                                 [--first-run] [--fortnite installed|none|egl]
+                                 [--first-run] [--fortnite installed|none|egl] [--startup SECONDS]
 
 While it runs it reads commands on its own stdin, one per line (the probe uses
 this): summon, summon-content, show-page KEY, hide, notify TITLE|MESSAGE,
@@ -57,7 +57,7 @@ def fake_cosmetics(count: int = 3000) -> list:
 
 class FakeCore:
     def __init__(self, exe: str, root: str, log_path: str, hidden: bool, close_action: str,
-                 first_run: bool = False, fortnite: str = "installed"):
+                 first_run: bool = False, fortnite: str = "installed", startup: float = 0):
         self.exe = exe
         self.root = root
         self.hidden = hidden
@@ -69,6 +69,8 @@ class FakeCore:
         self.page = "home"
         self.setup = first_run
         self.fortnite = fortnite
+        self.startup = startup  # seconds the pretend startup takes (0: already started)
+        self.startup_state = {"percent": 0, "message": "Loading settings"}
         self.operation = None  # {"id", "cancel": Event}
         self.next_operation = 0
         self.pages = None  # Discover, Quests and passes answers (fake_pages.py)
@@ -123,7 +125,8 @@ class FakeCore:
     def hello(self) -> dict:
         return {"version": "1.2.3", "keybinds_on": False, "open_keybind": "Left Alt + Left Shift + F",
                 "fortnite_running": self.fortnite_running, "update": "99.0.0",
-                "can_restart_to_update": True, "page": self.page, "setup": self.setup}
+                "can_restart_to_update": True, "page": self.page, "setup": self.setup,
+                "starting": self.startup > 0 and not self.setup, "startup": dict(self.startup_state)}
 
     def fortnite_state(self, check: bool) -> dict:
         base = {"checked": True, "legendary_ok": True, "default_install_base": "C:\\Program Files\\Epic Games",
@@ -394,6 +397,8 @@ class FakeCore:
                 self.log(f"<- event {name} {message.get('data')}")
                 if name == "ui.ready":
                     self.event("core.hello", self.hello())
+                    if self.startup > 0 and not self.setup:
+                        threading.Thread(target=self.run_startup, daemon=True).start()
                     print(f"READY {self.proc.pid}", flush=True)
                 elif name == "ui.page":
                     self.page = message.get("data", {}).get("key", self.page)
@@ -422,6 +427,17 @@ class FakeCore:
         self.log(f"started {args} pid {self.proc.pid}")
         print(f"STARTED {self.proc.pid}", flush=True)
         threading.Thread(target=self.read_loop, daemon=True).start()
+
+    def run_startup(self) -> None:
+        """Five progress steps spread over the startup time, then startup.done."""
+        steps = [(10, "Loading settings"), (30, "Starting keybinds"), (55, "Starting game monitors"),
+                 (75, "Loading map data"), (90, "Signing in to Epic Games")]
+        for percent, message in steps:
+            self.startup_state = {"percent": percent, "message": message}
+            self.event("startup.progress", self.startup_state)
+            time.sleep(self.startup / len(steps))
+        self.startup = 0
+        self.event("startup.done")
 
     def command(self, line: str) -> bool:
         """Run one command from stdin. Returns False to stop."""
@@ -479,11 +495,12 @@ def main() -> int:
     parser.add_argument("--first-run", action="store_true", help="start with first-run setup showing")
     parser.add_argument("--fortnite", default="installed", choices=("installed", "none", "egl"))
     parser.add_argument("--close-action", default="tray", choices=("ask", "tray", "quit"))
+    parser.add_argument("--startup", type=float, default=0, help="start with the startup screen, taking this many seconds")
     parser.add_argument("--seconds", type=float, default=0, help="stop after this long (0 = until quit or EOF)")
     args = parser.parse_args()
 
     os.makedirs(args.root, exist_ok=True)
-    core = FakeCore(args.exe, args.root, args.log, args.hidden, args.close_action, args.first_run, args.fortnite)
+    core = FakeCore(args.exe, args.root, args.log, args.hidden, args.close_action, args.first_run, args.fortnite, args.startup)
     core.start()
     deadline = time.time() + args.seconds if args.seconds else None
 

@@ -30,5 +30,7 @@
       </Grid>
       <!-- First-run setup replaces the sidebar and pages until it is finished or skipped. -->
       <local:SetupView x:Name="Setup" Visibility="Collapsed" />
+      <!-- Shown until the core says startup is done, then fades into the sidebar and pages. -->
+      <local:StartupView x:Name="Startup" />
     </Grid>
 </Window>

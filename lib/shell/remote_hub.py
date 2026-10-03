@@ -11,6 +11,8 @@ repair it.
 
 Events sent to the UI:
     core.hello         the starting state, sent when the UI says ui.ready
+    startup.progress   {percent, message} what FA11y is doing while it starts
+    startup.done       startup finished; the window leaves its startup screen
     ui.summon          bring the window forward {focus_content, over_game}
     ui.show_page       switch pages {key, summon, focus_sidebar, over_game}
     ui.hide            hide to the tray
@@ -82,6 +84,9 @@ class RemoteHub:
         self._summoned_over_game = False
         self._quitting = False
         self._login_settled = False
+        self._startup_lock = threading.Lock()
+        self._startup_done = False
+        self._startup = {"percent": 0, "message": ""}
         self._proxies: Dict[str, _PageProxy] = {key: _PageProxy(self, key) for key in PAGE_KEYS}
         self._setup_done: Optional[Callable] = None
         self.watcher = game_watch.GameWatcher(self._on_fortnite_changed)
@@ -197,7 +202,26 @@ class RemoteHub:
             "can_restart_to_update": status.can_restart_to_update(),
             "page": self._current,
             "setup": self._setup_done is not None,
+            "starting": not self._startup_done,
+            "startup": dict(self._startup),
         }
+
+    def startup_progress(self, percent: int, message: str) -> None:
+        """Tell the window how far startup is. Progress only goes up. Safe from any thread."""
+        with self._startup_lock:
+            if self._startup_done:
+                return
+            percent = max(int(percent), self._startup["percent"])
+            self._startup = {"percent": percent, "message": message}
+        self.send("startup.progress", {"percent": percent, "message": message})
+
+    def startup_finished(self) -> None:
+        """Startup is over; the window swaps its startup screen for the pages. Sent once. Safe from any thread."""
+        with self._startup_lock:
+            if self._startup_done:
+                return
+            self._startup_done = True
+        self.send("startup.done")
 
     def send(self, name: str, data: Optional[dict] = None) -> None:
         """Send the UI an event. Safe from any thread."""

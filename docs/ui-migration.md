@@ -55,6 +55,7 @@ FA11y Launcher.exe
   `fortnite.running`, `update.available`, `views.reset`, `ui.notify`,
   `ui.announce`, `ui.quit`, and `<page>.changed` for a page's data (`social.changed`,
   `locker.changed`, also sent after signing in or out).
+* While FA11y starts the window shows a startup screen: `startup.progress {percent, message}` moves its bar and `startup.done` fades it into the pages (`core.hello` has `starting` and `startup` for a late UI).
 * Long operations (Fortnite install) return an operation id at once and
   report progress as `operation.progress` and `operation.finished` events.
 

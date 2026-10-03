@@ -48,6 +48,8 @@ public partial class MainWindow : Window
     private bool _closing;
     private bool? _reportedVisible;
     private bool? _reportedActive;
+    private bool _starting;
+    private DispatcherTimer? _startupTimeout;
 
     public MainWindow()
     {
@@ -81,6 +83,71 @@ public partial class MainWindow : Window
 
         SubscribeToCore();
         ShowPage("home", fromUser: false);
+        if (App.Bridge.Connected)
+            BeginStartup();
+        else
+            Startup.Visibility = Visibility.Collapsed;
+    }
+
+    // Startup screen ----------------------------------------------------------
+
+    /// <summary>The sidebar and pages stay out of reach until the core says startup is done.</summary>
+    private void BeginStartup()
+    {
+        _starting = true;
+        MainArea.Visibility = Visibility.Hidden;
+        Startup.Visibility = Visibility.Visible;
+        Startup.Opacity = 1;
+        _startupTimeout?.Stop();
+        _startupTimeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        _startupTimeout.Tick += (_, _) =>
+        {
+            Log.Error("startup.done did not arrive within 60 seconds; showing the window anyway");
+            EndStartup(focus: true);
+        };
+        _startupTimeout.Start();
+    }
+
+    /// <summary>Fade the startup screen out and the sidebar and pages in. No animation if the window is hidden or animations are off.</summary>
+    private void EndStartup(bool focus)
+    {
+        _startupTimeout?.Stop();
+        if (!_starting)
+            return;
+        _starting = false;
+        focus |= Startup.IsKeyboardFocusWithin;
+        MainArea.Visibility = Visibility.Visible;
+        void Finish()
+        {
+            Startup.Visibility = Visibility.Collapsed;
+            MainArea.BeginAnimation(OpacityProperty, null);
+            MainArea.Opacity = 1;
+        }
+        if (!IsVisible || !SystemParameters.ClientAreaAnimation)
+        {
+            Finish();
+        }
+        else
+        {
+            MainArea.Opacity = 0;
+            MainArea.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)));
+            var fade = new System.Windows.Media.Animation.DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(300));
+            fade.Completed += (_, _) => Finish();
+            Startup.BeginAnimation(OpacityProperty, fade);
+        }
+        if (focus && !Setup.IsActive)
+        {
+            ShowPage("home", fromUser: false);
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, FocusSidebar);
+        }
+    }
+
+    private void OnStartupProgress(JsonElement data)
+    {
+        if (!_starting)
+            return;
+        var percent = data.TryGetProperty("percent", out var p) && p.ValueKind == JsonValueKind.Number ? (int)p.GetDouble() : 0;
+        Startup.Set(percent, data.Str("message"));
     }
 
     // Startup ---------------------------------------------------------------
@@ -122,12 +189,23 @@ public partial class MainWindow : Window
         bridge.On("core.hello", hello =>
         {
             AppState.ApplyHello(hello);
+            if (hello.Bool("starting") && !hello.Bool("setup"))
+            {
+                if (!_starting)
+                    BeginStartup();
+                if (hello.TryGetProperty("startup", out var startup))
+                    OnStartupProgress(startup);
+            }
+            else
+                EndStartup(focus: false);
             var page = hello.Str("page");
             if (page.Length > 0 && _items.ContainsKey(page) && page != _current)
                 ShowPage(page, fromUser: false);
             if (hello.Bool("setup"))
                 StartSetup(false);
         });
+        bridge.On("startup.progress", OnStartupProgress);
+        bridge.On("startup.done", _ => EndStartup(focus: true));
         bridge.On("setup.start", data => StartSetup(data.Bool("summon")));
         bridge.On("ui.summon", data => Summon(data.Bool("focus_content"), data.Bool("over_game")));
         bridge.On("ui.show_page", data =>
@@ -294,6 +372,8 @@ public partial class MainWindow : Window
     {
         if (Setup.IsActive)
             return;
+        EndStartup(focus: false);
+        Startup.Visibility = Visibility.Collapsed;
         MainArea.Visibility = Visibility.Collapsed;
         Setup.Visibility = Visibility.Visible;
         Title = "FA11y setup";
@@ -397,6 +477,11 @@ public partial class MainWindow : Window
 
     public void FocusSidebar()
     {
+        if (_starting)
+        {
+            Startup.FocusBar();
+            return;
+        }
         if (Setup.IsActive)
         {
             Setup.FocusIntro();
@@ -408,6 +493,11 @@ public partial class MainWindow : Window
 
     public void FocusContent()
     {
+        if (_starting)
+        {
+            Startup.FocusBar();
+            return;
+        }
         if (Setup.IsActive)
         {
             Setup.FocusIntro();

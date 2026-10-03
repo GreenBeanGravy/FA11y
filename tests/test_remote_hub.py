@@ -107,6 +107,27 @@ def test_hello_carries_the_starting_state(make_hub):
     assert hello["setup"] is False
 
 
+def test_startup_progress_and_done(make_hub):
+    hub, log = make_hub()
+    assert events(log, "core.hello")[0]["starting"] is True
+    hub.startup_progress(30, "Loading settings")
+    hub.startup_progress(10, "Earlier stage")  # progress only goes up
+    hello = hub.hello()
+    assert hello["starting"] is True
+    assert hello["startup"] == {"percent": 30, "message": "Earlier stage"}
+    hub.startup_finished()
+    hub.startup_finished()
+    wait_for(lambda: events(log, "startup.done"))
+    time.sleep(0.2)
+    assert len(events(log, "startup.done")) == 1
+    sent = events(log, "startup.progress")
+    assert sent[0] == {"percent": 30, "message": "Loading settings"}
+    assert [e["percent"] for e in sent] == [30, 30]
+    assert hub.hello()["starting"] is False
+    hub.startup_progress(90, "Too late")
+    assert hub.hello()["startup"]["percent"] == 30
+
+
 def test_the_window_starts_hidden_when_fortnite_is_running(make_hub, world):
     world.running = True
     hub, log = make_hub()
