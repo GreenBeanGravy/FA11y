@@ -72,7 +72,12 @@ public partial class MainWindow : Window
         IsVisibleChanged += (_, _) => ReportVisibility();
         Activated += (_, _) => ReportVisibility();
         Deactivated += (_, _) => ReportVisibility();
-        StateChanged += (_, _) => ReportVisibility();
+        StateChanged += (_, _) =>
+        {
+            ReportVisibility();
+            if (WindowState == WindowState.Minimized)
+                _ = MinimizeToTrayAsync();
+        };
 
         SubscribeToCore();
         ShowPage("home", fromUser: false);
@@ -89,7 +94,7 @@ public partial class MainWindow : Window
         try
         {
             _tray = new TrayIcon(
-                open: RequestSummon,
+                open: () => Summon(false, false),
                 play: () => App.Bridge.Notify("app.play_fortnite"),
                 settings: () => App.Bridge.Notify("app.show_page", new { key = "settings", summon = true }),
                 quit: RequestQuit);
@@ -446,14 +451,6 @@ public partial class MainWindow : Window
         });
     }
 
-    private void RequestSummon()
-    {
-        if (App.Bridge.Connected)
-            App.Bridge.Notify("app.summon", new { focus_content = false });
-        else
-            Summon(false, false);
-    }
-
     private void RequestQuit()
     {
         if (!App.Bridge.Connected)
@@ -466,6 +463,25 @@ public partial class MainWindow : Window
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         timer.Tick += (_, _) => Quit();
         timer.Start();
+    }
+
+    /// <summary>Minimizing hides to the tray unless MinimizeToTray is off.</summary>
+    private async Task MinimizeToTrayAsync()
+    {
+        if (_quitting || !App.Bridge.Connected)
+            return;
+        try
+        {
+            var answer = await App.Bridge.RequestAsync("app.minimize_action", null, TimeSpan.FromSeconds(3));
+            if (!answer.Bool("to_tray") || WindowState != WindowState.Minimized)
+                return;
+            HideWindow(fromUser: true, refocusGame: false);
+            WindowState = WindowState.Normal; // hidden now, so it comes back normal next time
+        }
+        catch (Exception e)
+        {
+            Log.Error("Minimizing to the tray failed", e);
+        }
     }
 
     private void HideWindow(bool fromUser, bool refocusGame)

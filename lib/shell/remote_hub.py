@@ -331,8 +331,8 @@ class RemoteHub:
                 return
             self._hidden_notice_given = True
         keybind = _safe(status.open_hub_keybind, "")
-        opener = f"Open it with {keybind}." if keybind else "Open it from the tray icon."
-        self.notify("FA11y", f"FA11y is still running in the system tray. {opener}")
+        opener = f"Press {keybind} to open it again." if keybind else "Open it again from the tray icon."
+        self.notify("FA11y", f"FA11y is running in the background. {opener}")
 
     # Fortnite and keybinds -------------------------------------------------
 

@@ -24,6 +24,11 @@ def close_action(_params: dict) -> dict:
     return {"action": settings.close_action()}
 
 
+@handler("app.minimize_action")
+def minimize_action(_params: dict) -> dict:
+    return {"to_tray": settings.flag("MinimizeToTray", True)}
+
+
 @handler("app.set_close_action")
 def set_close_action(params: dict) -> dict:
     action = params.get("action")

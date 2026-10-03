@@ -51,6 +51,7 @@ GENERAL_TOGGLE_KEYS = (
     "StartFortniteOnLaunch",
     "HideHubWhenFortniteStarts",
     "NavigationSounds",
+    "MinimizeToTray",
     "NotifyWhenReady",
     "NotifyWhenHiddenToTray",
     "AutoUpdates",
@@ -78,6 +79,7 @@ LABEL_OVERRIDES: Dict[str, str] = {
     "StartFortniteOnLaunch": "Start Fortnite when FA11y opens",
     "HideHubWhenFortniteStarts": "Hide the FA11y window when Fortnite starts",
     "NavigationSounds": "Play navigation sounds in the FA11y window",
+    "MinimizeToTray": "Minimize to the system tray",
     "NotifyWhenReady": "Show a notification when FA11y is ready",
     "NotifyWhenHiddenToTray": "Show a notification when the window goes to the tray",
     "AutoUpdates": "Update FA11y automatically",
@@ -166,7 +168,7 @@ OTHER = "Other"
 GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {
     "General": (
         ("Startup and updates", ("StartFortniteOnLaunch", "AutoUpdates", "CreateDesktopShortcut")),
-        ("FA11y window", ("HideHubWhenFortniteStarts", "NavigationSounds", "NotifyWhenReady",
+        ("FA11y window", ("HideHubWhenFortniteStarts", "MinimizeToTray", "NavigationSounds", "NotifyWhenReady",
                          "NotifyWhenHiddenToTray", "CloseAction")),
     ),
     "Toggles": (

@@ -374,7 +374,7 @@ def test_closing_to_the_tray_says_how_to_open_fa11y_again(make_hub, world):
     wait_for(lambda: hub.IsShown())
     hub.window_hidden(refocus_game=False)
     wait_for(lambda: notices(log))
-    assert notices(log)[0]["message"] == "FA11y is still running in the system tray. Open it with Left Alt + F."
+    assert notices(log)[0]["message"] == "FA11y is running in the background. Press Left Alt + F to open it again."
     hub._shown = True
     hub.window_hidden(refocus_game=False)  # closing by hand tells you every time
     wait_for(lambda: len(notices(log)) == 2)

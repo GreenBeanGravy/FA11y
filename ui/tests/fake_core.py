@@ -249,6 +249,23 @@ class FakeCore:
             return self.social(method, params)
         if method.startswith("locker."):
             return self.locker(method, params)
+        # The window's own requests, answered the way the real core does.
+        if method == "app.summon":
+            self.event("ui.summon", {"focus_content": bool(params.get("focus_content")), "over_game": False})
+            return {}
+        if method == "app.show_page":
+            self.event("ui.show_page", {"key": params.get("key", ""), "summon": bool(params.get("summon")),
+                                        "focus_sidebar": False})
+            return {}
+        if method == "app.minimize_action":
+            return {"to_tray": True}
+        if method == "app.window_hidden":
+            self.event("ui.notify", {"title": "FA11y", "message": "FA11y is running in the background. "
+                                                                 "Press Left Alt + Left Shift + F to open it again."})
+            return {}
+        if method == "app.quit":
+            self.event("ui.quit")
+            return {}
         if method == "app.close_action":
             return {"action": self.close_action}
         if method == "app.state":
