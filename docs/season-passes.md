@@ -1,21 +1,21 @@
 # Locker passes
 
-Open **Locker → Battle Passes**. The dialog has Battle Royale, OG, Festival / Music,
+Open Locker, then Battle Passes. The dialog has Battle Royale, OG, Festival / Music,
 and LEGO tabs. Ctrl+Tab switches tabs. Arrow keys and the mouse browse rewards;
 Page Up and Page Down switch to the previous/next game page, without wrapping.
 The Page choice also allows direct page selection. Each pass remembers its page
 while switching tabs. Tab to the details field to read the description, set,
 cost, premium requirement, and reward prerequisites.
 
-* **Claim reward** selects one unclaimed reward.
-* **Claim full page** selects its unclaimed claimable-offer entries.
-* **Claim full set** selects the current BR category's unclaimed offer entries.
+* Claim reward selects one unclaimed reward.
+* Claim full page selects the page's unclaimed claimable-offer entries.
+* Claim full set selects the current BR category's unclaimed offer entries.
   The other three current passes have pages rather than BR-style unlockable sets.
-* **Unlock set** exchanges earned set-unlock tokens for the BR set's actual
+* Unlock set exchanges earned set-unlock tokens for the BR set's actual
   prerequisite offer. Claiming rewards is a separate action.
-* **Unlock premium pass** uses that pass's exact current storefront offer and
-  V-Bucks price. It is disabled when already owned. Real-money checkout, gift
-  offers, and level bundles are not selected by this button.
+* Unlock premium pass uses that pass's exact current storefront offer and
+  V-Bucks price. It is disabled when already owned. It never selects
+  real-money checkout, gift offers, or level bundles.
 
 An action displays its selected rewards and total cost before submission.
 Full-page/full-set operations leave quest entries to their in-game quest system;
@@ -35,20 +35,22 @@ BR pages include bonus rewards. Variant rewards use their own item names and
 their base cosmetic's description where available. Music titles and artists are
 resolved through Epic's [Festival track metadata](https://fortnitecontent-website-prod07.ol.epicgames.com/content/api/pages/fortnite-game/spark-tracks).
 
-Bonus pages are explicitly labeled **Bonus** in the page selector and details.
-Select a quest-reward entry and choose **View reward quests** to open the existing
+Bonus pages are labeled Bonus in the page selector and details.
+Select a quest-reward entry and choose View reward quests to open the existing
 quest browser scoped to its exact quest and linked reward bundle. It shows both
 active and completed quests initially, objective counters, and claimed status.
 Pass-only hidden quests are admitted only in that explicitly linked context;
-missing account records are not inferred to be completed. **View selected pass quests** opens only quests explicitly linked to the selected
-pass and its rewards, with that pass category selected automatically. A pass
-without linked quests shows an empty list rather than unrelated account quests. Both views use the existing
-account reader. This release does not include or require a packet decoder.
+missing account records are not inferred to be completed.
 
-The general Left Alt+Q browser now respects the game's explicit bundle
+View selected pass quests opens only quests explicitly linked to the selected
+pass and its rewards, with that pass category selected automatically. A pass
+without linked quests shows an empty list rather than unrelated account quests.
+Both views use the existing account reader and need no packet decoder.
+
+The general Left Alt+Q browser respects the game's explicit bundle
 `SuppressedQuestDefs`, matched to each quest's actual account bundle. The current
-Birthday bundle suppresses “Emote in different matches” and “Land from the Bus
-in different matches”; their account Active flag alone does not make them live
+Birthday bundle suppresses "Emote in different matches" and "Land from the Bus
+in different matches"; their account Active flag alone does not make them live
 objectives. Completed records remain available in the Completed filter. Current
 suppression data also covers known weekly, OG, Reload, and other bundles. It is
 generated with `tools/build_quest_suppression.py` from cooked bundle exports, not

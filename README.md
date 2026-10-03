@@ -1,23 +1,20 @@
-# FA11y - Fortnite Accessibility Tool for the Blind and Visually Impaired
+# FA11y: Fortnite accessibility tool for blind and visually impaired players
 
 ## FA11y is NOT a mod
 
 FA11y runs alongside Fortnite. It does not modify, inject into, or read
-Fortnite's game files or memory. Everything it announces is derived from what
-is visible on screen, what Fortnite writes to its local log files, and what
-Epic's public APIs return.
+Fortnite's game files or memory. It announces what is visible on screen, what
+Fortnite writes to its local log files, and what Epic's public APIs return.
 
-Because FA11y reads the screen directly, it requires:
-
-- **Monitor resolution**: 1920 × 1080
-- **Fortnite**: running fullscreen, no overlays/notifications blocking the HUD
-- **OS**: Windows
+Because FA11y reads the screen directly, you need Windows, a 1920x1080
+monitor resolution, and Fortnite running fullscreen with no overlays or
+notifications covering the HUD.
 
 ## About
 
-FA11y makes in-match Fortnite and a large chunk of out-of-match menus
-accessible to blind and visually impaired players. A non-exhaustive list of
-what it currently does:
+FA11y makes in-match Fortnite and many out-of-match menus accessible to
+blind and visually impaired players. It can do the following, among other
+things.
 
 ### In-match
 
@@ -27,10 +24,10 @@ what it currently does:
 - Announce height while skydiving
 - Announce the direction you are facing
 - Auto-turn toward the selected POI when you start navigation
-- Announce match events like knockdowns, respawns,
-  players-remaining changes, battle bus, storm phases, death, and spectating info
-- Full keyboard camera and mouse control: recentering camera, turning, scrolling,
-  left/right click
+- Announce match events such as knockdowns, respawns, players remaining,
+  the battle bus, storm phases, death, and spectating info
+- Control the camera and mouse from the keyboard: recenter, turn, scroll, and
+  left and right click
 
 ### Out of match
 
@@ -38,12 +35,12 @@ what it currently does:
   friends and party, quests, Discover, settings, and keybinds
 - Install, update, verify, move, and uninstall Fortnite, and set its launch
   options, from the Fortnite page (no Epic Games Launcher needed)
-- Browse and equip cosmetics via the Locker selector
-- Select game modes via the Discovery selector (Left Alt + apostrophe)
-- Browse Creative islands via the Discovery menu
-- Epic authentication / social menu (friends, party, requests)
-- Reload map rotation: query fortnite.gg and announce which map is live now
-  and what's next; optionally sync FA11y's `current_map` to it automatically
+- Browse and equip cosmetics with the Locker selector
+- Select game modes with the Discovery selector (Left Alt + apostrophe)
+- Browse Creative islands with the Discovery menu
+- Sign in to Epic and use the social menu (friends, party, requests)
+- Check the Reload map rotation on fortnite.gg and announce which map is live
+  now and which is next; optionally set FA11y's `current_map` to match
 - Custom POIs per map, favorites, visited-objects tracking
 
 ## Setup
@@ -70,9 +67,8 @@ page; F6 moves back. Ctrl+Tab and Ctrl+Shift+Tab switch pages from anywhere.
 FA11y's keybinds work while the window is open or hidden. When Fortnite
 starts, the window hides to the system tray. Bring it back with
 `Left Alt + F`, the tray icon, or by starting `FA11y Launcher.exe` again;
-Escape hides it and returns you to Fortnite. Keybinds that used to open
-separate menus, such as `F9` for settings or `Left Alt + .` for the social
-menu, now open the matching page.
+Escape hides it and returns you to Fortnite. Keybinds such as `F9` for
+settings and `Left Alt + .` for the social menu open the matching page.
 
 The first time you close the window, FA11y asks whether to keep running in
 the tray or quit. Change this later under Settings, General.
@@ -80,9 +76,9 @@ the tray or quit. Change this later under Settings, General.
 To see FA11y's printed output while troubleshooting, run
 `"FA11y Launcher.exe" --console`.
 
-If you already use an older FA11y, keep starting it as usual: the next
-update moves it to the new layout and keeps your settings. A backup of
-your settings is kept in a `FA11y_backup_` folder for two weeks.
+If you already use an older FA11y, keep starting it as usual. The next
+update moves it to the new layout and keeps your settings, with a backup in
+a `FA11y_backup_` folder for two weeks.
 
 ## Default keybinds
 
@@ -141,7 +137,7 @@ to another action, the two actions swap keys.
 | `Num4` / `Num6` | Turn slightly left / right |
 | `Num1` / `Num3` | Turn left / right |
 | `Num8` / `Num2` | Look up / down |
-| `Num0` | Turn 180° |
+| `Num0` | Turn 180 degrees |
 | `Num7` / `Num9` | Scroll up / down |
 
 ### Menus
@@ -159,12 +155,12 @@ to another action, the two actions swap keys.
 
 ## Troubleshooting
 
-- Most issues are caused by an incorrect screen resolution, or Fortnite not being in fullscreen. They can be solved by ensuring your screen resolution is set to 1920x1080, and Fortnite is in fullscreen, which can be toggled with F11 while the game is in focus.
+- Most issues come from a wrong screen resolution or Fortnite not being fullscreen. Set your resolution to 1920x1080 and put Fortnite in fullscreen (F11 toggles it while the game has focus).
 
 ## Contributing
 
 - Main repo: https://github.com/greenbeangravy/fa11y
-- Issues and feature requests welcome on the main repo
+- Issues and feature requests are welcome there
 
 ## License
 

@@ -4,9 +4,9 @@ Development rules for FA11y. Follow these for every change, whether you're a mai
 
 ## Always update the changelog for user-visible changes
 
-`CHANGELOG.txt` is not a dev log - FA11y downloads it and offers to open it every time a user receives an update (`lib/app/updater_check.py`).
+`CHANGELOG.txt` is not a dev log. FA11y downloads it and offers to open it every time a user receives an update (`lib/app/updater_check.py`).
 
-**If a user would notice the change, it goes in the changelog.** That includes:
+If a user would notice the change, it goes in the changelog. That includes:
 
 - New features, keybinds, settings, or GUI elements
 - Changed defaults or behavior
@@ -15,31 +15,31 @@ Development rules for FA11y. Follow these for every change, whether you're a mai
 
 Rules for entries:
 
-- Add a new block at the **top** of `CHANGELOG.txt`, formatted `M/D/YYYY #N:` (N counts multiple releases on the same day, starting at 1)
+- Add a new block at the top of `CHANGELOG.txt`, formatted `M/D/YYYY #N:` (N counts multiple releases on the same day, starting at 1)
 - One `- ` bullet per change
-- Write in plain language describing what the **user** experiences - not internals. Say "Added the Check Display Mode keybind (Left Alt + R)", not "Refactored display detection module"
+- Write in plain language about what the user experiences, not internals. Say "Added the Check Display Mode keybind (Left Alt + R)", not "Refactored display detection module"
 - Mention default keybinds and setting names so users can find them
 - Purely internal changes (refactors, test changes, CI) do **not** need an entry
 
 ## Bump VERSION on every release
 
-The updater detects updates by comparing the local `VERSION` file against the one on GitHub. **If you don't bump `VERSION`, users never receive your change.**
+The updater detects updates by comparing the local `VERSION` file against the one on GitHub. If you don't bump `VERSION`, users never receive your change.
 
-- Increment the patch number (e.g. `18.8.5` → `18.8.6`) for normal changes
+- Increment the patch number (for example `18.8.5` to `18.8.6`) for normal changes
 - Docs-only changes (like this file) don't need a bump
 
 ## Settings and keybinds
 
 - All default settings and keybinds live in `lib/utilities/utilities.py`, each with a quoted description string
-- The description is read aloud by screen readers in the configuration menu - write it as a clear, complete sentence
-- Never rename or remove a setting/keybind without checking the key listener handles the stale name gracefully (unknown actions in a user's existing config are skipped, so removal is safe)
+- The description is read aloud by screen readers in the configuration menu - write it as a complete sentence
+- Before renaming or removing a setting or keybind, check that the key listener copes with the old name. Unknown actions in a user's config are skipped, so removal is safe.
 
 ## Accessibility first
 
 FA11y exists for screen-reader users. For any change:
 
 - Every user-visible event needs spoken feedback
-- New GUIs must use the existing accessible wxPython patterns (see `AccessibleDialog` usage in `lib/guis/config_gui.py`) - full keyboard navigation, no mouse-only interactions
+- New GUIs must use the existing accessible wxPython patterns (see `AccessibleDialog` in `lib/guis/gui_utilities.py`): full keyboard navigation, no mouse-only interactions
 - Never rely on color or visuals alone to convey information
 
 ## Dependencies

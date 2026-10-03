@@ -102,8 +102,7 @@ ui/
   `lib/hub/controls.py` so the window looks the same: dark surfaces, the
   blue accent, 8 px radius, Segoe UI 10 pt, Tabler icons from
   `assets/icons`.
-* Accessibility rules carried over from the wx work, which followed
-  NVDA's own settings dialog:
+* Accessibility rules, which follow NVDA's own settings dialog:
   * Arrowing through the sidebar changes the page. Focus stays in the
     sidebar and nothing is spoken except the item.
   * Enter or Tab moves into the page. F6 switches between the sidebar and
@@ -133,7 +132,7 @@ ui/
 | 3 | Fortnite page (install, update, verify, move, uninstall, launch options, mouse passthrough), first-run setup | `lib/hub/pages/fortnite.py`, `lib/hub/onboarding.py`, `lib/guis/welcome_wizard.py` |
 | 4 | Discover, Quests and passes | `lib/guis/discovery_gui.py`, `quest_gui.py`, `passes_gui.py` |
 | 5 | Social, Locker | `lib/guis/social_gui.py`, `locker_gui.py` |
-| 6 | Removed the wx hub, packaging: publish to `ui/bin`, Windows Desktop Runtime component in `installer/manifest.json`, sync excludes for `ui/src` and `ui/tests`, CI build check, Windows notifications | `lib/hub` wx code, `lib/guis` views, `installer/`, `.github/workflows/` |
+| 6 | Remove the wx hub, packaging: publish to `ui/bin`, Windows Desktop Runtime component in `installer/manifest.json`, sync excludes for `ui/src` and `ui/tests`, CI build check, Windows notifications | `lib/hub` wx code, `lib/guis` views, `installer/`, `.github/workflows/` |
 | Later | In-game dialogs (POI selector, visited objects, custom POI, match options, Epic sign-in) | `lib/guis/*` |
 
 ## Status
