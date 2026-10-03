@@ -652,6 +652,8 @@ internal static partial class Program
         {
             Check(names.Contains("FA11y 1.2.3"), "the version text is reachable");
             Check(seen.Any(e => e.Current.Name == "Changelog" && e.Current.ControlType == ControlType.Edit), "Changelog is a named edit box");
+            Check(names.Contains("Branch: Beta (overhaul)"), "the branch text is reachable");
+            Check(seen.Any(e => e.Current.Name == "FA11y branch" && e.Current.ControlType == ControlType.ComboBox), "FA11y branch is a named combo box");
         }
 
     }

@@ -52,7 +52,7 @@ func main() {
 	flag.BoolVar(&opts.quick, "quick", false, "only update when a new FA11y version is out or the install needs repair")
 	flag.BoolVar(&opts.check, "check", false, "only report whether --quick would update: exit 3 if so, 0 if not")
 	flag.BoolVar(&opts.fromLauncher, "from-launcher", false, "started by FA11y Launcher.exe")
-	flag.StringVar(&opts.branch, "branch", defaultBranch, "GitHub branch to install from")
+	flag.StringVar(&opts.branch, "branch", "", "GitHub branch to install from (default: the branch last installed, or main)")
 	flag.StringVar(&opts.source, "source", "", "install from this folder (an exported checkout) instead of GitHub, for testing")
 	flag.BoolVar(&opts.noComponents, "no-components", false, "skip drivers and other external components, for testing")
 	monarch := flag.Bool("monarch", false, "retry failed downloads until they succeed")
@@ -98,6 +98,11 @@ func run(l layout.Layout, opts options) (int, error) {
 	selfupdate.CleanupOld(l.Updater(), l.Launcher())
 	waitForExit(opts.waitPIDs)
 	legacy := isLegacy(l)
+	st, err := state.Load(l.Files)
+	if err != nil {
+		return exitError, err
+	}
+	branch := resolveBranch(opts.branch, st.Branch)
 	var src filesync.Source
 	if opts.source != "" {
 		console.Say("Installing from %s instead of GitHub.", opts.source)
@@ -108,7 +113,12 @@ func run(l layout.Layout, opts options) (int, error) {
 				return code, nil
 			}
 		}
-		commit, err := filesync.Commit(defaultRepo, opts.branch)
+		commit, err := filesync.Commit(defaultRepo, branch)
+		if err != nil && opts.branch == "" && branch != defaultBranch && branchMissing(err) {
+			console.Say("The %s branch no longer exists on GitHub. Switching back to main.", branch)
+			branch = defaultBranch
+			commit, err = filesync.Commit(defaultRepo, branch)
+		}
 		if err != nil {
 			if installed(l) && (opts.quick || opts.check) {
 				console.Say("Could not reach GitHub (%v). Skipping the update check.", err)
@@ -122,14 +132,14 @@ func run(l layout.Layout, opts options) (int, error) {
 	if err != nil {
 		return exitError, err
 	}
-	st, err := state.Load(l.Files)
-	if err != nil {
-		return exitError, err
-	}
+	switching := branchSwitch(installed(l), st.Branch, branch)
 
 	if opts.check {
 		// Read-only: the launcher runs this without a window and opens a
 		// console for the real update only when there is one.
+		if switching {
+			return layout.ExitUpdateAvailable, nil
+		}
 		if !legacy && installed(l) {
 			remote, err := src.Read("VERSION")
 			if err != nil || !versionNewer(strings.TrimSpace(string(remote)), readVersion(l)) && healthy(l, m, st, opts.noComponents) {
@@ -147,6 +157,10 @@ func run(l layout.Layout, opts options) (int, error) {
 	}
 
 	localVersion := readVersion(l)
+	if switching {
+		console.Say("Switching FA11y to the %s branch.", branch)
+		opts.quick = false
+	}
 	if opts.quick && installed(l) {
 		remote, err := src.Read("VERSION")
 		if err == nil && !versionNewer(strings.TrimSpace(string(remote)), localVersion) && healthy(l, m, st, opts.noComponents) {
@@ -161,6 +175,9 @@ func run(l layout.Layout, opts options) (int, error) {
 		console.Say("Updating FA11y...")
 	}
 	changed, err := update(l, m, src, st, opts)
+	if err == nil {
+		st.Branch = branch
+	}
 	if saveErr := st.Save(l.Files); err == nil {
 		err = saveErr
 	}
@@ -178,7 +195,7 @@ func run(l layout.Layout, opts options) (int, error) {
 		}
 		return layout.ExitUpdated, nil
 	}
-	if !changed {
+	if !changed && !switching {
 		console.Say("FA11y is up to date.")
 		return layout.ExitNoUpdate, nil
 	}

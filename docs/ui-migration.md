@@ -144,6 +144,8 @@ are native WPF. The wx hub (frame, sidebar, pages, views and the classic
 fallback window) was removed in phase 6; its last state is the git tag
 `legacy-wx-ui`.
 
+Branches: the updater records the branch it installed from in `.fa11y-install.json`; About and updates lists `installer/branches.json` and switches through the launcher (`--update --branch NAME`).
+
 Still wx, in the core process (`wx.App` stays for them): the in-game
 dialogs (POI selector, custom POI, match options), the
 Epic sign-in dialogs (`lib/guis/epic_login_dialog.py`,

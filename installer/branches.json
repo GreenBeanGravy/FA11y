@@ -1,0 +1,12 @@
+[
+  {
+    "name": "main",
+    "label": "Stable",
+    "description": "The tested release most people use."
+  },
+  {
+    "name": "overhaul",
+    "label": "Beta",
+    "description": "New FA11y window and early features, with more rough edges."
+  }
+]

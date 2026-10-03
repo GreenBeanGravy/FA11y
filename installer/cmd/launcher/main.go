@@ -12,7 +12,8 @@
 // window is the user interface. Pass --console to run it under python.exe
 // in a console instead, which shows FA11y's printed output for
 // troubleshooting. Pass --update to update first even when AutoUpdates is
-// off (FA11y's "Restart to update" button does this).
+// off (FA11y's "Restart to update" button does this). "--branch NAME" is
+// passed on to the updater, which switches the install to that branch.
 package main
 
 import (
@@ -22,6 +23,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strings"
 	"syscall"
 
 	"github.com/GreenBeanGravy/FA11y/installer/internal/console"
@@ -48,14 +50,15 @@ func main() {
 		console.Fail(2, "could not find the FA11y folder: %v", err)
 	}
 
+	branchArgs := branchArgs(os.Args[1:])
 	if !installed(l) {
 		console.Say("FA11y is not installed yet. Starting the updater to install it.")
-		code := runUpdater(l, "--install")
+		code := runUpdater(l, append([]string{"--install"}, branchArgs...)...)
 		if (code != layout.ExitNoUpdate && code != layout.ExitUpdated) || !installed(l) {
 			console.Fail(2, "the install did not finish (updater exit code %d).", code)
 		}
-	} else if forced := slices.Contains(os.Args[1:], "--update"); (forced || fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true)) && checkForUpdate(l) {
-		code := runUpdater(l, "--quick")
+	} else if forced := slices.Contains(os.Args[1:], "--update"); (forced || fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true)) && checkForUpdate(l, branchArgs) {
+		code := runUpdater(l, append([]string{"--quick"}, branchArgs...)...)
 		if code != layout.ExitNoUpdate && code != layout.ExitUpdated {
 			console.Say("The update failed (exit code %d). Starting the installed version.", code)
 		}
@@ -71,6 +74,19 @@ func main() {
 	if err := startFA11yWindowed(l); err != nil {
 		console.Fail(2, "could not start FA11y: %v", err)
 	}
+}
+
+// branchArgs returns the "--branch NAME" arguments from args, if present.
+func branchArgs(args []string) []string {
+	for i, a := range args {
+		if a == "--branch" && i+1 < len(args) {
+			return []string{"--branch", args[i+1]}
+		}
+		if strings.HasPrefix(a, "--branch=") {
+			return []string{a}
+		}
+	}
+	return nil
 }
 
 func installed(l layout.Layout) bool {
@@ -114,11 +130,11 @@ func runUpdater(l layout.Layout, args ...string) int {
 // checkForUpdate runs "Updater.exe --check" without a window and reports
 // whether there is an update to install. A failed check (no network, no
 // updater) counts as no update, so FA11y still starts quietly.
-func checkForUpdate(l layout.Layout) bool {
+func checkForUpdate(l layout.Layout, extra []string) bool {
 	if _, err := os.Stat(l.Updater()); err != nil {
 		return false
 	}
-	cmd := exec.Command(l.Updater(), "--check", "--from-launcher")
+	cmd := exec.Command(l.Updater(), append([]string{"--check", "--from-launcher"}, extra...)...)
 	cmd.Dir = l.Root
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
 	err := cmd.Run()

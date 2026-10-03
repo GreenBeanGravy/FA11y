@@ -33,18 +33,24 @@ from typing import Optional
 
 import requests
 
+from lib.app import branch
+
 logger = logging.getLogger(__name__)
 
 # Remote URLs - kept here so FA11y.py doesn't need to care.
-GITHUB_REPO_URL = "https://raw.githubusercontent.com/GreenBeanGravy/FA11y/main"
-VERSION_URL = f"{GITHUB_REPO_URL}/VERSION"
-CHANGELOG_URL = f"{GITHUB_REPO_URL}/CHANGELOG.txt"
+def version_url() -> str:
+    """VERSION on the branch this install follows."""
+    return branch.raw_url("VERSION")
+
+
+def changelog_url() -> str:
+    return branch.raw_url("CHANGELOG.txt")
 
 
 def get_version() -> Optional[str]:
     """Get version from GitHub repository with cache-busting."""
     try:
-        response = requests.get(VERSION_URL, timeout=10,
+        response = requests.get(version_url(), timeout=10,
                                 params={"t": int(time.time())})
         response.raise_for_status()
         return response.text.strip()
@@ -65,7 +71,7 @@ def handle_update_with_changelog(speaker) -> None:
 
     remote_changelog = None
     try:
-        response = requests.get(CHANGELOG_URL, timeout=10)
+        response = requests.get(changelog_url(), timeout=10)
         response.raise_for_status()
         remote_changelog = response.text
     except requests.RequestException as e:

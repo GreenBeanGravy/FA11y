@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
 using FA11y.UI.Controls;
 using FA11y.UI.Core;
+using FA11y.UI.Shell;
 
 namespace FA11y.UI.Pages;
 
@@ -13,6 +15,8 @@ public partial class AboutPage : PageBase
     private string? _update;
     private bool _canRestart;
     private bool _haveInfo;
+    private string _currentBranch = "";
+    private List<(string Name, string Label, string Description)> _branches = new();
 
     public AboutPage()
     {
@@ -54,6 +58,52 @@ public partial class AboutPage : PageBase
         {
             Log.Error("about.info failed", e);
         }
+        await LoadBranchesAsync();
+    }
+
+    private async Task LoadBranchesAsync()
+    {
+        try
+        {
+            var result = await App.Bridge.RequestAsync("about.branches", null, TimeSpan.FromSeconds(20));
+            _currentBranch = result.Str("current");
+            _branches = result.GetProperty("branches").EnumerateArray()
+                .Select(b => (b.Str("name"), b.Str("label"), b.Str("description"))).ToList();
+            var canSwitch = result.Bool("can_switch");
+            BranchBox.ItemsSource = _branches.Select(b => b.Label).ToList();
+            var index = _branches.FindIndex(b => b.Name == _currentBranch);
+            BranchBox.SelectedIndex = index;
+            var current = index >= 0 ? _branches[index].Label : _currentBranch;
+            BranchText.SetLines(new TextLine($"Branch: {current} ({_currentBranch})", 14.6666667, FontWeights.Normal));
+            BranchRow.Visibility = canSwitch && _branches.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            UpdateBranchControls();
+        }
+        catch (Exception e)
+        {
+            Log.Error("about.branches failed", e);
+        }
+    }
+
+    private void OnBranchChanged(object sender, SelectionChangedEventArgs e) => UpdateBranchControls();
+
+    private void UpdateBranchControls()
+    {
+        var i = BranchBox.SelectedIndex;
+        SwitchButton.IsEnabled = i >= 0 && i < _branches.Count && _branches[i].Name != _currentBranch;
+        System.Windows.Automation.AutomationProperties.SetHelpText(BranchBox,
+            i >= 0 && i < _branches.Count ? _branches[i].Description : "");
+    }
+
+    private void OnSwitchClick(object sender, RoutedEventArgs e)
+    {
+        var i = BranchBox.SelectedIndex;
+        if (i < 0 || i >= _branches.Count || _branches[i].Name == _currentBranch)
+            return;
+        var b = _branches[i];
+        if (!Dialogs.Confirm(Host, "Switch branch",
+                $"Switch FA11y to the {b.Label} branch? FA11y will close, update, and start again. Your settings stay."))
+            return;
+        App.Bridge.Notify("about.switch_branch", new { name = b.Name });
     }
 
     private void ShowVersion(string version)

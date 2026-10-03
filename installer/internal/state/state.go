@@ -14,6 +14,8 @@ import (
 const FileName = ".fa11y-install.json"
 
 type State struct {
+	// Branch is the GitHub branch this install follows. Empty means main.
+	Branch string `json:"branch,omitempty"`
 	// Files maps each installed repository path to its git blob SHA.
 	Files map[string]string `json:"files"`
 	// LockSHA256 is the hash of the requirements lock last installed into the venv.

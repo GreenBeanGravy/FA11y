@@ -119,6 +119,20 @@ def restart_to_update(hub) -> None:
     hub.quit()
 
 
+def switch_branch(hub, name: str) -> None:
+    """Start the launcher on another branch (it updates first), then quit."""
+    launcher = os.environ.get("FA11Y_LAUNCHER")
+    if not launcher:
+        return
+    try:
+        subprocess.Popen([launcher, "--update", "--branch", name], cwd=os.path.dirname(launcher),
+                         creationflags=subprocess.CREATE_NEW_CONSOLE, close_fds=True)
+    except OSError as e:
+        logger.error(f"Could not start the launcher: {e}")
+        return
+    hub.quit()
+
+
 # Home page cards ----------------------------------------------------------
 
 def fa11y_status() -> dict:

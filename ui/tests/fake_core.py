@@ -201,6 +201,13 @@ class FakeCore:
         if method == "about.info":
             return {"version": "1.2.3", "update": "99.0.0", "can_restart_to_update": True,
                     "changelog": "Version 1.2.3\n- A canned changelog entry.\n\n" + "Older entry.\n" * 60}
+        if method == "about.branches":
+            return {"current": "overhaul", "can_switch": True, "branches": [
+                {"name": "main", "label": "Stable", "description": "The tested release most people use."},
+                {"name": "overhaul", "label": "Beta",
+                 "description": "New FA11y window and early features, with more rough edges."}]}
+        if method == "about.switch_branch":
+            return {}
         if method == "about.check_updates":
             time.sleep(0.3)
             return {"found": True, "update": "99.0.0", "can_restart_to_update": True}

@@ -18,6 +18,7 @@
 
         <StackPanel Grid.Row="1">
             <c:ReadableText x:Name="VersionText" />
+            <c:ReadableText x:Name="BranchText" Margin="0,4,0,0" />
             <c:ReadableText x:Name="UpdateText" Margin="0,4,0,0" Foreground="{StaticResource TextSecondary}" />
         </StackPanel>
 
@@ -33,6 +34,13 @@
             <c:IconButton Content="FA11y on _GitHub" Margin="0,0,8,8" Click="OnGitHubClick" />
             <c:IconButton Content="Run s_etup again" Margin="0,0,8,8" Click="OnSetupClick" />
         </WrapPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,4,0,0" x:Name="BranchRow" Visibility="Collapsed">
+            <c:FieldLabel Style="{StaticResource FieldLabel}" Content="FA11y _branch:" Target="{Binding ElementName=BranchBox}" />
+            <ComboBox x:Name="BranchBox" MinWidth="160" Margin="0,0,8,0" AutomationProperties.Name="FA11y branch"
+                      SelectionChanged="OnBranchChanged" />
+            <c:IconButton x:Name="SwitchButton" Content="S_witch branch" IsEnabled="False" Click="OnSwitchClick" />
+        </StackPanel>
 
         <TextBlock Grid.Row="4" Text="Changelog" Margin="0,12,0,0" FontSize="{StaticResource SubheadingFontSize}"
                    FontWeight="SemiBold" />

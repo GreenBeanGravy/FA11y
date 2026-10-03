@@ -79,6 +79,16 @@ If you already use an older FA11y, keep starting it as usual. The next
 update moves it to the new layout and keeps your settings, with a backup in
 a `FA11y_backup_` folder for two weeks.
 
+## Branches
+
+FA11y has two branches. Stable (`main`) is the tested release most people
+use. Beta (`overhaul`) has the new FA11y window and early features, with more
+rough edges. FA11y remembers its branch and keeps updating from it.
+
+To switch, open About and updates, pick a branch under "FA11y branch", and
+press "Switch branch". FA11y closes, updates, and starts again. Your settings
+stay. For a fresh install of Beta, run `Updater.exe --branch overhaul`.
+
 ## Default keybinds
 
 All keybinds can be changed on the Keybinds page (`F9`, then Keybinds):

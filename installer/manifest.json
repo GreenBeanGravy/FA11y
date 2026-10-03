@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "repo": "GreenBeanGravy/FA11y",
-  "branch": "main",
+  "branch": "overhaul",
   "python": {
     "version": "3.12.9",
     "url": "https://www.nuget.org/api/v2/package/python/3.12.9",
@@ -13,7 +13,11 @@
     "exclude": [
       ".github/",
       ".gitignore",
-      "installer/",
+      "installer/cmd/",
+      "installer/internal/",
+      "installer/go.mod",
+      "installer/go.sum",
+      "installer/manifest.json",
       "tests/",
       "tools/",
       "docs/",
