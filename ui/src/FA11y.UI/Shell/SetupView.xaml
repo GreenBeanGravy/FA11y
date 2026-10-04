@@ -24,7 +24,7 @@
             <StackPanel x:Name="SignInStep" Visibility="Collapsed">
                 <c:ReadableText x:Name="SignInIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <c:ReadableText x:Name="SignInStatus" Margin="12,0,12,0" />
-                <c:IconButton x:Name="SignInButton" Variant="primary" Content="_Sign in" HorizontalAlignment="Left"
+                <c:IconButton x:Name="SignInButton" Variant="primary" Content="Sign in" HorizontalAlignment="Left"
                               Margin="12,8,12,0" Click="OnSignInClick" />
             </StackPanel>
 
@@ -46,9 +46,9 @@
             <StackPanel x:Name="StartupStep" Visibility="Collapsed">
                 <c:ReadableText x:Name="StartupIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <StackPanel Margin="12,0,12,0">
-                    <c:CheckOption x:Name="StartFortnite" Content="Start _Fortnite when FA11y opens" />
-                    <c:CheckOption x:Name="HideOnLaunch" Content="_Hide this window when Fortnite starts" IsChecked="True" />
-                    <c:CheckOption x:Name="NavSounds" Content="Play _navigation sounds in this window" IsChecked="True" />
+                    <c:CheckOption x:Name="StartFortnite" Content="Start Fortnite when FA11y opens" />
+                    <c:CheckOption x:Name="HideOnLaunch" Content="Hide this window when Fortnite starts" IsChecked="True" />
+                    <c:CheckOption x:Name="NavSounds" Content="Play navigation sounds in this window" IsChecked="True" />
                     <c:RadioGroup x:Name="CloseGroup" Header="When I close the FA11y window" Margin="0,8,0,0">
                         <StackPanel>
                             <c:RadioOption Content="Ask me" IsChecked="True" />
@@ -79,7 +79,7 @@
                     <c:WholeNumberBox x:Name="VolumeBox" Minimum="0" Maximum="100" Text="100"
                                  AutomationProperties.Name="Master volume"
                                  AutomationProperties.HelpText="Master volume, 0 to 100 percent." Margin="0,0,10,0" />
-                    <c:IconButton Content="_Test sound" Click="OnTestSoundClick" />
+                    <c:IconButton Content="Test sound" Click="OnTestSoundClick" />
                 </StackPanel>
             </StackPanel>
 
@@ -104,11 +104,11 @@
         </Grid>
 
         <Grid Grid.Row="2" Margin="24">
-            <c:IconButton x:Name="SkipButton" Variant="ghost" Content="S_kip setup" HorizontalAlignment="Left"
+            <c:IconButton x:Name="SkipButton" Variant="ghost" Content="Skip setup" HorizontalAlignment="Left"
                           Click="OnSkipClick" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <c:IconButton x:Name="BackButton" Content="_Back" Margin="0,0,8,0" Click="OnBackClick" />
-                <c:IconButton x:Name="NextButton" Variant="primary" Content="_Next" IsDefault="True" Click="OnNextClick" />
+                <c:IconButton x:Name="BackButton" Content="Back" Margin="0,0,8,0" Click="OnBackClick" />
+                <c:IconButton x:Name="NextButton" Variant="primary" Content="Next" IsDefault="True" Click="OnNextClick" />
             </StackPanel>
         </Grid>
     </Grid>

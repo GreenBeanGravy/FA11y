@@ -11,8 +11,8 @@
         </c:Card>
         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
             <c:IconButton x:Name="SignInButton" Variant="primary" Icon="{StaticResource Icon.user}"
-                          Content="_Sign in" Margin="0,0,8,0" Click="OnSignInClick" />
-            <c:IconButton x:Name="SignOutButton" Content="Sign _out" Click="OnSignOutClick" />
+                          Content="Sign in" Margin="0,0,8,0" Click="OnSignInClick" />
+            <c:IconButton x:Name="SignOutButton" Content="Sign out" Click="OnSignOutClick" />
         </StackPanel>
         <c:ReadableText Margin="0,18,0,0" MaxWidth="640" Foreground="{StaticResource TextSecondary}"
                         Text="Your Epic account is used for the locker, friends and party, quests, Discover, and downloading and updating Fortnite. FA11y keeps you signed in between restarts." />

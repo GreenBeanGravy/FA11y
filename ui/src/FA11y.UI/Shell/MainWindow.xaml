@@ -21,7 +21,13 @@
                 <c:HiddenText Text="FA11y" Margin="10,0,0,0" VerticalAlignment="Center"
                            FontSize="{StaticResource BrandFontSize}" FontWeight="SemiBold" />
             </StackPanel>
-            <c:NavList x:Name="Sidebar" />
+            <!-- Like the Categories list in NVDA's settings: a label, then the list it names (Alt+P). -->
+            <c:FieldLabel x:Name="PagesLabel" DockPanel.Dock="Top" Style="{StaticResource FieldLabel}" Content="_Pages:"
+                          Target="{Binding ElementName=Sidebar}" Margin="18,0,8,4"
+                          FontSize="{StaticResource SmallFontSize}" FontWeight="SemiBold"
+                          Foreground="{StaticResource TextMuted}" />
+            <c:NavList x:Name="Sidebar" AutomationProperties.LabeledBy="{Binding ElementName=PagesLabel}"
+                       AutomationProperties.AccessKey="Alt+P" />
         </DockPanel>
 
         <Border Grid.Column="1" Background="{StaticResource CardBorder}" />

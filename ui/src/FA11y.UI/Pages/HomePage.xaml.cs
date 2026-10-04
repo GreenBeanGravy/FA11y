@@ -46,7 +46,7 @@ public partial class HomePage : PageBase
 
     private void ShowAppState()
     {
-        PlayButton.Content = AppState.FortniteRunning ? "Fortnite is _running" : "_Play Fortnite";
+        PlayButton.Content = AppState.FortniteRunning ? "Fortnite is running" : "Play Fortnite";
         if (!AppState.HelloReceived)
             return;
         var keybinds = AppState.KeybindsOn ? "FA11y's keybinds are on." : "FA11y's keybinds turn on when Fortnite starts.";

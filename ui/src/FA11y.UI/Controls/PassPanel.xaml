@@ -19,7 +19,7 @@
         <c:ReadableText x:Name="StatusText" Grid.Row="0" Margin="0,0,0,8" />
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <c:FieldLabel Style="{StaticResource FieldLabel}" Content="_Page:" Target="{Binding ElementName=PageBox}" />
+            <c:FieldLabel Style="{StaticResource FieldLabel}" Content="Pa_ge:" Target="{Binding ElementName=PageBox}" />
             <ComboBox x:Name="PageBox" MinWidth="360" MaxWidth="640" AutomationProperties.Name="Page"
                       SelectionChanged="OnPageChanged" />
         </StackPanel>
@@ -34,12 +34,12 @@
                  AutomationProperties.Name="Reward description, set, and requirements" />
 
         <WrapPanel Grid.Row="6">
-            <c:IconButton x:Name="RewardButton" Content="_Claim reward" Margin="0,0,8,8" Click="OnRewardClick" />
-            <c:IconButton x:Name="PageButton" Content="Claim full pa_ge" Margin="0,0,8,8" Click="OnPageClick" />
-            <c:IconButton x:Name="SetButton" Content="Claim full _set" Margin="0,0,8,8" Click="OnSetClick" />
-            <c:IconButton x:Name="UnlockButton" Content="_Unlock set" Margin="0,0,8,8" Click="OnUnlockClick" />
-            <c:IconButton x:Name="PurchaseButton" Content="Unlock premium _pass" Margin="0,0,8,8" Click="OnPurchaseClick" />
-            <c:IconButton x:Name="QuestsButton" Content="View reward _quests" Margin="0,0,8,8" Click="OnRewardQuestsClick" />
+            <c:IconButton x:Name="RewardButton" Content="Claim reward" Margin="0,0,8,8" Click="OnRewardClick" />
+            <c:IconButton x:Name="PageButton" Content="Claim full page" Margin="0,0,8,8" Click="OnPageClick" />
+            <c:IconButton x:Name="SetButton" Content="Claim full set" Margin="0,0,8,8" Click="OnSetClick" />
+            <c:IconButton x:Name="UnlockButton" Content="Unlock set" Margin="0,0,8,8" Click="OnUnlockClick" />
+            <c:IconButton x:Name="PurchaseButton" Content="Unlock premium pass" Margin="0,0,8,8" Click="OnPurchaseClick" />
+            <c:IconButton x:Name="QuestsButton" Content="View reward quests" Margin="0,0,8,8" Click="OnRewardQuestsClick" />
         </WrapPanel>
 
         <c:ReadableText x:Name="SetNotice" Grid.Row="7" Margin="0,0,0,8" Visibility="Collapsed" />
@@ -50,11 +50,11 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <WrapPanel Grid.Column="0" Orientation="Horizontal" MaxWidth="460">
-                <c:IconButton x:Name="RefreshButton" Icon="{StaticResource Icon.refresh}" Content="_Refresh passes"
+                <c:IconButton x:Name="RefreshButton" Icon="{StaticResource Icon.refresh}" Content="Refresh passes"
                               Margin="0,0,8,8" Click="OnRefreshClick" />
-                <c:IconButton x:Name="PassQuestsButton" Content="View selected _pass quests" Margin="0,0,8,8"
+                <c:IconButton x:Name="PassQuestsButton" Content="View selected pass quests" Margin="0,0,8,8"
                               Click="OnPassQuestsClick" />
-                <c:IconButton x:Name="CloseButton" Content="_Close" Margin="0,0,8,8" Click="OnCloseClick" />
+                <c:IconButton x:Name="CloseButton" Content="Close" Margin="0,0,8,8" Click="OnCloseClick" />
             </WrapPanel>
             <c:ReadableText x:Name="MessageText" Grid.Column="1" Margin="8,4,0,8"
                             Foreground="{StaticResource TextSecondary}" />

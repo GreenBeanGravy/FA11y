@@ -106,7 +106,7 @@ public partial class SetupView : UserControl
         StepCounter.Text = counter;
         System.Windows.Automation.AutomationProperties.SetHelpText(_steps[index].IntroText, counter);
         BackButton.Visibility = index > 0 ? Visibility.Visible : Visibility.Collapsed;
-        NextButton.Content = index == _steps.Count - 1 ? "_Finish" : "_Next";
+        NextButton.Content = index == _steps.Count - 1 ? "Finish" : "Next";
         if (changed)
             App.Bridge.Notify("app.sound", new { name = "navigate" });
         UpdateLayout();
@@ -146,7 +146,10 @@ public partial class SetupView : UserControl
         {
             e.Handled = true;
             Skip();
+            return;
         }
+        // Arrow keys follow Tab order (a RadioGroup, text box or list keeps its own arrows).
+        ArrowNavigation.TryMove(e, this);
     }
 
     private void Skip()
@@ -167,7 +170,7 @@ public partial class SetupView : UserControl
         {
             var state = await App.Bridge.RequestAsync("setup.signin_state");
             SignInStatus.Text = state.Str("text");
-            SignInButton.Content = state.Bool("signed_in") ? "_Sign in with a different account" : "_Sign in";
+            SignInButton.Content = state.Bool("signed_in") ? "Sign in with a different account" : "Sign in";
         }
         catch (Exception e)
         {

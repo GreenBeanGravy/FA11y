@@ -183,8 +183,12 @@ internal static partial class Program
             var name = items[i].Current.Name;
             var help = items[i].Current.HelpText;
             Check(name == Pages[i].Title, $"item {i + 1} is named \"{Pages[i].Title}\" (got \"{name}\")");
-            Check(help == Pages[i].Group, $"item \"{name}\" is described as \"{Pages[i].Group}\" (got \"{help}\")");
+            Check(help == "", $"item \"{name}\" has no help text, so the section is not read after it (got \"{help}\")");
         }
+        Check(_pagesList!.Current.AccessKey == "Alt+P", $"the Pages list has access key Alt+P (got \"{_pagesList.Current.AccessKey}\")");
+        Check(_pagesList.Current.Name == "Pages", "the Pages list is named \"Pages\"");
+        var sized = items.Count > 0 && items.All(i => i.TryGetCurrentPattern(SelectionItemPattern.Pattern, out _));
+        Check(sized, "every sidebar item is a selectable list item");
         Check(_window.Current.Name == "FA11y - Home", $"window title is \"FA11y - Home\" (got \"{_window.Current.Name}\")");
         Check(!_window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "FA11y"))
                 .Cast<AutomationElement>().Any(),

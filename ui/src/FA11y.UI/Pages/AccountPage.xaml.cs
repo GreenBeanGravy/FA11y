@@ -51,7 +51,7 @@ public partial class AccountPage : PageBase
         AccountText.SetLines(
             new TextLine(info.Str("name"), 16, System.Windows.FontWeights.SemiBold),
             new TextLine(info.Str("detail"), 0, null, (System.Windows.Media.Brush)FindResource("TextSecondary"), 4));
-        SignInButton.Content = signedIn ? "_Sign in again" : "_Sign in";
+        SignInButton.Content = signedIn ? "Sign in again" : "Sign in";
         SignInButton.Visibility = valid ? Visibility.Collapsed : Visibility.Visible;
         SignOutButton.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
     }

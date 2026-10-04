@@ -7,8 +7,8 @@ namespace FA11y.UI.Controls;
 
 /// <summary>
 /// A button with an optional icon before its label. Variant picks the look:
-/// "secondary" (default), "primary", "danger" or "ghost". Put an underscore before the access key
-/// letter in the label ("_Sign in").
+/// "secondary" (default), "primary", "danger" or "ghost". Buttons carry no access keys, so screen
+/// readers do not read one out.
 /// </summary>
 public class IconButton : Button
 {

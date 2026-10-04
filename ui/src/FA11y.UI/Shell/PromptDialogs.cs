@@ -18,7 +18,7 @@ public static class Prompts
     public static void Message(Window? owner, string title, string message)
     {
         var dialog = new DialogWindow(owner, title, message);
-        dialog.AddButton("ok", "_OK", isDefault: true);
+        dialog.AddButton("ok", "OK", isDefault: true);
         dialog.ShowDialog();
     }
 
@@ -83,9 +83,9 @@ internal sealed class PromptWindow : Window
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
 
-        var ok = new IconButton { Content = "_OK", Variant = "primary", IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+        var ok = new IconButton { Content = "OK", Variant = "primary", IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
         ok.Click += (_, _) => DialogResult = true;
-        var cancel = new IconButton { Content = "_Cancel", IsCancel = true };
+        var cancel = new IconButton { Content = "Cancel", IsCancel = true };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
@@ -103,6 +103,10 @@ internal sealed class PromptWindow : Window
             {
                 e.Handled = true;
                 DialogResult = false;
+            }
+            else
+            {
+                ArrowNavigation.TryMove(e, this);
             }
         };
         Loaded += (_, _) =>

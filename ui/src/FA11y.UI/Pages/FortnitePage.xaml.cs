@@ -119,13 +119,13 @@ public partial class FortnitePage : PageBase
         InstallButton.Visibility = checkedOnce && st.Bool("show_install") && !_busy ? Visibility.Visible : Visibility.Collapsed;
         Actions.Visibility = installed && !_busy ? Visibility.Visible : Visibility.Collapsed;
         if (installed)
-            UpdateButton.Content = st.Bool("update_available") ? "_Update now" : "Check for _updates";
+            UpdateButton.Content = st.Bool("update_available") ? "Update now" : "Check for updates";
         ApplyPlay();
         KeepFocus(hadFocus);
     }
 
     private void ApplyPlay() =>
-        PlayButton.Content = AppState.FortniteRunning ? "Fortnite is _running" : "_Play";
+        PlayButton.Content = AppState.FortniteRunning ? "Fortnite is running" : "Play";
 
     /// <summary>If the control that had focus has just gone away, put focus on Play rather than nowhere.</summary>
     private void KeepFocus(bool hadFocus)
@@ -524,7 +524,7 @@ public partial class FortnitePage : PageBase
     {
         _mouseAvailable = info.Bool("available", true);
         MouseText.Text = info.Str("text");
-        MouseButton.Content = info.Bool("detected") ? "_Detect mouse again" : "_Detect mouse";
+        MouseButton.Content = info.Bool("detected") ? "Detect mouse again" : "Detect mouse";
         MouseButton.IsEnabled = _mouseAvailable;
     }
 

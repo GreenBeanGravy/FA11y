@@ -23,23 +23,23 @@
         </StackPanel>
 
         <WrapPanel Grid.Row="2" Margin="0,12,0,0">
-            <c:IconButton x:Name="CheckButton" Icon="{StaticResource Icon.refresh}" Content="_Check for updates"
+            <c:IconButton x:Name="CheckButton" Icon="{StaticResource Icon.refresh}" Content="Check for updates"
                           Margin="0,0,8,8" Click="OnCheckClick" />
             <c:IconButton x:Name="RestartButton" Variant="primary" Icon="{StaticResource Icon.download}"
-                          Content="_Restart to update" Margin="0,0,8,8" Visibility="Collapsed" Click="OnRestartClick" />
-            <c:IconButton Icon="{StaticResource Icon.folder}" Content="Open _logs folder" Margin="0,0,8,8"
+                          Content="Restart to update" Margin="0,0,8,8" Visibility="Collapsed" Click="OnRestartClick" />
+            <c:IconButton Icon="{StaticResource Icon.folder}" Content="Open logs folder" Margin="0,0,8,8"
                           Click="OnLogsClick" />
-            <c:IconButton Icon="{StaticResource Icon.folder}" Content="Open _settings folder" Margin="0,0,8,8"
+            <c:IconButton Icon="{StaticResource Icon.folder}" Content="Open settings folder" Margin="0,0,8,8"
                           Click="OnSettingsClick" />
-            <c:IconButton Content="FA11y on _GitHub" Margin="0,0,8,8" Click="OnGitHubClick" />
-            <c:IconButton Content="Run s_etup again" Margin="0,0,8,8" Click="OnSetupClick" />
+            <c:IconButton Content="FA11y on GitHub" Margin="0,0,8,8" Click="OnGitHubClick" />
+            <c:IconButton Content="Run setup again" Margin="0,0,8,8" Click="OnSetupClick" />
         </WrapPanel>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,4,0,0" x:Name="BranchRow" Visibility="Collapsed">
             <c:FieldLabel Style="{StaticResource FieldLabel}" Content="FA11y _branch:" Target="{Binding ElementName=BranchBox}" />
             <ComboBox x:Name="BranchBox" MinWidth="160" Margin="0,0,8,0" AutomationProperties.Name="FA11y branch"
                       SelectionChanged="OnBranchChanged" />
-            <c:IconButton x:Name="SwitchButton" Content="S_witch branch" IsEnabled="False" Click="OnSwitchClick" />
+            <c:IconButton x:Name="SwitchButton" Content="Switch branch" IsEnabled="False" Click="OnSwitchClick" />
         </StackPanel>
 
         <TextBlock Grid.Row="4" Text="Changelog" Margin="0,12,0,0" FontSize="{StaticResource SubheadingFontSize}"

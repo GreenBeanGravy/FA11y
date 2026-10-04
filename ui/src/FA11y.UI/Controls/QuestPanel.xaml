@@ -53,7 +53,7 @@
             </ComboBox>
         </Grid>
 
-        <c:CheckOption x:Name="ExpiredBox" Grid.Row="3" Content="Include _expired quests" Margin="0,0,0,8"
+        <c:CheckOption x:Name="ExpiredBox" Grid.Row="3" Content="Include expired quests" Margin="0,0,0,8"
                        Checked="OnFilterChanged" Unchecked="OnFilterChanged" />
 
         <c:FieldLabel Grid.Row="4" Style="{StaticResource FieldLabel}" Content="_Quests:" Target="{Binding ElementName=QuestList}" />
@@ -68,9 +68,9 @@
         <c:ReadableText x:Name="StatusText" Grid.Row="8" Margin="0,0,0,8" Foreground="{StaticResource TextSecondary}" />
 
         <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right">
-            <c:IconButton x:Name="RefreshButton" Icon="{StaticResource Icon.refresh}" Content="_Refresh"
+            <c:IconButton x:Name="RefreshButton" Icon="{StaticResource Icon.refresh}" Content="Refresh"
                           Margin="0,0,8,0" Click="OnRefreshClick" />
-            <c:IconButton x:Name="CloseButton" Content="_Close" Click="OnCloseClick" />
+            <c:IconButton x:Name="CloseButton" Content="Close" Click="OnCloseClick" />
         </StackPanel>
     </Grid>
 </UserControl>

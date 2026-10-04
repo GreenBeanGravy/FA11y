@@ -166,6 +166,7 @@ internal static partial class Program
                 return;
             }
             var uiPid = int.Parse(started.Split(' ')[1]);
+            _uiPid = uiPid;
             AutomationElement? window = null;
             var sw = Stopwatch.StartNew();
             while (sw.ElapsedMilliseconds < 15000 && (window == null || window.Current.IsOffscreen))
@@ -214,6 +215,17 @@ internal static partial class Program
         var stops = TabStops();
         Check(Names(stops).EndsWith("Skip setup | Next") && stops.Count == 3, $"step 1 tab order: intro, Skip setup, Next (is {Names(stops)})");
 
+        Check(TabTo("Skip setup"), "step 1: Tab reaches Skip setup");
+        Key(Vk.Right);
+        Thread.Sleep(100);
+        Check(FocusedNow() == "Next", $"Right arrow follows Tab order to Next (is \"{FocusedNow()}\")");
+        Key(Vk.Left);
+        Thread.Sleep(100);
+        Check(FocusedNow() == "Skip setup", $"Left arrow returns to Skip setup (is \"{FocusedNow()}\")");
+        Key(Vk.Up);
+        Thread.Sleep(100);
+        Check(FocusedNow().StartsWith("Welcome to FA11y"), $"Up arrow goes to the previous stop and does not leave setup (is \"{Clip(FocusedNow())}\")");
+
         Advance("Sign in to Epic Games.", 2);
         stops = TabStops();
         Check(Names(stops).Contains("Signed in as TestPlayer. | Sign in with a different account | Skip setup | Back | Next"),
@@ -244,6 +256,13 @@ internal static partial class Program
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Group),
                 new PropertyCondition(AutomationElement.NameProperty, "When I close the FA11y window"))) != null,
             "the close choices are in a group named \"When I close the FA11y window\"");
+        Check(TabTo("Start Fortnite when FA11y opens"), "step 4: Tab reaches the first check box");
+        Key(Vk.Down);
+        Thread.Sleep(100);
+        Check(FocusedNow() == "Hide this window when Fortnite starts", $"Down arrow moves to the next check box (is \"{FocusedNow()}\")");
+        Key(Vk.Up);
+        Thread.Sleep(100);
+        Check(FocusedNow() == "Start Fortnite when FA11y opens", $"Up arrow moves back (is \"{FocusedNow()}\")");
         Check(TabTo("Ask me"), "Tab reaches the close choices");
         Key(Vk.Down);
         Thread.Sleep(100);
@@ -297,7 +316,10 @@ internal static partial class Program
         var focused = AutomationElement.FocusedElement;
         Check(InSidebar2(focused) && Safe(focused) == "Home", $"focus is on the sidebar item Home (is \"{Safe(focused)}\")");
         Thread.Sleep(500);
-        var text = File.ReadAllText(log);
+        string text;
+        using (var stream = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        using (var reader = new StreamReader(stream))
+            text = reader.ReadToEnd();
         var finish = text.Split('\n').FirstOrDefault(l => l.Contains("request setup.finish")) ?? "";
         Check(finish.Contains("'save': True") && finish.Contains("'close_action': 'tray'")
               && finish.Contains("'simplified_speech': True") && finish.Contains("'egl': 'manage'")
@@ -343,9 +365,15 @@ internal static partial class Program
         }
     }
 
-    private static AutomationElement? FindDialog(string title) =>
-        AutomationElement.RootElement.FindAll(TreeScope.Children, new PropertyCondition(AutomationElement.NameProperty, title))
-            .Cast<AutomationElement>().FirstOrDefault(e => e.Current.ProcessId == _window.Current.ProcessId);
+    private static AutomationElement? FindDialog(string title)
+    {
+        // A dialog owned by the window shows up under that window, not under the desktop.
+        var named = new PropertyCondition(AutomationElement.NameProperty, title);
+        return AutomationElement.RootElement.FindAll(TreeScope.Children, named)
+            .Cast<AutomationElement>().FirstOrDefault(e => e.Current.ProcessId == _window.Current.ProcessId)
+            ?? _window.FindAll(TreeScope.Children, new AndCondition(named,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window))).Cast<AutomationElement>().FirstOrDefault();
+    }
 
     /// <summary>A key press for a window other than the main one (the caller has checked who is in front).</summary>
     private static void KeyRaw(Vk key)

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -30,9 +31,9 @@ public sealed class NavListItem : ListBoxItem
         Icon = icon;
         Group = group;
         Heading = startsSection ? group : "";
-        // What screen readers get: "Locker", described as "Account", a list item in the list "Pages".
+        // What screen readers get: "Locker", a list item in the list "Pages". The section heading is
+        // drawn but not read, so there is no help text.
         AutomationProperties.SetName(this, label);
-        AutomationProperties.SetHelpText(this, group);
     }
 
     public string Key { get; }
@@ -85,6 +86,24 @@ public sealed class NavList : ListBox
         throw new InvalidOperationException("Add NavListItem objects directly.");
 
     protected override bool IsItemItsOwnContainerOverride(object item) => item is NavListItem;
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new NavListPeer(this);
+
+    /// <summary>The default list peer, plus the access key of the "Pages:" label, which WPF does not pass on by itself.</summary>
+    private sealed class NavListPeer : ListBoxAutomationPeer
+    {
+        public NavListPeer(NavList owner) : base(owner) { }
+
+        protected override string GetAccessKeyCore() => "Alt+P";
+    }
+
+    // Alt+P on the "Pages:" label focuses the list; hand focus on to the selected page.
+    protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnGotKeyboardFocus(e);
+        if (ReferenceEquals(e.NewFocus, this))
+            FocusSelected();
+    }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

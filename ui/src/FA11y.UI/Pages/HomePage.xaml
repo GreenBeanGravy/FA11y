@@ -21,7 +21,7 @@
             <TextBlock x:Name="WelcomeText" Text="Welcome to FA11y" FontSize="{StaticResource HeadingFontSize}"
                        FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             <c:IconButton x:Name="PlayButton" Grid.Column="1" Variant="primary"
-                          Icon="{StaticResource Icon.player-play}" Content="_Play Fortnite"
+                          Icon="{StaticResource Icon.player-play}" Content="Play Fortnite"
                           Click="OnPlayClick" />
         </Grid>
 
@@ -39,7 +39,7 @@
         </Grid>
 
         <c:IconButton x:Name="UpdateButton" Grid.Row="2" Margin="0,10,0,0" HorizontalAlignment="Left"
-                      Variant="primary" Icon="{StaticResource Icon.refresh}" Content="_Restart to update FA11y"
+                      Variant="primary" Icon="{StaticResource Icon.refresh}" Content="Restart to update FA11y"
                       Visibility="Collapsed" Click="OnUpdateClick" />
 
         <c:ReadableText x:Name="KeybindText" Grid.Row="3" Margin="0,18,0,0"

@@ -35,6 +35,10 @@ public partial class DialogWindow : Window
                 e.Handled = true;
                 DialogResult = false;
             }
+            else
+            {
+                ArrowNavigation.TryMove(e, this);
+            }
         };
     }
 
@@ -89,9 +93,9 @@ public static class Dialogs
     {
         var dialog = new DialogWindow(owner, "Keep FA11y running?",
             "FA11y's keybinds only work while FA11y is running. You can keep it running in the system tray, or quit it now.");
-        dialog.AddOption("_Don't ask again", true);
-        dialog.AddButton(Quit, "_Quit FA11y");
-        dialog.AddButton(Tray, "_Hide to tray", isDefault: true);
+        dialog.AddOption("Don't ask again", true);
+        dialog.AddButton(Quit, "Quit FA11y");
+        dialog.AddButton(Tray, "Hide to tray", isDefault: true);
         return dialog.ShowDialog() == true ? (dialog.Result, dialog.OptionChecked) : (null, false);
     }
 
@@ -99,8 +103,8 @@ public static class Dialogs
     public static bool Confirm(Window? owner, string title, string message, bool defaultYes = false)
     {
         var dialog = new DialogWindow(owner, title, message);
-        dialog.AddButton("yes", "_Yes", isDefault: defaultYes);
-        dialog.AddButton("no", "_No", isDefault: !defaultYes);
+        dialog.AddButton("yes", "Yes", isDefault: defaultYes);
+        dialog.AddButton("no", "No", isDefault: !defaultYes);
         return dialog.ShowDialog() == true && dialog.Result == "yes";
     }
 }

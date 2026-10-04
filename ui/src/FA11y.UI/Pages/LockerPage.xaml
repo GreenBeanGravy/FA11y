@@ -61,7 +61,7 @@
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal">
                     <c:ReadableText x:Name="LoginText" VerticalAlignment="Center" />
-                    <c:IconButton x:Name="LoginButton" Content="_Login" Margin="12,0,0,0" Click="OnLogin" />
+                    <c:IconButton x:Name="LoginButton" Content="Login" Margin="12,0,0,0" Click="OnLogin" />
                 </StackPanel>
                 <c:CheckOption x:Name="OwnedCheck" Grid.Row="1" Content="Show Only My Cosmetics" Margin="0,8,0,0"
                                HorizontalAlignment="Left" Checked="OnOwnedChanged" Unchecked="OnOwnedChanged" />
@@ -76,10 +76,10 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
                 <WrapPanel Grid.Row="4" Margin="0,10,0,0">
-                    <c:IconButton x:Name="EquippedButton" Content="_View Equipped" Margin="0,0,8,8" Click="OnViewEquipped" />
-                    <c:IconButton x:Name="LoadoutsButton" Content="Saved _Loadouts" Margin="0,0,8,8" Click="OnViewLoadouts" />
-                    <c:IconButton x:Name="SaveButton" Content="_Save Current as Loadout" Margin="0,0,8,8" Click="OnSaveLoadout" />
-                    <c:IconButton x:Name="PassesButton" Content="Battle _Passes" Margin="0,0,8,8" Click="OnPasses" />
+                    <c:IconButton x:Name="EquippedButton" Content="View Equipped" Margin="0,0,8,8" Click="OnViewEquipped" />
+                    <c:IconButton x:Name="LoadoutsButton" Content="Saved Loadouts" Margin="0,0,8,8" Click="OnViewLoadouts" />
+                    <c:IconButton x:Name="SaveButton" Content="Save Current as Loadout" Margin="0,0,8,8" Click="OnSaveLoadout" />
+                    <c:IconButton x:Name="PassesButton" Content="Battle Passes" Margin="0,0,8,8" Click="OnPasses" />
                 </WrapPanel>
             </Grid>
 
@@ -127,9 +127,9 @@
                          IsReadOnlyCaretVisible="True" AcceptsReturn="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Cosmetic Details" />
                 <WrapPanel Grid.Row="6" Margin="0,10,0,0">
-                    <c:IconButton x:Name="EquipButton" Variant="primary" Content="_Equip Selected" Margin="0,0,8,0"
+                    <c:IconButton x:Name="EquipButton" Variant="primary" Content="Equip Selected" Margin="0,0,8,0"
                                   Click="OnEquip" />
-                    <c:IconButton Content="_Back to Categories" Click="OnBackToCategories" />
+                    <c:IconButton Content="Back to Categories" Click="OnBackToCategories" />
                 </WrapPanel>
             </Grid>
 
@@ -142,7 +142,7 @@
                 <TextBox x:Name="EquippedBox" Grid.Row="0" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                          AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                          HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Currently Equipped Cosmetics" />
-                <c:IconButton Grid.Row="1" Content="_Back" Margin="0,10,0,0" HorizontalAlignment="Left"
+                <c:IconButton Grid.Row="1" Content="Back" Margin="0,10,0,0" HorizontalAlignment="Left"
                               Click="OnBackFromView" />
             </Grid>
 
@@ -172,13 +172,13 @@
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                          AutomationProperties.Name="Loadout details" />
                 <WrapPanel Grid.Row="3" Margin="0,10,0,0">
-                    <c:IconButton Content="Equip via _API" Margin="0,0,8,8" Click="OnLoadoutApi"
+                    <c:IconButton Content="Equip via API" Margin="0,0,8,8" Click="OnLoadoutApi"
                                   AutomationProperties.HelpText="Equip instantly through Epic's servers. Changes apply next match or after restarting the game." />
-                    <c:IconButton Content="Equip in _Game (UI)" Margin="0,0,8,8" Click="OnLoadoutGame"
+                    <c:IconButton Content="Equip in Game (UI)" Margin="0,0,8,8" Click="OnLoadoutGame"
                                   AutomationProperties.HelpText="Equip each item one by one with mouse automation in Fortnite's locker." />
-                    <c:IconButton Content="_Delete Local" Margin="0,0,8,8" Click="OnLoadoutDelete"
+                    <c:IconButton Content="Delete Local" Margin="0,0,8,8" Click="OnLoadoutDelete"
                                   AutomationProperties.HelpText="Delete a loadout saved by FA11y." />
-                    <c:IconButton Content="_Back" Margin="0,0,8,8" Click="OnBackFromView" />
+                    <c:IconButton Content="Back" Margin="0,0,8,8" Click="OnBackFromView" />
                 </WrapPanel>
             </Grid>
         </Grid>
