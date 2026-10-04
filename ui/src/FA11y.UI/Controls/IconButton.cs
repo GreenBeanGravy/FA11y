@@ -8,7 +8,8 @@ namespace FA11y.UI.Controls;
 /// <summary>
 /// A button with an optional icon before its label. Variant picks the look:
 /// "secondary" (default), "primary", "danger" or "ghost". Buttons carry no access keys, so screen
-/// readers do not read one out.
+/// readers do not read one out, except setup's Back, Next, Finish and Skip ("_Next"), which screen
+/// readers read as "Alt+N" like NVDA's own wizards.
 /// </summary>
 public class IconButton : Button
 {
@@ -44,6 +45,9 @@ internal sealed class LeafButtonPeer : ButtonAutomationPeer
     public LeafButtonPeer(Button owner) : base(owner) { }
 
     protected override List<AutomationPeer>? GetChildrenCore() => null;
+
+    // WPF reports a bare "N"; NVDA reads "Alt+N" from its own dialogs, so say it the same way.
+    protected override string GetAccessKeyCore() => base.GetAccessKeyCore() is { Length: 1 } key ? "Alt+" + key : base.GetAccessKeyCore();
 }
 
 /// <summary>A check box as one element, with the same rule: no stray label text inside it.</summary>

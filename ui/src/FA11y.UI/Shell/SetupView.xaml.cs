@@ -106,7 +106,7 @@ public partial class SetupView : UserControl
         StepCounter.Text = counter;
         System.Windows.Automation.AutomationProperties.SetHelpText(_steps[index].IntroText, counter);
         BackButton.Visibility = index > 0 ? Visibility.Visible : Visibility.Collapsed;
-        NextButton.Content = index == _steps.Count - 1 ? "Finish" : "Next";
+        NextButton.Content = index == _steps.Count - 1 ? "_Finish" : "_Next"; // Alt+N, Alt+B, Alt+F like NVDA's own wizards
         if (changed)
             App.Bridge.Notify("app.sound", new { name = "navigate" });
         UpdateLayout();

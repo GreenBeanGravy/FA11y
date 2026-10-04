@@ -215,6 +215,11 @@ internal static partial class Program
         var stops = TabStops();
         Check(Names(stops).EndsWith("Skip setup | Next") && stops.Count == 3, $"step 1 tab order: intro, Skip setup, Next (is {Names(stops)})");
 
+        foreach (var (name, key) in new[] { ("Skip setup", "Alt+K"), ("Next", "Alt+N") })
+        {
+            var button = stops.FirstOrDefault(e => e.Current.Name == name);
+            Check(button?.Current.AccessKey == key, $"{name} has the access key {key} (is \"{button?.Current.AccessKey}\")");
+        }
         Check(TabTo("Skip setup"), "step 1: Tab reaches Skip setup");
         Key(Vk.Right);
         Thread.Sleep(100);

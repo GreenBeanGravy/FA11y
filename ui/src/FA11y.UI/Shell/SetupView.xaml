@@ -104,11 +104,11 @@
         </Grid>
 
         <Grid Grid.Row="2" Margin="24">
-            <c:IconButton x:Name="SkipButton" Variant="ghost" Content="Skip setup" HorizontalAlignment="Left"
+            <c:IconButton x:Name="SkipButton" Variant="ghost" Content="S_kip setup" HorizontalAlignment="Left"
                           Click="OnSkipClick" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <c:IconButton x:Name="BackButton" Content="Back" Margin="0,0,8,0" Click="OnBackClick" />
-                <c:IconButton x:Name="NextButton" Variant="primary" Content="Next" IsDefault="True" Click="OnNextClick" />
+                <c:IconButton x:Name="BackButton" Content="_Back" Margin="0,0,8,0" Click="OnBackClick" />
+                <c:IconButton x:Name="NextButton" Variant="primary" Content="_Next" IsDefault="True" Click="OnNextClick" />
             </StackPanel>
         </Grid>
     </Grid>
