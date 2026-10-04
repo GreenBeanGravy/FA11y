@@ -55,7 +55,7 @@ def play_sound(params: dict) -> dict:
 
 @handler("app.window_hidden")
 def window_hidden(params: dict) -> dict:
-    _hub().window_hidden(bool(params.get("refocus_game")))
+    _hub().window_hidden(bool(params.get("refocus_game")), was_shown=bool(params.get("was_shown")))
     return {}
 
 

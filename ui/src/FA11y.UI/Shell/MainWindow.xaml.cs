@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private bool _selecting;
     private bool _summonedOverGame;
     private bool _quitting;
+    private bool _userMinimized;
     private bool _closing;
     private bool? _reportedVisible;
     private bool? _reportedActive;
@@ -77,9 +78,15 @@ public partial class MainWindow : Window
         StateChanged += (_, _) =>
         {
             ReportVisibility();
-            if (WindowState == WindowState.Minimized)
+            // Only the user's own minimize (title bar button, taskbar, Alt+Space, Windows+Down) goes to the
+            // tray. Windows+D and Windows+M minimize every window without SC_MINIMIZE; FA11y stays put then.
+            if (WindowState == WindowState.Minimized && _userMinimized)
                 _ = MinimizeToTrayAsync();
+            _userMinimized = false;
         };
+        SourceInitialized += (_, _) =>
+            System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle)
+                ?.AddHook(WatchMinimize);
 
         SubscribeToCore();
         ShowPage("home", fromUser: false);
@@ -584,6 +591,14 @@ public partial class MainWindow : Window
         timer.Start();
     }
 
+    private IntPtr WatchMinimize(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_SYSCOMMAND = 0x0112, SC_MINIMIZE = 0xF020;
+        if (msg == WM_SYSCOMMAND && ((int)wParam & 0xFFF0) == SC_MINIMIZE)
+            _userMinimized = true;
+        return IntPtr.Zero;
+    }
+
     /// <summary>Minimizing hides to the tray unless MinimizeToTray is off.</summary>
     private async Task MinimizeToTrayAsync()
     {
@@ -605,12 +620,15 @@ public partial class MainWindow : Window
 
     private void HideWindow(bool fromUser, bool refocusGame)
     {
+        // Minimized counts as shown here: the core already heard "not visible" when it was minimized,
+        // so it needs to be told the window really was up to give the tray notification.
+        var wasShown = IsVisible;
         if (IsVisible)
             Hide();
         _summonedOverGame = false;
         TrimMemoryLater();
         if (fromUser)
-            App.Bridge.Notify("app.window_hidden", new { refocus_game = refocusGame });
+            App.Bridge.Notify("app.window_hidden", new { refocus_game = refocusGame, was_shown = wasShown });
     }
 
     private DispatcherTimer? _trimTimer;

@@ -304,9 +304,10 @@ class RemoteHub:
             # hands the foreground to.
             threading.Timer(0.08, game_watch.focus_fortnite).start()
 
-    def window_hidden(self, refocus_game: bool) -> None:
-        """The UI hid itself (Escape or the close button)."""
-        was_shown = self._shown
+    def window_hidden(self, refocus_game: bool, was_shown: bool = False) -> None:
+        """The UI hid itself (Escape, the close button, or minimizing). was_shown: the UI says it was up,
+        for minimizing, which already reported the window as not visible."""
+        was_shown = was_shown or self._shown
         self._shown = False
         self._active = False
         self._summoned_over_game = False

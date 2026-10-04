@@ -401,6 +401,14 @@ def test_closing_to_the_tray_says_how_to_open_fa11y_again(make_hub, world):
     wait_for(lambda: len(notices(log)) == 2)
 
 
+def test_minimizing_to_the_tray_notifies(make_hub, world):
+    hub, log = make_hub(ui_args=("--emit", visible()))
+    wait_for(lambda: hub.IsShown())
+    hub._shown = False  # minimizing reports "not visible" before the window hides
+    hub.window_hidden(refocus_game=False, was_shown=True)
+    wait_for(lambda: notices(log))
+
+
 def test_hiding_over_the_game_is_announced_once_per_session(make_hub, world):
     hub, log = make_hub(ui_args=("--emit", visible()))
     wait_for(lambda: hub.IsShown())
