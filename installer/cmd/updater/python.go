@@ -38,7 +38,9 @@ func ensureRuntime(l layout.Layout, py manifest.Python) (bool, error) {
 	console.Say("Downloading Python %s...", py.Version)
 	pkg := filepath.Join(os.TempDir(), "fa11y-python-"+py.Version+".zip")
 	defer os.Remove(pkg)
-	if err := fetch.File(py.URL, pkg, fetch.Expect{SHA256: py.SHA256}); err != nil {
+	err := fetch.FileProgress(py.URL, pkg, fetch.Expect{SHA256: py.SHA256}, console.BytesProgress())
+	console.Progress(-1)
+	if err != nil {
 		return false, err
 	}
 	dir := l.RuntimeDir(py.Version)
@@ -166,7 +168,7 @@ func runPython(l layout.Layout, python string, args ...string) error {
 	cmd := exec.Command(python, args...)
 	cmd.Dir = l.Files
 	cmd.Env = pyenv.CleanEnv(os.Environ())
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	console.Command(cmd)
 	return cmd.Run()
 }
 

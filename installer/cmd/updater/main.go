@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/windows"
@@ -57,6 +59,8 @@ func main() {
 	flag.BoolVar(&opts.noComponents, "no-components", false, "skip drivers and other external components, for testing")
 	monarch := flag.Bool("monarch", false, "retry failed downloads until they succeed")
 	elevatedPlan := flag.String("elevated-plan", "", "internal: install the components in this plan file")
+	plain := flag.Bool("console", false, "print progress as text in the console instead of showing a progress window")
+	forceWindow := flag.Bool("window", false, "show the progress window even when started from a console or a pipe")
 	flag.Bool("run-by-fa11y", false, "ignored; accepted for compatibility")
 	flag.Bool("migrate", false, "convert an old single-folder install (also detected automatically)")
 	flag.Var(&opts.waitPIDs, "wait-pid", "wait for this process to exit first (repeatable)")
@@ -71,25 +75,46 @@ func main() {
 		return
 	}
 	fetch.Persistent = *monarch
+	filesync.Progress = func(done, total int) { console.Progress(float64(done) * 100 / float64(total)) }
+
+	// The progress window replaces the console when someone ran Updater.exe
+	// (a console made for it) or the launcher is installing something. A
+	// terminal, a pipe and --console keep the text output, and so does the
+	// launcher's silent --check, which must never show anything.
+	quietCheck := opts.check && opts.fromLauncher
+	if !*plain && !quietCheck && (*forceWindow || opts.fromLauncher || console.OwnsConsole()) {
+		console.UseWindow()
+	}
+	if opts.check && !opts.fromLauncher {
+		console.Say("Checking for updates...")
+	}
 
 	l, err := layout.FromExecutable()
 	if err != nil {
 		console.Fail(exitError, "could not find the FA11y folder: %v", err)
 	}
 	code, err := run(l, opts)
+	if restartedChild && console.InWindow() {
+		os.Exit(code) // the new updater showed its own window
+	}
 	if err != nil {
+		if console.InWindow() {
+			console.Fail(exitError, "%v", err)
+		}
 		console.Say("Error: %v", err)
 		code = exitError
 	}
+	if code == exitError && (!opts.fromLauncher || console.InWindow()) {
+		console.Fail(code, "the update did not finish.")
+	}
 	if !opts.fromLauncher {
-		if code == exitError {
-			console.Fail(code, "the update did not finish.")
-		}
-		console.Say("Closing in 5 seconds.")
-		time.Sleep(5 * time.Second)
+		console.Finish(5 * time.Second)
 	}
 	os.Exit(code)
 }
+
+// restartedChild is set when restartSelf ran a newer updater in this one's place.
+var restartedChild bool
 
 func run(l layout.Layout, opts options) (int, error) {
 	if err := os.MkdirAll(l.Files, 0o755); err != nil {
@@ -160,16 +185,22 @@ func run(l layout.Layout, opts options) (int, error) {
 	if opts.check {
 		// Read-only: the launcher runs this without a window and opens a
 		// console for the real update only when there is one.
-		if switching {
-			return layout.ExitUpdateAvailable, nil
-		}
-		if !legacy && installed(l) {
+		available := true
+		if !switching && !legacy && installed(l) {
 			remote, err := src.Read("VERSION")
-			if err != nil || !versionNewer(strings.TrimSpace(string(remote)), readVersion(l)) && healthy(l, m, st, opts.noComponents) {
-				return layout.ExitNoUpdate, nil
+			available = err == nil && (versionNewer(strings.TrimSpace(string(remote)), readVersion(l)) || !healthy(l, m, st, opts.noComponents))
+		}
+		if !opts.fromLauncher {
+			if available {
+				console.Say("An update is available.")
+			} else {
+				console.Say("FA11y is up to date.")
 			}
 		}
-		return layout.ExitUpdateAvailable, nil
+		if available {
+			return layout.ExitUpdateAvailable, nil
+		}
+		return layout.ExitNoUpdate, nil
 	}
 
 	if legacy {
@@ -250,6 +281,7 @@ func update(l layout.Layout, m *manifest.Manifest, src filesync.Source, st *stat
 		return changed, err
 	}
 	res, err := filesync.Sync(l.Files, src, m.Sync, tree, st, console.Say)
+	console.Progress(-1)
 	if res.Changed() {
 		changed = true
 		console.Say("Updated %d files, removed %d.", len(res.Updated), len(res.Removed))
@@ -435,7 +467,16 @@ func fixLauncherName(l layout.Layout) {
 func restartSelf(l layout.Layout) int {
 	os.Setenv(restartedEnv, "1")
 	attr := &os.ProcAttr{Dir: l.Root, Env: os.Environ(), Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}}
-	p, err := os.StartProcess(l.Updater(), os.Args, attr)
+	args := os.Args
+	if console.InWindow() {
+		// The new updater shows its own window.
+		console.Hide()
+		attr.Files = nil
+		attr.Sys = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
+		args = append(slices.Clone(args), "--window")
+	}
+	restartedChild = true
+	p, err := os.StartProcess(l.Updater(), args, attr)
 	if err != nil {
 		console.Say("Could not start the new updater: %v", err)
 		return exitError
@@ -570,9 +611,15 @@ func offerChangelog(l layout.Layout, newVersion string) {
 	if _, err := os.Stat(path); err != nil {
 		return
 	}
-	console.Say("FA11y was updated to %s. Type Y and press Enter to open the changelog, or press Enter to continue.", newVersion)
-	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	if strings.EqualFold(strings.TrimSpace(answer), "y") {
+	open := false
+	if console.InWindow() {
+		open = console.Ask("FA11y was updated to " + newVersion + ". Open the changelog?")
+	} else {
+		console.Say("FA11y was updated to %s. Type Y and press Enter to open the changelog, or press Enter to continue.", newVersion)
+		answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		open = strings.EqualFold(strings.TrimSpace(answer), "y")
+	}
+	if open {
 		verb, _ := windows.UTF16PtrFromString("open")
 		file, _ := windows.UTF16PtrFromString(path)
 		windows.ShellExecute(0, verb, file, nil, nil, windows.SW_SHOWNORMAL)

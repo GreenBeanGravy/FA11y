@@ -6,9 +6,10 @@
 // files that a running FA11y has loaded from the venv.
 //
 // The launcher is built with -H windowsgui, so starting FA11y opens no
-// console window. It opens one only to install or update (a hidden
-// "Updater.exe --check" decides whether there is an update) or to report
-// an error. FA11y itself runs under pythonw.exe without a console: its
+// console window. To install or update (a hidden "Updater.exe --check"
+// decides whether there is an update) it runs the updater, which shows its
+// own progress window; the launcher opens a console only to report an
+// error. FA11y itself runs under pythonw.exe without a console: its
 // window is the user interface. Pass --console to run it under python.exe
 // in a console instead, which shows FA11y's printed output for
 // troubleshooting. Pass --update to update first even when AutoUpdates is
@@ -52,16 +53,14 @@ func main() {
 
 	branchArgs := branchArgs(os.Args[1:])
 	if !installed(l) {
-		console.Say("FA11y is not installed yet. Starting the updater to install it.")
 		code := runUpdater(l, append([]string{"--install"}, branchArgs...)...)
 		if (code != layout.ExitNoUpdate && code != layout.ExitUpdated) || !installed(l) {
 			console.Fail(2, "the install did not finish (updater exit code %d).", code)
 		}
 	} else if forced := slices.Contains(os.Args[1:], "--update"); (forced || fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true)) && checkForUpdate(l, branchArgs) {
-		code := runUpdater(l, append([]string{"--quick"}, branchArgs...)...)
-		if code != layout.ExitNoUpdate && code != layout.ExitUpdated {
-			console.Say("The update failed (exit code %d). Starting the installed version.", code)
-		}
+		// A failed update is reported in the updater's window; the installed
+		// version starts either way.
+		runUpdater(l, append([]string{"--quick"}, branchArgs...)...)
 	}
 
 	if err := repairVenv(l); err != nil {
@@ -121,10 +120,11 @@ func runUpdater(l layout.Layout, args ...string) int {
 		console.Say("%s is missing, so FA11y cannot install or update.", layout.UpdaterExe)
 		return 2
 	}
-	console.Ensure() // the updater shares this console
+	// The updater shows its own progress window, not a console.
 	cmd := exec.Command(l.Updater(), append(args, "--from-launcher")...)
 	cmd.Dir = l.Root
-	return run(cmd)
+	console.HideChildConsole(cmd)
+	return wait(cmd)
 }
 
 // checkForUpdate runs "Updater.exe --check" without a window and reports
@@ -176,6 +176,11 @@ func startFA11yWindowed(l layout.Layout) error {
 
 func run(cmd *exec.Cmd) int {
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	return wait(cmd)
+}
+
+// wait runs cmd and returns its exit code.
+func wait(cmd *exec.Cmd) int {
 	err := cmd.Run()
 	var exitErr *exec.ExitError
 	switch {

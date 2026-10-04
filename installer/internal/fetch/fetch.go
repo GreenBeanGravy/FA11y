@@ -27,7 +27,7 @@ var client = &http.Client{Timeout: 10 * time.Minute}
 func Bytes(url string) ([]byte, error) {
 	var data []byte
 	err := retry(url, func() error {
-		body, err := get(url)
+		body, _, err := get(url)
 		if err != nil {
 			return err
 		}
@@ -47,11 +47,17 @@ type Expect struct {
 // File downloads url to dest, verifying the hash before dest appears. It
 // writes to a temporary file first, so dest is never left half-written.
 func File(url, dest string, want Expect) error {
+	return FileProgress(url, dest, want, nil)
+}
+
+// FileProgress is File that calls progress with the bytes downloaded so far
+// and the total, which is -1 when the server doesn't say.
+func FileProgress(url, dest string, want Expect, progress func(done, total int64)) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
 	return retry(url, func() error {
-		body, err := get(url)
+		body, size, err := get(url)
 		if err != nil {
 			return err
 		}
@@ -74,6 +80,9 @@ func File(url, dest string, want Expect) error {
 		if h != nil {
 			w = io.MultiWriter(tmp, h)
 		}
+		if progress != nil {
+			w = &countWriter{w: w, total: size, progress: progress}
+		}
 		_, err = io.Copy(w, body)
 		if closeErr := tmp.Close(); err == nil {
 			err = closeErr
@@ -89,6 +98,20 @@ func File(url, dest string, want Expect) error {
 		os.Remove(dest)
 		return os.Rename(tmp.Name(), dest)
 	})
+}
+
+// countWriter reports how much has been written through it.
+type countWriter struct {
+	w           io.Writer
+	done, total int64
+	progress    func(done, total int64)
+}
+
+func (c *countWriter) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.done += int64(n)
+	c.progress(c.done, c.total)
+	return n, err
 }
 
 // HashError means a download did not match its expected hash. It is not
@@ -122,21 +145,21 @@ func VerifyFile(path string, want Expect) error {
 	return nil
 }
 
-func get(url string) (io.ReadCloser, error) {
+func get(url string) (io.ReadCloser, int64, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("User-Agent", "FA11y-Updater")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return nil, &StatusError{URL: url, Code: resp.StatusCode}
+		return nil, 0, &StatusError{URL: url, Code: resp.StatusCode}
 	}
-	return resp.Body, nil
+	return resp.Body, resp.ContentLength, nil
 }
 
 // StatusError is a non-200 HTTP response.

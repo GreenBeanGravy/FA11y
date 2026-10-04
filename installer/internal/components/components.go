@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/sys/windows/registry"
 
+	"github.com/GreenBeanGravy/FA11y/installer/internal/console"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fetch"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/manifest"
 )
@@ -98,7 +99,9 @@ func Download(c manifest.Component, dir string) (string, error) {
 	if fetch.VerifyFile(dest, Expect(c)) == nil {
 		return dest, nil
 	}
-	return dest, fetch.File(c.Download.URL, dest, Expect(c))
+	err = fetch.FileProgress(c.Download.URL, dest, Expect(c), console.BytesProgress())
+	console.Progress(-1)
+	return dest, err
 }
 
 // Outcome is the result of installing one component.
@@ -130,7 +133,7 @@ func Install(c manifest.Component, file, filesDir string) Outcome {
 	default:
 		return Outcome{Error: fmt.Sprintf("unknown install type %q", c.Install.Type)}
 	}
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	console.Command(cmd)
 	err := cmd.Run()
 	code := 0
 	if exitErr, ok := err.(*exec.ExitError); ok {

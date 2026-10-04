@@ -27,6 +27,10 @@ import (
 
 const workers = 8
 
+// Progress, when set, is called after each file Sync downloads with the
+// number done and the total.
+var Progress func(done, total int)
+
 // Entry is one file in the repository tree.
 type Entry struct {
 	Path string `json:"path"`
@@ -216,6 +220,9 @@ func Sync(filesDir string, src Source, rules manifest.Sync, tree []Entry, st *st
 					if !rules.IsAddOnly(e.Path) {
 						st.Files[e.Path] = e.SHA
 					}
+				}
+				if Progress != nil {
+					Progress(len(res.Updated), len(todo))
 				}
 				mu.Unlock()
 			}
