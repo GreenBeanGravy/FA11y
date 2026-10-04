@@ -23,6 +23,8 @@ _api: Optional[EpicPassAPI] = None
 _api_auth = None
 _snapshot: Optional[dict] = None
 _metadata: Optional[dict] = None
+_metadata_lock = threading.Lock()
+_warming = False
 _busy = False
 _pending = None
 _pending_token = 0
@@ -49,14 +51,25 @@ def _api_for_account() -> EpicPassAPI:
 def _cosmetics_metadata() -> dict:
     """Names and sets of cosmetics, for reward names. Loaded once; empty when unavailable."""
     global _metadata
-    if _metadata is None:
-        try:
-            from lib.utilities.epic_auth import get_or_create_cosmetics_cache
-            _metadata = passes_view.metadata_by_id(get_or_create_cosmetics_cache(force_refresh=False, owned_only=False))
-        except Exception:
-            logger.exception("Loading cosmetics for passes failed")
-            return {}
-    return _metadata
+    with _metadata_lock:
+        if _metadata is None:
+            try:
+                from lib.utilities.epic_auth import get_or_create_cosmetics_cache
+                _metadata = passes_view.metadata_by_id(get_or_create_cosmetics_cache(force_refresh=False, owned_only=False))
+            except Exception:
+                logger.exception("Loading cosmetics for passes failed")
+                return {}
+        return _metadata
+
+
+def _warm_metadata() -> None:
+    """Load the cosmetics in the background, once, so opening the page does not have to."""
+    global _warming
+    with _lock:
+        if _warming or _metadata is not None:
+            return
+        _warming = True
+    threading.Thread(target=_cosmetics_metadata, name="passes-metadata", daemon=True).start()
 
 
 def _context(params: dict):
@@ -96,6 +109,7 @@ def _run(operation):
 
 @handler("passes.definitions")
 def definitions(_params: dict) -> dict:
+    _warm_metadata()
     return {"help": passes_view.HELP_TEXT,
             "passes": [{"key": d["key"], "name": d["name"], "pages": passes_view.page_choices(d)}
                        for d in _definitions()]}

@@ -6,6 +6,7 @@ Queries may retry authentication; mutations are sent once and reconciled by quer
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 import json
 import re
 from pathlib import Path
@@ -87,6 +88,7 @@ def claim_diagnostics(definition, action, snapshot):
     return '\n'.join(lines)
 
 
+@lru_cache(maxsize=1)
 def load_pass_catalog():
     path = Path(__file__).resolve().parents[2] / 'data/season_passes_4220.json'
     data = json.loads(path.read_text(encoding='utf-8'))

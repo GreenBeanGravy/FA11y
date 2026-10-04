@@ -44,17 +44,27 @@ def _matches(tag, prefix):
     return tag == prefix or tag.startswith(prefix + '.')
 
 
+def _prefixes(tags):
+    """Every tag and each of its parents; _matches(tag, prefix) is the same as prefix being in this set."""
+    found = set()
+    for tag in tags:
+        parts = tag.split('.')
+        found.update('.'.join(parts[:i]) for i in range(1, len(parts) + 1))
+    return found
+
+
 def category_text(tags, groups):
-    if any(_matches(tag, 'QuestCategory.BR.Daily') for tag in tags):
+    prefixes = _prefixes(tags)
+    if 'QuestCategory.BR.Daily' in prefixes:
         return 'Daily Quests'
-    if any(_matches(tag, 'QuestCategory.BR.S42.CosmicThunder.Repeatable') for tag in tags):
+    if 'QuestCategory.BR.S42.CosmicThunder.Repeatable' in prefixes:
         return 'Override Daily Quests' + (' / Bonus goals' if any('Bonus' in tag for tag in tags) else '')
     matches = []
     for category in groups['categories']:
-        if any(_matches(tag, excluded) for tag in tags for excluded in category['exclude']):
+        if any(excluded in prefixes for excluded in category['exclude']):
             continue
         for prefix in category['tags']:
-            if any(_matches(tag, prefix) for tag in tags) and readable(category['name']):
+            if prefix in prefixes and readable(category['name']):
                 matches.append((len(prefix), category))
     if not matches:
         return 'Other quests'
@@ -62,7 +72,7 @@ def category_text(tags, groups):
     category = max(matches, key=lambda pair: (pair[0], pair[1]['asset']))[1]
     title = clean_text(category['name'])
     headers = [h for h in category['headers'] if h.get('tag') and readable(h['name'])
-               and any(_matches(tag, h['tag']) for tag in tags)]
+               and h['tag'] in prefixes]
     if headers:
         header = clean_text(max(headers, key=lambda h: len(h['tag']))['name'])
         if header.casefold() != title.casefold():
@@ -196,6 +206,7 @@ def prepare_quests(quests, catalog=None, groups=None, contextual_templates=None)
     catalog = quest_catalog() if catalog is None else catalog
     groups = group_catalog() if groups is None else groups
     rows, hidden, unresolved = [], 0, 0
+    categories = {}  # quests share tag sets, and working out a category is slow
     for quest in quests:
         contextual=quest.get('template','').lower() in (contextual_templates or ())
         metadata = catalog.get(quest.get('template', '').lower(), {})
@@ -220,7 +231,7 @@ def prepare_quests(quests, catalog=None, groups=None, contextual_templates=None)
         description = clean_text(quest.get('description'))
         row = dict(quest, name=name, description=description if readable(description) else '',
                    mode=mode_text(tags, metadata, groups), modes=compatible_modes(tags, metadata, groups),
-                   category=category_text(tags, groups))
+                   category=categories[key] if (key := tuple(tags)) in categories else categories.setdefault(key, category_text(tags, groups)))
         if tracker:
             row['reward_tracker']=True
             row['description']='Reward unlock tracker for '+tracker['name']+'. This is an internal reward record, not a playable quest. Epic has not supplied quest instructions for this record. Missing progress does not mean zero progress.'

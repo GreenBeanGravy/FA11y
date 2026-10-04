@@ -28,6 +28,8 @@ _api_auth = None
 _scopes: Dict[str, dict] = {}
 _scope_ids = itertools.count(1)
 _timer: Optional[threading.Timer] = None
+_view_key = None  # the last view's inputs and result: the UI asks again for the same view often
+_view_result: Optional[dict] = None
 
 
 def _auth():
@@ -120,6 +122,13 @@ def view(params: dict) -> dict:
     scope = _scopes.get(str(params.get("scope_id", ""))) if params.get("scope_id") else None
     if scope is None and not _signed_in(_auth()):
         return {"signed_in": False}
+    global _view_key, _view_result
+    key = (quest_store.revision, params.get("mode"), params.get("category"), str(params.get("status") or "Active"),
+           str(params.get("query") or ""), bool(params.get("expired")), params.get("scope_id") if scope else None,
+           None if scope else _error)
+    cached = _view_result
+    if cached is not None and key == _view_key:
+        return cached
     revision, snapshot = quest_store.snapshot()
     result = render_quests(
         snapshot, mode=params.get("mode"), category=params.get("category"),
@@ -127,6 +136,8 @@ def view(params: dict) -> dict:
         expired=bool(params.get("expired")), templates=scope["templates"] if scope else None,
         scope_label=scope["label"] if scope else None, error=None if scope else _error)
     result.update(signed_in=True, revision=revision, heading=scope["heading"] if scope else "")
+    if revision == key[0]:
+        _view_key, _view_result = key, result
     return result
 
 
