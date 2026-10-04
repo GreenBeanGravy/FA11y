@@ -55,7 +55,8 @@ public sealed class TrayIcon : IDisposable
 
     public void Notify(string title, string message)
     {
-        _icon.BalloonTipTitle = string.IsNullOrEmpty(title) ? "FA11y" : title;
+        // Windows already shows the app name as the toast header, so most notifications have no title.
+        _icon.BalloonTipTitle = title ?? "";
         _icon.BalloonTipText = string.IsNullOrEmpty(message) ? " " : message;
         _icon.BalloonTipIcon = ToolTipIcon.None;
         _icon.ShowBalloonTip(5000);

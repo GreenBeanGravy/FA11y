@@ -46,7 +46,6 @@ logger = logging.getLogger(__name__)
 
 READY_TIMEOUT_SECONDS = 10.0
 NO_WINDOW_MESSAGE = "FA11y's window couldn't start. Run Updater.exe to repair FA11y."
-READY_MESSAGE = "FA11y is ready"
 EDITOR_PAGES = ("settings", "keybinds")  # the config editor's two views
 PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
@@ -344,7 +343,7 @@ class RemoteHub:
     def notify_ready(self) -> None:
         """Startup finished (the moment the core speaks its ready line): toast it if the user wants that."""
         if settings.flag("NotifyWhenReady", True):
-            self.notify("FA11y", READY_MESSAGE)
+            self.notify("", "Ready")
 
     def _notify_hidden(self, in_game: bool) -> None:
         """The window went to the tray: say where FA11y is. Over a game it is said once per session."""
@@ -355,8 +354,8 @@ class RemoteHub:
                 return
             self._hidden_notice_given = True
         keybind = _safe(status.open_hub_keybind, "")
-        opener = f"Press {keybind} to open it again." if keybind else "Open it again from the tray icon."
-        self.notify("FA11y", f"FA11y is running in the background. {opener}")
+        opener = f"Press {keybind} to open." if keybind else "Open from the tray icon."
+        self.notify("", f"Running in the background. {opener}")
 
     # Fortnite and keybinds -------------------------------------------------
 

@@ -212,7 +212,7 @@ def announce_update(speaker, version: str, at_startup: bool = False) -> None:
     hub = get_hub()
     if hub is not None:
         if not at_startup:
-            hub.notify("FA11y update available", message)
+            hub.notify("", f"Version {version} is available. Restart FA11y to update.")
         hub.update_available_changed()
 
 
