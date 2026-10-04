@@ -1,4 +1,4 @@
-// FA11y Launcher.exe starts FA11y inside its private virtual environment.
+// FA11y_Launcher.exe starts FA11y inside its private virtual environment.
 //
 // Before starting FA11y it runs Updater.exe: a full install when FA11y is
 // missing, or a quick update check when the AutoUpdates setting is on.

@@ -30,18 +30,39 @@ func TestVersionNewer(t *testing.T) {
 	}
 }
 
-func TestFixLauncherName(t *testing.T) {
+func TestRenameOldLauncher(t *testing.T) {
+	for _, name := range layout.LegacyLauncherExes {
+		dir := t.TempDir()
+		l := layout.New(dir)
+		old := filepath.Join(dir, name)
+		if err := os.WriteFile(old, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if !renameOldLauncher(l) {
+			t.Errorf("%s: not reported as renamed", name)
+		}
+		if _, err := os.Stat(l.Launcher()); err != nil {
+			t.Errorf("%s: not renamed to %s: %v", name, layout.LauncherExe, err)
+		}
+		if _, err := os.Stat(old); !os.IsNotExist(err) {
+			t.Errorf("%s: old name still there", name)
+		}
+	}
+}
+
+func TestRenameOldLauncherKeepsTheCurrentOne(t *testing.T) {
 	dir := t.TempDir()
 	l := layout.New(dir)
-	downloaded := filepath.Join(dir, "FA11y.Launcher.exe")
-	if err := os.WriteFile(downloaded, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
+	os.WriteFile(l.Launcher(), []byte("new"), 0o644)
+	old := filepath.Join(dir, layout.LegacyLauncherExes[0])
+	os.WriteFile(old, []byte("old"), 0o644)
+	if renameOldLauncher(l) {
+		t.Error("reported a rename with the current launcher already there")
 	}
-	fixLauncherName(l)
-	if _, err := os.Stat(l.Launcher()); err != nil {
-		t.Fatalf("launcher not renamed: %v", err)
+	if data, _ := os.ReadFile(l.Launcher()); string(data) != "new" {
+		t.Errorf("current launcher replaced: %q", data)
 	}
-	if _, err := os.Stat(downloaded); !os.IsNotExist(err) {
-		t.Fatalf("downloaded name still there")
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Error("old launcher not removed")
 	}
 }

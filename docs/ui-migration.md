@@ -17,7 +17,7 @@ without workarounds.
 ## Shape
 
 ```
-FA11y Launcher.exe
+FA11y_Launcher.exe
   └─ pythonw FA11y.py            the core: detection, audio, keybinds, Epic APIs,
      │                           in-game wx dialogs (for now)
      └─ FA11y.UI.exe             the window: sidebar, pages, tray icon
@@ -176,7 +176,7 @@ per session when it hides over the game), and the update-available toast.
   spacing and focus rings.
 * Speech checked with NVDA's speech viewer for the sidebar, Home and one
   form page.
-* End to end through `FA11y Launcher.exe` in FA11y-Test: no console
+* End to end through `FA11y_Launcher.exe` in FA11y-Test: no console
   windows, the window comes to the front, closing and the tray work.
 
 ## Runtime version

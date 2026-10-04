@@ -1,4 +1,4 @@
-// Package selfupdate replaces Updater.exe and FA11y Launcher.exe with newer
+// Package selfupdate replaces Updater.exe and FA11y_Launcher.exe with newer
 // builds published as GitHub release assets.
 //
 // Installer releases are tagged "installer-vMAJOR.MINOR.PATCH", separate

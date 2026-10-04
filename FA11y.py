@@ -1,7 +1,7 @@
 import os
 os.environ['FOR_DISABLE_CONSOLE_CTRL_HANDLER'] = '1'
 import sys
-# FA11y Launcher.exe starts FA11y with pythonw.exe, which has no console:
+# FA11y_Launcher.exe starts FA11y with pythonw.exe, which has no console:
 # give print() and tracebacks somewhere harmless to go.
 if sys.stdout is None:
     sys.stdout = open(os.devnull, 'w', encoding='utf-8')
@@ -672,9 +672,10 @@ def create_desktop_shortcut() -> None:
     """Create a desktop shortcut for FA11y."""
     desktop = winshell.desktop()
     path = os.path.join(desktop, "FA11y.lnk")
-    # Installed copies run through FA11y Launcher.exe, which sets
+    # Installed copies run through FA11y_Launcher.exe, which sets
     # FA11Y_LAUNCHER to its own path; the shortcut must open the launcher.
-    target = os.environ.get('FA11Y_LAUNCHER') or os.path.abspath(sys.argv[0])
+    from lib.hub.status import launcher_path
+    target = launcher_path() or os.path.abspath(sys.argv[0])
     wDir = os.path.dirname(target)
 
     shell = win32com.client.Dispatch('WScript.Shell')
@@ -1065,7 +1066,7 @@ def main() -> None:
             logger.exception(f"First-run check failed: {e}")
             first_run = False
 
-        # FA11y Launcher.exe has already run the updater before starting us.
+        # FA11y_Launcher.exe has already run the updater before starting us.
         temp_config = read_config()
         if get_config_boolean(temp_config, 'AutoUpdates', True) and not os.environ.get('FA11Y_LAUNCHER'):
             if run_updater():

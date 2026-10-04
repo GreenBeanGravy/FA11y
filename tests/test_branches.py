@@ -46,7 +46,7 @@ def test_switch_rejects_unknown_branch(monkeypatch):
 
 
 def test_switch_starts_launcher_with_branch(monkeypatch, tmp_path):
-    launcher = tmp_path / "FA11y Launcher.exe"
+    launcher = tmp_path / "FA11y_Launcher.exe"
     launcher.write_text("")
     monkeypatch.setenv("FA11Y_LAUNCHER", str(launcher))
     monkeypatch.setattr(branch, "_cache", LIST)

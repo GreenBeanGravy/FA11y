@@ -789,7 +789,7 @@ def check_version():
         return True
 
 INSTALLER_TAG_PREFIX = "installer-v"
-INSTALLER_ASSETS = ("Updater.exe", "FA11y Launcher.exe")
+INSTALLER_ASSETS = ("Updater.exe", "FA11y_Launcher.exe")
 
 
 def _installer_version(tag):
@@ -801,7 +801,7 @@ def _installer_version(tag):
 
 def handoff_to_new_installer():
     """
-    Move this install to the new layout (FA11y Launcher.exe, Updater.exe
+    Move this install to the new layout (FA11y_Launcher.exe, Updater.exe
     and a "FA11y Files" folder with its own Python).
 
     Downloads the newest installer release, starts Updater.exe --migrate in

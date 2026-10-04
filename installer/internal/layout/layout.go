@@ -1,7 +1,7 @@
 // Package layout describes where an FA11y installation keeps its files.
 //
 //	<root>\
-//	  FA11y Launcher.exe
+//	  FA11y_Launcher.exe
 //	  Updater.exe
 //	  FA11y Files\
 //	    FA11y.py, lib\, assets\, config\ ...
@@ -16,9 +16,13 @@ import (
 
 const (
 	FilesDirName = "FA11y Files"
-	LauncherExe  = "FA11y Launcher.exe"
+	LauncherExe  = "FA11y_Launcher.exe"
 	UpdaterExe   = "Updater.exe"
 )
+
+// LegacyLauncherExes are names the launcher had before: "FA11y Launcher.exe",
+// and "FA11y.Launcher.exe" as GitHub published it. The updater renames them.
+var LegacyLauncherExes = []string{"FA11y Launcher.exe", "FA11y.Launcher.exe"}
 
 // Exit codes shared by Updater.exe and its callers.
 const (

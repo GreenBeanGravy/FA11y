@@ -31,7 +31,7 @@ def about_switch_branch(params: dict) -> dict:
     if name not in {b["name"] for b in branch.available_branches()}:
         raise ValueError("That branch isn't available.")
     if not status.can_restart_to_update():
-        raise ValueError("Switching branches needs FA11y Launcher.exe. Run Updater.exe with --branch instead.")
+        raise ValueError("Switching branches needs FA11y_Launcher.exe. Run Updater.exe with --branch instead.")
     status.switch_branch(_hub(), name)
     return {}
 

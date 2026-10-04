@@ -101,7 +101,7 @@ func window() *progresswin.Window {
 	return win
 }
 
-// Ensure gives a windowless program (FA11y Launcher.exe is built with
+// Ensure gives a windowless program (FA11y_Launcher.exe is built with
 // -H windowsgui) a console window the first time it has something to
 // show. Say and Fail call it, so the launcher only opens a window when it
 // installs, updates or reports an error. A program that already has a

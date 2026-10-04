@@ -1,4 +1,4 @@
-"""Build the Windows icon resource for FA11y Launcher.exe and Updater.exe.
+"""Build the Windows icon resource for FA11y_Launcher.exe and Updater.exe.
 
 Reads assets/images/fa11y.ico and writes rsrc_windows_amd64.syso into
 each Go command folder under installer/cmd. `go build` links any .syso

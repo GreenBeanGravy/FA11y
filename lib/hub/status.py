@@ -98,15 +98,28 @@ def local_version() -> str:
         return ""
 
 
+LAUNCHER_EXE = "FA11y_Launcher.exe"
+
+
+def launcher_path() -> str:
+    """The launcher that started FA11y, or "" when FA11y wasn't started by one. An older launcher
+    still running under its old name ("FA11y Launcher.exe") points at a file the updater has since
+    renamed, so fall back to the current name next to it."""
+    launcher = os.environ.get("FA11Y_LAUNCHER", "")
+    if not launcher or os.path.exists(launcher):
+        return launcher
+    renamed = os.path.join(os.path.dirname(launcher), LAUNCHER_EXE)
+    return renamed if os.path.exists(renamed) else ""
+
+
 def can_restart_to_update() -> bool:
-    """Only installs started by FA11y Launcher.exe can update by restarting."""
-    launcher = os.environ.get("FA11Y_LAUNCHER")
-    return bool(launcher) and os.path.exists(launcher)
+    """Only installs started by FA11y_Launcher.exe can update by restarting."""
+    return bool(launcher_path())
 
 
 def restart_to_update(hub) -> None:
     """Start the launcher again (it updates before starting FA11y), then quit."""
-    launcher = os.environ.get("FA11Y_LAUNCHER")
+    launcher = launcher_path()
     if not launcher:
         return
     try:
@@ -121,7 +134,7 @@ def restart_to_update(hub) -> None:
 
 def switch_branch(hub, name: str) -> None:
     """Start the launcher on another branch (it updates first), then quit."""
-    launcher = os.environ.get("FA11Y_LAUNCHER")
+    launcher = launcher_path()
     if not launcher:
         return
     try:

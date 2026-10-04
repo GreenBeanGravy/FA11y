@@ -44,13 +44,13 @@ Outside a match, the FA11y window lets you:
 
 1. Download `Updater.exe` from the latest `installer-v` release and put it
    in an empty folder. Avoid the Fortnite install folder and system folders.
-2. Run `Updater.exe`. It downloads `FA11y Launcher.exe` next to itself and
+2. Run `Updater.exe`. It downloads `FA11y_Launcher.exe` next to itself and
    installs FA11y into a `FA11y Files` folder, with its own copy of Python
    and the .NET runtime the window needs, so you don't install anything
    yourself. Windows asks once for permission to install the driver FA11y
    uses for mouse control. While Stable FA11y doesn't support this installer
    yet, it installs the Beta branch.
-3. Start FA11y with `FA11y Launcher.exe`. It checks for updates each time it
+3. Start FA11y with `FA11y_Launcher.exe`. It checks for updates each time it
    starts. The `AutoUpdates` setting turns that off.
 4. On the first run, FA11y walks you through setup: signing in to Epic,
    finding or installing Fortnite, and a few preferences.
@@ -70,7 +70,7 @@ from anywhere.
 
 When Fortnite starts, the window hides to the system tray. Bring it back with
 Left Alt + Left Shift + F, the tray icon, or by starting
-`FA11y Launcher.exe` again. Escape hides it and returns you to Fortnite.
+`FA11y_Launcher.exe` again. Escape hides it and returns you to Fortnite.
 Keybinds that open a page, such as F9 for settings or Left Alt + period for
 Social, also work while the window is in front.
 
@@ -80,7 +80,7 @@ under Settings, General, where you can also turn the Windows notifications
 for "ready" and "running in the background" on or off.
 
 To see FA11y's output while troubleshooting, run
-`"FA11y Launcher.exe" --console`. The About and updates page opens the logs
+`"FA11y_Launcher.exe" --console`. The About and updates page opens the logs
 folder.
 
 ## Branches

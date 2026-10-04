@@ -137,6 +137,9 @@ func cleanupLegacy(l layout.Layout, tree []filesync.Entry) {
 	keep := map[string]bool{
 		layout.FilesDirName: true, layout.LauncherExe: true, layout.UpdaterExe: true,
 	}
+	for _, name := range layout.LegacyLauncherExes {
+		keep[name] = true
+	}
 	var names []string
 	for name := range top {
 		if !keep[name] && !strings.HasPrefix(name, backupPrefix) {

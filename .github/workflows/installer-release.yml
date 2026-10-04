@@ -1,6 +1,6 @@
 name: Installer release
 
-# Pushing a tag like "installer-v1.2.3" builds FA11y Launcher.exe and
+# Pushing a tag like "installer-v1.2.3" builds FA11y_Launcher.exe and
 # Updater.exe and publishes them as a GitHub release. Installed copies of
 # Updater.exe pick up newer releases and replace both executables; old
 # single-folder installs are moved to the new layout by updater.py once
@@ -39,7 +39,7 @@ jobs:
         run: |
           $version = "${{ github.ref_name }}".Substring("installer-v".Length)
           go build -trimpath -ldflags "-s -w -X main.version=$version" -o "../dist/Updater.exe" ./cmd/updater
-          go build -trimpath -ldflags "-s -w -H windowsgui" -o "../dist/FA11y Launcher.exe" ./cmd/launcher
+          go build -trimpath -ldflags "-s -w -H windowsgui" -o "../dist/FA11y_Launcher.exe" ./cmd/launcher
 
       - name: Publish release
         env:
@@ -49,11 +49,11 @@ jobs:
           # pre-release. Only installs on a branch other than main update to pre-releases.
           git merge-base --is-ancestor "${{ github.sha }}" origin/main
           if ($LASTEXITCODE -eq 0) {
-            gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y Launcher.exe" `
+            gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y_Launcher.exe" `
               --title "FA11y installer ${{ github.ref_name }}" `
               --notes "Download Updater.exe, put it in an empty folder, and run it."
           } else {
-            gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y Launcher.exe" --prerelease `
+            gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y_Launcher.exe" --prerelease `
               --title "FA11y installer ${{ github.ref_name }} (Beta)" `
               --notes "Download Updater.exe, put it in an empty folder, and run it."
           }

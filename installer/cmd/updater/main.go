@@ -53,7 +53,7 @@ func main() {
 	flag.BoolVar(&opts.install, "install", false, "install FA11y (also repairs an existing install)")
 	flag.BoolVar(&opts.quick, "quick", false, "only update when a new FA11y version is out or the install needs repair")
 	flag.BoolVar(&opts.check, "check", false, "only report whether --quick would update: exit 3 if so, 0 if not")
-	flag.BoolVar(&opts.fromLauncher, "from-launcher", false, "started by FA11y Launcher.exe")
+	flag.BoolVar(&opts.fromLauncher, "from-launcher", false, "started by FA11y_Launcher.exe")
 	flag.StringVar(&opts.branch, "branch", "", "GitHub branch to install from (default: the branch last installed, or main)")
 	flag.StringVar(&opts.source, "source", "", "install from this folder (an exported checkout) instead of GitHub, for testing")
 	flag.BoolVar(&opts.noComponents, "no-components", false, "skip drivers and other external components, for testing")
@@ -121,7 +121,7 @@ func run(l layout.Layout, opts options) (int, error) {
 		return exitError, err
 	}
 	selfupdate.CleanupOld(l.Updater(), l.Launcher())
-	fixLauncherName(l)
+	renamedLauncher := renameOldLauncher(l)
 	waitForExit(opts.waitPIDs)
 	legacy := isLegacy(l)
 	st, err := state.Load(l.Files)
@@ -173,7 +173,7 @@ func run(l layout.Layout, opts options) (int, error) {
 			}
 		}
 		if !opts.check {
-			ensureLauncher(l, branch)
+			ensureLauncher(l, branch, renamedLauncher && version != "dev")
 		}
 	}
 	m, err := loadManifest(l, src)
@@ -386,7 +386,7 @@ func report(c manifest.Component, out components.Outcome, st *state.State) bool 
 	return true
 }
 
-// updateExecutables replaces Updater.exe and FA11y Launcher.exe with the
+// updateExecutables replaces Updater.exe and FA11y_Launcher.exe with the
 // newest installer release. When Updater.exe itself was replaced, it
 // starts the new copy and returns its exit code.
 func updateExecutables(l layout.Layout, branch string) (restarted bool, code int) {
@@ -398,16 +398,12 @@ func updateExecutables(l layout.Layout, branch string) (restarted bool, code int
 		return false, 0
 	}
 	console.Say("Updating the FA11y updater to version %s...", rel.Version)
-	a, ok := rel.Assets[layout.LauncherExe]
-	if !ok {
-		a, ok = rel.Assets[releaseName(layout.LauncherExe)]
-	}
-	if ok {
+	if a, ok := launcherAsset(rel); ok {
 		if err := selfupdate.Replace(l.Launcher(), a); err != nil {
 			console.Say("Could not update %s: %v", layout.LauncherExe, err)
 		}
 	}
-	a, ok = rel.Assets[layout.UpdaterExe]
+	a, ok := rel.Assets[layout.UpdaterExe]
 	if !ok {
 		return false, 0
 	}
@@ -418,11 +414,12 @@ func updateExecutables(l layout.Layout, branch string) (restarted bool, code int
 	return true, restartSelf(l)
 }
 
-// ensureLauncher downloads FA11y Launcher.exe from the newest installer
+// ensureLauncher downloads FA11y_Launcher.exe from the newest installer
 // release when it isn't next to the updater, so Updater.exe alone is enough
-// to install FA11y.
-func ensureLauncher(l layout.Layout, branch string) {
-	if _, err := os.Stat(l.Launcher()); err == nil {
+// to install FA11y. replace downloads it even when it is there: a launcher
+// renamed from an old name is an old build.
+func ensureLauncher(l layout.Layout, branch string, replace bool) {
+	if _, err := os.Stat(l.Launcher()); err == nil && !replace {
 		return
 	}
 	rel, err := selfupdate.Latest(defaultRepo, branch != defaultBranch)
@@ -430,10 +427,7 @@ func ensureLauncher(l layout.Layout, branch string) {
 		console.Say("Could not find %s on GitHub. Download it from the FA11y releases page.", layout.LauncherExe)
 		return
 	}
-	a, ok := rel.Assets[layout.LauncherExe]
-	if !ok {
-		a, ok = rel.Assets[releaseName(layout.LauncherExe)]
-	}
+	a, ok := launcherAsset(rel)
 	if !ok {
 		return
 	}
@@ -443,25 +437,42 @@ func ensureLauncher(l layout.Layout, branch string) {
 	}
 }
 
-// releaseName is the name GitHub gives a release file: it replaces spaces
-// with dots, so "FA11y Launcher.exe" is published as "FA11y.Launcher.exe".
-func releaseName(name string) string {
-	return strings.ReplaceAll(name, " ", ".")
+// launcherAsset finds the launcher in a release. Older releases
+// named it "FA11y Launcher.exe", which GitHub published as
+// "FA11y.Launcher.exe".
+func launcherAsset(rel *selfupdate.Release) (selfupdate.Asset, bool) {
+	for _, name := range append([]string{layout.LauncherExe}, layout.LegacyLauncherExes...) {
+		if a, ok := rel.Assets[name]; ok {
+			return a, true
+		}
+	}
+	return selfupdate.Asset{}, false
 }
 
-// fixLauncherName renames a launcher downloaded from a release page
-// ("FA11y.Launcher.exe") to the name FA11y uses.
-func fixLauncherName(l layout.Layout) {
-	downloaded := filepath.Join(l.Root, releaseName(layout.LauncherExe))
-	if _, err := os.Stat(l.Launcher()); err == nil {
-		return
+// renameOldLauncher gives the launcher its current name, FA11y_Launcher.exe,
+// when it still has an old one. An old copy that can't be removed (it is the
+// launcher that started this update) is set aside as "<name>.old" and removed
+// on a later run. It reports whether an old launcher took the new name.
+func renameOldLauncher(l layout.Layout) (renamed bool) {
+	for _, name := range layout.LegacyLauncherExes {
+		old := filepath.Join(l.Root, name)
+		selfupdate.CleanupOld(old)
+		if _, err := os.Stat(old); err != nil {
+			continue
+		}
+		if _, err := os.Stat(l.Launcher()); err != nil {
+			if err := os.Rename(old, l.Launcher()); err != nil {
+				console.Say("Could not rename %s to %s: %v", name, layout.LauncherExe, err)
+			} else {
+				renamed = true
+			}
+			continue
+		}
+		if os.Remove(old) != nil {
+			os.Rename(old, old+".old")
+		}
 	}
-	if _, err := os.Stat(downloaded); err != nil {
-		return
-	}
-	if err := os.Rename(downloaded, l.Launcher()); err != nil {
-		console.Say("Could not rename %s to %s: %v", releaseName(layout.LauncherExe), layout.LauncherExe, err)
-	}
+	return renamed
 }
 
 func restartSelf(l layout.Layout) int {
