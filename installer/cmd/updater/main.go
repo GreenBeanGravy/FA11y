@@ -40,10 +40,13 @@ const (
 	restartedEnv  = "FA11Y_UPDATER_RESTARTED"
 	manifestCopy  = ".fa11y-manifest.json"
 	exitError     = 2
+	// exitComponentsMissing is --components finishing with a component still
+	// missing (declined, or its install failed).
+	exitComponentsMissing = 5
 )
 
 type options struct {
-	install, quick, check, fromLauncher, noComponents bool
+	install, quick, check, fromLauncher, noComponents, componentsOnly bool
 	branch, source                                    string
 	waitPIDs                                          pidList
 }
@@ -57,6 +60,7 @@ func main() {
 	flag.StringVar(&opts.branch, "branch", "", "GitHub branch to install from (default: the branch last installed, or main)")
 	flag.StringVar(&opts.source, "source", "", "install from this folder (an exported checkout) instead of GitHub, for testing")
 	flag.BoolVar(&opts.noComponents, "no-components", false, "skip drivers and other external components, for testing")
+	flag.BoolVar(&opts.componentsOnly, "components", false, "only install missing drivers and runtimes, asking again for ones declined before")
 	monarch := flag.Bool("monarch", false, "retry failed downloads until they succeed")
 	elevatedPlan := flag.String("elevated-plan", "", "internal: install the components in this plan file")
 	plain := flag.Bool("console", false, "print progress as text in the console instead of showing a progress window")
@@ -104,7 +108,7 @@ func main() {
 		console.Say("Error: %v", err)
 		code = exitError
 	}
-	if code == exitError && (!opts.fromLauncher || console.InWindow()) {
+	if code == exitError && !opts.componentsOnly && (!opts.fromLauncher || console.InWindow()) {
 		console.Fail(code, "the update did not finish.")
 	}
 	if !opts.fromLauncher {
@@ -127,6 +131,9 @@ func run(l layout.Layout, opts options) (int, error) {
 	st, err := state.Load(l.Files)
 	if err != nil {
 		return exitError, err
+	}
+	if opts.componentsOnly {
+		return installMissingComponents(l, st)
 	}
 	branch := resolveBranch(opts.branch, st.Branch)
 	var src filesync.Source
@@ -370,6 +377,31 @@ func installComponents(l layout.Layout, m *manifest.Manifest, st *state.State, q
 	}
 	os.RemoveAll(staging)
 	return changed, nil
+}
+
+// installMissingComponents is --components. FA11y runs it when a runtime or
+// driver it needs is missing. It asks again for components declined before and
+// changes nothing else, so it is safe while FA11y is running.
+func installMissingComponents(l layout.Layout, st *state.State) (int, error) {
+	m, err := manifest.Load(filepath.Join(l.Files, manifestCopy))
+	if err != nil {
+		if m, err = manifest.Load(filepath.Join(l.Files, filepath.FromSlash(manifest.Path))); err != nil {
+			return exitError, fmt.Errorf("could not read the install manifest: %w", err)
+		}
+	}
+	if _, err := installComponents(l, m, st, false); err != nil {
+		return exitError, err
+	}
+	if err := st.Save(l.Files); err != nil {
+		return exitError, err
+	}
+	for _, c := range m.Components {
+		if !components.Installed(c, l.Files) {
+			return exitComponentsMissing, nil
+		}
+	}
+	console.Say("Everything FA11y needs is installed.")
+	return layout.ExitNoUpdate, nil
 }
 
 func report(c manifest.Component, out components.Outcome, st *state.State) bool {

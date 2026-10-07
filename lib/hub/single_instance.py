@@ -22,8 +22,11 @@ _mutex = None
 def acquire() -> bool:
     """Return True if this is the only running FA11y, else wake the other one and return False."""
     global _mutex
-    _mutex = win32event.CreateMutex(None, False, MUTEX_NAME)
+    if _mutex is not None:
+        return True  # this copy already owns it
+    mutex = win32event.CreateMutex(None, False, MUTEX_NAME)
     if win32api.GetLastError() != winerror.ERROR_ALREADY_EXISTS:
+        _mutex = mutex
         return True
     try:
         event = win32event.OpenEvent(win32event.EVENT_MODIFY_STATE, False, SUMMON_EVENT_NAME)

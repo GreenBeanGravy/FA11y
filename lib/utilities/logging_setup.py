@@ -87,8 +87,9 @@ def setup_logging() -> Optional[str]:
                 except Exception as e:
                     print(f"Warning: Could not delete old log {old_log.name}: {e}")
 
-        # Create log file
-        log_file = open(log_filename, 'w', encoding='utf-8')
+        # Create log file. Append mode, like the logging handler below: two handles on one file
+        # that don't both append overwrite each other's lines.
+        log_file = open(log_filename, 'a', encoding='utf-8')
 
         # Write header
         log_file.write(f"=" * 80 + "\n")

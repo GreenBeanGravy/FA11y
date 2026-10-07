@@ -134,7 +134,7 @@ def _faker_check(connected: bool | None) -> dict:
     if connected:
         return _check("FakerInput driver", "ok", "Connected")
     return _check("FakerInput driver", "problem", "Not connected",
-                  "Mouse movement and clicks need it. Restart FA11y, which installs the driver if it is missing.")
+                  "Mouse movement and clicks need it. Run Updater.exe in the FA11y folder to install it.")
 
 
 def build_game_checks(log_text: str | None, screen_size=None, faker_connected: bool | None = None) -> list[dict]:

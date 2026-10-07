@@ -132,6 +132,22 @@ def restart_to_update(hub) -> None:
     hub.quit()
 
 
+def restart(hub) -> bool:
+    """Start FA11y again through the launcher, without updating, then quit. False without a launcher."""
+    launcher = launcher_path()
+    if not launcher:
+        return False
+    # The new FA11y waits for this one to exit before it checks for a running copy.
+    env = dict(os.environ, FA11Y_WAIT_PID=str(os.getpid()))
+    try:
+        subprocess.Popen([launcher], cwd=os.path.dirname(launcher), env=env, close_fds=True)
+    except OSError as e:
+        logger.error(f"Could not start the launcher: {e}")
+        return False
+    hub.quit()
+    return True
+
+
 def switch_branch(hub, name: str) -> None:
     """Start the launcher on another branch (it updates first), then quit."""
     launcher = launcher_path()

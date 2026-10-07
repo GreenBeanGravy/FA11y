@@ -161,6 +161,20 @@ from lib.managers.custom_poi_manager import load_custom_pois
 ensure_config_dir()
 migrate_config_files()
 
+# A second copy only wakes the first one. It exits before logging starts, because a new log
+# file would push the running copy's log out of the three that are kept.
+from lib.hub import single_instance
+if os.environ.get("FA11Y_WAIT_PID", "").isdigit():
+    # Started by a restart: let the copy that restarted us finish quitting first.
+    import psutil
+    try:
+        psutil.Process(int(os.environ.pop("FA11Y_WAIT_PID"))).wait(timeout=20)
+    except (psutil.Error, psutil.TimeoutExpired):
+        pass
+if not single_instance.acquire():
+    print("FA11y is already running.")
+    os._exit(0)
+
 # Initialize logging system BEFORE other initializations
 from lib.utilities.logging_setup import setup_logging, cleanup_logging
 log_file_path = setup_logging()
@@ -972,10 +986,22 @@ def _complete_epic_login(restored: bool, first_run: bool) -> None:
     # An update found at startup is spoken after the ready message.
     from lib.app import updater_check
     updater_check.startup_finished(speaker)
+    # Runtimes and drivers FA11y needs but doesn't ship: say what's missing and install it.
+    _install_missing_components(hub)
     # Screen monitors wait for this, so nothing is read off the screen while FA11y loads.
     _app_state.startup_done.set()
     if hub is not None and hasattr(hub, "startup_finished"):
         hub.startup_finished()
+
+
+def _install_missing_components(hub) -> None:
+    from lib.hub import components, status
+
+    def restart():
+        if hub is None or not status.restart(hub):
+            speaker.speak("Restart FA11y to finish.")
+
+    components.install_in_background(speaker.speak, restart)
 
 
 def _startup_progress(percent: int, message: str) -> None:
