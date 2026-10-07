@@ -23,9 +23,7 @@ KEYBINDS_TABS = ["Keybinds"]
 
 # Keys routed to the "Advanced" tab regardless of source section.
 ADVANCED_KEYS = frozenset({
-    "SimplifySpeechOutput",
     "IgnoreNumlock",
-    "ResetSensitivity",
     "TurnAroundSensitivity",
     "RecenterDelay",
     "TurnDelay",
@@ -99,7 +97,8 @@ LABEL_OVERRIDES: Dict[str, str] = {
     "MaximumPOIVolume": "Maximum POI volume",
     "MousePassthroughDPI": "Mouse DPI",
     "IgnoreNumlock": "Ignore Num Lock",
-    "SimplifySpeechOutput": "Simplify speech",
+    "SimplifySpeechOutput": "Short announcements",
+    "ResetSensitivity": "Reset sensitivity (turn on if you reset Fortnite's in-game sensitivity)",
     "FirstRunComplete": "First-run setup is complete",
     "MaxInstancesForGameObjectPositioning": "Most instances used for object positioning",
     "MonitorMatchEvents": "Announce match events",
@@ -171,8 +170,8 @@ GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {
                          "NotifyWhenHiddenToTray", "CloseAction")),
     ),
     "Toggles": (
-        ("Mouse and movement", ("MouseKeys", "MousePassthrough")),
-        ("Announcements", ("AnnounceAmmo", "AnnounceMapStatus",
+        ("Mouse and movement", ("MouseKeys", "ResetSensitivity", "MousePassthrough")),
+        ("Announcements", ("SimplifySpeechOutput", "AnnounceAmmo", "AnnounceMapStatus",
                            "AnnounceInventoryStatus", "AnnounceSidebarStatus", "AnnounceUITabs",
                            "QuestAnnouncements")),
         ("Match events", ()),
@@ -193,8 +192,7 @@ GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {
         ("All maps", ()),
     ),
     "Advanced": (
-        ("Speech", ("SimplifySpeechOutput",)),
-        ("Mouse keys", ("IgnoreNumlock", "ResetSensitivity", "TurnAroundSensitivity", "TurnDelay",
+        ("Mouse keys", ("IgnoreNumlock", "TurnAroundSensitivity", "TurnDelay",
                         "RecenterDelay", "RecenterStepDelay", "RecenterStepSpeed", "RecenterLookDown",
                         "RecenterLookUp", "ResetRecenterLookDown", "ResetRecenterLookUp")),
         ("Audio pings", ("StormPingInterval", "ContinuousPingMinInterval", "ContinuousPingMaxInterval",

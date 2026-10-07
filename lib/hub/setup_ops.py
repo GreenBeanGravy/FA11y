@@ -50,6 +50,9 @@ def collect_values(answers: dict) -> Dict[tuple, Any]:
         values[("Hub", "CloseAction")] = close
     if "simplified_speech" in answers:
         values[("Toggles", "SimplifySpeechOutput")] = _bool(answers.get("simplified_speech"))
+    if answers.get("played_before"):
+        # Only players who have played before are asked; a new player keeps the default.
+        values[("Toggles", "ResetSensitivity")] = _bool(answers.get("reset_sensitivity"))
     if "volume" in answers:
         volume = clamp_int(answers.get("volume"), 0, 100, 100)
         values[("Audio", "MasterVolume")] = str(volume / 100.0)

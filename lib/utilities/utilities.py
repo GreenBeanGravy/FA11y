@@ -432,10 +432,10 @@ def get_default_config():
     """Generate default config with map-specific game objects sections"""
     
     base_config = """[Toggles]
-SimplifySpeechOutput = false "Shorter announcements across FA11y."
+SimplifySpeechOutput = false "Says the same things in fewer words. For example, checking your health says 100, 50 instead of 100 Health, 50 Shield."
 MouseKeys = true "Turns on the keybinds for looking around and left and right clicking."
 IgnoreNumlock = false "Makes mouse keys work whether or not Num Lock is on."
-ResetSensitivity = false "Switches between two sensitivity values for some mouse movements, such as recentering the camera. New players should leave this off."
+ResetSensitivity = false "Turn this on if you reset Fortnite's in-game mouse sensitivity to its defaults. It changes how far the Recenter key moves the camera. Leave it off if you're not sure."
 AnnounceAmmo = true "Announces the ammo count when you equip a weapon."
 AutoUpdates = true "Checks for FA11y updates automatically."
 CreateDesktopShortcut = true "Creates a desktop shortcut for FA11y on launch."

@@ -416,3 +416,10 @@ def test_setup_runs_through_the_remote_hub(monkeypatch):
     hub.show_page.reset_mock()
     hub.apply_setup_choice(None)
     hub.show_page.assert_called_once_with("home", focus_sidebar=True)
+
+
+def test_setup_asks_about_reset_sensitivity_only_after_played_before():
+    from lib.hub.setup_ops import collect_values
+    assert ("Toggles", "ResetSensitivity") not in collect_values({"played_before": False, "reset_sensitivity": True})
+    assert collect_values({"played_before": True, "reset_sensitivity": True})[("Toggles", "ResetSensitivity")] == "true"
+    assert collect_values({"played_before": True, "reset_sensitivity": False})[("Toggles", "ResetSensitivity")] == "false"

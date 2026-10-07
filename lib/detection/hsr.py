@@ -24,46 +24,58 @@ shield_decreases = health_decreases
 def pixel_within_tolerance(pixel_color, target_color, tol):
     return all(abs(pc - tc) <= tol for pc, tc in zip(pixel_color, target_color))
 
-def check_value_visual(pixels, start_x, y, decreases, color, tolerance, name, no_value_msg):
-    """Visual fallback method for checking health/shield bars."""
+_READ_ERROR = "error"
+
+
+def read_value_visual(pixels, start_x, y, decreases, color, tolerance):
+    """The value 1 to 100 shown by a health or shield bar, None when the bar is empty, or _READ_ERROR."""
     x = start_x
     for i in range(100, 0, -1):
         try:
             if pixel_within_tolerance(pixels[x, y], color, tolerance):
-                speaker.speak(f'{i} {name}')
-                return
+                return i
         except IndexError:
-            speaker.speak(f"Error reading {name} bar.")
-            return
-        
+            return _READ_ERROR
+
         if decreases:
             x -= decreases[i % len(decreases)]
         else:
             x -= 1
+    return None
 
-    speaker.speak(no_value_msg)
+
+def health_shield_text(health, shield, short):
+    """What to say for the two readings. Short speech says only the numbers: "100, 50"."""
+    if health == _READ_ERROR:
+        return "Error reading Health bar."
+    if health is None:
+        return "Cannot find Health Value!"
+    if shield == _READ_ERROR:
+        return f"{health}, error reading shield" if short else f"{health} Health. Error reading Shield bar."
+    if short:
+        return f"{health}, {shield or 0}"
+    return f"{health} Health, {shield} Shield" if shield is not None else f"{health} Health, No Shield"
+
 
 def check_health_shields():
     """Check and announce health and shield values."""
     try:
+        from lib.app.speech import is_simple
         # Get map-specific coordinates and settings
         config = read_config()
         current_map = config.get('POI', 'current_map', fallback='main')
         coords = get_health_shield_coords(current_map)
-        
+
         screenshot = ImageGrab.grab(bbox=(0, 0, 1920, 1080))
         pixels = screenshot.load()
-        
+
         # Use map-specific coordinates, colors, tolerance, and decrease patterns
-        check_value_visual(
-            pixels, coords.health_x, coords.health_y, coords.health_decreases,
-            coords.health_color, coords.tolerance, 'Health', 'Cannot find Health Value!'
-        )
-        check_value_visual(
-            pixels, coords.shield_x, coords.shield_y, coords.shield_decreases,
-            coords.shield_color, coords.tolerance, 'Shield', 'No Shield'
-        )
-        
+        health = read_value_visual(pixels, coords.health_x, coords.health_y, coords.health_decreases,
+                                   coords.health_color, coords.tolerance)
+        shield = read_value_visual(pixels, coords.shield_x, coords.shield_y, coords.shield_decreases,
+                                   coords.shield_color, coords.tolerance)
+        speaker.speak(health_shield_text(health, shield, is_simple()))
+
     except Exception as e:
         print(f"Error in check_health_shields: {e}")
         speaker.speak("Error checking health and shields.")
