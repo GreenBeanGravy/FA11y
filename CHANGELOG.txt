@@ -1,12 +1,8 @@
 10/7/2026 #1 (overhaul branch):
-- Social now supports Fortnite party invites and join requests through Epic's current party service. Notifications name the sender and announce Alt + Y to accept or Alt + N to decline. The Social page lists pending invites and requests, with controls for inviting friends and joining parties. These actions do not open Fortnite's sidebar.
-- Added direct messages and party chat to Social, including conversation lists, message history, sending, and incoming message announcements. Chat announcements can be turned off in Settings.
-- Fixed a message-history reload loop that caused Epic to throttle chat requests. Chat reads now reuse recent results, respect Epic's retry delay, and retry the open conversation after temporary connection or rate-limit failures.
-- Improved automatic Epic sign-in recovery: token refreshes share one lock, temporary failures keep the refresh token, and saved browser sessions can restore the login silently when refresh fails. Authenticated services reconnect without requiring a FA11y restart.
-- Combined Battle Royale match options with the Epic gamemodes tab in Discover. Battle Royale supports team size, Build/Zero Build, and Ranked; Blitz supports team size. Reload and OG still need their match options set in Fortnite.
-- Mode-selection announcements include the selected team size and Ranked/Unranked where applicable, remind users about remaining match options, and end with 'Press "P" to ready up!'
-- Improved Legendary sign-in through FA11y's Epic account using an exchange code.
-- Added missing-runtime and driver checks, component installation support in the updater, and fixes for duplicate FA11y launches and log-file overwrites.
+- FA11y's Social capabilities have been overhauled! You can now properly join parties, accept and decline invites, and invite your friends through the Social menu. You can also message your friends or your Party more easily in the Social menu, though this is very early. You can view previous conversations from the last 30 days, send messages, and get notified when you receive messages.
+- FA11y should now properly refresh your authentication when it expires if you signed in with browser authentication.
+- The Discovery page/gamemode selector has been overhauled! You can now more easily select gamemodes and choose options for gamemodes. Selecting a gamemode now goes directly through the game and no longer has to click through the UI, which should keep this feature up and running between updates. This also means selecting gamemodes is faster, and should always work.
+- The updater should now properly install all drivers and their dependencies.
 
 10/3/2026 #1 (19.0.0-beta.1, Beta branch):
 - New FA11y window. It's a separate, native Windows program, so screen readers read every page directly, and the window stays responsive while FA11y works in the background. Every page from the old window is here: Home, Fortnite, Discover, Epic account, Locker, Social, Quests and passes, Settings, Keybinds, and About and updates.
