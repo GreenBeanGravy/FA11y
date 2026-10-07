@@ -6,6 +6,15 @@ from typing import Callable, Optional
 from lib.hub import game_watch, sounds
 
 
+def _exchange_code() -> str:
+    """A one-time sign-in code from FA11y's Epic session, for signing legendary in. "" when signed out."""
+    from lib.utilities.epic_auth import get_epic_auth_instance
+    auth = get_epic_auth_instance()
+    if not (auth and auth.access_token and auth.is_valid):
+        return ""
+    return auth.get_exchange_code() or ""
+
+
 def play_fortnite(hub, manager=None, info=None,
                   on_failed: Optional[Callable[[str], None]] = None) -> None:
     """Launch Fortnite, or bring it forward when it's already running.
@@ -30,6 +39,6 @@ def play_fortnite(hub, manager=None, info=None,
         if not result.ok and on_failed is not None:
             on_failed(result.message)
 
-    result = manager.launch(on_done=launched)
+    result = manager.launch(on_done=launched, get_exchange_code=_exchange_code)
     hub.services.speak(result.message)
     sounds.ui("done" if result.ok else "error")

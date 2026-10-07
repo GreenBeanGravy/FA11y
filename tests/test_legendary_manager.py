@@ -387,13 +387,43 @@ def test_launch_passes_extra_args(fake_mgr, tmp_path, monkeypatch):
         return proc
 
     monkeypatch.setattr(lm.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(fake_mgr, "is_logged_in", lambda: True)
     done = threading.Event()
     result = fake_mgr.launch(["-dx11", "-NOSPLASH"], on_done=lambda r: done.set())
     assert result.ok
-    assert captured["cmd"][-4:] == ["launch", "Fortnite", "-dx11", "-NOSPLASH"]
+    assert done.wait(5)
+    assert captured["cmd"][-5:-1] == ["launch", "Fortnite", "-dx11", "-NOSPLASH"]
+    assert captured["cmd"][-1].startswith("-named_pipe=") and captured["cmd"][-1].endswith("\\Fortnite")
     assert captured["kwargs"]["stdin"] == lm.subprocess.DEVNULL
     assert captured["kwargs"]["creationflags"] & lm.CREATE_NO_WINDOW
+
+
+def test_launch_signs_legendary_in_first(fake_mgr, monkeypatch):
+    """Without a login, legendary launch crashes with "No saved credentials", so sign it in first."""
+    codes = []
+    monkeypatch.setattr(fake_mgr, "is_logged_in", lambda: False)
+    monkeypatch.setattr(fake_mgr, "login_with_exchange_code",
+                        lambda code: codes.append(code) or lm.OperationResult(False, "nope"))
+    monkeypatch.setattr(lm.subprocess, "Popen", lambda *a, **k: pytest.fail("launched without a login"))
+    results = []
+    done = threading.Event()
+    fake_mgr.launch([], on_done=lambda r: (results.append(r), done.set()), get_exchange_code=lambda: "abc")
     assert done.wait(5)
+    assert codes == ["abc"]
+    assert not results[0].ok and results[0].message == lm.NOT_SIGNED_IN
+
+
+def test_crash_traceback_gives_its_exception():
+    outcome = lm.RunOutcome(1, [
+        "[cli] INFO: Logging in...",
+        "Traceback (most recent call last):",
+        '  File "legendary\\core.py", line 190, in _login',
+        "ValueError: No saved credentials",
+        "[2460] Failed to execute script 'cli' due to unhandled exception!",
+    ])
+    assert lm._friendly_error(outcome, "Launch failed.") == lm.NOT_SIGNED_IN
+    outcome.lines[3] = "KeyError: 'Fortnite'"
+    assert lm._friendly_error(outcome, "Launch failed.") == "KeyError: 'Fortnite'"
 
 
 def test_get_manager_is_singleton():

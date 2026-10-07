@@ -482,12 +482,27 @@ class RunOutcome:
                 if line.strip().startswith("! Failure:")]
 
 
+_EXCEPTION_RE = re.compile(r"^(?:[A-Za-z_][\w.]*(?:Error|Exception)): .+$")
+NOT_SIGNED_IN = ("Fortnite needs your Epic account to start. Sign in on the Epic account page, "
+                 "then press Play again.")
+
+
+def _exception_line(outcome: RunOutcome) -> str:
+    """The exception line of a crash traceback (``ValueError: No saved credentials``), or ""."""
+    if not outcome.contains("Traceback (most recent call last)"):
+        return ""
+    for line in reversed(outcome.lines):
+        if _EXCEPTION_RE.match(line.strip()):
+            return line.strip()
+    return ""
+
+
 def _friendly_error(outcome: RunOutcome, fallback: str) -> str:
     failures = outcome.failure_lines()
     if failures:
         return "; ".join(failures)
     errors = outcome.error_lines()
-    text = errors[-1] if errors else ""
+    text = errors[-1] if errors else _exception_line(outcome)
     if not text:
         for line in reversed(outcome.lines):
             match = _LOG_RE.match(line.strip())
@@ -495,6 +510,8 @@ def _friendly_error(outcome: RunOutcome, fallback: str) -> str:
                 text = match["msg"]
                 break
     lowered = text.lower()
+    if "no saved credentials" in lowered:
+        return NOT_SIGNED_IN
     if "login failed" in lowered or "log in failed" in lowered:
         return "You are not logged in to Epic Games, or the login expired. Log in and try again."
     if "installed data lock" in lowered:
@@ -992,14 +1009,56 @@ class FortniteManager:
 
     # -- launching ---------------------------------------------------------------
 
+    def _account_id(self) -> Optional[str]:
+        """The Epic account legendary is signed in as, from its saved login, or None."""
+        folder = os.environ.get("LEGENDARY_CONFIG_PATH") or os.path.join(os.path.expanduser("~"), ".config", "legendary")
+        try:
+            with open(os.path.join(folder, "user.json"), "r", encoding="utf-8") as handle:
+                account = json.load(handle).get("account_id")
+        except (OSError, ValueError, AttributeError):
+            return None
+        return account if isinstance(account, str) and re.fullmatch(r"[0-9a-f]{32}", account) else None
+
+    def is_logged_in(self) -> bool:
+        """True when legendary has a saved Epic login of its own."""
+        info, _ = self._capture_json(["status", "--offline", "--json"])
+        if not isinstance(info, dict):
+            return False
+        account = str(info.get("account") or "")
+        return bool(account) and account != "<not logged in>"
+
+    def _ensure_login(self, get_exchange_code: Optional[Callable[[], str]]) -> Optional[str]:
+        """Sign legendary in before a launch when it has no login. Returns a message when that fails.
+
+        Without a saved login, ``legendary launch`` crashes with ``ValueError: No saved credentials``.
+        """
+        if self.is_logged_in():
+            return None
+        if get_exchange_code is None:
+            return NOT_SIGNED_IN
+        try:
+            code = get_exchange_code()
+        except Exception:
+            logger.exception("Could not get an exchange code for legendary")
+            code = ""
+        if not code:
+            return NOT_SIGNED_IN
+        result = self.login_with_exchange_code(code)
+        if not result.ok:
+            logger.warning("Signing legendary in before launch failed: %s", result.message)
+            return NOT_SIGNED_IN
+        return None
+
     def launch(self, extra_args: Optional[Sequence[str]] = None, skip_version_check: bool = False,
-               on_done: Optional[Callable[[OperationResult], None]] = None) -> OperationResult:
+               on_done: Optional[Callable[[OperationResult], None]] = None,
+               get_exchange_code: Optional[Callable[[], str]] = None) -> OperationResult:
         """Start Fortnite with ``legendary launch Fortnite <extra_args>`` without blocking.
 
         ``extra_args`` defaults to the saved launch options. legendary logs in and checks the
         game version first, so it exits quickly with an error if that fails; ``on_done`` (if
         given) is called from a background thread with the final result of the legendary
-        process, which ends once the game has started.
+        process, which ends once the game has started. When legendary has no login of its own,
+        ``get_exchange_code`` (FA11y's Epic session) signs it in first.
         """
         if self.current_operation:
             return OperationResult(False, f"Wait for the {self.current_operation} operation to finish first.")
@@ -1014,16 +1073,32 @@ class FortniteManager:
         if skip_version_check:
             args.append("--skip-version-check")
         args.extend(str(a) for a in extra_args)
-        try:
-            proc = subprocess.Popen(
-                cmd + args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                cwd=self._files_dir if os.path.isdir(self._files_dir) else None, env=self._env(),
-                creationflags=CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP,
-            )
-        except OSError as exc:
-            return OperationResult(False, f"Could not start legendary: {exc}")
+        if not any(str(a).lower().startswith("-named_pipe=") for a in extra_args):
+            # Lets FA11y choose the lobby's island over a pipe, as the Epic Games Launcher does.
+            from lib.utilities.fortnite_pipe import launch_arg
+            args.append(launch_arg(self._account_id()))
+
+        def done(result: OperationResult) -> None:
+            if on_done is not None:
+                try:
+                    on_done(result)
+                except Exception:
+                    logger.exception("Launch callback raised")
 
         def wait() -> None:
+            problem = None if skip_version_check else self._ensure_login(get_exchange_code)
+            if problem:
+                done(OperationResult(False, problem))
+                return
+            try:
+                proc = subprocess.Popen(
+                    cmd + args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    cwd=self._files_dir if os.path.isdir(self._files_dir) else None, env=self._env(),
+                    creationflags=CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP,
+                )
+            except OSError as exc:
+                done(OperationResult(False, f"Could not start legendary: {exc}"))
+                return
             lines: List[str] = []
             try:
                 for line in _iter_output_lines(proc.stdout):
@@ -1034,12 +1109,9 @@ class FortniteManager:
             outcome = RunOutcome(proc.returncode, lines[-100:])
             result = self._finish(outcome, "Launch", "Fortnite started.")
             if not result.ok:
-                logger.warning("Launching Fortnite failed: %s", result.message)
-            if on_done is not None:
-                try:
-                    on_done(result)
-                except Exception:
-                    logger.exception("Launch callback raised")
+                # The whole output, so a crash's traceback reaches the FA11y log.
+                logger.warning("Launching Fortnite failed: %s\n%s", result.message, "\n".join(outcome.lines))
+            done(result)
 
         threading.Thread(target=wait, name="fortnite-launch-watch", daemon=True).start()
         return OperationResult(True, "Launching Fortnite.", data={"args": list(extra_args)})
