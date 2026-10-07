@@ -1,3 +1,13 @@
+10/7/2026 #1 (overhaul branch):
+- Social now supports Fortnite party invites and join requests through Epic's current party service. Notifications name the sender and announce Alt + Y to accept or Alt + N to decline. The Social page lists pending invites and requests, with controls for inviting friends and joining parties. These actions do not open Fortnite's sidebar.
+- Added direct messages and party chat to Social, including conversation lists, message history, sending, and incoming message announcements. Chat announcements can be turned off in Settings.
+- Fixed a message-history reload loop that caused Epic to throttle chat requests. Chat reads now reuse recent results, respect Epic's retry delay, and retry the open conversation after temporary connection or rate-limit failures.
+- Improved automatic Epic sign-in recovery: token refreshes share one lock, temporary failures keep the refresh token, and saved browser sessions can restore the login silently when refresh fails. Authenticated services reconnect without requiring a FA11y restart.
+- Combined Battle Royale match options with the Epic gamemodes tab in Discover. Battle Royale supports team size, Build/Zero Build, and Ranked; Blitz supports team size. Reload and OG still need their match options set in Fortnite.
+- Mode-selection announcements include the selected team size and Ranked/Unranked where applicable, remind users about remaining match options, and end with 'Press "P" to ready up!'
+- Improved Legendary sign-in through FA11y's Epic account using an exchange code.
+- Added missing-runtime and driver checks, component installation support in the updater, and fixes for duplicate FA11y launches and log-file overwrites.
+
 10/3/2026 #1 (19.0.0-beta.1, Beta branch):
 - New FA11y window. It's a separate, native Windows program, so screen readers read every page directly, and the window stays responsive while FA11y works in the background. Every page from the old window is here: Home, Fortnite, Discover, Epic account, Locker, Social, Quests and passes, Settings, Keybinds, and About and updates.
 - FA11y shows a startup screen with a progress bar while it loads, then fades into Home.
