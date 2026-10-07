@@ -69,3 +69,10 @@ def mock_speaker():
 def large_screenshot():
     """1920x1080 BGRA screenshot for performance tests."""
     return np.random.randint(0, 256, (1080, 1920, 4), dtype=np.uint8)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_fortnite_pipe(monkeypatch):
+    """Never send anything to a Fortnite that happens to be running on the test machine."""
+    from lib.utilities import fortnite_pipe
+    monkeypatch.setattr(fortnite_pipe, "pipe_path", lambda: None)

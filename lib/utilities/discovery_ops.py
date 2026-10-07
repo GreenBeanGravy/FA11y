@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -150,14 +150,96 @@ def copy_text(code: str, title: str) -> str:
     return f"Copied code: {title}"
 
 
-def launch_gamemode(code: str, title: str, speak: Callable[[str], None]) -> None:
-    """Pick the gamemode in Fortnite's menu, in the background, speaking the result."""
+# Match options --------------------------------------------------------------------
+
+TEAM_SIZES = ("solo", "duo", "trio", "squad")
+TEAM_NAMES = {"solo": "Solo", "duo": "Duos", "trio": "Trios", "squad": "Squads"}
+
+# Old playlist names the game turns into an Epic gamemode with these settings (checked against
+# Fortnite's log). Ranked Zero Build has no trios.
+_BR_PLAYLISTS = {
+    (False, False): {"solo": "playlist_defaultsolo", "duo": "playlist_defaultduo",
+                     "trio": "playlist_trios", "squad": "playlist_defaultsquad"},
+    (True, False): {size: f"playlist_nobuildbr_{size}" for size in TEAM_SIZES},
+    (False, True): {size: f"playlist_habanero{size}" for size in TEAM_SIZES},
+    (True, True): {size: f"playlist_nobuildbr_habanero_{size}" for size in ("solo", "duo", "squad")},
+}
+_BLITZ_PLAYLISTS = {size: f"playlist_forbiddenfruitnobuildbr{size}" for size in ("solo", "duo", "squad")}
+
+BATTLE_ROYALE = "experience_br"
+BLITZ = "experience_blitz"
+# Modes with match options in Fortnite that FA11y can't set yet.
+_OPTIONS_IN_GAME = {"experience_reload", "experience_og"}
+
+
+def br_playlist(team: str, zero_build: bool, ranked: bool) -> Optional[str]:
+    """The playlist for a Battle Royale choice, or None when Epic doesn't offer it."""
+    return _BR_PLAYLISTS[(bool(zero_build), bool(ranked))].get(team)
+
+
+def br_title(team: str, zero_build: bool, ranked: bool) -> str:
+    """'Ranked Zero Build Duos'."""
+    parts = (["Ranked"] if ranked else []) + (["Zero Build"] if zero_build else ["Build"]) + [TEAM_NAMES.get(team, team)]
+    return " ".join(parts)
+
+
+def apply_options(code: str, title: str, options: Optional[dict]) -> Tuple[Optional[str], str, str]:
+    """What to send for an Epic gamemode with the chosen match options.
+
+    Returns (link, title to speak, note). link is None when the mode doesn't offer that
+    combination; note then says why. Otherwise note is anything else worth saying (a
+    choice the mode ignores), or empty.
+    """
+    if not options:
+        return code, title, ""
+    team = str(options.get("team", "duo"))
+    zero_build = bool(options.get("zero_build"))
+    ranked = bool(options.get("ranked"))
+    key = code.lower()
+    if key == BATTLE_ROYALE:
+        playlist = br_playlist(team, zero_build, ranked)
+        name = br_title(team, zero_build, ranked)
+        if playlist is None:
+            return None, name, f"{name} isn't available. Ranked Zero Build has Solo, Duos and Squads."
+        return playlist, f"Battle Royale, {name}", ""
+    if key == BLITZ:
+        playlist = _BLITZ_PLAYLISTS.get(team)
+        if playlist is None:
+            return None, title, f"{title} has Solo, Duos and Squads, not {TEAM_NAMES.get(team, team)}."
+        # Blitz is always Zero Build, so only a ranked choice is worth mentioning.
+        note = f"{title} has no ranked." if ranked else ""
+        return playlist, f"{title}, {TEAM_NAMES.get(team, team)}", note
+    if key in _OPTIONS_IN_GAME:
+        return code, title, "Set its team size and other match options in Fortnite."
+    return code, title, ""
+
+
+def launch_gamemode(code: str, title: str, speak: Callable[[str], None],
+                    options: Optional[dict] = None) -> None:
+    """Pick the gamemode in Fortnite's menu, in the background, speaking the result. Epic
+    gamemodes take the match options they offer (team size, building, ranked)."""
+    link, name, note = apply_options(code, title, options)
+    if link is None:
+        speak(note)
+        return
+
     def work():
         try:
+            # A game started with -named_pipe (by FA11y or the Epic Games Launcher) takes the island
+            # straight from its link code, like fortnite.com's island links. No screen reading.
+            from lib.utilities import fortnite_pipe
+            success, error = fortnite_pipe.select_island(link)
+            if success or error != "no pipe":
+                speak(" ".join(filter(None, [f"{name} selected!", note])) if success
+                      else f"Failed to select gamemode: {error}")
+                return
+            # Otherwise pick it in Fortnite's menus by reading the screen. Match options need the pipe.
             from lib.utilities.gamemode_selection import select_gamemode
             search_text = code if is_standard_code_format(code) else title
             success, error = select_gamemode(search_text, expected_title=title)
-            speak(f"{title} selected!" if success else f"Failed to select gamemode: {error}")
+            unset = "" if link == code else (" Its match options weren't changed. Start Fortnite from FA11y's "
+                                             "Play button to set them.")
+            speak(f"{title} selected!{unset}" if success else f"Failed to select gamemode: {error}")
         except Exception as e:
             logger.error(f"Error launching gamemode: {e}")
             speak(f"Failed to select gamemode: {e}")

@@ -48,6 +48,9 @@ public partial class IslandPanel : UserControl
 
     public RowList Rows => List;
 
+    /// <summary>Match options sent with a launch (team size, building, ranked), or null for none.</summary>
+    public Func<object?>? MatchOptions { get; set; }
+
     /// <summary>Show one line that isn't an island (Loading..., an error). Returns a token for <see cref="Apply"/>.</summary>
     public int BeginLoad(string message)
     {
@@ -124,7 +127,12 @@ public partial class IslandPanel : UserControl
         try
         {
             // On success the core speaks, then hides the window.
-            var result = await App.Bridge.RequestAsync("discover.launch", new { code = island.Code, title = island.Title });
+            var result = await App.Bridge.RequestAsync("discover.launch", new
+            {
+                code = island.Code,
+                title = island.Title,
+                options = MatchOptions?.Invoke(),
+            });
             if (!result.Bool("launched"))
                 Announcer.Announce(this, result.Str("announce"));
         }

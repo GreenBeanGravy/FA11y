@@ -115,3 +115,18 @@ def test_one_click_details_never_gets_artwork_second_click(monkeypatch):
     ui = ImmediateDetails(no_fill=False)
     assert select_gamemode("Horde Rush", "Horde Rush", ui) == (True,None)
     assert len([a for a in ui.actions if a == ("click", "")]) == 1
+
+from lib.utilities.gamemode_selection import find_title, title_close_enough
+
+
+def test_long_title_split_and_misread_is_verified():
+    rows = [row("1V1 BUILD FIGHTS", .1, .1), row("[4.2.0] - EU/NA", .3, .1)]
+    assert find_title(rows, "1v1 Build Fights [4.2.0] - EU/NA")
+    assert title_close_enough("ZONE WARS - PRO SCRIMS PRACTlCE MAP", "Zone Wars - Pro Scrims Practice Map")
+    assert title_close_enough("BOX FIGHTS PRO SCRIMS…", "Box Fights Pro Scrims 4v4 Ranked")
+
+
+def test_short_or_different_titles_still_fail():
+    assert not title_close_enough("HORDE RUSH", "Horde Bush Duos")
+    assert not title_close_enough("Red vs Blue", "Red vs Blue 22")  # short titles allow one error at most
+    assert not find_title([row("Tilted Zone Wars", .1, .1)], "Pandvil Box Fights")

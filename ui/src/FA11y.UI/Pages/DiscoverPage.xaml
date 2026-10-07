@@ -11,15 +11,35 @@
         <TextBlock Grid.Row="0" Text="Discover" FontSize="{StaticResource HeadingFontSize}" FontWeight="SemiBold"
                    Margin="0,0,0,12" />
         <TabControl x:Name="Tabs" Grid.Row="1" AutomationProperties.Name="Discover sections">
-            <TabItem x:Name="EpicTab" Header="Epic gamemodes" AutomationProperties.Name="Epic gamemodes">
+            <TabItem x:Name="EpicTab" Header="Epic gamemodes" AutomationProperties.Name="Epic gamemodes" IsSelected="True">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Epic Games - Official Gamemodes" FontSize="{StaticResource SubheadingFontSize}"
                                FontWeight="SemiBold" Margin="0,4,0,8" />
-                    <c:IslandPanel x:Name="EpicPanel" Grid.Row="1" Heading="Epic Games - Official Gamemodes">
+                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                        <c:RadioGroup x:Name="TeamGroup" Header="Team size">
+                            <StackPanel Orientation="Horizontal">
+                                <c:RadioOption x:Name="TeamSolo" Content="Solo" Margin="0,0,10,0" />
+                                <c:RadioOption x:Name="TeamDuos" Content="Duos" IsChecked="True" Margin="0,0,10,0" />
+                                <c:RadioOption x:Name="TeamTrios" Content="Trios" Margin="0,0,10,0" />
+                                <c:RadioOption x:Name="TeamSquads" Content="Squads" />
+                            </StackPanel>
+                        </c:RadioGroup>
+                        <c:RadioGroup x:Name="BuildGroup" Header="Building" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <c:RadioOption Content="Build" IsChecked="True" Margin="0,0,10,0" />
+                                <c:RadioOption Content="Zero Build" />
+                            </StackPanel>
+                        </c:RadioGroup>
+                        <c:CheckOption x:Name="RankedBox" Content="Ranked" Margin="0,8,0,0" HorizontalAlignment="Left" />
+                        <c:ReadableText Margin="0,6,0,0" MaxWidth="560" Foreground="{StaticResource TextSecondary}"
+                                        Text="Match options for the gamemode you launch. Battle Royale uses all three, Blitz Royale uses team size. They're set in Fortnite's lobby when Fortnite was started from FA11y or the Epic Games Launcher." />
+                    </StackPanel>
+                    <c:IslandPanel x:Name="EpicPanel" Grid.Row="2" Heading="Epic Games - Official Gamemodes">
                         <c:IslandPanel.Extra>
                             <c:IconButton Icon="{StaticResource Icon.refresh}" Content="Refresh" Click="OnRefreshEpic" />
                         </c:IslandPanel.Extra>

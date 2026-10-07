@@ -54,14 +54,19 @@ def copy(params: dict) -> dict:
 
 @handler("discover.launch")
 def launch(params: dict) -> dict:
-    """Pick the gamemode in Fortnite. The window leaves first."""
+    """Pick the gamemode in Fortnite, with the match options an Epic gamemode offers. The window
+    leaves first."""
     code = str(params.get("code", ""))
     title = str(params.get("title", ""))
     if not code:
         return {"announce": "No code available", "launched": False}
+    options = params.get("options") if isinstance(params.get("options"), dict) else None
+    link, _name, note = discovery_ops.apply_options(code, title, options)
+    if link is None:
+        return {"announce": note, "launched": False}
     _speak(f"Launching {title}")
     hub = get_hub()
     if hub is not None:
         hub.leave_page()
-    discovery_ops.launch_gamemode(code, title, _speak)
+    discovery_ops.launch_gamemode(code, title, _speak, options)
     return {"launched": True}

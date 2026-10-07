@@ -45,6 +45,47 @@ def find_text(rows, text, region=(0, 0, 1, 1), exact=False, fuzzy=False, cursor=
     return matches[0] if len(matches) == 1 else None
 
 
+def edit_distance(a, b):
+    previous = list(range(len(b)+1))
+    for i, ca in enumerate(a, 1):
+        current = [i]
+        for j, cb in enumerate(b, 1):
+            current.append(min(previous[j]+1, current[j-1]+1, previous[j-1]+(ca != cb)))
+        previous = current
+    return previous[-1]
+
+
+def title_close_enough(seen, expected):
+    """Whether OCR text shows the expected title.
+
+    Creative titles are often long, so OCR misreads a few characters, and the details view cuts
+    them off with an ellipsis. One recognition error is allowed per ten characters, so short
+    titles still need an exact match or a single error.
+    """
+    value, needle = normalize(seen), normalize(expected)
+    if not value or not needle:
+        return False
+    if value == needle or one_ocr_error(value, needle):
+        return True
+    if len(value) >= 8 and str(seen).rstrip().endswith(("...", "\u2026")) and len(value) < len(needle):
+        return edit_distance(value, needle[:len(value)]) <= len(value)//10
+    return edit_distance(value, needle) <= len(needle)//10
+
+
+def find_title(rows, expected, region=(0, 0, 1, 1)):
+    """The label showing the expected title, joining a title OCR split into several labels."""
+    rows = [r for r in rows if r[3] >= .35 and region[0] <= r[1] <= region[2] and region[1] <= r[2] <= region[3]]
+    # Left to right, then top to bottom, the way the title reads.
+    rows.sort(key=lambda r: (round(r[2]*40), r[1]))
+    for size in range(1, min(len(rows), 6)+1):
+        for start in range(len(rows)-size+1):
+            part = rows[start:start+size]
+            text = " ".join(str(r[0]) for r in part)
+            if title_close_enough(text, expected):
+                return text, part[0][1], part[0][2], min(r[3] for r in part)
+    return None
+
+
 class ScreenUI:
     def __init__(self):
         import win32gui
@@ -232,13 +273,29 @@ def select_gamemode(search_text, expected_title=None, ui=None):
             ui.click(('', .135, .49, 1))
             rows, select = wait_for(ui, select_predicate, 'the mode details Select button', region=(.035,.8,.215,.89))
         rows = ui.observe((.025,.07,.65,.14))
+        logger.info("[gamemode] details title labels=%s expected=%r", [r[0] for r in rows], expected_title)
         titles = [r for r in rows if .02 <= r[1] <= .6 and .07 <= r[2] <= .14 and r[3] >= .35]
-        title = find_text(titles, expected_title, exact=True,fuzzy=True) if expected_title else (titles[0] if len(titles) == 1 else None)
-        if title is None:
-            raise RuntimeError("The result's title could not be verified; no mode was selected")
+        if expected_title and not normalize(expected_title):
+            # A title with no Latin letters or digits can't be compared with OCR text. Such a
+            # search can only be by island code (search text must be ASCII), which finds only that island.
+            title = None
+        elif expected_title:
+            title = find_title(titles, expected_title)
+            if title is None:
+                raise RuntimeError("The result's title could not be verified; no mode was selected")
+        else:
+            title = titles[0] if len(titles) == 1 else None
+            if title is None:
+                raise RuntimeError("The result's title could not be verified; no mode was selected")
         ui.click(select)
-        # Reload's map-rotation banner places its title below BR/Horde titles.
-        wait_for(ui, lambda r: find_text(r, title[0], (0, .4, .3, .72), True,fuzzy=True), 'the selected lobby mode', region=(.035,.48,.225,.7))
+        if title is None:
+            # Without a readable title, a lobby change can't be confirmed by its text either.
+            time.sleep(1)
+            logger.info("[gamemode] completed search=%r selected by code", search_text)
+            return True, None
+        # Reload's map-rotation banner places its title below BR/Horde titles. The lobby
+        # can shorten a long title, so it's compared the same tolerant way.
+        wait_for(ui, lambda r: find_text(r, title[0], (0, .4, .3, .72), True,fuzzy=True) or find_title(r, expected_title or title[0], (0, .4, .3, .72)), 'the selected lobby mode', region=(.035,.48,.225,.7))
         logger.info("[gamemode] completed search=%r selected=%r", search_text,title[0])
         return True, None
     except Exception as exc:

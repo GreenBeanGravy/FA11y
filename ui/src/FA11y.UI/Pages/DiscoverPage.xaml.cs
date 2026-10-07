@@ -20,6 +20,7 @@ public partial class DiscoverPage : PageBase, IPrefetchPage
     {
         InitializeComponent();
         EpicPanel.ShowMessage("Loading Epic Games gamemodes...");
+        EpicPanel.MatchOptions = MatchOptions;
         BrowsePanel.ShowMessage("Loading... (switch to this tab to load data)");
         SearchBox.KeyDown += (_, e) => EnterIn(e, OnSearch);
         CreatorBox.KeyDown += (_, e) => EnterIn(e, OnLoadCreator);
@@ -140,6 +141,16 @@ public partial class DiscoverPage : PageBase, IPrefetchPage
     }
 
     private void OnLookupClick(object sender, RoutedEventArgs e) => OnLookup();
+
+    private static readonly string[] TeamSizes = { "solo", "duo", "trio", "squad" };
+
+    /// <summary>The Epic tab's match options; the core uses the ones the launched gamemode offers.</summary>
+    private object MatchOptions() => new
+    {
+        team = TeamSizes[Math.Clamp(TeamGroup.SelectedIndex, 0, TeamSizes.Length - 1)],
+        zero_build = BuildGroup.SelectedIndex == 1,
+        ranked = RankedBox.IsChecked == true,
+    };
 
     private async void OnLookup()
     {

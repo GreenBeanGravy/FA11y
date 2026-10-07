@@ -102,12 +102,19 @@ def test_copy_says_the_code_or_the_title(monkeypatch):
 
 def test_launch_leaves_the_window_then_selects(monkeypatch, hub):
     calls = []
-    monkeypatch.setattr(discovery_ops, "launch_gamemode", lambda code, title, speak: calls.append((code, title)))
+    monkeypatch.setattr(discovery_ops, "launch_gamemode", lambda code, title, speak, options=None: calls.append((code, title)))
     assert discover.launch({"code": "1234-1234-1234", "title": "Zone Wars"}) == {"launched": True}
     hub.services.speak.assert_called_with("Launching Zone Wars")
     hub.leave_page.assert_called_once()
     assert calls == [("1234-1234-1234", "Zone Wars")]
     assert discover.launch({"code": "", "title": "x"})["launched"] is False
+
+
+def test_launch_refuses_a_mode_without_those_options_and_stays(hub):
+    result = discover.launch({"code": "experience_br", "title": "Battle Royale",
+                              "options": {"team": "trio", "zero_build": True, "ranked": True}})
+    assert result["launched"] is False and "Solo, Duos and Squads" in result["announce"]
+    hub.leave_page.assert_not_called()
 
 
 def test_launch_uses_the_title_for_nonstandard_codes(monkeypatch):
