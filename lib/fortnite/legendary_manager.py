@@ -989,7 +989,7 @@ class FortniteManager:
         if self.legendary_command() is None:
             return OperationResult(False, self._missing_message())
         if not exchange_code:
-            return OperationResult(False, "Couldn't get a sign-in code from your Epic account. Sign in again on the Epic account page.")
+            return OperationResult(False, "Epic connection is recovering automatically. Launch will be available when it returns.")
         result = self._run_capture(["auth", "--token", exchange_code], timeout=60)
         if result.error:
             return OperationResult(False, result.error)

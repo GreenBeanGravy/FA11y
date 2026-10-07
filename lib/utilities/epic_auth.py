@@ -49,6 +49,8 @@ class EpicAuth:
         self.refresh_token = None
         self.refresh_token_expires_at = None
         self._reauth_lock = threading.Lock()
+        self._refresh_lock = threading.RLock()
+        self._access_expires_at = None
 
         # Epic Games Fortnite client credentials (public)
         self.CLIENT_ID = "ec684b8c687f479fadea3cb2ad83f5c6"
@@ -85,6 +87,7 @@ class EpicAuth:
             self.display_name = data.get('display_name')
             self.refresh_token = data.get('refresh_token')
             expiry = data.get('expires_at')
+            self._access_expires_at = datetime.fromisoformat(expiry) if expiry else None
 
             refresh_expiry = data.get('refresh_token_expires_at')
             if refresh_expiry:
@@ -113,6 +116,11 @@ class EpicAuth:
         """
         try:
             expires_at = datetime.now() + timedelta(seconds=expires_in)
+            self._access_expires_at = expires_at
+            self.access_token = access_token
+            self.account_id = account_id
+            self.display_name = display_name
+            self._eos_token = None
             data = {
                 'access_token': access_token,
                 'account_id': account_id,
@@ -155,36 +163,35 @@ class EpicAuth:
 
     def invalidate_auth(self):
         """Mark authentication as invalid and attempt automatic re-authentication"""
-        was_valid = self.is_valid
         self.is_valid = False
-        logger.warning(f"Authentication marked as invalid for {self.display_name or 'unknown user'}")
+        if not self._reauth_lock.acquire(blocking=False):
+            return
 
-        if not was_valid:
-            return  # Already invalid, don't re-trigger
-
-        # Attempt automatic re-authentication in a background thread
-        def _auto_reauth():
-            if not self._reauth_lock.acquire(blocking=False):
-                logger.debug("Auto re-auth already in progress, skipping")
-                return
+        def done(success):
             try:
-                if self.attempt_auto_reauth():
-                    try:
-                        import FA11y
-                        FA11y._on_auth_success(self)
-                    except Exception:
-                        pass
+                from lib.app.auth_actions import on_auth_success, handle_auth_expiration
+                if success:
+                    on_auth_success(self)
                 else:
-                    logger.error("Epic Games authentication expired; prompting user to re-authenticate")
-                    try:
-                        import FA11y
-                        FA11y.handle_auth_expiration()
-                    except Exception:
-                        pass
+                    handle_auth_expiration()
             finally:
                 self._reauth_lock.release()
 
-        threading.Thread(target=_auto_reauth, daemon=True, name="auto-reauth").start()
+        def recover():
+            if self.ensure_valid():
+                done(True)
+                return
+            # WebView operations must run on the GUI thread.
+            try:
+                from lib.guis.gui_utilities import get_wx_app, run_on_main_thread
+                if get_wx_app() is None:
+                    done(False)
+                else:
+                    run_on_main_thread(lambda: self.try_silent_webview_auth(done, timeout=30.0))
+            except Exception:
+                done(False)
+
+        threading.Thread(target=recover, daemon=True, name="auto-reauth").start()
 
     def try_silent_webview_auth(self, on_done, timeout: float = 10.0) -> None:
         """Sign in from the WebView's saved Epic cookies in the background.
@@ -272,7 +279,19 @@ class EpicAuth:
             logger.error(f"Error exchanging code for token: {e}")
             return False
 
+    def ensure_valid(self) -> bool:
+        """Share one refresh across callers before using an expired session."""
+        with self._refresh_lock:
+            expiry = self._access_expires_at
+            if self.access_token and self.is_valid and (expiry is None or expiry > datetime.now() + timedelta(seconds=60)):
+                return True
+            return self.refresh_access_token()
+
     def refresh_access_token(self) -> bool:
+        with self._refresh_lock:
+            return self._refresh_access_token_locked()
+
+    def _refresh_access_token_locked(self) -> bool:
         """Use refresh_token to obtain a new access_token without user interaction."""
         if not self.refresh_token:
             logger.debug("No refresh token available")
@@ -331,7 +350,8 @@ class EpicAuth:
                 return True
             else:
                 logger.error(f"Token refresh failed: {response.status_code} {_error_code(response)}")
-                self.refresh_token = None
+                if response.status_code in (400, 401) and _error_code(response) in ("errors.com.epicgames.account.oauth.invalid_grant", "errors.com.epicgames.account.auth_token.invalid_refresh_token"):
+                    self.refresh_token = None
                 return False
 
         except Exception as e:
@@ -596,18 +616,26 @@ class EpicAuth:
                 "Authorization": f"Bearer {self.access_token}"
             }
 
-            response = requests.get(
-                "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/exchange",
-                headers=headers,
-                timeout=30
-            )
+            for attempt in range(2):
+                used_token = self.access_token
+                response = requests.get(
+                    "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/exchange",
+                    headers={"Authorization": f"Bearer {used_token}"}, timeout=10)
+                if response.status_code != 401 or attempt:
+                    break
+                with self._refresh_lock:
+                    if self.access_token == used_token:
+                        self.is_valid = False
+                        if not self.ensure_valid():
+                            self.invalidate_auth()
+                            return None
 
             if response.status_code == 200:
                 exchange_data = response.json()
                 exchange_code = exchange_data.get("code")
                 return exchange_code
             else:
-                logger.error(f"Failed to get exchange code: {response.status_code} - {response.text}")
+                logger.error(f"Failed to get exchange code: {response.status_code}")
                 return None
 
         except Exception as e:

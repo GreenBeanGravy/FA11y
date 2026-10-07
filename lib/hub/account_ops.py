@@ -19,7 +19,7 @@ def account_info() -> dict:
         name, detail = auth.display_name or "Signed in", "Signed in."
     elif signed_in:
         name = auth.display_name or "Session expired"
-        detail = "Your session expired. Sign in again to keep using account features."
+        detail = "Reconnecting to Epic automatically."
     else:
         name, detail = "Signed out", "Sign in to use your locker, friends, quests, and Fortnite downloads."
     return {"name": name, "detail": detail, "signed_in": signed_in, "valid": valid}

@@ -113,7 +113,10 @@ def check_auth_expiration(
             return
         try:
             epic_auth = get_epic_auth_instance()
-            if not epic_auth.access_token or not epic_auth.is_valid:
+            if not epic_auth.access_token:
+                continue
+            if not epic_auth.is_valid or not validate_epic_auth(epic_auth):
+                epic_auth.invalidate_auth()
                 continue
 
             auth_data = config_manager.get("epic_auth")

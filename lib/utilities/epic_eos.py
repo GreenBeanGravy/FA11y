@@ -58,8 +58,10 @@ class EosSession:
         with self._lock:
             if self._token and time.time() < self._expires:
                 return self._token
+            if self.auth and hasattr(self.auth, "ensure_valid") and not self.auth.ensure_valid():
+                self.auth.invalidate_auth()
             if not (self.auth and self.auth.access_token and self.auth.is_valid):
-                raise EosError("Sign in on the Epic account page first.")
+                raise EosError("Reconnecting to Epic automatically. Try again shortly.")
             code = self.auth.get_exchange_code()
             if not code:
                 raise EosError("Couldn't reach Epic. Try again in a moment.")

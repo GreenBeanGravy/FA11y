@@ -16,7 +16,7 @@ def handle_auth_expiration() -> None:
     state.auth_expired.set()
     if not state.is_auth_expiration_announced():
         state.speaker.speak(
-            "Epic sign-in expired. Sign in again on the Epic account page."
+            "Reconnecting to Epic automatically."
         )
         state.logger.warning("Epic Games authentication expired")
         state.set_auth_expiration_announced(True)

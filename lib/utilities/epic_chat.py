@@ -146,16 +146,41 @@ class EpicChat:
         self.session = session
         self.key = ChatKey(session.auth)
         self._dm_ids: Dict[str, str] = {}
+        self._read_lock = threading.Lock()
+        self._read_cache = {}
+        self._retry_at = 0.0
 
     @property
     def me(self) -> str:
         return self.session.account_id or ""
 
     def _get(self, path: str) -> dict:
+        with self._read_lock:
+            cached = self._read_cache.get(path)
+            now = time.monotonic()
+            if cached and (now - cached[0] < 5 or now < self._retry_at):
+                return cached[1]
+            if now < self._retry_at:
+                raise EosError("Epic is temporarily limiting chat requests. Messages will be available shortly.")
+            data = self._get_uncached(path)
+            self._read_cache[path] = (time.monotonic(), data)
+            return data
+
+    def _get_uncached(self, path: str) -> dict:
         try:
             response = self.session.request("GET", CHAT_BASE + path)
         except requests.RequestException as e:
             raise EosError("Couldn't reach Epic. Try again in a moment.") from e
+        if response.status_code == 429:
+            try:
+                wait = float(response.headers.get("Retry-After") or response.json().get("retryAfter") or 60)
+            except (ValueError, TypeError):
+                wait = 60
+            self._retry_at = time.monotonic() + max(1, wait)
+            cached = self._read_cache.get(path)
+            if cached:
+                return cached[1]
+            raise EosError("Epic is temporarily limiting chat requests. Messages will be available shortly.")
         if not response.ok:
             logger.error(f"Chat GET returned {response.status_code}: {response.text[:200]}")
             raise EosError("Couldn't load your messages.")

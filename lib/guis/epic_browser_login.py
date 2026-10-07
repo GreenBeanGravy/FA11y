@@ -43,6 +43,7 @@ class SilentAuthDialog(wx.Frame):
         self._on_done = on_done
         self._finished = False
         self._timer = None
+        self._redirect_requested = False
 
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -87,7 +88,7 @@ class SilentAuthDialog(wx.Frame):
 
         redirect_url = f"https://www.epicgames.com/id/api/redirect?clientId={self.auth_instance.CLIENT_ID}&responseType=code"
         logger.debug(f"Starting silent auth to: {redirect_url}")
-        self.browser.LoadURL(redirect_url)
+        self.browser.LoadURL(EPIC_LOGIN_URL)
         self._timer = wx.CallLater(int(self.timeout * 1000), self._check_timeout)
 
     def was_successful(self) -> bool:
@@ -95,18 +96,25 @@ class SilentAuthDialog(wx.Frame):
         return self.auth_successful
 
     def _on_navigated(self, event):
-        """Handle navigation events"""
-        url = event.GetURL()
-        logger.debug(f"Silent auth navigated to: {url[:100]}")
+        self._handle_navigation(event.GetURL())
 
     def _on_page_loaded(self, event):
-        """Handle page load completion - check page source for JSON response"""
-        url = event.GetURL()
-        logger.debug(f"Silent auth page loaded: {url[:100]}")
-
-        # Auth code is NEVER in the URL - it's always in the page content as JSON
-        # Check page source for JSON response with redirectUrl containing the code
+        self._handle_navigation(event.GetURL())
         wx.CallAfter(self._check_page_source)
+
+    def _handle_navigation(self, url):
+        if self._finished or self.auth_successful:
+            return
+        parsed = urllib.parse.urlparse(url)
+        # Only the Fortnite redirect carries the authorization code for our client.
+        if parsed.hostname == "accounts.epicgames.com" and parsed.path == "/fnauth" and "code=" in parsed.query:
+            self._extract_and_complete(url)
+            return
+        if not self._redirect_requested and (
+            "epicgames.com/account" in url or "store.epicgames.com" in url
+        ):
+            self._redirect_requested = True
+            self.browser.LoadURL(self.auth_instance.get_authorization_url())
 
     def _check_page_source(self):
         """Check page source for auth code in JSON response"""
@@ -132,7 +140,7 @@ class SilentAuthDialog(wx.Frame):
                     redirect_url_value = json_data.get('redirectUrl', '')
 
                     if redirect_url_value and 'code=' in redirect_url_value:
-                        logger.debug(f"Silent auth: Extracted redirectUrl from JSON: {redirect_url_value[:100]}")
+                        logger.debug("Epic browser authentication navigation")
                         self._extract_and_complete(redirect_url_value)
                         return
                 except json.JSONDecodeError:
@@ -145,13 +153,20 @@ class SilentAuthDialog(wx.Frame):
                 redirect_url_value = redirect_url_value.replace('\\u0026', '&').replace('\\/', '/')
 
                 if 'code=' in redirect_url_value:
-                    logger.debug(f"Silent auth: Extracted redirectUrl from regex: {redirect_url_value[:100]}")
+                    logger.debug("Epic browser authentication navigation")
                     self._extract_and_complete(redirect_url_value)
                     return
 
-            # Epic answered without a code: there is no signed-in session to reuse.
-            logger.debug("Silent auth: no saved Epic session in the WebView")
-            wx.CallAfter(self._finish, False)
+            # An intermediate redirect may still reuse the saved browser session.
+            # Keep navigating until the authorization response or the timeout.
+            if json_match:
+                try:
+                    destination = json.loads(json_match.group(0)).get('redirectUrl', '')
+                    parsed = urllib.parse.urlparse(destination)
+                    if parsed.scheme == 'https' and parsed.hostname and (parsed.hostname == 'epicgames.com' or parsed.hostname.endswith('.epicgames.com')):
+                        self.browser.LoadURL(destination)
+                except (ValueError, TypeError):
+                    pass
 
         except Exception as e:
             logger.debug(f"Silent auth: Error checking page source: {e}")
@@ -172,7 +187,7 @@ class SilentAuthDialog(wx.Frame):
                 logger.debug("Silent auth: No code in this URL yet, waiting for redirect...")
                 return
 
-            logger.debug(f"Silent auth: Extracted code: {auth_code[:20]}...")
+            logger.debug("Epic browser authentication navigation")
 
             # Exchange code for token
             if self.auth_instance.exchange_code_for_token(auth_code):
@@ -199,7 +214,7 @@ class SilentAuthDialog(wx.Frame):
         Navigate in the same window instead of opening new window.
         """
         url = event.GetURL()
-        logger.debug(f"Silent auth: New window requested for: {url}")
+        logger.debug("Epic browser authentication navigation")
         if self.browser:
             self.browser.LoadURL(url)
 
@@ -351,7 +366,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
         Instead of opening a new window, navigate the current browser to that URL.
         """
         url = event.GetURL()
-        logger.debug(f"New window requested for: {url}")
+        logger.debug("Epic browser authentication navigation")
 
         # Navigate to the URL in the same browser window
         if self.browser:
@@ -361,16 +376,16 @@ class EpicBrowserLoginDialog(wx.Dialog):
     def _on_navigating(self, event):
         """Handle navigation start"""
         url = event.GetURL()
-        logger.debug(f"Navigating to: {url}")
+        logger.debug("Epic browser authentication navigation")
 
     def _on_navigated(self, event):
         """Handle navigation events"""
         url = event.GetURL()
-        logger.debug(f"Browser navigated to: {url}")
+        logger.debug("Epic browser authentication navigation")
 
         # Check if URL contains authorization code
         if 'code=' in url:
-            logger.debug(f"Auth code detected in URL: {url[:100]}")
+            logger.debug("Epic browser authentication navigation")
             wx.CallAfter(self._extract_and_use_auth_code, url)
             return
 
@@ -392,11 +407,11 @@ class EpicBrowserLoginDialog(wx.Dialog):
     def _on_page_loaded(self, event):
         """Handle page load completion"""
         url = event.GetURL()
-        logger.debug(f"Page loaded: {url}")
+        logger.debug("Epic browser authentication navigation")
 
         # Check if URL contains authorization code
         if 'code=' in url:
-            logger.debug(f"Auth code detected in loaded page URL: {url[:100]}")
+            logger.debug("Epic browser authentication navigation")
             wx.CallAfter(self._extract_and_use_auth_code, url)
             return
 
@@ -448,11 +463,11 @@ class EpicBrowserLoginDialog(wx.Dialog):
             auth_code = params.get('code', [None])[0]
 
             if not auth_code:
-                logger.error(f"Could not parse auth code from URL: {url[:200]}")
+                logger.debug("Epic browser authentication navigation")
                 self._auto_completing = False
                 return
 
-            logger.debug(f"Extracted auth code: {auth_code[:20]}...")
+            logger.debug("Epic browser authentication navigation")
 
             # Exchange code for token using the auth instance
             if self.auth_instance.exchange_code_for_token(auth_code):
@@ -585,7 +600,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
                     auth_code = params.get('code', [None])[0]
 
                     if auth_code:
-                        logger.debug(f"Extracted auth code from redirect: {auth_code[:20]}...")
+                        logger.debug("Epic browser authentication navigation")
                         if self.auth_instance.exchange_code_for_token(auth_code):
                             logger.info("Successfully exchanged auth code from redirect")
                             return True
@@ -614,7 +629,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
                                     auth_code = params.get('code', [None])[0]
 
                                     if auth_code:
-                                        logger.debug(f"Extracted auth code from JSON response: {auth_code[:20]}...")
+                                        logger.debug("Epic browser authentication navigation")
                                         if self.auth_instance.exchange_code_for_token(auth_code):
                                             logger.info("Successfully exchanged auth code from JSON")
                                             return True
@@ -637,7 +652,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
                                 auth_code = params.get('code', [None])[0]
 
                                 if auth_code:
-                                    logger.debug(f"Extracted auth code from regex match: {auth_code[:20]}...")
+                                    logger.debug("Epic browser authentication navigation")
                                     if self.auth_instance.exchange_code_for_token(auth_code):
                                         logger.info("Successfully exchanged auth code from regex")
                                         return True

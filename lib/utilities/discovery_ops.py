@@ -201,16 +201,19 @@ def apply_options(code: str, title: str, options: Optional[dict]) -> Tuple[Optio
         name = br_title(team, zero_build, ranked)
         if playlist is None:
             return None, name, f"{name} isn't available. Ranked Zero Build has Solo, Duos and Squads."
-        return playlist, f"Battle Royale, {name}", ""
+        label = f"Battle Royale {'Zero Build' if zero_build else 'Build'} {TEAM_NAMES.get(team, team)} {'Ranked' if ranked else 'Unranked'}"
+        return playlist, label, "Set other match options such as team fill in Fortnite."
     if key == BLITZ:
         playlist = _BLITZ_PLAYLISTS.get(team)
         if playlist is None:
             return None, title, f"{title} has Solo, Duos and Squads, not {TEAM_NAMES.get(team, team)}."
         # Blitz is always Zero Build, so only a ranked choice is worth mentioning.
         note = f"{title} has no ranked." if ranked else ""
-        return playlist, f"{title}, {TEAM_NAMES.get(team, team)}", note
+        note = " ".join(filter(None, [note, "Set other match options such as team fill in Fortnite."]))
+        return playlist, f"{title} {TEAM_NAMES.get(team, team)} Unranked", note
     if key in _OPTIONS_IN_GAME:
-        return code, title, "Set its team size and other match options in Fortnite."
+        name = f"{title} {TEAM_NAMES.get(team, team)} {'Ranked' if ranked else 'Unranked'}"
+        return code, name, "Set its team size and ranked choice, and other match options such as team fill, in Fortnite."
     return code, title, ""
 
 
@@ -230,7 +233,7 @@ def launch_gamemode(code: str, title: str, speak: Callable[[str], None],
             from lib.utilities import fortnite_pipe
             success, error = fortnite_pipe.select_island(link)
             if success or error != "no pipe":
-                speak(" ".join(filter(None, [f"{name} selected!", note])) if success
+                speak(" ".join(filter(None, [f"{name} selected!", note, 'Press "P" to ready up!'])) if success
                       else f"Failed to select gamemode: {error}")
                 return
             # Otherwise pick it in Fortnite's menus by reading the screen. Match options need the pipe.
@@ -239,7 +242,7 @@ def launch_gamemode(code: str, title: str, speak: Callable[[str], None],
             success, error = select_gamemode(search_text, expected_title=title)
             unset = "" if link == code else (" Its match options weren't changed. Start Fortnite from FA11y's "
                                              "Play button to set them.")
-            speak(f"{title} selected!{unset}" if success else f"Failed to select gamemode: {error}")
+            speak(f'{title} selected!{unset} Press "P" to ready up!' if success else f"Failed to select gamemode: {error}")
         except Exception as e:
             logger.error(f"Error launching gamemode: {e}")
             speak(f"Failed to select gamemode: {e}")

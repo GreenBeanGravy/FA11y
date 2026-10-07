@@ -1016,7 +1016,7 @@ class SocialManager:
                         "Not authenticated.", "Not authenticated.")
 
             auth = self.auth
-            expired = ("Epic sign-in expired. Sign in again on the Epic account page.",
+            expired = ("Reconnecting to Epic automatically.",
                        "Authentication expired.", "Authentication expired.")
             if not auth.is_valid:
                 return expired
@@ -1572,12 +1572,19 @@ class SocialManager:
             else:
                 speaker.speak(simple(f"{name} in party chat: {message.text}", f"Party, {name}: {message.text}"))
 
-    def _add_messages(self, conversation_id: str, new_messages: list):
+    def _add_messages(self, conversation_id: str, new_messages: list, *, notify: bool = True):
         with self.lock:
             known = self.messages.setdefault(conversation_id, [])
             ids = {m.id for m in known}
-            known.extend(m for m in new_messages if m.id not in ids)
+            added = []
+            for message in new_messages:
+                if message.id not in ids:
+                    ids.add(message.id)
+                    added.append(message)
+            known.extend(added)
             known.sort(key=lambda m: m.sent_at.timestamp() if m.sent_at else 0)
+        if not notify or not added:
+            return
         for listener in list(self.chat_listeners):
             try:
                 listener(conversation_id)
@@ -1589,7 +1596,7 @@ class SocialManager:
         if self.chat is None:
             self._start_chat()
         if self.chat is None:
-            raise EosError("Sign in on the Epic account page to use chat.")
+            raise EosError("Reconnecting to Epic. Chat will be available when the connection returns.")
         return self.chat
 
     def conversations_view(self) -> list:
@@ -1613,7 +1620,7 @@ class SocialManager:
     def conversation_messages(self, conversation_id: str, conversation_type: str = "dm") -> list:
         """The conversation's history, oldest first. Calls Epic."""
         history = self._require_chat().messages(conversation_id, conversation_type)
-        self._add_messages(conversation_id, history)
+        self._add_messages(conversation_id, history, notify=False)
         with self.lock:
             return list(self.messages.get(conversation_id, []))
 
@@ -1862,6 +1869,9 @@ def get_social_manager(epic_auth_instance=None) -> SocialManager:
         _social_manager.auth = epic_auth_instance
         if _social_manager.social_api:
             _social_manager.social_api.auth = epic_auth_instance
+            if _social_manager.social_api._parties is not None:
+                _social_manager.social_api._parties.session.auth = epic_auth_instance
+                _social_manager.social_api._parties.session.forget_token()
         else:
             _social_manager.social_api = EpicSocial(epic_auth_instance)
 

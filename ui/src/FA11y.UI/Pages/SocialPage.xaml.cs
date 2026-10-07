@@ -317,6 +317,15 @@ public partial class SocialPage : PageBase
             if (result.Str("message") is { Length: > 0 } problem)
             {
                 HistoryText.Text = problem;
+                _openChat = null;
+                if (problem.StartsWith("Epic is temporarily limiting", StringComparison.Ordinal) ||
+                    problem.StartsWith("Reconnecting to Epic", StringComparison.Ordinal))
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    if (version == _historyVersion && _available && Tabs.SelectedIndex == 4 &&
+                        ChatsList.SelectedItem is SocialRow selected && selected.Id == id)
+                        await LoadHistory(id, announce: false);
+                }
                 return;
             }
             var lines = result.GetProperty("messages").EnumerateArray()
@@ -331,6 +340,8 @@ public partial class SocialPage : PageBase
         }
         catch (Exception e)
         {
+            if (version == _historyVersion)
+                _openChat = null;
             Log.Error("social.chat_messages failed", e);
         }
     }

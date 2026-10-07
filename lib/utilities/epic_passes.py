@@ -223,7 +223,7 @@ class EpicPassAPI:
                 if self.auth.refresh_access_token():
                     continue
             if response.status_code != 200:
-                message = {401: 'Your Epic login expired. Sign in again.',
+                message = {401: 'Reconnecting to Epic automatically.',
                            429: 'Epic limited these requests. Try again later.'}.get(response.status_code)
                 detail=rejection_detail(response,self.auth)
                 raise PassError((message or f'Epic rejected the request (HTTP {response.status_code}).')+' '+(detail or 'Epic supplied no detailed reason.'))

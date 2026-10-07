@@ -182,7 +182,7 @@ def account_status() -> dict:
     if auth is None or not auth.access_token:
         return {"value": "Signed out", "detail": "Sign in on the Epic account page", "level": "warn"}
     if not auth.is_valid:
-        return {"value": "Session expired", "detail": "Sign in again on the Epic account page",
+        return {"value": "Session expired", "detail": "Reconnecting to Epic automatically",
                 "level": "error", "name": auth.display_name}
     return {"value": "Signed in", "detail": auth.display_name or "", "level": "ok",
             "name": auth.display_name}

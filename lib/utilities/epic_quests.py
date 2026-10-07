@@ -113,7 +113,7 @@ class EpicQuestAPI:
                 if response.status_code == 401 and attempt == 0:
                     if self.auth.refresh_access_token():
                         continue
-                    raise QuestQueryError('Epic Games login expired. Sign in again through FA11y.')
+                    raise QuestQueryError('Reconnecting to Epic automatically.')
                 if response.status_code == 429:
                     raise QuestQueryError('Epic Games limited quest requests. Try again later.')
                 if response.status_code != 200:
@@ -125,7 +125,7 @@ class EpicQuestAPI:
                 if not isinstance(data, dict) or data.get('errorCode'):
                     raise QuestQueryError('Epic Games rejected the quest query.')
                 return data
-            raise QuestQueryError('Epic Games login expired. Sign in again through FA11y.')
+            raise QuestQueryError('Reconnecting to Epic automatically.')
 
 
 def quest_progress_text(quest):
