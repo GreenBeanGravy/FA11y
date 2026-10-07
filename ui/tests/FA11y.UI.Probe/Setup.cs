@@ -50,10 +50,13 @@ internal static partial class Program
     {
         var expected = new[]
         {
-            "Play", "31.10 · managed by FA11y · D:\\Fortnite · 60 GB", "Check for updates", "Verify and repair",
-            "Move install", "Open folder", "Uninstall", "DirectX 12", "Skip the splash screen", "Extra arguments",
+            // A failing game check puts the checklist right under the summary, problems first.
+            "Play", "31.10 · managed by FA11y · D:\\Fortnite · 60 GB",
+            "1 thing needs fixing before FA11y works properly in Fortnite:",
             "Window mode: Windowed. Problem.", "Game resolution: 1920 by 1080. OK.", "Screen resolution: 1920 by 1080. OK.",
             "FakerInput driver: Connected. OK.", "Check again",
+            "Check for updates", "Verify and repair",
+            "Move install", "Open folder", "Uninstall", "DirectX 12", "Skip the splash screen", "Extra arguments",
             "No mouse selected for passthrough.", "Passthrough lets you", "Detect mouse",
         };
         Check(names.Count == expected.Length, $"the Fortnite page has {expected.Length} tab stops (found {names.Count}: {string.Join(" | ", names.Select(Clip))})");
@@ -211,7 +214,7 @@ internal static partial class Program
         var intro = AutomationElement.FocusedElement;
         Check(intro.Current.ControlType == ControlType.Text && Safe(intro).StartsWith("Welcome to FA11y. FA11y makes Fortnite playable"),
             $"step 1 starts with its intro as the focused text (is \"{Clip(Safe(intro))}\")");
-        Check(intro.Current.HelpText == "Setup: step 1 of 8", $"the intro is described as \"Setup: step 1 of 8\" (is \"{intro.Current.HelpText}\")");
+        Check(intro.Current.HelpText == "Setup: step 1 of 9", $"the intro is described as \"Setup: step 1 of 9\" (is \"{intro.Current.HelpText}\")");
         var stops = TabStops();
         Check(Names(stops).EndsWith("Skip setup | Next") && stops.Count == 3, $"step 1 tab order: intro, Skip setup, Next (is {Names(stops)})");
 
@@ -253,15 +256,26 @@ internal static partial class Program
         Check(FocusedNow().StartsWith("Let FA11y manage it") && IsSelected(AutomationElement.FocusedElement), "Up arrow goes back");
         BackToIntro();
 
-        Advance("Starting FA11y.", 4);
+        Advance("Fortnite experience.", 4);
+        Check(TabTo("No, I'm new to Fortnite"), "step 4: Tab reaches the first choice");
+        Check(!Names(TabStops()).Contains("Reset sensitivity"), "a new player isn't asked about sensitivity");
+        Key(Vk.Down);
+        Thread.Sleep(150);
+        Check(FocusedNow() == "Yes, I've played before" && IsSelected(AutomationElement.FocusedElement), "Down chooses Yes");
+        Check(TabTo("I reset my in-game sensitivity. Turn on Reset sensitivity"), "Tab then reaches the Reset sensitivity check box");
+        Key(Vk.Space);
+        Thread.Sleep(100);
+        BackToIntro();
+
+        Advance("Starting FA11y.", 5);
         stops = TabStops();
         Check(Names(stops).Contains("Start Fortnite when FA11y opens | Hide this window when Fortnite starts | Play navigation sounds in this window | Ask me | Skip setup"),
-            $"step 4 tab order (is {Names(stops)})");
+            $"step 5 tab order (is {Names(stops)})");
         Check(_window.FindFirst(TreeScope.Descendants, new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Group),
                 new PropertyCondition(AutomationElement.NameProperty, "When I close the FA11y window"))) != null,
             "the close choices are in a group named \"When I close the FA11y window\"");
-        Check(TabTo("Start Fortnite when FA11y opens"), "step 4: Tab reaches the first check box");
+        Check(TabTo("Start Fortnite when FA11y opens"), "step 5: Tab reaches the first check box");
         Key(Vk.Down);
         Thread.Sleep(100);
         Check(FocusedNow() == "Hide this window when Fortnite starts", $"Down arrow moves to the next check box (is \"{FocusedNow()}\")");
@@ -274,28 +288,28 @@ internal static partial class Program
         Check(FocusedNow() == "Keep running in the tray" && IsSelected(AutomationElement.FocusedElement), "Down chooses Keep running in the tray");
         BackToIntro();
 
-        Advance("Speech preferences.", 5);
-        Check(TabTo("Verbose: full sentences, more context (recommended for new users)"), "step 5: Tab reaches the speech choice");
+        Advance("Speech preferences.", 6);
+        Check(TabTo("Full: names what each number is, like \"100 Health, 50 Shield\" (recommended)"), "step 6: Tab reaches the speech choice");
         Key(Vk.Down);
         Thread.Sleep(100);
-        Check(FocusedNow().StartsWith("Simplified") && IsSelected(AutomationElement.FocusedElement), "Down chooses Simplified");
+        Check(FocusedNow().StartsWith("Short:") && IsSelected(AutomationElement.FocusedElement), "Down chooses Short");
         BackToIntro();
 
-        Advance("Audio check.", 6);
+        Advance("Audio check.", 7);
         stops = TabStops();
-        Check(Names(stops).Contains("Master volume | Test sound | Skip setup | Back | Next"), $"step 6 tab order (is {Names(stops)})");
+        Check(Names(stops).Contains("Master volume | Test sound | Skip setup | Back | Next"), $"step 7 tab order (is {Names(stops)})");
         var volume = stops.First(e => e.Current.Name == "Master volume");
         Check(volume.Current.ControlType == ControlType.Edit && volume.Current.HelpText == "Master volume, 0 to 100 percent.",
             "Master volume is an edit box with its help text");
         BackToIntro();
 
-        Advance("Mouse setup.", 7);
+        Advance("Mouse setup.", 8);
         stops = TabStops();
         Check(Names(stops).Contains("Mouse DPI | Enable mouse passthrough (recommended) | Skip setup | Back | Next"),
-            $"step 7 tab order (is {Names(stops)})");
+            $"step 8 tab order (is {Names(stops)})");
         BackToIntro();
 
-        Advance("All set.", 8);
+        Advance("All set.", 9);
         Check(_window.FindFirst(TreeScope.Descendants, new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
                 new PropertyCondition(AutomationElement.NameProperty, "Finish"))) != null, "the last step has a Finish button");
@@ -328,7 +342,8 @@ internal static partial class Program
         var finish = text.Split('\n').FirstOrDefault(l => l.Contains("request setup.finish")) ?? "";
         Check(finish.Contains("'save': True") && finish.Contains("'close_action': 'tray'")
               && finish.Contains("'simplified_speech': True") && finish.Contains("'egl': 'manage'")
-              && finish.Contains("'volume': 100") && finish.Contains("'dpi': 800"),
+              && finish.Contains("'volume': 100") && finish.Contains("'dpi': 800")
+              && finish.Contains("'reset_sensitivity': True"),
             $"the core received the answers (got: {Clip(finish)})");
     }
 
@@ -354,7 +369,7 @@ internal static partial class Program
         var ok = WaitFor(() => FocusedNow().StartsWith(titlePrefix), 3000);
         Check(ok, $"Next shows step {step} with its intro focused (is \"{Clip(FocusedNow())}\")");
         var intro = AutomationElement.FocusedElement;
-        Check(intro.Current.HelpText == $"Setup: step {step} of 8", $"step {step} is described as \"Setup: step {step} of 8\"");
+        Check(intro.Current.HelpText == $"Setup: step {step} of 9", $"step {step} is described as \"Setup: step {step} of 9\"");
     }
 
     /// <summary>Shift+Tab back to the intro of the current step, so Enter (Next) works from there.</summary>

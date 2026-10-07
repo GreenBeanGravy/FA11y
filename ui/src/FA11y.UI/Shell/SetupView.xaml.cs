@@ -10,7 +10,7 @@ using FA11y.UI.Core;
 namespace FA11y.UI.Shell;
 
 /// <summary>
-/// First-run setup, shown in the main window instead of the sidebar and pages. Eight steps with
+/// First-run setup, shown in the main window instead of the sidebar and pages. Nine steps with
 /// Next, Back and Skip. Each step starts with one focusable text (its title and intro) that has
 /// focus when the step appears. Escape asks to skip. The choices go to the core when setup
 /// finishes (setup.finish), which writes them to the config.
@@ -37,11 +37,14 @@ public partial class SetupView : UserControl
             "Your Epic account is used for your locker, friends and party, quests, and for downloading and updating Fortnite. You can also sign in later on the Epic account page.",
             SignInStep, SignInIntro));
         _steps.Add(new Step("Fortnite", "Looking for Fortnite on this computer…", FortniteStep, FortniteIntro));
+        _steps.Add(new Step("Fortnite experience",
+            "Tell FA11y whether you've played Fortnite before, so it can match the settings you already use in the game.",
+            ExperienceStep, ExperienceIntro));
         _steps.Add(new Step("Starting FA11y",
             "FA11y opens this window when it starts, and its keybinds work in the background while it runs. Choose how the window behaves.",
             StartupStep, StartupIntro));
         _steps.Add(new Step("Speech preferences",
-            "FA11y narrates events through your screen reader. Choose how talkative you want it to be. You can change this later in the configuration menu.",
+            "FA11y speaks game events, menu changes, and the results of its keys through your screen reader. Full speech says what each value is, like 100 Health, 50 Shield when you check your health. Short speech drops the extra words, so the same check says 100, 50. It's quicker once you know FA11y. You can change this later with the Short announcements setting on the Settings page.",
             SpeechStep, SpeechIntro));
         _steps.Add(new Step("Audio check",
             "FA11y plays spatial audio cues for storms, points of interest, and dynamic objects. Use the Test button to play a sound at the current master volume, and adjust the slider until it's comfortable before you continue.",
@@ -81,6 +84,9 @@ public partial class SetupView : UserControl
         NavSounds.IsChecked = true;
         CloseGroup.SelectedIndex = 0;
         SpeechGroup.SelectedIndex = 0;
+        PlayedGroup.SelectedIndex = 0;
+        ResetSensitivityBox.IsChecked = false;
+        ResetSensitivityBox.Visibility = Visibility.Collapsed;
         EglGroup.SelectedIndex = 0;
         VolumeBox.Value = 100;
         DpiBox.Value = 800;
@@ -139,6 +145,14 @@ public partial class SetupView : UserControl
     private void OnBackClick(object sender, RoutedEventArgs e) => Show(_index - 1);
 
     private void OnSkipClick(object sender, RoutedEventArgs e) => Skip();
+
+    /// <summary>The Reset sensitivity choice is only offered to players who have played before.</summary>
+    private void OnPlayedChanged(object sender, RoutedEventArgs e)
+    {
+        if (ResetSensitivityBox == null)
+            return; // Checked fires while the XAML loads
+        ResetSensitivityBox.Visibility = PlayedYes.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -257,6 +271,8 @@ public partial class SetupView : UserControl
             nav_sounds = NavSounds.IsChecked == true,
             close_action = CloseActions[Math.Max(0, CloseGroup.SelectedIndex)],
             simplified_speech = SpeechGroup.SelectedIndex == 1,
+            played_before = PlayedYes.IsChecked == true,
+            reset_sensitivity = PlayedYes.IsChecked == true && ResetSensitivityBox.IsChecked == true,
             volume = VolumeBox.Value,
             dpi = DpiBox.Value,
             passthrough = PassthroughBox.IsChecked == true,

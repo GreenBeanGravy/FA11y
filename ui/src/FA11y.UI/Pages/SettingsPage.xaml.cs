@@ -321,11 +321,12 @@ public partial class SettingsPage : PageBase
                 var button = new KeybindButton { Action = model.Key, Width = 220, Tag = view };
                 button.SetKey(model.Display);
                 button.Click += (_, _) => BeginCapture(button);
-                button.Captured += (vk, modifiers) => _ = BindAsync(model.Key, vk, modifiers);
+                button.Captured += (vk, modifiers) => _ = BindAsync(button, model.Key, vk, modifiers);
                 button.Cancelled += () =>
                 {
                     if (_capturing == button)
                         _capturing = null;
+                    HideKeyCapture();
                     _ = SetCaptureAsync(false);
                 };
                 view.Keybind = button;
@@ -620,6 +621,12 @@ public partial class SettingsPage : PageBase
         if (_capturing != null && _capturing != button)
             _capturing.EndCapture(true);
         _capturing = button;
+        // Full screen "press a key" screen; clicks anywhere on it reach the button as mouse buttons.
+        if (Window.GetWindow(this) is Shell.MainWindow main)
+        {
+            main.ShowKeyCapture(button.Action, button.CaptureMouseButton);
+            button.Focus();
+        }
         button.BeginCapture();
         _ = SetCaptureAsync(true);
     }
@@ -630,6 +637,7 @@ public partial class SettingsPage : PageBase
             return;
         button.EndCapture(true);
         _capturing = null;
+        HideKeyCapture();
         _ = SetCaptureAsync(false);
     }
 
@@ -646,7 +654,7 @@ public partial class SettingsPage : PageBase
         return _captureChain = Send();
     }
 
-    private async Task BindAsync(string action, int vk, int[] modifiers)
+    private async Task BindAsync(KeybindButton button, string action, int vk, int[] modifiers)
     {
         _capturing = null;
         var off = SetCaptureAsync(false);
@@ -655,14 +663,26 @@ public partial class SettingsPage : PageBase
             var result = await App.Bridge.RequestAsync("keybinds.bind", new { action, vk, modifiers });
             if (result.Bool("ok"))
                 ApplyKeybindChanges(result);
+            else
+                button.RestoreKey();
             Announce(result.Str("message"));
         }
         catch (Exception e)
         {
             Log.Error($"keybinds.bind {action} failed", e);
+            button.RestoreKey();
             Announce($"Couldn't change {action}.");
         }
+        // Leave full screen only now: the window changing size makes screen readers read the focused
+        // button again, and it should say the new key.
+        HideKeyCapture();
         await off;
+    }
+
+    private void HideKeyCapture()
+    {
+        if (Window.GetWindow(this) is Shell.MainWindow main)
+            main.HideKeyCapture();
     }
 
     private async Task UnbindAsync(SettingView view)

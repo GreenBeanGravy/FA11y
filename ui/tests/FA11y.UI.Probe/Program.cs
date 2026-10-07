@@ -990,21 +990,35 @@ internal static partial class Program
         GoToPage("Keybinds", "keybinds");
         SearchAndJump("recenter", "Recenter, Keybinds", "Recenter: Numpad 5");
         Press(Vk.Enter);
-        Check(FocusIs("Recenter: Press any key"), "Enter on a keybind waits for a key");
+        Check(FocusIs("Recenter: Press any key or mouse button"), "Enter on a keybind waits for a key");
+        Check(WaitFor(() => VisualState() == WindowVisualState.Maximized, 2000), "the window goes full screen while it waits");
         Check(WaitFor(() => Log().Contains("keybinds.capture {'active': True}"), 3000), "the core is told to silence its own keybinds");
         Press(Vk.F9);
         Check(FocusIs("Recenter: F9"), "the pressed key becomes the binding");
         Check(WaitFor(() => Regex.IsMatch(Config(), @"Recenter = f9"), 3000), "the binding is saved as f9");
         Check(WaitFor(() => Log().Contains("keybinds.capture {'active': False}"), 3000), "the core is told capture ended");
+        Check(WaitFor(() => VisualState() == WindowVisualState.Normal, 2000), "the window comes back from full screen");
+
+        // A mouse button pressed anywhere on the "press a key" screen binds it.
+        Press(Vk.Enter);
+        Thread.Sleep(400);
+        MouseButtonAtCenter(0x0020, 0x0040, 0); // middle
+        Check(WaitFor(() => FocusIs("Recenter: Middle Mouse"), 2000), "middle click anywhere on the screen binds Middle Mouse");
+        Check(WaitFor(() => Regex.IsMatch(Config(), @"Recenter = middle mouse"), 3000), "it is saved as middle mouse");
+        Check(WaitFor(() => VisualState() == WindowVisualState.Normal, 2000), "the window comes back after a mouse button");
+        Press(Vk.Enter);
+        Thread.Sleep(400);
+        MouseButtonAtCenter(0x0080, 0x0100, 1); // back (XButton1)
+        Check(WaitFor(() => FocusIs("Recenter: Mouse 4"), 2000), "the back button binds Mouse 4");
 
         Press(Vk.Enter);
-        Check(FocusIs("Recenter: Press any key"), "capturing again");
+        Check(FocusIs("Recenter: Press any key or mouse button"), "capturing again");
         Press(Vk.Escape);
-        Check(FocusIs("Recenter: F9"), "Escape cancels and restores the key");
+        Check(FocusIs("Recenter: Mouse 4"), "Escape cancels and restores the key");
         Check(IsVisible(_uiPid), "Escape while capturing doesn't hide the window");
         Press(Vk.Delete);
         Check(FocusIs("Recenter: Unbound"), "Delete unbinds the focused keybind");
-        Check(WaitFor(() => !Regex.IsMatch(Config(), @"Recenter = f9"), 3000), "the unbinding is saved");
+        Check(WaitFor(() => !Regex.IsMatch(Config(), @"Recenter = mouse 4"), 3000), "the unbinding is saved");
         Press(Vk.R);
         Check(FocusIs("Recenter: Numpad 5"), "R puts the default key back");
         Check(WaitFor(() => Regex.IsMatch(Config(), @"Recenter = num 5"), 3000), "the default is saved");
@@ -1172,6 +1186,25 @@ internal static partial class Program
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, INPUT[] inputs, int size);
 
     private static IntPtr Foreground() => GetForegroundWindow();
+
+    [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+
+    private static WindowVisualState VisualState() =>
+        ((WindowPattern)_window.GetCurrentPattern(WindowPattern.Pattern)).Current.WindowVisualState;
+
+    /// <summary>Press and release a mouse button with the cursor in the middle of the FA11y window.</summary>
+    private static void MouseButtonAtCenter(uint down, uint up, uint data)
+    {
+        var r = _window.Current.BoundingRectangle;
+        SetCursorPos((int)(r.Left + r.Width / 2), (int)(r.Top + r.Height / 2));
+        Thread.Sleep(50);
+        foreach (var flags in new[] { down, up })
+        {
+            var input = new INPUT { type = 0, u = new InputUnion { mi = new MOUSEINPUT { dwFlags = flags, mouseData = data } } };
+            SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
+            Thread.Sleep(30);
+        }
+    }
 
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
 

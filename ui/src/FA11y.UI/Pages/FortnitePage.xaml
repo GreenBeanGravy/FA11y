@@ -4,7 +4,7 @@
                 xmlns:pages="clr-namespace:FA11y.UI.Pages"
                 xmlns:c="clr-namespace:FA11y.UI.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="20">
+        <StackPanel x:Name="PageRoot" Margin="20">
 
             <Grid Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
@@ -87,16 +87,19 @@
             <TextBox x:Name="ExtraArgs" AutomationProperties.Name="Extra arguments" Margin="0,4,0,0"
                      LostKeyboardFocus="OnExtraBlur" />
 
-            <TextBlock Text="Game check" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
-                       FontWeight="SemiBold" />
-            <StackPanel x:Name="GameChecks" Margin="0,6,0,0">
-                <c:ReadableText x:Name="GameChecksLoading" MaxWidth="640" Text="Loading&#8230;"
-                                Foreground="{StaticResource TextSecondary}" />
+            <!-- Moves up under the summary while any check fails (ShowGameChecks). -->
+            <StackPanel x:Name="GameCheckSection" Margin="0,18,0,0">
+                <TextBlock x:Name="GameCheckHeading" Text="Game check" FontSize="{StaticResource SubheadingFontSize}"
+                           FontWeight="SemiBold" />
+                <StackPanel x:Name="GameChecks" Margin="0,6,0,0">
+                    <c:ReadableText x:Name="GameChecksLoading" MaxWidth="640" Text="Loading&#8230;"
+                                    Foreground="{StaticResource TextSecondary}" />
+                </StackPanel>
+                <c:IconButton x:Name="GameCheckButton" Icon="{StaticResource Icon.refresh}" Content="Check again"
+                              HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnGameCheckClick" />
             </StackPanel>
-            <c:IconButton x:Name="GameCheckButton" Icon="{StaticResource Icon.refresh}" Content="Check again"
-                          HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnGameCheckClick" />
 
-            <TextBlock Text="Mouse passthrough" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
+            <TextBlock x:Name="MouseHeading" Text="Mouse passthrough" Margin="0,18,0,0" FontSize="{StaticResource SubheadingFontSize}"
                        FontWeight="SemiBold" />
             <c:ReadableText x:Name="MouseText" Margin="0,6,0,0" MaxWidth="640"
                             Foreground="{StaticResource TextSecondary}" />

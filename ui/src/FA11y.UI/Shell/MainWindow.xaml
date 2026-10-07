@@ -36,6 +36,21 @@
       </Grid>
       <!-- First-run setup replaces the sidebar and pages until it is finished or skipped. -->
       <local:SetupView x:Name="Setup" Visibility="Collapsed" />
+      <!-- While a keybind waits for its key, the window goes full screen and this covers it. The focused
+           keybind button stays under it and still gets the keys; clicks anywhere land here, so mouse
+           buttons can be bound. Screen readers hear the button ("Fire: Press any key"), not this. -->
+      <Grid x:Name="KeyCaptureOverlay" Visibility="Collapsed" Background="{StaticResource WindowBg}"
+            Focusable="False" PreviewMouseDown="OnKeyCaptureMouseDown">
+          <Rectangle Margin="18" Stroke="White" StrokeThickness="3" StrokeDashArray="3 3" RadiusX="10" RadiusY="10"
+                     SnapsToDevicePixels="True" />
+          <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="40">
+              <c:HiddenText x:Name="KeyCaptureTitle" HorizontalAlignment="Center" TextAlignment="Center"
+                            TextWrapping="Wrap" FontSize="{StaticResource HeadingFontSize}" FontWeight="SemiBold" />
+              <c:HiddenText Margin="0,12,0,0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                            Foreground="{StaticResource TextSecondary}"
+                            Text="Mouse buttons work too: middle click, back, and forward. Press Escape or left click to cancel." />
+          </StackPanel>
+      </Grid>
       <!-- Shown until the core says startup is done, then fades into the sidebar and pages. -->
       <local:StartupView x:Name="Startup" />
     </Grid>

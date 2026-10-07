@@ -39,6 +39,7 @@ public sealed class KeybindButton : IconButton
     /// <summary>Capturing ended without a key (Escape, a click, focus left).</summary>
     public event Action? Cancelled;
 
+
     /// <summary>Show the key this keybind has ("Left Control" or "Unbound").</summary>
     public void SetKey(string display)
     {
@@ -60,7 +61,7 @@ public sealed class KeybindButton : IconButton
                 _ignore.Add(key);
         }
         Content = "Press any key";
-        AutomationProperties.SetName(this, $"{Action}: Press any key");
+        AutomationProperties.SetName(this, $"{Action}: Press any key or mouse button");
     }
 
     /// <summary>Stop waiting. restore puts back the key that was shown before.</summary>
@@ -73,6 +74,9 @@ public sealed class KeybindButton : IconButton
         if (restore)
             SetKey(_display);
     }
+
+    /// <summary>Show the key from before capturing again, when binding the captured key failed.</summary>
+    public void RestoreKey() => SetKey(_display);
 
     private void Cancel()
     {
@@ -132,7 +136,9 @@ public sealed class KeybindButton : IconButton
         if (KeyState.IsDown(Key.RightShift)) modifiers.Add(VkRShift);
         if (KeyState.IsDown(Key.LeftAlt)) modifiers.Add(VkLMenu);
         if (KeyState.IsDown(Key.RightAlt)) modifiers.Add(VkRMenu);
-        EndCapture(true);
+        // The name stays "Press any key" until the core answers with the new key, so a screen reader
+        // never hears the old key in between.
+        EndCapture(false);
         Captured?.Invoke(vk, modifiers.ToArray());
     }
 
@@ -155,7 +161,18 @@ public sealed class KeybindButton : IconButton
             return;
         }
         e.Handled = true;
-        var vk = e.ChangedButton switch
+        CaptureMouseButton(e.ChangedButton);
+    }
+
+    /// <summary>
+    /// A mouse button pressed while capturing, here or anywhere on the "press a key" screen. Middle, back
+    /// and forward bind (with Shift or Alt held, like keys); left and right click cancel.
+    /// </summary>
+    public void CaptureMouseButton(MouseButton button)
+    {
+        if (!Capturing)
+            return;
+        var vk = button switch
         {
             MouseButton.Middle => VkMButton,
             MouseButton.XButton1 => VkXButton1,
@@ -167,8 +184,15 @@ public sealed class KeybindButton : IconButton
             Cancel();
             return;
         }
-        EndCapture(true);
-        Captured?.Invoke(vk, Array.Empty<int>());
+        var modifiers = new List<int>();
+        if (KeyState.IsDown(Key.LeftShift)) modifiers.Add(VkLShift);
+        if (KeyState.IsDown(Key.RightShift)) modifiers.Add(VkRShift);
+        if (KeyState.IsDown(Key.LeftAlt)) modifiers.Add(VkLMenu);
+        if (KeyState.IsDown(Key.RightAlt)) modifiers.Add(VkRMenu);
+        // The name stays "Press any key" until the core answers with the new key, so a screen reader
+        // never hears the old key in between.
+        EndCapture(false);
+        Captured?.Invoke(vk, modifiers.ToArray());
     }
 
     protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)

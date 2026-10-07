@@ -115,10 +115,10 @@ internal static partial class Program
             var intro = stops[0];
             Check(intro.Current.ControlType == ControlType.Text && intro.Current.Name.StartsWith(titlePrefix),
                 $"step {number} starts with its intro as the first tab stop (is \"{Clip(intro.Current.Name)}\")");
-            Check(intro.Current.HelpText == $"Setup: step {number} of 8", $"step {number} is described as \"Setup: step {number} of 8\" (is \"{intro.Current.HelpText}\")");
+            Check(intro.Current.HelpText == $"Setup: step {number} of 9", $"step {number} is described as \"Setup: step {number} of 9\" (is \"{intro.Current.HelpText}\")");
             if (tabOrder != null)
                 Check(Names(stops).Contains(tabOrder), $"step {number} tab order contains \"{tabOrder}\" (is {Names(stops)})");
-            Check(stops.Last().Current.Name == (number == 8 ? "Finish" : "Next"), $"step {number} ends with {(number == 8 ? "Finish" : "Next")}");
+            Check(stops.Last().Current.Name == (number == 9 ? "Finish" : "Next"), $"step {number} ends with {(number == 9 ? "Finish" : "Next")}");
             Check((number == 1) == (FindInWindow("Back", ControlType.Button) == null), "Back is hidden on the first step only");
         }
 
@@ -140,23 +140,36 @@ internal static partial class Program
         Check(IsSelected(keep) && !IsSelected(manage), "choosing the other option unchooses the first");
         ((SelectionItemPattern)manage.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
 
-        Step(4, "Starting FA11y.",
+        Step(4, "Fortnite experience.", "No, I'm new to Fortnite | Skip setup | Back | Next");
+        Check(FindInWindow("Have you played Fortnite before?", ControlType.Group) != null, "the choice is in a group named \"Have you played Fortnite before?\"");
+        Check(FindInWindow("I reset my in-game sensitivity. Turn on Reset sensitivity", ControlType.CheckBox) == null,
+            "a new player isn't asked about sensitivity");
+        var played = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
+            .Cast<AutomationElement>().First(e => e.Current.Name == "Yes, I've played before");
+        ((SelectionItemPattern)played.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        AutomationElement? resetBox = null;
+        Check(WaitFor(() => (resetBox = FindInWindow("I reset my in-game sensitivity. Turn on Reset sensitivity", ControlType.CheckBox)) != null, 2000),
+            "a player who has played before is offered Reset sensitivity");
+        if (resetBox != null)
+            ((TogglePattern)resetBox.GetCurrentPattern(TogglePattern.Pattern)).Toggle();
+
+        Step(5, "Starting FA11y.",
             "Start Fortnite when FA11y opens | Hide this window when Fortnite starts | Play navigation sounds in this window | Ask me | Skip setup");
         Check(FindInWindow("When I close the FA11y window", ControlType.Group) != null, "the close choices are in a group named \"When I close the FA11y window\"");
         var tray = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
             .Cast<AutomationElement>().First(e => e.Current.Name == "Keep running in the tray");
         ((SelectionItemPattern)tray.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
 
-        Step(5, "Speech preferences.", "Verbose: full sentences, more context (recommended for new users) | Skip setup");
+        Step(6, "Speech preferences.", "Full: names what each number is, like \"100 Health, 50 Shield\" (recomme... | Skip setup");
         var simplified = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
-            .Cast<AutomationElement>().First(e => e.Current.Name.StartsWith("Simplified"));
+            .Cast<AutomationElement>().First(e => e.Current.Name.StartsWith("Short:"));
         ((SelectionItemPattern)simplified.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
 
-        Step(6, "Audio check.", "Master volume | Test sound | Skip setup | Back | Next");
+        Step(7, "Audio check.", "Master volume | Test sound | Skip setup | Back | Next");
         var volume = FindInWindow("Master volume", ControlType.Edit);
         Check(volume != null && volume.Current.HelpText == "Master volume, 0 to 100 percent.", "Master volume is an edit box with its help text");
-        Step(7, "Mouse setup.", "Mouse DPI | Enable mouse passthrough (recommended) | Skip setup | Back | Next");
-        Step(8, "All set.", "Skip setup | Back | Finish");
+        Step(8, "Mouse setup.", "Mouse DPI | Enable mouse passthrough (recommended) | Skip setup | Back | Next");
+        Step(9, "All set.", "Skip setup | Back | Finish");
 
         Press("Finish");
         Check(WaitFor(() => _window.Current.Name == "FA11y - Home", 3000), "Finish goes back to the pages");
@@ -165,7 +178,8 @@ internal static partial class Program
         var finish = ReadLog(log).Split('\n').FirstOrDefault(l => l.Contains("request setup.finish")) ?? "";
         Check(finish.Contains("'save': True") && finish.Contains("'close_action': 'tray'")
               && finish.Contains("'simplified_speech': True") && finish.Contains("'egl': 'manage'")
-              && finish.Contains("'volume': 100") && finish.Contains("'dpi': 800"),
+              && finish.Contains("'volume': 100") && finish.Contains("'dpi': 800")
+              && finish.Contains("'played_before': True") && finish.Contains("'reset_sensitivity': True"),
             $"the core received the answers (got: {Clip(finish)})");
     }
 }

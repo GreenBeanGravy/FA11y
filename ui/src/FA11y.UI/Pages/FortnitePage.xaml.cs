@@ -479,9 +479,13 @@ public partial class FortnitePage : PageBase
 
     private void ShowGameChecks(JsonElement checks)
     {
-        var hadFocus = GameChecks.IsKeyboardFocusWithin;
+        var hadFocus = GameCheckSection.IsKeyboardFocusWithin;
         GameChecks.Children.Clear();
-        foreach (var check in checks.EnumerateArray())
+        // Problems first, so the list starts with what still needs doing.
+        var ordered = checks.EnumerateArray().OrderBy(c => c.Str("status") == "problem" ? 0 : 1).ToList();
+        var problems = ordered.Count(c => c.Str("status") == "problem");
+        PlaceGameChecks(problems);
+        foreach (var check in ordered)
         {
             var brush = check.Str("status") switch
             {
@@ -495,6 +499,37 @@ public partial class FortnitePage : PageBase
         }
         if (hadFocus)
             Dispatcher.BeginInvoke(DispatcherPriority.Input, () => GameCheckButton.Focus());
+    }
+
+    /// <summary>
+    /// While any check fails, the section sits right under the summary with a heading that says how
+    /// many things need fixing. Once everything passes it goes back above Mouse passthrough.
+    /// </summary>
+    private void PlaceGameChecks(int problems)
+    {
+        var urgent = problems > 0;
+        GameCheckHeading.Text = urgent ? "Finish setting up" : "Game check";
+        GameCheckHeading.Foreground = (Brush)FindResource(urgent ? "Warning" : "Text");
+        if (urgent)
+        {
+            // A tab stop of its own, so a screen reader hears the count before the list.
+            GameChecks.Children.Add(new ReadableText
+            {
+                MaxWidth = 640, Margin = new Thickness(0, 0, 0, 6), Foreground = (Brush)FindResource("Warning"),
+                Text = problems == 1
+                    ? "1 thing needs fixing before FA11y works properly in Fortnite:"
+                    : $"{problems} things need fixing before FA11y works properly in Fortnite:",
+            });
+        }
+        var anchor = urgent ? (UIElement)Summary : MouseHeading;
+        var current = PageRoot.Children.IndexOf(GameCheckSection);
+        var anchorIndex = PageRoot.Children.IndexOf(anchor);
+        if (current != (urgent ? anchorIndex + 1 : anchorIndex - 1))
+        {
+            PageRoot.Children.Remove(GameCheckSection);
+            PageRoot.Children.Insert(PageRoot.Children.IndexOf(anchor) + (urgent ? 1 : 0), GameCheckSection);
+        }
+        GameCheckSection.Margin = urgent ? new Thickness(0, 0, 0, 14) : new Thickness(0, 18, 0, 0);
     }
 
     private async void OnGameCheckClick(object sender, RoutedEventArgs e)

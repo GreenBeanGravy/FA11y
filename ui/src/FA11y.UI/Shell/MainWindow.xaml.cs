@@ -115,6 +115,86 @@ public partial class MainWindow : Window
         _startupTimeout.Start();
     }
 
+    // Keybind capture ----------------------------------------------------------------------------------
+
+    private Action<MouseButton>? _captureMouse;
+    private (WindowState State, WindowStyle Style, ResizeMode Resize)? _beforeCapture;
+
+    public bool KeyCaptureShown => _captureMouse != null;
+
+    /// <summary>
+    /// Go full screen and fade to the "press a key" screen while a keybind waits for its key. The keybind
+    /// button keeps keyboard focus under the overlay; mouse buttons pressed anywhere go to onMouse.
+    /// </summary>
+    public void ShowKeyCapture(string action, Action<MouseButton> onMouse)
+    {
+        _captureMouse = onMouse;
+        KeyCaptureTitle.Text = $"Press a key to bind to {action}";
+        if (_beforeCapture == null)
+        {
+            _beforeCapture = (WindowState, WindowStyle, ResizeMode);
+            // Style None before maximizing, or the maximized window stops at the taskbar.
+            if (WindowState == WindowState.Maximized)
+                WindowState = WindowState.Normal;
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            WindowState = WindowState.Maximized;
+        }
+        if (KeyCaptureOverlay.Visibility != Visibility.Visible)
+            KeyCaptureOverlay.Opacity = 0;
+        KeyCaptureOverlay.Visibility = Visibility.Visible;
+        // Opacity only: a hidden MainArea would take keyboard focus away from the keybind button.
+        Fade(MainArea, 0, null);
+        Fade(KeyCaptureOverlay, 1, null);
+    }
+
+    /// <summary>Back from the "press a key" screen: restore the window and fade the pages back in.</summary>
+    public void HideKeyCapture()
+    {
+        if (_captureMouse == null)
+            return;
+        _captureMouse = null;
+        if (_beforeCapture is { } before)
+        {
+            _beforeCapture = null;
+            WindowState = WindowState.Normal;
+            WindowStyle = before.Style;
+            ResizeMode = before.Resize;
+            WindowState = before.State;
+        }
+        Fade(MainArea, 1, null);
+        Fade(KeyCaptureOverlay, 0, () => KeyCaptureOverlay.Visibility = Visibility.Collapsed);
+    }
+
+    private void Fade(UIElement element, double to, Action? done)
+    {
+        void Finish()
+        {
+            element.BeginAnimation(OpacityProperty, null);
+            element.Opacity = to;
+            done?.Invoke();
+        }
+        if (!IsVisible || !SystemParameters.ClientAreaAnimation)
+        {
+            Finish();
+            return;
+        }
+        var animation = new System.Windows.Media.Animation.DoubleAnimation(to, TimeSpan.FromMilliseconds(200));
+        // Only the last fade of an element finishes it; a newer one replaces this.
+        animation.Completed += (_, _) =>
+        {
+            if (Math.Abs(element.Opacity - to) < 0.001)
+                Finish();
+        };
+        element.BeginAnimation(OpacityProperty, animation);
+    }
+
+    private void OnKeyCaptureMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _captureMouse?.Invoke(e.ChangedButton);
+    }
+
     /// <summary>Fade the startup screen out and the sidebar and pages in. No animation if the window is hidden or animations are off.</summary>
     private void EndStartup(bool focus)
     {

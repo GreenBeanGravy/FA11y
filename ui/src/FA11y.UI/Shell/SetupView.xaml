@@ -10,7 +10,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- "Setup: step 2 of 8" is drawn here and also given to each step's first text as its description. -->
+        <!-- "Setup: step 2 of 9" is drawn here and also given to each step's first text as its description. -->
         <c:HiddenText x:Name="StepCounter" Grid.Row="0" Margin="36,24,0,0"
                       Foreground="{StaticResource TextSecondary}" />
 
@@ -42,7 +42,23 @@
                 </c:RadioGroup>
             </StackPanel>
 
-            <!-- 4. Startup -->
+            <!-- 4. Fortnite experience -->
+            <StackPanel x:Name="ExperienceStep" Visibility="Collapsed">
+                <c:ReadableText x:Name="ExperienceIntro" Separator=". " Margin="12" MaxWidth="560" />
+                <c:RadioGroup x:Name="PlayedGroup" Header="Have you played Fortnite before?" Margin="12,0,12,0">
+                    <StackPanel>
+                        <c:RadioOption x:Name="PlayedNo" IsChecked="True" Content="No, I'm new to Fortnite"
+                                       Checked="OnPlayedChanged" />
+                        <c:RadioOption x:Name="PlayedYes" Content="Yes, I've played before" Checked="OnPlayedChanged" />
+                    </StackPanel>
+                </c:RadioGroup>
+                <c:CheckOption x:Name="ResetSensitivityBox" Visibility="Collapsed" Margin="12,8,12,0"
+                               HorizontalAlignment="Left"
+                               Content="I reset my in-game sensitivity. Turn on Reset sensitivity"
+                               AutomationProperties.HelpText="Turn this on if you reset Fortnite's mouse sensitivity settings to their defaults. It changes how far the Recenter key moves the camera. Leave it off if you're not sure." />
+            </StackPanel>
+
+            <!-- 5. Startup -->
             <StackPanel x:Name="StartupStep" Visibility="Collapsed">
                 <c:ReadableText x:Name="StartupIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <StackPanel Margin="12,0,12,0">
@@ -59,19 +75,19 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- 5. Speech -->
+            <!-- 6. Speech -->
             <StackPanel x:Name="SpeechStep" Visibility="Collapsed">
                 <c:ReadableText x:Name="SpeechIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <c:RadioGroup x:Name="SpeechGroup" Header="Speech style" Margin="12,0,12,0">
                     <StackPanel>
                         <c:RadioOption IsChecked="True"
-                                       Content="Verbose: full sentences, more context (recommended for new users)" />
-                        <c:RadioOption Content="Simplified: shorter, terser announcements" />
+                                       Content="Full: names what each number is, like &quot;100 Health, 50 Shield&quot; (recommended)" />
+                        <c:RadioOption Content="Short: just the numbers, like &quot;100, 50&quot;" />
                     </StackPanel>
                 </c:RadioGroup>
             </StackPanel>
 
-            <!-- 6. Audio -->
+            <!-- 7. Audio -->
             <StackPanel x:Name="AudioStep" Visibility="Collapsed">
                 <c:ReadableText x:Name="AudioIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <StackPanel Orientation="Horizontal" Margin="12,0,12,0">
@@ -83,7 +99,7 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- 7. Mouse -->
+            <!-- 8. Mouse -->
             <StackPanel x:Name="MouseStep" Visibility="Collapsed">
                 <c:ReadableText x:Name="MouseIntro" Separator=". " Margin="12" MaxWidth="560" />
                 <StackPanel Orientation="Horizontal" Margin="12,0,12,0">
@@ -97,7 +113,7 @@
                                AutomationProperties.HelpText="Routes your mouse through the FakerInput driver so FA11y's turn / look keys produce smooth in-game movement." />
             </StackPanel>
 
-            <!-- 8. Done -->
+            <!-- 9. Done -->
             <StackPanel x:Name="DoneStep" Visibility="Collapsed">
                 <c:ReadableText x:Name="DoneIntro" Separator=". " Margin="12" MaxWidth="560" />
             </StackPanel>
