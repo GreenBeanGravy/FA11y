@@ -962,6 +962,7 @@ def _complete_epic_login(restored: bool, first_run: bool) -> None:
         # Let MatchEventMonitor turn partial Fortnite-log ids into display
         # names, and suppress self-adds.
         match_event_monitor.name_resolver = social_manager.resolve_name_from_partial_id
+        match_event_monitor.social_hint = social_manager.refresh_soon
         match_event_monitor.local_account_id = epic_auth.account_id
         print(f"Social features enabled for {epic_auth.display_name}")
         from lib.hub import account_ops

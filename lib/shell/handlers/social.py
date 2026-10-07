@@ -264,3 +264,135 @@ def leave_party(_params: dict) -> dict:
     manager.leave_party()
     time.sleep(2 * SETTLE_SECONDS)
     return {}
+
+
+# Party invites and join requests ----------------------------------------------------------
+
+
+def invites_payload(manager: SocialManager) -> dict:
+    invites, join_requests = manager.invites_view()
+    count = len(invites) + len(join_requests)
+    return {
+        "invites": [{"id": i.from_account_id, "name": manager._ensure_display_name(i.from_display_name)}
+                    for i in invites],
+        "join_requests": [{"id": r.account_id, "name": manager._ensure_display_name(r.display_name)}
+                          for r in join_requests],
+        "summary": f"{count} pending" if count else "No party invites or join requests",
+    }
+
+
+@handler("social.invites")
+def social_invites(params: dict) -> dict:
+    manager = _require()
+    if params.get("refresh"):
+        manager.force_refresh_data("party")
+    return invites_payload(manager)
+
+
+def _answer(params: dict, accept: bool) -> dict:
+    manager = _require()
+    account_id = str(params.get("id", ""))
+    if params.get("kind") == "join_request":
+        request = manager.find_join_request(account_id)
+        if request is None:
+            return {"message": "That request is no longer pending."}
+        (manager._accept_join_request if accept else manager._decline_join_request)(request)
+    else:
+        invite = manager.find_invite(account_id)
+        if invite is None:
+            return {"message": "That invite is no longer pending."}
+        (manager._accept_party_invite if accept else manager._decline_party_invite)(invite)
+    time.sleep(SETTLE_SECONDS)
+    return {}
+
+
+@handler("social.accept_invite")
+def accept_invite(params: dict) -> dict:
+    return _answer(params, accept=True)
+
+
+@handler("social.decline_invite")
+def decline_invite(params: dict) -> dict:
+    return _answer(params, accept=False)
+
+
+# Messages -----------------------------------------------------------------------------------
+
+_chat_listening: Optional[SocialManager] = None
+
+
+def _chat_changed(conversation_id: str) -> None:
+    hub = get_hub()
+    if hub is not None:
+        hub.send("social.chat", {"id": conversation_id})
+
+
+def _chat_manager() -> SocialManager:
+    manager = _require()
+    global _chat_listening
+    if manager is not _chat_listening:
+        _chat_listening = manager
+        manager.chat_listeners.append(_chat_changed)
+    return manager
+
+
+def _eos_call(call):
+    """Run an Epic call; an EosError becomes {"message": reason} for the page to speak."""
+    from lib.utilities.epic_eos import EosError
+    try:
+        return call()
+    except EosError as e:
+        return {"message": str(e)}
+
+
+def message_lines(manager: SocialManager, messages: list) -> list:
+    me = manager.auth.account_id
+    lines = []
+    for message in messages:
+        who = "You" if message.sender_id == me else manager.name_for(message.sender_id)
+        when = message.sent_at.astimezone().strftime("%I:%M %p").lstrip("0") if message.sent_at else ""
+        lines.append({"sender": who, "text": message.text, "time": when, "me": message.sender_id == me})
+    return lines
+
+
+@handler("social.chats")
+def social_chats(_params: dict) -> dict:
+    manager = _chat_manager()
+
+    def load():
+        rows = manager.conversations_view()
+        return {"chats": [{"id": c.id, "type": c.type, "title": title, "members": c.members, "unread": c.unread}
+                          for c, title in rows]}
+    return _eos_call(load)
+
+
+@handler("social.chat_messages")
+def social_chat_messages(params: dict) -> dict:
+    manager = _chat_manager()
+    conversation_id = str(params.get("id", ""))
+    kind = str(params.get("type") or "dm")
+    return _eos_call(lambda: {"messages": message_lines(
+        manager, manager.conversation_messages(conversation_id, kind))})
+
+
+@handler("social.open_dm")
+def social_open_dm(params: dict) -> dict:
+    """The DM conversation with a friend, for the Message button on the Friends tab."""
+    manager = _chat_manager()
+    friend = _friend(manager, params)
+    return _eos_call(lambda: {"id": manager.dm_conversation(friend.account_id), "type": "dm",
+                              "title": friend_name(friend), "members": [manager.auth.account_id, friend.account_id]})
+
+
+@handler("social.send_message")
+def social_send_message(params: dict) -> dict:
+    manager = _chat_manager()
+    conversation_id = str(params.get("id", ""))
+    members = [str(m) for m in params.get("members") or []]
+    text = str(params.get("text") or "")
+    party = params.get("type") == "epic_party"
+
+    def send():
+        manager.send_chat_message(conversation_id, members, text, party=party)
+        return {}
+    return _eos_call(send)

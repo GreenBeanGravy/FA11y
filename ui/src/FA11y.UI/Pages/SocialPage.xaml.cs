@@ -14,14 +14,16 @@ namespace FA11y.UI.Pages;
 /// <param name="Name">What type-ahead matches and the row says (without the favorite star).</param>
 /// <param name="Display">What is drawn.</param>
 /// <param name="Spoken">What a screen reader says for the row.</param>
-public sealed record SocialRow(string Id, string Name, string Display, string Spoken, bool Incoming = true, bool Me = false)
+public sealed record SocialRow(string Id, string Name, string Display, string Spoken, bool Incoming = true, bool Me = false,
+    string Kind = "")
 {
     public override string ToString() => Spoken;
 }
 
 /// <summary>
-/// Friends, friend requests, party and your own account stats. Enter invites (friends) or
-/// accepts (requests), F favorites, Delete declines, up and down wrap, and typing jumps to a name. Lists come from the core's cached data; changing tab asks the core to refresh.
+/// Friends, friend requests, party, party invites, messages and your own account stats. Enter invites
+/// (friends) or accepts (requests and invites), F favorites, Delete declines, up and down wrap, and typing
+/// jumps to a name. Lists come from the core's cached data; changing tab asks the core to refresh.
 /// </summary>
 public partial class SocialPage : PageBase
 {
@@ -33,7 +35,10 @@ public partial class SocialPage : PageBase
     private bool _available;
     private bool _busy;
     private bool _accountLoaded;
-    private int _friendsVersion, _requestsVersion, _partyVersion;
+    private int _friendsVersion, _requestsVersion, _partyVersion, _invitesVersion, _chatsVersion, _historyVersion;
+    private readonly Dictionary<string, (string Type, List<string> Members)> _chats = new();
+    private string? _openChat;
+    private (string Id, string Type, List<string> Members, string Title)? _pendingChat;
     private bool _partyHasMembers;
     private string _partySummary = "Not in a party";
     private readonly DispatcherTimer _searchTimer;
@@ -81,7 +86,9 @@ public partial class SocialPage : PageBase
         {
             1 => RequestsList,
             2 => PartyList,
-            3 => EpicText,
+            3 => InvitesList,
+            4 => ChatsList,
+            5 => EpicText,
             _ => FriendsList,
         };
     }
@@ -121,6 +128,8 @@ public partial class SocialPage : PageBase
         0 => LoadFriends(refresh, announce),
         1 => LoadRequests(refresh, announce),
         2 => LoadParty(refresh, announce),
+        3 => LoadInvites(refresh, announce),
+        4 => LoadChats(announce),
         // The stats cost three Epic calls: only when asked for, or when never loaded.
         _ => refresh || !_accountLoaded ? LoadAccount() : Task.CompletedTask,
     };
@@ -215,6 +224,126 @@ public partial class SocialPage : PageBase
         {
             Log.Error("social.party failed", e);
         }
+    }
+
+    private async Task LoadInvites(bool refresh, bool announce)
+    {
+        var version = ++_invitesVersion;
+        try
+        {
+            var result = await App.Bridge.RequestAsync("social.invites", new { refresh });
+            if (version != _invitesVersion)
+                return;
+            var rows = result.GetProperty("invites").EnumerateArray()
+                .Select(i =>
+                {
+                    var label = $"Party invite from {i.Str("name")}";
+                    return new SocialRow(i.Str("id"), i.Str("name"), label, label, Kind: "invite");
+                })
+                .Concat(result.GetProperty("join_requests").EnumerateArray().Select(r =>
+                {
+                    var label = $"{r.Str("name")} wants to join your party";
+                    return new SocialRow(r.Str("id"), r.Str("name"), label, label, Kind: "join_request");
+                })).ToList();
+            SetRows(InvitesList, rows);
+            if (announce)
+                Say(result.Str("summary"));
+        }
+        catch (Exception e)
+        {
+            Log.Error("social.invites failed", e);
+        }
+    }
+
+    private async Task LoadChats(bool announce, string? select = null)
+    {
+        var version = ++_chatsVersion;
+        try
+        {
+            var result = await App.Bridge.RequestAsync("social.chats", null, TimeSpan.FromSeconds(30));
+            if (version != _chatsVersion)
+                return;
+            if (result.Str("message") is { Length: > 0 } problem)
+            {
+                Say(problem);
+                return;
+            }
+            _chats.Clear();
+            var rows = new List<SocialRow>();
+            foreach (var chat in result.GetProperty("chats").EnumerateArray())
+            {
+                var id = chat.Str("id");
+                _chats[id] = (chat.Str("type"),
+                    chat.GetProperty("members").EnumerateArray().Select(m => m.GetString() ?? "").ToList());
+                var title = chat.Str("title");
+                var unread = chat.TryGetProperty("unread", out var u) ? u.GetInt32() : 0;
+                var label = unread > 0 ? $"{title}, {unread} unread" : title;
+                rows.Add(new SocialRow(id, title, label, label));
+            }
+            // A DM that has no messages yet isn't in Epic's list: show it anyway when it was just opened.
+            if (select != null && rows.All(r => r.Id != select) && _pendingChat is { } pending && pending.Id == select)
+            {
+                _chats[select] = (pending.Type, pending.Members);
+                rows.Insert(0, new SocialRow(select, pending.Title, pending.Title, pending.Title));
+            }
+            SetRows(ChatsList, rows);
+            if (select != null)
+            {
+                var index = rows.FindIndex(r => r.Id == select);
+                if (index >= 0)
+                    ChatsList.SelectedIndex = index;
+            }
+            if (announce)
+                Say(rows.Count == 0 ? "No conversations" : $"{rows.Count} conversations");
+            if (ChatsList.SelectedItem is SocialRow row && row.Id != _openChat)
+                await LoadHistory(row.Id, announce: false);
+        }
+        catch (Exception e)
+        {
+            Log.Error("social.chats failed", e);
+        }
+    }
+
+    private async Task LoadHistory(string id, bool announce)
+    {
+        var version = ++_historyVersion;
+        _openChat = id;
+        try
+        {
+            var type = _chats.TryGetValue(id, out var info) ? info.Type : "dm";
+            var result = await App.Bridge.RequestAsync("social.chat_messages", new { id, type }, TimeSpan.FromSeconds(30));
+            if (version != _historyVersion)
+                return;
+            if (result.Str("message") is { Length: > 0 } problem)
+            {
+                HistoryText.Text = problem;
+                return;
+            }
+            var lines = result.GetProperty("messages").EnumerateArray()
+                .Select(m => $"{m.Str("sender")}, {m.Str("time")}: {m.Str("text")}").ToList();
+            HistoryText.Text = lines.Count == 0 ? "No messages yet." : string.Join(Environment.NewLine, lines);
+            // Put the caret on the newest message, so reading starts there.
+            var last = HistoryText.Text.LastIndexOf(Environment.NewLine, StringComparison.Ordinal);
+            HistoryText.CaretIndex = last < 0 ? 0 : last + Environment.NewLine.Length;
+            HistoryText.ScrollToEnd();
+            if (announce && lines.Count > 0)
+                Say(lines[^1]);
+        }
+        catch (Exception e)
+        {
+            Log.Error("social.chat_messages failed", e);
+        }
+    }
+
+    /// <summary>The core got or sent a message in a conversation: show it if that conversation is open.</summary>
+    public void OnChatChanged(string id)
+    {
+        if (!_available || Tabs.SelectedIndex != 4)
+            return;
+        if (id == _openChat)
+            _ = LoadHistory(id, announce: false);
+        else
+            _ = LoadChats(announce: false);
     }
 
     private int _hordeRequest;
@@ -372,6 +501,46 @@ public partial class SocialPage : PageBase
         }
     }
 
+    private void OnInvitesKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None)
+            return;
+        if (Wrap(InvitesList, e))
+            return;
+        if (e.Key == WpfKey.Enter)
+        {
+            e.Handled = true;
+            OnAcceptInvite(sender, e);
+        }
+        else if (e.Key == WpfKey.Delete)
+        {
+            e.Handled = true;
+            OnDeclineInvite(sender, e);
+        }
+    }
+
+    private void OnChatsKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None)
+            return;
+        if (Wrap(ChatsList, e))
+            return;
+        if (e.Key == WpfKey.Enter)
+        {
+            e.Handled = true;
+            MessageBox.Focus();
+        }
+    }
+
+    private void OnMessageKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == WpfKey.Enter && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            OnSend(sender, e);
+        }
+    }
+
     private void OnFriendsDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is DependencyObject source && ItemsControl.ContainerFromElement(FriendsList, source) != null)
@@ -475,6 +644,85 @@ public partial class SocialPage : PageBase
                 await LoadRequests(refresh: false, announce: false);
                 break;
         }
+    }
+
+    private async void OnMessageFriend(object sender, RoutedEventArgs e)
+    {
+        if (Selected(FriendsList, "No friend selected") is not { } friend)
+            return;
+        var result = await Act("social.open_dm", new { id = friend.Id }, TimeSpan.FromSeconds(30));
+        if (result is not { } dm)
+            return;
+        if (dm.Str("message") is { Length: > 0 } problem)
+        {
+            Say(problem);
+            return;
+        }
+        var id = dm.Str("id");
+        _pendingChat = (id, "dm", dm.GetProperty("members").EnumerateArray().Select(m => m.GetString() ?? "").ToList(),
+            dm.Str("title"));
+        _chatsVersion++;  // the tab change starts a load without the selection; this one wins
+        Tabs.SelectedIndex = 4;
+        await LoadChats(announce: false, select: id);
+        Say($"Message {friend.Name}");
+        MessageBox.Focus();
+    }
+
+    // Party invites --------------------------------------------------------------------------------
+
+    private async void OnAcceptInvite(object sender, RoutedEventArgs e) => await AnswerInvite(accept: true);
+
+    private async void OnDeclineInvite(object sender, RoutedEventArgs e) => await AnswerInvite(accept: false);
+
+    private async Task AnswerInvite(bool accept)
+    {
+        if (Selected(InvitesList, "No invite selected") is not { } row)
+            return;
+        var result = await Act(accept ? "social.accept_invite" : "social.decline_invite",
+            new { id = row.Id, kind = row.Kind }, TimeSpan.FromSeconds(60));
+        if (result is not { } done)
+            return;
+        if (done.Str("message") is { Length: > 0 } message)
+            Say(message);
+        await LoadInvites(refresh: false, announce: false);
+    }
+
+    // Messages --------------------------------------------------------------------------------------
+
+    private void OnChatSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.OriginalSource == ChatsList && ChatsList.SelectedItem is SocialRow row && row.Id != _openChat)
+            _ = LoadHistory(row.Id, announce: false);
+    }
+
+    private async void OnSend(object sender, RoutedEventArgs e)
+    {
+        var text = MessageBox.Text.Trim();
+        if (text.Length == 0)
+        {
+            Say("Type a message first");
+            return;
+        }
+        if (ChatsList.SelectedItem is not SocialRow chat || !_chats.TryGetValue(chat.Id, out var info))
+        {
+            Say("Choose a conversation first");
+            return;
+        }
+        var result = await Act("social.send_message",
+            new { id = chat.Id, type = info.Type, members = info.Members, text }, TimeSpan.FromSeconds(30));
+        if (result is not { } done)
+        {
+            Say("Couldn't send the message.");
+            return;
+        }
+        if (done.Str("message") is { Length: > 0 } problem)
+        {
+            Say(problem);
+            return;
+        }
+        MessageBox.Text = "";
+        Say("Sent");
+        await LoadHistory(chat.Id, announce: false);
     }
 
     // Requests --------------------------------------------------------------------------------------

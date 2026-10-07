@@ -88,6 +88,7 @@ LABEL_OVERRIDES: Dict[str, str] = {
     "AnnounceMapStatus": "Announce map opening and closing",
     "AnnounceInventoryStatus": "Announce inventory opening and closing",
     "QuestAnnouncements": "Announce quest progress",
+    "AnnounceChatMessages": "Announce chat messages",
     "PlayPOISound": "Play POI direction sound",
     "MonitorDynamicObjects": "Play sounds for dynamic objects",
     "MonitorStorm": "Play storm sounds",
@@ -173,7 +174,7 @@ GROUPS: Dict[str, Tuple[Tuple[str, Tuple[str, ...]], ...]] = {
         ("Mouse and movement", ("MouseKeys", "ResetSensitivity", "MousePassthrough")),
         ("Announcements", ("SimplifySpeechOutput", "AnnounceAmmo", "AnnounceMapStatus",
                            "AnnounceInventoryStatus", "AnnounceSidebarStatus", "AnnounceUITabs",
-                           "QuestAnnouncements")),
+                           "QuestAnnouncements", "AnnounceChatMessages")),
         ("Match events", ()),
     ),
     "MatchEvents": (

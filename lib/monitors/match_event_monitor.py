@@ -90,13 +90,13 @@ _RE_FINAL_COUNTDOWN = re.compile(
 # their own config toggles - the API-polled versions they replace were also
 # always-on.
 #
-# OnPartyInviteReceived: someone invited you to their party.
-_RE_PARTY_INVITE_RECEIVED = re.compile(
-    r'LogOnlineParty:\s*MCP:\s*OnPartyInviteReceived:.*?Sender=\[(?P<sender>[^\]]+)\]'
-)
-# OnPingReceived: someone pinged you asking to join your party.
-_RE_PARTY_PING_RECEIVED = re.compile(
-    r'LogOnlineParty:\s*MCP:\s*OnPingReceived:.*?Sender=\[(?P<sender>[^\]]+)\]'
+# A party invite or a request to join arrived. Fortnite's Epic Parties log
+# lines carry only account ids, so the social manager announces them (with
+# names and the accept and decline keys) after fetching them; this only tells
+# it to fetch now instead of at its next poll.
+_RE_PARTY_SOCIAL_ARRIVED = re.compile(
+    r'LogNativeEpicParty:\s*\[(?:oss_invite_received|oss_invite_request_received|oss_invite_invalidated|'
+    r'oss_invite_request_invalidated)\]'
 )
 # JoinParty (local request kicked off) - carries the other party's display
 # name inline, which is a rare luxury in these logs.
@@ -262,6 +262,10 @@ class MatchEventMonitor(BaseMonitor):
         #   callable(partial_id: str) -> Optional[str]
         # Left as None means "announce with the partial id as-is".
         self.name_resolver = None
+
+        # Called when the log shows a party invite or join request arriving,
+        # so the social manager fetches and announces it right away.
+        self.social_hint = None
 
         # Local account id, set by FA11y at startup. Used to suppress
         # "joined the party" announcements for yourself when the Adding
@@ -614,20 +618,14 @@ class MatchEventMonitor(BaseMonitor):
                 self._speak(simple(f"Final countdown: {count} players left", f"Final countdown, {count} left"))
             return
 
-        # --- Party invite received (someone invited you to their party) ---
-        m = _RE_PARTY_INVITE_RECEIVED.search(line)
-        if m:
-            sender = m.group('sender')
-            name = self._resolve_party_identity(sender)
-            self._speak(simple(f"Party invite from {name}", f"Invite from {name}"))
-            return
-
-        # --- Ping received (someone requesting to join your party) ---
-        m = _RE_PARTY_PING_RECEIVED.search(line)
-        if m:
-            sender = m.group('sender')
-            name = self._resolve_party_identity(sender)
-            self._speak(simple(f"{name} is requesting to join your party", f"{name} wants to join"))
+        # --- Party invite or join request arrived or went away ---
+        if _RE_PARTY_SOCIAL_ARRIVED.search(line):
+            hint = self.social_hint
+            if hint is not None:
+                try:
+                    hint()
+                except Exception as e:
+                    logger.info(f"MatchEventMonitor: social_hint raised: {e}")
             return
 
         # --- You joined someone's party ---

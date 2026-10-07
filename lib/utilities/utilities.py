@@ -449,6 +449,7 @@ AnnounceMapStatus = true "Announces when the map opens or closes."
 AnnounceInventoryStatus = true "Announces when the inventory opens or closes."
 AnnounceSidebarStatus = true "Announces when the in-game sidebar or pause menu opens or closes."
 QuestAnnouncements = true "Announces saved quest progress and completion, checking your Epic account every 15 seconds. The first check is silent, and failed checks are retried less often."
+AnnounceChatMessages = true "Reads out direct messages and party chat messages from your Epic friends as they arrive, with who sent them."
 AnnounceUITabs = true "Announces the active tab as you move through the lobby (Play, Shop, Locker, Quests, Career, and others) and the in-game sidebar (Profile, Social, Chats, Add Friends, Menu, Exit)."
 MousePassthrough = true "Captures your configured mouse and relays it through the FakerInput driver."
 

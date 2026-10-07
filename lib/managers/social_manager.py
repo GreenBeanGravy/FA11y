@@ -12,7 +12,7 @@ from lib.app.speech import simple
 
 from lib.config.config_manager import config_manager
 from lib.utilities.epic_social import (
-    EpicSocial, Friend, FriendRequest, PartyInvite, PartyMember
+    EpicSocial, Friend, FriendRequest, JoinRequest, PartyInvite, PartyMember
 )
 
 logger = logging.getLogger(__name__)
@@ -99,6 +99,18 @@ class SocialManager:
         self.outgoing_requests: List[FriendRequest] = []
         self.party_members: List[PartyMember] = []
         self.party_invites: List[PartyInvite] = []
+        self.join_requests: List[JoinRequest] = []
+
+        # Invites and join requests already announced, so each is announced once
+        self._known_invites: set = set()
+        self._known_join_requests: set = set()
+        self._party_state_loaded = False
+
+        # Text chat: conversations, their recent messages, and the push channel that delivers new ones
+        self.chat = None
+        self.push = None
+        self.messages: Dict[str, list] = {}
+        self.chat_listeners: list = []
 
         # Favorite friends (store account IDs)
         self.favorite_friends: set = set()
@@ -241,6 +253,10 @@ class SocialManager:
         self.running = True
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.monitor_thread.start()
+        try:
+            self._start_chat()
+        except Exception as e:
+            logger.error(f"Could not start chat: {e}")
         logger.debug("Social monitoring started")
 
     def stop_monitoring(self):
@@ -249,6 +265,7 @@ class SocialManager:
             return
 
         self.running = False
+        self._stop_chat()
         if self.monitor_thread:
             self.monitor_thread.join(timeout=2)
         logger.debug("Social monitoring stopped")
@@ -336,8 +353,7 @@ class SocialManager:
             # Make ALL API calls WITHOUT holding lock (can take 60+ seconds)
             friends = self.social_api.get_friends_list()
             requests = self.social_api.get_pending_requests()
-            party = self.social_api.get_current_party()
-            invites = self.social_api.get_party_invites()
+            party_state = self.social_api.get_party_state()
 
             # Now acquire lock ONLY to update shared state (takes < 1ms)
             with self.lock:
@@ -349,11 +365,7 @@ class SocialManager:
                     self.incoming_requests = [r for r in requests if r.direction == "inbound"]
                     self.outgoing_requests = [r for r in requests if r.direction == "outbound"]
 
-                if party is not None:
-                    self.party_members = party
-
-                if invites is not None:
-                    self.party_invites = invites
+                self._apply_party_state(party_state)
 
                 # Save to cache
                 self.save_cache()
@@ -363,8 +375,21 @@ class SocialManager:
         except Exception as e:
             logger.error(f"Error refreshing social data: {e}")
 
+    def _apply_party_state(self, party_state):
+        """Store (members, invites, join requests) from the party service. Call with the lock held."""
+        if party_state is None:
+            return
+        self.party_members, self.party_invites, self.join_requests = party_state
+
+    def refresh_soon(self):
+        """Fetch invites and requests now instead of at the next poll (the game log saw one arrive)."""
+        def _refresh():
+            self.refresh_fast_data()
+            self._check_for_new_items()
+        threading.Thread(target=_refresh, daemon=True).start()
+
     def refresh_fast_data(self):
-        """Refresh fast-changing data: party invites and friend requests (5s interval)"""
+        """Refresh fast-changing data: party, party invites, join requests and friend requests (5s interval)"""
         if not self.social_api:
             return
 
@@ -376,7 +401,7 @@ class SocialManager:
         try:
             # Make API calls WITHOUT holding lock
             requests = self.social_api.get_pending_requests()
-            invites = self.social_api.get_party_invites()
+            party_state = self.social_api.get_party_state()
 
             # Acquire lock ONLY to update shared state
             with self.lock:
@@ -385,8 +410,7 @@ class SocialManager:
                     self.incoming_requests = [r for r in requests if r.direction == "inbound"]
                     self.outgoing_requests = [r for r in requests if r.direction == "outbound"]
 
-                if invites is not None:
-                    self.party_invites = invites
+                self._apply_party_state(party_state)
 
             self.notify_changed()
 
@@ -406,15 +430,11 @@ class SocialManager:
         try:
             # Make API calls WITHOUT holding lock
             friends = self.social_api.get_friends_list()
-            party = self.social_api.get_current_party()
 
             # Acquire lock ONLY to update shared state
             with self.lock:
                 if friends is not None:
                     self.all_friends = friends
-
-                if party is not None:
-                    self.party_members = party
 
                 # Save to cache after slow refresh
                 self.save_cache()
@@ -624,45 +644,28 @@ class SocialManager:
             current_outgoing_count = len(self.outgoing_requests)
             self.prev_outgoing_count = current_outgoing_count
 
-            # Check for new party invites
-            # NOTE: Announcements for invites come from
-            # MatchEventMonitor, which parses `OnPartyInviteReceived` and
-            # `OnPingReceived` from the Fortnite log with sub-second
-            # latency. We keep the API-polled count-change logic here only
-            # to drive auto-accept for invites that came in response to
-            # join requests we sent.
-            current_invite_count = len(self.party_invites)
-            if current_invite_count > self.prev_party_invite_count:
-                new_count = current_invite_count - self.prev_party_invite_count
-                if new_count == 1 and self.party_invites:
-                    latest_invite = self.party_invites[0]
+            # New party invites and join requests. The first load only learns what is already
+            # pending, so starting FA11y doesn't announce old invites.
+            new_invites = [i for i in self.party_invites if i.from_account_id not in self._known_invites]
+            new_join_requests = [r for r in self.join_requests if r.account_id not in self._known_join_requests]
+            self._known_invites = {i.from_account_id for i in self.party_invites}
+            self._known_join_requests = {r.account_id for r in self.join_requests}
+            first_load = not self._party_state_loaded
+            self._party_state_loaded = True
+            self.prev_party_invite_count = len(self.party_invites)
 
-                    # Check if this invite is from someone we sent a join request to
-                    from_account_id = latest_invite.from_account_id
-                    if from_account_id in self.outgoing_join_requests:
-                        timestamp, display_name = self.outgoing_join_requests[from_account_id]
-                        age = (datetime.now() - timestamp).total_seconds()
-
-                        if age <= self.join_request_timeout:
-                            # Check if we can auto-accept (Fortnite must be focused)
-                            from lib.utilities.window_utils import get_active_window_title
-                            active_title = get_active_window_title()
-
-                            if active_title and "Fortnite" in active_title:
-                                # Auto-accept! They accepted our join request
-                                logger.debug(f"Auto-accepting invite from {display_name} (responded to our join request)")
-                                # Remove from tracking
-                                del self.outgoing_join_requests[from_account_id]
-                                # Accept outside of lock
-                                threading.Thread(
-                                    target=self._auto_accept_party_invite,
-                                    args=(latest_invite, display_name),
-                                    daemon=True
-                                ).start()
-                            # Else: MatchEventMonitor already announced the
-                            # invite; nothing extra to do here.
-
-            self.prev_party_invite_count = current_invite_count
+        if not first_load:
+            for invite in new_invites:
+                # An invite from someone we asked to join: they accepted, so join them.
+                requested = self.outgoing_join_requests.pop(invite.from_account_id, None)
+                if requested and (datetime.now() - requested[0]).total_seconds() <= self.join_request_timeout:
+                    threading.Thread(target=self._auto_accept_party_invite,
+                                     args=(invite, requested[1]), daemon=True).start()
+                else:
+                    self._show_notification(invite, "party_invite")
+            for request in new_join_requests:
+                self._show_notification(request, "join_request")
+        self._drop_stale_notifications()
 
         # NOTE: Party member joined/left announcements are now driven by
         # MatchEventMonitor parsing `LogParty: Verbose: Adding [<name>]`
@@ -707,23 +710,19 @@ class SocialManager:
 
         # Announce notification
         name = self._ensure_display_name(
-            item.display_name if item_type == "friend_request" else item.from_display_name
+            item.from_display_name if item_type == "party_invite" else item.display_name
         )
-
-        if item_type == "friend_request":
-            if self.notification_queue:
-                # More notifications waiting
-                speaker.speak(simple(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.", f"Friend request from {name}. Alt Y accept, Alt N decline. Next in 15 seconds."))
-            else:
-                # This is the only notification
-                speaker.speak(simple(f"New friend request from {name}. Press Alt Y to accept, Alt N to decline.", f"Friend request from {name}. Alt Y accept, Alt N decline."))
-        else:  # party_invite
-            if self.notification_queue:
-                # More notifications waiting
-                speaker.speak(simple(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.", f"Party invite from {name}. Alt Y accept, Alt N decline. Next in 15 seconds."))
-            else:
-                # This is the only notification
-                speaker.speak(simple(f"New party invite from {name}. Press Alt Y to accept, Alt N to decline.", f"Party invite from {name}. Alt Y accept, Alt N decline."))
+        what = {
+            "friend_request": (f"New friend request from {name}", f"Friend request from {name}"),
+            "party_invite": (f"New party invite from {name}", f"Party invite from {name}"),
+            "join_request": (f"{name} wants to join your party", f"{name} wants to join"),
+        }[item_type]
+        if self.notification_queue:
+            speaker.speak(simple(f"{what[0]}. Press Alt Y to accept, Alt N to decline. Next notification in 15 seconds.",
+                                 f"{what[1]}. Alt Y accept, Alt N decline. Next in 15 seconds."))
+        else:
+            speaker.speak(simple(f"{what[0]}. Press Alt Y to accept, Alt N to decline.",
+                                 f"{what[1]}. Alt Y accept, Alt N decline."))
 
         # Start 15-second timer only if there are more notifications in queue
         if self.notification_queue:
@@ -763,6 +762,8 @@ class SocialManager:
         # Perform accept action (outside lock)
         if item_type == "friend_request":
             self._accept_friend_request(item)
+        elif item_type == "join_request":
+            self._accept_join_request(item)
         else:  # party_invite
             self._accept_party_invite(item)
 
@@ -788,12 +789,36 @@ class SocialManager:
         # Perform decline action (outside lock)
         if item_type == "friend_request":
             self._decline_friend_request(item)
+        elif item_type == "join_request":
+            self._decline_join_request(item)
         else:  # party_invite
             self._decline_party_invite(item)
 
         # Process next notification after declining
         with self.notification_lock:
             self._process_next_notification()
+
+    def _drop_stale_notifications(self):
+        """Forget invites and join requests that were withdrawn, expired or answered in the game."""
+        with self.lock:
+            invites = {i.from_account_id for i in self.party_invites}
+            join_requests = {r.account_id for r in self.join_requests}
+
+        def pending(item, item_type) -> bool:
+            if item_type == "party_invite":
+                return item.from_account_id in invites
+            if item_type == "join_request":
+                return item.account_id in join_requests
+            return True
+
+        with self.notification_lock:
+            self.notification_queue = [(i, t) for i, t in self.notification_queue if pending(i, t)]
+            if self.current_notification and not pending(*self.current_notification):
+                self.current_notification = None
+                if self.notification_timer:
+                    self.notification_timer.cancel()
+                    self.notification_timer = None
+                self._process_next_notification()
 
     def save_cache(self):
         """Save social data to cache file"""
@@ -890,6 +915,8 @@ class SocialManager:
                 tuple((r.account_id, r.display_name, r.direction)
                       for r in self.incoming_requests + self.outgoing_requests),
                 tuple((m.account_id, m.display_name, m.is_leader) for m in self.party_members),
+                tuple(i.from_account_id for i in self.party_invites),
+                tuple(r.account_id for r in self.join_requests),
                 frozenset(self.favorite_friends),
             )
         if signature == self._change_signature:
@@ -1417,221 +1444,185 @@ class SocialManager:
             logger.error(f"Error declining friend request: {e}")
             speaker.speak("Error declining friend request")
 
-    def _minimize_social_gui_safe(self):
-        """Minimize social GUI if open - thread-safe version"""
-        import wx
+    def _party_error(self, fallback: str) -> str:
+        """The reason the last party action failed, or the fallback."""
+        return getattr(self.social_api, "last_party_error", "") or fallback
 
-        minimized_window = [None]  # Use list to allow modification in nested function
-
-        def _do_minimize():
-            """Run on main thread"""
-            try:
-                app = wx.GetApp()
-                if app:
-                    for window in wx.GetTopLevelWindows():
-                        if window.IsShown() and window.GetTitle() == "Social Menu":
-                            window.Iconize(True)
-                            minimized_window[0] = window
-                            break
-            except Exception as e:
-                logger.error(f"Error minimizing GUI: {e}")
-
-        # Schedule on main thread and wait for completion
-        if wx.IsMainThread():
-            _do_minimize()
-        else:
-            wx.CallAfter(_do_minimize)
-            time.sleep(0.3)  # Give main thread time to process
-
-        return minimized_window[0]
-
-    def _restore_social_gui_safe(self, window):
-        """Restore social GUI - thread-safe version"""
-        import wx
-
-        if not window:
-            return
-
-        def _do_restore():
-            """Run on main thread"""
-            try:
-                window.Iconize(False)
-                window.Raise()
-                window.SetFocus()
-            except Exception as e:
-                logger.debug(f"Could not restore window: {e}")
-
-        # Schedule on main thread
-        if wx.IsMainThread():
-            _do_restore()
-        else:
-            wx.CallAfter(_do_restore)
-
-    def _accept_party_invite(self, invite: PartyInvite, gui_window=None):
-        """Accept a party invite using Fortnite client (ESC key method)"""
-        speaker.speak(simple(f"Joining {invite.from_display_name}'s party", f"Joining {invite.from_display_name}"))
-
+    def _accept_party_invite(self, invite: PartyInvite, announce: bool = True):
+        """Join the inviter's party. The running game follows on its own, with no sidebar."""
+        name = self._ensure_display_name(invite.from_display_name)
+        if announce:
+            speaker.speak(simple(f"Joining {name}'s party", f"Joining {name}"))
         try:
-            import pyautogui
-            from lib.utilities.mouse import instant_click, get_screen_size
-            from lib.utilities.window_utils import focus_fortnite
-
-            # Minimize social GUI if open (thread-safe)
-            minimized_window = self._minimize_social_gui_safe()
-
-            # Focus Fortnite window (uses process name, more reliable)
-            if focus_fortnite():
-                time.sleep(0.2)  # Give window time to focus
-
-                # Ensure focus before clicking
-                focus_fortnite()
-                time.sleep(0.1)
-
-                # Click center of screen to ensure Fortnite is ready
-                screen_width, screen_height = get_screen_size()
-                center_x = screen_width // 2
-                center_y = screen_height // 2
-                instant_click(center_x, center_y)
-                time.sleep(0.2)
-
-                # Ensure focus before first escape
-                focus_fortnite()
-                time.sleep(0.1)
-
-                # Hold ESC for 1.5 seconds to accept through Fortnite client
-                pyautogui.keyDown('escape')
+            if self.social_api.accept_party_invite(invite):
+                speaker.speak(simple(f"Joined {name}'s party", f"Joined {name}"))
                 time.sleep(1.5)
-                pyautogui.keyUp('escape')
-
-                # Extra hold escape to ensure acceptance
-                time.sleep(0.2)
-
-                # Ensure focus before second escape
-                focus_fortnite()
-                time.sleep(0.1)
-
-                pyautogui.keyDown('escape')
-                time.sleep(1.5)
-                pyautogui.keyUp('escape')
+                self.refresh_fast_data()
             else:
-                logger.warning(f"Cannot accept invite: Failed to focus Fortnite")
-                speaker.speak("Cannot join. Failed to focus Fortnite.")
-
-            # Give it a moment to process
-            time.sleep(2)
-
-            # Restore the window if it was minimized (thread-safe)
-            self._restore_social_gui_safe(minimized_window)
-
-            # Check if we joined by monitoring party members
-            initial_party_size = len(self.party_members)
-            self.refresh_all_data()
-            new_party_size = len(self.party_members)
-
-            if new_party_size > initial_party_size:
-                speaker.speak("Joined party")
-            else:
-                # Still might have joined, refresh again
-                time.sleep(1)
-                self.refresh_all_data()
-                if len(self.party_members) > initial_party_size:
-                    speaker.speak("Joined party")
-
+                speaker.speak(self._party_error("Couldn't join the party."))
         except Exception as e:
             logger.error(f"Error accepting party invite: {e}")
             speaker.speak("Error joining party")
 
     def _auto_accept_party_invite(self, invite: PartyInvite, display_name: str):
-        """Auto-accept a party invite (when they respond to our join request) using Fortnite client"""
-        speaker.speak(simple(f"{display_name} accepted your request. Joining party...", f"{display_name} accepted. Joining party"))
-
-        try:
-            import pyautogui
-            from lib.utilities.mouse import instant_click, get_screen_size
-            from lib.utilities.window_utils import focus_fortnite
-
-            # Minimize social GUI if open (thread-safe)
-            minimized_window = self._minimize_social_gui_safe()
-
-            # Focus Fortnite window (uses process name, more reliable)
-            if focus_fortnite():
-                time.sleep(0.2)  # Give window time to focus
-
-                # Ensure focus before clicking
-                focus_fortnite()
-                time.sleep(0.1)
-
-                # Click center of screen to ensure Fortnite is ready
-                screen_width, screen_height = get_screen_size()
-                center_x = screen_width // 2
-                center_y = screen_height // 2
-                instant_click(center_x, center_y)
-                time.sleep(0.2)
-
-                # Ensure focus before first escape
-                focus_fortnite()
-                time.sleep(0.1)
-
-                # Hold ESC for 1.5 seconds to accept through Fortnite client
-                pyautogui.keyDown('escape')
-                time.sleep(1.5)
-                pyautogui.keyUp('escape')
-
-                # Extra hold escape to ensure acceptance
-                time.sleep(0.2)
-
-                # Ensure focus before second escape
-                focus_fortnite()
-                time.sleep(0.1)
-
-                pyautogui.keyDown('escape')
-                time.sleep(1.5)
-                pyautogui.keyUp('escape')
-            else:
-                logger.warning(f"Cannot auto-accept invite: Failed to focus Fortnite")
-                # We don't speak here to avoid interrupting, just log
-
-            # Monitor party status to see if join was successful
-            time.sleep(2)
-
-            # Restore the window if it was minimized (thread-safe)
-            self._restore_social_gui_safe(minimized_window)
-
-            # Check if we joined by monitoring party members
-            initial_party_size = len(self.party_members)
-            self.refresh_all_data()
-            new_party_size = len(self.party_members)
-
-            if new_party_size > initial_party_size:
-                speaker.speak("Joined party")
-            else:
-                # Still might have joined, refresh again
-                time.sleep(1)
-                self.refresh_all_data()
-                if len(self.party_members) > initial_party_size:
-                    speaker.speak("Joined party")
-
-        except Exception as e:
-            logger.error(f"Error auto-accepting party invite: {e}")
-            speaker.speak("Error joining party")
+        """They accepted our request to join: join them."""
+        speaker.speak(simple(f"{display_name} accepted your request. Joining party", f"{display_name} accepted. Joining"))
+        self._accept_party_invite(invite, announce=False)
 
     def _decline_party_invite(self, invite: PartyInvite):
         """Decline a party invite"""
         speaker.speak(simple("Declining party invite", "Declining"))
-
         try:
-            success = self.social_api.decline_party_invite(invite.party_id, invite.invite_id)
-
-            if success:
+            if self.social_api.decline_party_invite(invite):
                 speaker.speak(simple("Party invite declined", "Declined"))
-                # Refresh data
-                threading.Thread(target=self.refresh_all_data, daemon=True).start()
+                threading.Thread(target=self.refresh_fast_data, daemon=True).start()
             else:
-                speaker.speak("Failed to decline party invite")
-
+                speaker.speak(self._party_error("Failed to decline party invite"))
         except Exception as e:
             logger.error(f"Error declining party invite: {e}")
             speaker.speak("Error declining party invite")
+
+    def _accept_join_request(self, request: JoinRequest):
+        """Let someone who asked to join into our party."""
+        name = self._ensure_display_name(request.display_name)
+        speaker.speak(simple(f"Letting {name} join", f"Accepting {name}"))
+        try:
+            if self.social_api.accept_join_request(request.account_id):
+                speaker.speak(simple(f"{name} can join your party", f"Accepted {name}"))
+                threading.Thread(target=self.refresh_fast_data, daemon=True).start()
+            else:
+                speaker.speak(self._party_error("Couldn't accept the request."))
+        except Exception as e:
+            logger.error(f"Error accepting join request: {e}")
+            speaker.speak("Error accepting the request")
+
+    def _decline_join_request(self, request: JoinRequest):
+        speaker.speak(simple("Declining join request", "Declining"))
+        try:
+            if self.social_api.decline_join_request(request.account_id):
+                speaker.speak(simple("Join request declined", "Declined"))
+                threading.Thread(target=self.refresh_fast_data, daemon=True).start()
+            else:
+                speaker.speak(self._party_error("Couldn't decline the request."))
+        except Exception as e:
+            logger.error(f"Error declining join request: {e}")
+            speaker.speak("Error declining the request")
+
+    def find_invite(self, account_id: str) -> Optional[PartyInvite]:
+        with self.lock:
+            return next((i for i in self.party_invites if i.from_account_id == account_id), None)
+
+    def find_join_request(self, account_id: str) -> Optional[JoinRequest]:
+        with self.lock:
+            return next((r for r in self.join_requests if r.account_id == account_id), None)
+
+    def invites_view(self):
+        """(party invites, join requests)."""
+        with self.lock:
+            return list(self.party_invites), list(self.join_requests)
+
+    # ========== Text chat ==========
+
+    def _start_chat(self):
+        """Open the push channel that delivers new messages."""
+        if self.chat is not None or not self.social_api:
+            return
+        from lib.utilities.epic_chat import EpicChat
+        from lib.utilities.epic_push import PushListener
+        session = self.social_api.parties.session
+        self.chat = EpicChat(session)
+        self.push = PushListener(session, self._on_push_event)
+        self.push.start()
+
+    def _stop_chat(self):
+        if self.push:
+            self.push.stop()
+        self.push = None
+        self.chat = None
+
+    def name_for(self, account_id: str) -> str:
+        """A display name for an account: a friend's or party member's name, else a lookup."""
+        with self.lock:
+            for person in self.all_friends + self.party_members:
+                if person.account_id == account_id and person.display_name:
+                    return self._ensure_display_name(person.display_name)
+        return self._ensure_display_name(account_id)
+
+    def _announce_chat_enabled(self) -> bool:
+        from lib.utilities.utilities import read_config, get_config_boolean
+        return get_config_boolean(read_config(), "AnnounceChatMessages", True)
+
+    def _on_push_event(self, event: dict):
+        from lib.utilities.epic_chat import parse_message
+        payload = event.get("payload") or {}
+        conversation = payload.get("conversation") or {}
+        if "message" not in payload or not conversation.get("conversationId"):
+            # Party changes (someone joined, left, the party was replaced) arrive here first.
+            if str(event.get("type", "")).startswith("party."):
+                self.refresh_soon()
+            return
+        message = parse_message(payload, conversation["conversationId"], conversation.get("type", "dm"))
+        if message is None:
+            return
+        self._add_messages(message.conversation_id, [message])
+        if message.sender_id != self.auth.account_id and self._announce_chat_enabled():
+            name = self.name_for(message.sender_id)
+            if message.conversation_type == "dm":
+                speaker.speak(simple(f"Message from {name}: {message.text}", f"{name}: {message.text}"))
+            else:
+                speaker.speak(simple(f"{name} in party chat: {message.text}", f"Party, {name}: {message.text}"))
+
+    def _add_messages(self, conversation_id: str, new_messages: list):
+        with self.lock:
+            known = self.messages.setdefault(conversation_id, [])
+            ids = {m.id for m in known}
+            known.extend(m for m in new_messages if m.id not in ids)
+            known.sort(key=lambda m: m.sent_at.timestamp() if m.sent_at else 0)
+        for listener in list(self.chat_listeners):
+            try:
+                listener(conversation_id)
+            except Exception as e:
+                logger.debug(f"Chat listener failed: {e}")
+
+    def _require_chat(self):
+        from lib.utilities.epic_eos import EosError
+        if self.chat is None:
+            self._start_chat()
+        if self.chat is None:
+            raise EosError("Sign in on the Epic account page to use chat.")
+        return self.chat
+
+    def conversations_view(self) -> list:
+        """[(conversation, title)]: the party chat first, then DMs. Calls Epic."""
+        chat = self._require_chat()
+        conversations = chat.conversations()
+        me = self.auth.account_id
+        with self.lock:
+            others = [m.account_id for m in self.party_members if m.account_id != me]
+        party_chat = getattr(self.social_api, "party_chat_id", "")
+        rows = []
+        for conversation in conversations:
+            if conversation.type == "dm":
+                rows.append((conversation, self.name_for(conversation.other_member(me))))
+        if party_chat and others:
+            from lib.utilities.epic_chat import Conversation
+            rows.append((Conversation(party_chat, "epic_party", [me] + others), "Party chat"))
+        rows.sort(key=lambda row: (row[0].type != "epic_party", row[1].lower()))
+        return rows
+
+    def conversation_messages(self, conversation_id: str, conversation_type: str = "dm") -> list:
+        """The conversation's history, oldest first. Calls Epic."""
+        history = self._require_chat().messages(conversation_id, conversation_type)
+        self._add_messages(conversation_id, history)
+        with self.lock:
+            return list(self.messages.get(conversation_id, []))
+
+    def dm_conversation(self, friend_id: str) -> str:
+        return self._require_chat().dm_conversation_id(friend_id)
+
+    def send_chat_message(self, conversation_id: str, members: list, text: str, party: bool = False):
+        """Send a message. Raises EosError with a spoken reason when it fails."""
+        self._require_chat().send(conversation_id, members, text, party=party)
 
     def _remove_friend(self, friend: Friend):
         """Remove a friend"""
@@ -1725,66 +1716,28 @@ class SocialManager:
 
     def _invite_friend_to_party(self, friend: Friend):
         """Invite a friend to party"""
-        # Ensure real display name
         display_name = self._ensure_display_name(friend.display_name)
         speaker.speak(simple(f"Inviting {display_name} to party", f"Inviting {display_name}"))
-
         try:
-            result = self.social_api.send_party_invite(friend.account_id)
-
-            if result == True:
+            if self.social_api.send_party_invite(friend.account_id):
                 speaker.speak(simple(f"Party invite sent to {display_name}", f"Invited {display_name}"))
-            elif result == "already_sent":
-                speaker.speak(simple(f"Party invite sent to {display_name}", f"Invited {display_name}")) # Treat as success for user feedback
             else:
-                # Retry logic for party detection
-                logger.debug("Initial invite failed, retrying party detection...")
-                self.refresh_slow_data() # Refresh party info
-                
-                # Try 2 more times
-                for i in range(2):
-                    if self.social_api.send_party_invite(friend.account_id):
-                        speaker.speak(simple(f"Party invite sent to {display_name}", f"Invited {display_name}"))
-                        return
-                
-                speaker.speak("Failed to send party invite. Make sure you're in a party")
-
+                speaker.speak(self._party_error("Failed to send party invite"))
         except Exception as e:
             logger.error(f"Error sending party invite: {e}")
             speaker.speak("Error sending party invite")
 
     def _request_to_join_party(self, friend: Friend):
         """Request to join a friend's party"""
-        # Ensure real display name
         display_name = self._ensure_display_name(friend.display_name)
         speaker.speak(simple(f"Requesting to join {display_name}'s party", f"Requesting to join {display_name}"))
-
         try:
-            result = self.social_api.request_to_join_party(friend.account_id)
-
-            if result == True:
-                # Track this join request for auto-accept logic
+            if self.social_api.request_to_join_party(friend.account_id):
+                # When they accept, an invite arrives and FA11y joins without asking.
                 self.outgoing_join_requests[friend.account_id] = (datetime.now(), display_name)
-                logger.debug(f"Tracking join request to {display_name} for auto-accept")
                 speaker.speak(f"Join request sent to {display_name}")
-            elif result == "already_sent":
-                # Still track it in case we get an invite
-                self.outgoing_join_requests[friend.account_id] = (datetime.now(), display_name)
-                speaker.speak(f"Join request sent to {display_name}") # Treat as success
-            elif result == "no_party":
-                # Friend has no party, invite them to ours instead
-                logger.debug(f"{display_name} has no party, inviting them to join us")
-                speaker.speak(f"{display_name} has no party. Inviting them to join you")
-
-                # Send party invite
-                invite_result = self.social_api.send_party_invite(friend.account_id)
-                if invite_result:
-                    speaker.speak(f"Invited {display_name} to your party")
-                else:
-                    speaker.speak(f"Failed to invite {display_name}")
             else:
-                speaker.speak("Failed to send join request")
-
+                speaker.speak(self._party_error("Failed to send join request"))
         except Exception as e:
             logger.error(f"Error sending join request: {e}")
             speaker.speak("Error sending join request")
@@ -1803,7 +1756,7 @@ class SocialManager:
                 # Refresh party data
                 self.refresh_all_data()
             else:
-                speaker.speak("Failed to promote member. You may not be the party leader")
+                speaker.speak(self._party_error("Failed to promote member. You may not be the party leader"))
 
         except Exception as e:
             logger.error(f"Error promoting party member: {e}")
@@ -1828,7 +1781,7 @@ class SocialManager:
                 # Refresh party data
                 self.refresh_all_data()
             else:
-                speaker.speak("Failed to leave party")
+                speaker.speak(self._party_error("Failed to leave party"))
 
         except Exception as e:
             logger.error(f"Error leaving party: {e}")
@@ -1870,9 +1823,9 @@ class SocialManager:
         try:
             if self.social_api.kick_party_member(account_id):
                 speaker.speak(f"Kicked {name}")
-                self.refresh_slow_data() # Refresh party list
+                self.refresh_fast_data()  # Refresh party list
             else:
-                speaker.speak("Failed to kick player")
+                speaker.speak(self._party_error("Failed to kick player"))
         except Exception as e:
             logger.error(f"Error kicking party member: {e}")
             speaker.speak("Error kicking player")
@@ -1891,7 +1844,7 @@ class SocialManager:
         elif data_type == "requests":
             self.refresh_fast_data()
         elif data_type == "party":
-            self.refresh_slow_data()
+            self.refresh_fast_data()
 
 
 # Global social manager instance

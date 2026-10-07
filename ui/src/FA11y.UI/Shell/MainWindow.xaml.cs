@@ -333,6 +333,7 @@ public partial class MainWindow : Window
         bridge.On("fortnite.setup_choice", data => FortnitePage?.OnSetupChoice(data.Str("choice")));
         // These pages keep their data ready before they are opened (after sign in, or when it changes).
         bridge.On("social.changed", _ => GetPage("social").Refresh());
+        bridge.On("social.chat", data => (GetPage("social") as SocialPage)?.OnChatChanged(data.Str("id")));
         bridge.On("locker.changed", _ => GetPage("locker").Refresh());
         bridge.On("quests.changed", _ => RefreshIfShown("quests"));
         // Pages that load before they are opened: once the core is up and once sign in has settled,

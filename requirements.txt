@@ -1,5 +1,6 @@
 accessible_output2
 cloudscraper
+cryptography
 mss
 numpy==1.26.4
 onnxruntime
@@ -16,5 +17,6 @@ pywin32
 rapidocr
 requests
 soundfile
+websocket-client
 winshell
 wxPython

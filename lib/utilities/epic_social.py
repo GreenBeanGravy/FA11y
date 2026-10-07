@@ -83,6 +83,15 @@ class PartyInvite:
 
 
 @dataclass
+class JoinRequest:
+    """Someone asking to join our party"""
+    account_id: str
+    display_name: str
+    created_at: datetime
+    expires_at: Optional[datetime] = None
+
+
+@dataclass
 class PartyMember:
     """Represents a member in the current party"""
     account_id: str
@@ -119,8 +128,12 @@ class EpicSocial:
         self.FRIENDS_BASE = "https://friends-public-service-prod.ol.epicgames.com/friends/api/v1"
         self.ACCOUNT_BASE = "https://account-public-service-prod03.ol.epicgames.com/account/api/public/account"
         self.PRESENCE_BASE = "https://presence-public-service-prod.ol.epicgames.com/presence/api/v1"
-        self.PARTY_BASE = "https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite"
         self.USER_SEARCH_BASE = "https://user-search-service-prod.ol.epicgames.com/api/v1/search"
+
+        # Epic Parties client, made on first use
+        self._parties = None
+        self.last_party_error = ""
+        self.party_chat_id = ""
 
         # Use persistent cache for display names (3-day expiry)
         self.display_cache = get_display_name_cache()
@@ -634,746 +647,97 @@ class EpicSocial:
             logger.error(f"Error removing friend: {e}")
             return False
 
-    # ========== Party API ==========
+    # ========== Party API (Epic Parties, the service the game uses) ==========
+
+    @property
+    def parties(self):
+        if self._parties is None or self._parties.session.auth is not self.auth:
+            from lib.utilities.epic_eos import EosSession, EpicParties
+            self._parties = EpicParties(EosSession(self.auth))
+        return self._parties
+
+    def get_party_state(self):
+        """(members, invites, join_requests) in one call, or None when it failed."""
+        from lib.utilities.epic_eos import EosError
+        try:
+            state = self.parties.state()
+        except EosError as e:
+            logger.error(f"Error getting party state: {e}")
+            return None
+        members = []
+        self.party_chat_id = state.party.chat_conversation_id if state.party else ""
+        if state.party:
+            names = self._get_bulk_display_names(state.party.member_ids)
+            for member in state.party.members:
+                member_id = member.get("account_id", "")
+                if not member_id:
+                    continue
+                joined = member.get("joined_at") or member.get("updated_at") or ""
+                members.append(PartyMember(
+                    account_id=member_id,
+                    display_name=names.get(member_id) or self._get_display_name(member_id),
+                    is_leader=member_id == state.party.leader_id,
+                    joined_at=datetime.fromisoformat(joined.replace("Z", "+00:00")) if joined else datetime.now(),
+                ))
+        invites = [PartyInvite(
+            party_id=invite.party_id,
+            invite_id=invite.inviter_id,
+            from_account_id=invite.inviter_id,
+            from_display_name=invite.inviter_name or self._get_display_name(invite.inviter_id),
+            created_at=invite.sent_at or datetime.now(),
+            expires_at=invite.expires_at,
+        ) for invite in state.invites]
+        join_requests = [JoinRequest(
+            account_id=request.requester_id,
+            display_name=request.requester_name or self._get_display_name(request.requester_id),
+            created_at=request.sent_at or datetime.now(),
+            expires_at=request.expires_at,
+        ) for request in state.join_requests]
+        return members, invites, join_requests
 
     def get_current_party(self) -> Optional[List[PartyMember]]:
-        """
-        Get current party members
-
-        Returns:
-            List of PartyMember objects or None if not in party or failed
-        """
-        try:
-            # Get user's current party
-            response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if response.status_code == 200:
-                party_data = response.json()
-                party_members = []
-
-                # API returns {"current": [...], "pending": [], ...}
-                current_parties = party_data.get("current", [])
-                if not current_parties:
-                    logger.debug("Not currently in a party")
-                    return []
-
-                # Get the first (current) party
-                party = current_parties[0]
-                members = party.get("members", [])
-
-                # Find leader - member with role="CAPTAIN"
-                leader_id = None
-                for member in members:
-                    if member.get("role") == "CAPTAIN":
-                        leader_id = member.get("account_id")
-                        break
-
-                # Extract display names from member metadata
-                for member in members:
-                    member_id = member.get("account_id")
-
-                    # Try to get display name from meta field
-                    meta = member.get("meta", {})
-                    display_name = meta.get("urn:epic:member:dn_s", "")
-
-                    # Fallback to bulk lookup if not in meta
-                    if not display_name or display_name == "":
-                        display_name = self._get_display_name(member_id)
-
-                    party_members.append(PartyMember(
-                        account_id=member_id,
-                        display_name=display_name,
-                        is_leader=(member_id == leader_id),
-                        joined_at=datetime.fromisoformat(member.get("joined_at", "").replace("Z", "+00:00")) if member.get("joined_at") else datetime.now()
-                    ))
-
-                logger.debug(f"Retrieved {len(party_members)} party members")
-                return party_members
-
-            elif response.status_code == 404:
-                logger.debug("Not currently in a party")
-                return []
-            else:
-                logger.error(f"Failed to get party info: {response.status_code}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error getting party info: {e}")
-            return None
+        state = self.get_party_state()
+        return state[0] if state else None
 
     def get_party_invites(self) -> Optional[List[PartyInvite]]:
-        """
-        Get pending party invites
+        state = self.get_party_state()
+        return state[1] if state else None
 
-        Returns:
-            List of PartyInvite objects or None if failed
-        """
+    def _party_action(self, action, *args) -> bool:
+        from lib.utilities.epic_eos import EosError
         try:
-            response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}/pings",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if response.status_code == 200:
-                pings = response.json()
-                invites = []
-
-                for ping in pings:
-                    from_id = ping.get("sent_by")
-                    party_id = ping.get("party_id")
-
-                    # If party_id is missing, query the party info via pinger endpoint
-                    if not party_id and from_id:
-                        logger.debug(f"Ping missing party_id, querying via pinger endpoint for {from_id}")
-                        try:
-                            # Get party info from the pinger
-                            party_response = requests.get(
-                                f"{self.PARTY_BASE}/user/{self.auth.account_id}/pings/{from_id}/parties",
-                                headers=self._get_headers(),
-                                timeout=5
-                            )
-
-                            if party_response.status_code == 200:
-                                parties = party_response.json()
-                                if parties and len(parties) > 0:
-                                    party_id = parties[0].get("id")
-                                    logger.debug(f"Retrieved party_id from pinger endpoint: {party_id}")
-                            else:
-                                logger.warning(f"Failed to get party info from pinger: {party_response.status_code}")
-                        except Exception as e:
-                            logger.warning(f"Error querying party from pinger: {e}")
-
-                    # Skip this ping if we still don't have a party_id
-                    if not party_id:
-                        logger.warning(f"Skipping ping without party_id from {from_id}")
-                        continue
-
-                    invites.append(PartyInvite(
-                        party_id=party_id,
-                        invite_id=ping.get("ping_id"),
-                        from_account_id=from_id,
-                        from_display_name=self._get_display_name(from_id),
-                        created_at=datetime.fromisoformat(ping.get("sent_at", "").replace("Z", "+00:00")) if ping.get("sent_at") else datetime.now(),
-                        expires_at=datetime.fromisoformat(ping.get("expires_at", "").replace("Z", "+00:00")) if ping.get("expires_at") else None
-                    ))
-
-                logger.debug(f"Retrieved {len(invites)} party invites")
-                return invites
-
-            elif response.status_code == 404:
-                logger.debug("No party invites")
-                return []
-            else:
-                logger.error(f"Failed to get party invites: {response.status_code}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error getting party invites: {e}")
-            return None
+            action(*args)
+            return True
+        except EosError as e:
+            logger.error(f"Party action failed: {e}")
+            self.last_party_error = str(e)
+            return False
 
     def send_party_invite(self, account_id: str) -> bool:
-        """
-        Send a party invite to a friend
-
-        Args:
-            account_id: Epic account ID of friend to invite
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # First get current party
-            party_response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if party_response.status_code == 200:
-                party_data = party_response.json()
-
-                # Check if in a party - API returns {"current": [...], "pending": [], ...}
-                current_parties = party_data.get("current", [])
-                if not current_parties:
-                    logger.error("Not in a party, cannot send invite")
-                    return False
-
-                party_id = current_parties[0].get("id")
-
-                # Prepare invite payload per API spec
-                invite_body = {
-                    "urn:epic:cfg:build-id_s": "1:3:45178693",
-                    "urn:epic:conn:platform_s": "WIN",
-                    "urn:epic:conn:type_s": "game",
-                    "urn:epic:invite:platformdata_s": "",
-                    "urn:epic:member:dn_s": self.auth.display_name or "Player"
-                }
-
-                # Send invite with query parameter
-                response = requests.post(
-                    f"{self.PARTY_BASE}/parties/{party_id}/invites/{account_id}?sendPing=true",
-                    headers=self._get_headers(),
-                    json=invite_body,
-                    timeout=5
-                )
-
-                if response.status_code in [200, 201, 204]:
-                    logger.debug(f"Successfully sent party invite to {account_id}")
-                    return True
-                elif response.status_code == 409:
-                    # Invite already exists - treat as success
-                    logger.debug(f"Party invite already sent to {account_id}")
-                    return "already_sent"
-                else:
-                    logger.error(f"Failed to send party invite: {response.status_code}")
-                    if response.text:
-                        logger.error(f"Response: {response.text}")
-                    return False
-            else:
-                logger.error("Could not get party info, cannot send invite")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error sending party invite: {e}")
-            return False
-
-    def get_user_party_info(self, account_id: str) -> Optional[dict]:
-        """
-        Get party information for a specific user
-
-        Args:
-            account_id: Epic account ID to check
-
-        Returns:
-            Party dict if user has a party, None otherwise
-        """
-        try:
-            response = requests.get(
-                f"{self.PARTY_BASE}/user/{account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if response.status_code == 200:
-                party_data = response.json()
-                current_parties = party_data.get("current", [])
-                if current_parties:
-                    return current_parties[0]  # Return first (current) party
-                return None
-            else:
-                logger.debug(f"Could not get party info for {account_id}: {response.status_code}")
-                return None
-
-        except Exception as e:
-            logger.debug(f"Error getting party info for {account_id}: {e}")
-            return None
+        return self._party_action(self.parties.invite, account_id)
 
     def request_to_join_party(self, friend_account_id: str) -> bool:
-        """
-        Send request to join a friend's party
+        return self._party_action(self.parties.request_to_join, friend_account_id)
 
-        Args:
-            friend_account_id: Epic account ID of friend whose party to join
+    def accept_party_invite(self, invite: PartyInvite) -> bool:
+        from lib.utilities.epic_eos import EosInvite
+        return self._party_action(self.parties.accept_invite,
+                                  EosInvite(invite.party_id, invite.from_account_id, invite.from_display_name))
 
-        Returns:
-            True if successful, "no_party" if friend has no party, "already_sent" if already sent, False otherwise
-        """
-        try:
-            # Try to check if friend has a party (might fail due to privacy settings)
-            friend_party = self.get_user_party_info(friend_account_id)
-            if friend_party:
-                logger.debug(f"Friend {friend_account_id} has a visible party")
-            else:
-                logger.debug(f"Cannot see friend {friend_account_id}'s party (privacy settings or no party)")
-                # Still try to send the request - Epic API will return 404 if truly no party
+    def decline_party_invite(self, invite: PartyInvite) -> bool:
+        return self._party_action(self.parties.decline_invite, invite.from_account_id)
 
-            # Send request to join
-            request_body = {
-                "urn:epic:invite:platformdata_s": ""
-            }
+    def accept_join_request(self, account_id: str) -> bool:
+        return self._party_action(self.parties.accept_join_request, account_id)
 
-            response = requests.post(
-                f"{self.PARTY_BASE}/members/{friend_account_id}/intentions/{self.auth.account_id}",
-                headers=self._get_headers(),
-                json=request_body,
-                timeout=5
-            )
-
-            if response.status_code in [200, 201, 204]:
-                logger.debug(f"Successfully sent join request to {friend_account_id}")
-                return True
-            elif response.status_code == 409:
-                # Request already exists
-                logger.debug(f"Join request already sent to {friend_account_id}")
-                return "already_sent"
-            elif response.status_code == 404:
-                # Friend truly has no party (confirmed by API)
-                logger.debug(f"Friend {friend_account_id} has no party (404 from API)")
-                return "no_party"
-            else:
-                logger.error(f"Failed to send join request: {response.status_code}")
-                if response.text:
-                    logger.error(f"Response: {response.text}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error sending join request: {e}")
-            return False
-
-    def accept_party_invite(self, party_id: str) -> bool:
-        """
-        Accept a party invite
-
-        Args:
-            party_id: ID of party to join
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            import json
-
-            # Leave current party first (if in one)
-            leave_result = self.leave_party()
-            if not leave_result:
-                logger.warning("Failed to leave current party, attempting join anyway")
-
-            # Get display name
-            display_name = self.auth.display_name or "Player"
-
-            # Build request body
-            join_body = {
-                "meta": {
-                    "urn:epic:member:dn_s": display_name
-                }
-            }
-
-            # Join the party
-            response = requests.post(
-                f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}/join",
-                headers=self._get_headers(),
-                json=join_body,
-                timeout=5
-            )
-
-            if response.status_code in [200, 201, 204]:
-                logger.debug(f"Successfully joined party {party_id}")
-
-                # Fetch fresh party data after join (FortnitePy does this)
-                # This ensures we have the latest party state
-                try:
-                    import time
-                    # Small delay to let the game client process XMPP notifications
-                    time.sleep(0.5)
-
-                    party_response = requests.get(
-                        f"{self.PARTY_BASE}/parties/{party_id}",
-                        headers=self._get_headers(),
-                        timeout=5
-                    )
-
-                    if party_response.status_code == 200:
-                        party_data = party_response.json()
-                        logger.debug(f"Fetched fresh party data after join. Members: {len(party_data.get('members', []))}")
-
-                        # Log our member status
-                        for member in party_data.get('members', []):
-                            if member.get('account_id') == self.auth.account_id:
-                                logger.debug(f"Our member state: role={member.get('role')}, joined_at={member.get('joined_at')}")
-                                break
-                    else:
-                        logger.warning(f"Failed to fetch fresh party data: {party_response.status_code}")
-                except Exception as e:
-                    logger.warning(f"Error fetching fresh party data: {e}")
-
-                return True
-            else:
-                logger.error(f"Failed to join party: {response.status_code}")
-                if response.text:
-                    logger.error(f"Response: {response.text}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error accepting party invite: {e}")
-            return False
-
-    def decline_party_invite(self, party_id: str, invite_id: str) -> bool:
-        """
-        Decline a party invite
-
-        Args:
-            party_id: ID of party
-            invite_id: ID of invite/ping
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Delete the ping/invite
-            response = requests.delete(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}/pings/{invite_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if response.status_code in [200, 204]:
-                logger.debug(f"Successfully declined party invite {invite_id}")
-                return True
-            else:
-                logger.error(f"Failed to decline party invite: {response.status_code}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error declining party invite: {e}")
-            return False
+    def decline_join_request(self, account_id: str) -> bool:
+        return self._party_action(self.parties.decline_join_request, account_id)
 
     def leave_party(self) -> bool:
-        """
-        Leave current party
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Get current party
-            party_response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if party_response.status_code == 200:
-                party_data = party_response.json()
-
-                # API returns {"current": [...], "pending": [], ...}
-                current_parties = party_data.get("current", [])
-                if not current_parties:
-                    logger.debug("Not in a party, nothing to leave")
-                    return True
-
-                party_id = current_parties[0].get("id")
-
-                # Leave party
-                response = requests.delete(
-                    f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}",
-                    headers=self._get_headers(),
-                    timeout=5
-                )
-
-                if response.status_code in [200, 204]:
-                    logger.debug("Successfully left party")
-                    return True
-                else:
-                    logger.error(f"Failed to leave party: {response.status_code}")
-                    return False
-            else:
-                logger.debug("Not in a party")
-                return True
-
-        except Exception as e:
-            logger.error(f"Error leaving party: {e}")
-            return False
+        return self._party_action(self.parties.leave)
 
     def promote_party_member(self, member_account_id: str) -> bool:
-        """
-        Promote a party member to leader
-
-        Args:
-            member_account_id: Account ID of member to promote
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Get current party
-            party_response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if party_response.status_code == 200:
-                party_data = party_response.json()
-
-                # Check if party data has the expected structure
-                if "current" in party_data and len(party_data["current"]) > 0:
-                    party_id = party_data["current"][0].get("id")
-                else:
-                    party_id = party_data.get("id")
-
-            elif response.status_code == 409:
-                # Request already exists
-                logger.debug(f"Join request already sent to {friend_account_id}")
-                return "already_sent"
-            else:
-                logger.error(f"Failed to send join request: {response.status_code}")
-                if response.text:
-                    logger.error(f"Response: {response.text}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error sending join request: {e}")
-            return False
-
-    def accept_party_invite(self, party_id: str) -> bool:
-        """
-        Accept a party invite
-
-        Args:
-            party_id: ID of party to join
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            import json
-
-            # Leave current party first (if in one)
-            leave_result = self.leave_party()
-            if not leave_result:
-                logger.warning("Failed to leave current party, attempting join anyway")
-
-            # Get display name
-            display_name = self.auth.display_name or "Player"
-
-            # Build request body
-            join_body = {
-                "meta": {
-                    "urn:epic:member:dn_s": display_name
-                }
-            }
-
-            # Join the party
-            response = requests.post(
-                f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}/join",
-                headers=self._get_headers(),
-                json=join_body,
-                timeout=5
-            )
-
-            if response.status_code in [200, 201, 204]:
-                logger.debug(f"Successfully joined party {party_id}")
-
-                # Fetch fresh party data after join (FortnitePy does this)
-                # This ensures we have the latest party state
-                try:
-                    import time
-                    # Small delay to let the game client process XMPP notifications
-                    time.sleep(0.5)
-
-                    party_response = requests.get(
-                        f"{self.PARTY_BASE}/parties/{party_id}",
-                        headers=self._get_headers(),
-                        timeout=5
-                    )
-
-                    if party_response.status_code == 200:
-                        party_data = party_response.json()
-                        logger.debug(f"Fetched fresh party data after join. Members: {len(party_data.get('members', []))}")
-
-                        # Log our member status
-                        for member in party_data.get('members', []):
-                            if member.get('account_id') == self.auth.account_id:
-                                logger.debug(f"Our member state: role={member.get('role')}, joined_at={member.get('joined_at')}")
-                                break
-                    else:
-                        logger.warning(f"Failed to fetch fresh party data: {party_response.status_code}")
-                except Exception as e:
-                    logger.warning(f"Error fetching fresh party data: {e}")
-
-                return True
-            else:
-                logger.error(f"Failed to join party: {response.status_code}")
-                if response.text:
-                    logger.error(f"Response: {response.text}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error accepting party invite: {e}")
-            return False
-
-    def decline_party_invite(self, party_id: str, invite_id: str) -> bool:
-        """
-        Decline a party invite
-
-        Args:
-            party_id: ID of party
-            invite_id: ID of invite/ping
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Delete the ping/invite
-            response = requests.delete(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}/pings/{invite_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if response.status_code in [200, 204]:
-                logger.debug(f"Successfully declined party invite {invite_id}")
-                return True
-            else:
-                logger.error(f"Failed to decline party invite: {response.status_code}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error declining party invite: {e}")
-            return False
-
-    def leave_party(self) -> bool:
-        """
-        Leave current party
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Get current party
-            party_response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if party_response.status_code == 200:
-                party_data = party_response.json()
-
-                # API returns {"current": [...], "pending": [], ...}
-                current_parties = party_data.get("current", [])
-                if not current_parties:
-                    logger.debug("Not in a party, nothing to leave")
-                    return True
-
-                party_id = current_parties[0].get("id")
-
-                # Leave party
-                response = requests.delete(
-                    f"{self.PARTY_BASE}/parties/{party_id}/members/{self.auth.account_id}",
-                    headers=self._get_headers(),
-                    timeout=5
-                )
-
-                if response.status_code in [200, 204]:
-                    logger.debug("Successfully left party")
-                    return True
-                else:
-                    logger.error(f"Failed to leave party: {response.status_code}")
-                    return False
-            else:
-                logger.debug("Not in a party")
-                return True
-
-        except Exception as e:
-            logger.error(f"Error leaving party: {e}")
-            return False
-
-    def promote_party_member(self, member_account_id: str) -> bool:
-        """
-        Promote a party member to leader
-
-        Args:
-            member_account_id: Account ID of member to promote
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Get current party
-            party_response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if party_response.status_code == 200:
-                party_data = party_response.json()
-
-                # Check if party data has the expected structure
-                if "current" in party_data and len(party_data["current"]) > 0:
-                    party_id = party_data["current"][0].get("id")
-                else:
-                    party_id = party_data.get("id")
-
-                if not party_id:
-                    logger.error("Failed to get party ID")
-                    return False
-
-                # Promote member
-                response = requests.post(
-                    f"{self.PARTY_BASE}/parties/{party_id}/members/{member_account_id}/promote",
-                    headers=self._get_headers(),
-                    timeout=5
-                )
-
-                if response.status_code in [200, 204]:
-                    logger.debug(f"Successfully promoted {member_account_id} to party leader")
-                    return True
-                else:
-                    logger.error(f"Failed to promote party member: {response.status_code} - {response.text}")
-                    return False
-            else:
-                logger.debug("Not in a party")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error promoting party member: {e}")
-            return False
+        return self._party_action(self.parties.promote, member_account_id)
 
     def kick_party_member(self, member_account_id: str) -> bool:
-        """
-        Kick a member from the party (requires being leader)
-
-        Args:
-            member_account_id: Account ID of member to kick
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Get current party
-            party_response = requests.get(
-                f"{self.PARTY_BASE}/user/{self.auth.account_id}",
-                headers=self._get_headers(),
-                timeout=5
-            )
-
-            if party_response.status_code == 200:
-                party_data = party_response.json()
-
-                # Check if in a party
-                if "current" in party_data and len(party_data["current"]) > 0:
-                    party_id = party_data["current"][0].get("id")
-                else:
-                    party_id = party_data.get("id")
-
-                if not party_id:
-                    logger.error("Failed to get party ID")
-                    return False
-
-                # Kick member (DELETE request to member endpoint)
-                response = requests.delete(
-                    f"{self.PARTY_BASE}/parties/{party_id}/members/{member_account_id}",
-                    headers=self._get_headers(),
-                    timeout=5
-                )
-
-                if response.status_code in [200, 204]:
-                    logger.debug(f"Successfully kicked member {member_account_id}")
-                    return True
-                else:
-                    logger.error(f"Failed to kick party member: {response.status_code} - {response.text}")
-                    return False
-            else:
-                logger.debug("Not in a party")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error kicking party member: {e}")
-            return False
+        return self._party_action(self.parties.kick, member_account_id)
