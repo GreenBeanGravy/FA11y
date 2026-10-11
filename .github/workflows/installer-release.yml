@@ -41,6 +41,13 @@ jobs:
           go build -trimpath -ldflags "-s -w -X main.version=$version" -o "../dist/Updater.exe" ./cmd/updater
           go build -trimpath -ldflags "-s -w -H windowsgui" -o "../dist/FA11y_Launcher.exe" ./cmd/launcher
 
+      - name: Release notes
+        # Install instructions plus every CHANGELOG.txt entry added since the previous installer release.
+        run: |
+          python tools/release_notes.py --current-tag "${{ github.ref_name }}" --output "$env:RUNNER_TEMP\notes.md"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Get-Content "$env:RUNNER_TEMP\notes.md"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -51,9 +58,9 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y_Launcher.exe" `
               --title "FA11y installer ${{ github.ref_name }}" `
-              --notes "Download Updater.exe, put it in an empty folder, and run it."
+              --notes-file "$env:RUNNER_TEMP\notes.md"
           } else {
             gh release create "${{ github.ref_name }}" "dist/Updater.exe" "dist/FA11y_Launcher.exe" --prerelease `
               --title "FA11y installer ${{ github.ref_name }} (Beta)" `
-              --notes "Download Updater.exe, put it in an empty folder, and run it."
+              --notes-file "$env:RUNNER_TEMP\notes.md"
           }

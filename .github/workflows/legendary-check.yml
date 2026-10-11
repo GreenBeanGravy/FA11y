@@ -1,0 +1,32 @@
+name: Legendary check
+
+# Fails once a week while a newer Legendary release exists than the one
+# installer/manifest.json pins. Pin it with: python tools/bump_legendary.py
+# (then test sign-in, install, update and launch before committing).
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legendary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compare the pin with the latest release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if ! out=$(python tools/bump_legendary.py --check); then
+            echo "::warning::$out"
+            echo "$out" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "$out"

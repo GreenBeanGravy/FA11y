@@ -1,0 +1,33 @@
+name: Version check
+
+# Warns when files users receive change without a VERSION bump. Updaters up
+# to installer-v1.0.2 only install a change when VERSION differs, so an
+# unbumped push never reaches them. See tools/check_version_bump.py.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: VERSION follows installed files
+        run: |
+          zero=0000000000000000000000000000000000000000
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          if [ -z "$base" ] || [ "$base" = "$zero" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            # A new branch, or history rewritten by a force push: compare with the previous commit.
+            base=HEAD~1
+          fi
+          python tools/check_version_bump.py "$base" HEAD
