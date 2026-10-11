@@ -20,6 +20,8 @@ updater downloads). Things worth knowing about that CLI:
 """
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
 import os
@@ -485,6 +487,15 @@ class RunOutcome:
 _EXCEPTION_RE = re.compile(r"^(?:[A-Za-z_][\w.]*(?:Error|Exception)): .+$")
 NOT_SIGNED_IN = ("Fortnite needs your Epic account to start. Sign in on the Epic account page, "
                  "then press Play again.")
+UPDATE_NOT_SIGNED_IN = ("Updating Fortnite needs your Epic account. Sign in on the Epic account page, "
+                        "then try again.")
+CHECK_NOT_SIGNED_IN = ("Couldn't check for updates because FA11y isn't signed in for downloads. "
+                       "Sign in on the Epic account page, then check again.")
+OUT_OF_DATE = "Fortnite needs an update before it can start."
+# legendary launch prints this (cli.py) when Epic's latest build differs from the installed one.
+OUT_OF_DATE_MARKER = "Game is out of date"
+# legendary list-installed --check-updates prints this and still exits 0 with the cached versions.
+CHECK_LOGIN_FAILED_MARKER = "Login failed! Not checking for updates"
 
 
 def _exception_line(outcome: RunOutcome) -> str:
@@ -703,13 +714,45 @@ class FortniteManager:
 
     # -- status --------------------------------------------------------------
 
-    def status(self, check_updates: bool = False) -> FortniteStatus:
+    def _version_row(self, check_updates: bool) -> Tuple[Optional[Dict[str, str]], str, bool]:
+        """Fortnite's row of ``legendary list-installed --csv``: ``(row, error, checked)``.
+
+        The row's "Available version" comes from legendary's assets list, the same thing
+        ``legendary launch`` compares the installed version with before it starts the game.
+        (``info --offline`` reads the game metadata instead, which ``--check-updates`` never
+        refreshes, so it can say "up to date" while launch says "Game is out of date".)
+        ``checked`` is True only when Epic was actually asked for the latest version.
+        """
+        args = ["list-installed", "--csv"]
+        if check_updates:
+            args.insert(1, "--check-updates")
+        result = self._run_capture(args, timeout=180 if check_updates else 90)
+        if result.error:
+            return None, result.error, False
+        error = ""
+        checked = check_updates
+        if check_updates and (CHECK_LOGIN_FAILED_MARKER in result.stderr
+                              or "No saved credentials" in result.stderr):
+            # The second is a crash: legendary has no login at all (status said it had one).
+            error, checked = CHECK_NOT_SIGNED_IN, False
+        for row in csv.DictReader(io.StringIO(result.stdout)):
+            if row.get("App name") == APP_NAME:
+                return row, error, checked
+        if not error:
+            stderr_lines = [ln for ln in result.stderr.splitlines() if ln.strip()]
+            error = stderr_lines[-1].strip() if (check_updates and stderr_lines) else ""
+        return None, error, False
+
+    def status(self, check_updates: bool = False,
+               get_exchange_code: Optional[Callable[[], str]] = None) -> FortniteStatus:
         """Report the install state.
 
-        Runs two or three short legendary commands (each takes a second or two since
+        Runs a few short legendary commands (each takes a second or two since
         legendary.exe is a one-file executable); call it from a worker thread.
-        With ``check_updates`` legendary also logs in and refreshes Epic's latest
-        version so ``update_available`` is current; otherwise the cached version is used.
+        With ``check_updates`` legendary asks Epic for the latest version so
+        ``update_available`` is current (signing legendary in first with
+        ``get_exchange_code`` when it has no login); otherwise the version legendary
+        saw last is used.
         """
         st = FortniteStatus()
         st.running = is_fortnite_running()
@@ -750,14 +793,25 @@ class FortniteManager:
             st.account = account if st.logged_in else ""
 
         if st.installed:
-            if check_updates and st.logged_in:
-                _, refresh_error = self._capture_json(["list-installed", "--check-updates", "--json"], timeout=180)
-                st.update_checked = not refresh_error
-                if refresh_error and not st.error:
-                    st.error = f"Could not check for updates: {refresh_error}"
-            info, _ = self._capture_json(["info", APP_NAME, "--offline", "--json"])
-            if isinstance(info, dict) and isinstance(info.get("game"), dict):
-                st.remote_version = str(info["game"].get("version") or "")
+            check = check_updates
+            if check and not st.logged_in:
+                if get_exchange_code is not None and self._ensure_login(get_exchange_code) is None:
+                    st.logged_in = True
+                else:
+                    check = False
+                    if not st.error:
+                        st.error = CHECK_NOT_SIGNED_IN
+            row, row_error, st.update_checked = self._version_row(check)
+            if row_error and not st.error:
+                st.error = row_error if row_error == CHECK_NOT_SIGNED_IN else f"Could not check for updates: {row_error}"
+            if row is not None:
+                st.remote_version = str(row.get("Available version") or "")
+                st.version = str(row.get("Installed version") or "") or st.version
+            else:
+                # Older output without the row: fall back to the game metadata.
+                info, _ = self._capture_json(["info", APP_NAME, "--offline", "--json"])
+                if isinstance(info, dict) and isinstance(info.get("game"), dict):
+                    st.remote_version = str(info["game"].get("version") or "")
             if st.remote_version and st.version:
                 st.update_available = st.remote_version != st.version
 
@@ -792,14 +846,23 @@ class FortniteManager:
         return self._exclusive("install", run)
 
     def update(self, progress: Optional[ProgressCallback] = None,
-               cancel: Optional[threading.Event] = None) -> OperationResult:
-        """Update the legendary-managed Fortnite install to the latest version."""
+               cancel: Optional[threading.Event] = None,
+               get_exchange_code: Optional[Callable[[], str]] = None) -> OperationResult:
+        """Update the legendary-managed Fortnite install to the latest version.
+
+        legendary needs its own login to download, so ``get_exchange_code`` (FA11y's
+        Epic session) signs it in first when it has none.
+        """
         def run() -> OperationResult:
             problem = self._precheck(needs_closed=True)
             if problem:
                 return problem
             report = _Reporter(progress)
             report(None, "Checking for updates")
+            if get_exchange_code is not None:
+                login_problem = self._ensure_login(get_exchange_code, UPDATE_NOT_SIGNED_IN)
+                if login_problem:
+                    return OperationResult(False, login_problem)
             outcome = self._run_streaming(
                 ["-y", "update", APP_NAME, "--update-only", "--skip-sdl", "--skip-dlcs"],
                 ProgressParser("Downloading"), report, cancel)
@@ -809,9 +872,30 @@ class FortniteManager:
                                   ok_markers=("Finished installation process", "Download size is 0"),
                                   data={"already_up_to_date": up_to_date})
             if result.ok:
+                self._check_after_update(result)
                 report(100.0, result.message)
             return result
         return self._exclusive("update", run)
+
+    def _check_after_update(self, result: OperationResult) -> None:
+        """Make sure Play will now get past legendary's version check.
+
+        That check compares the installed version with the latest one in legendary's assets
+        list. If they still differ after an update (Epic's manifest and assets disagreeing),
+        say so rather than let the next launch fail with "out of date" again.
+        """
+        row, _, checked = self._version_row(check_updates=True)
+        if row is None or not checked:
+            return
+        installed = str(row.get("Installed version") or "")
+        latest = str(row.get("Available version") or "")
+        result.data["version"] = installed
+        if installed and latest and installed != latest:
+            logger.warning("Fortnite still reports an update after updating: installed %s, latest %s",
+                           installed, latest)
+            result.data["still_out_of_date"] = True
+            result.message += (" Epic still lists a newer version, so Play may report an update again. "
+                               "If it does, use Verify and repair.")
 
     def verify_and_repair(self, progress: Optional[ProgressCallback] = None,
                           cancel: Optional[threading.Event] = None) -> OperationResult:
@@ -1027,26 +1111,28 @@ class FortniteManager:
         account = str(info.get("account") or "")
         return bool(account) and account != "<not logged in>"
 
-    def _ensure_login(self, get_exchange_code: Optional[Callable[[], str]]) -> Optional[str]:
-        """Sign legendary in before a launch when it has no login. Returns a message when that fails.
+    def _ensure_login(self, get_exchange_code: Optional[Callable[[], str]],
+                      failure: str = NOT_SIGNED_IN) -> Optional[str]:
+        """Sign legendary in when it has no login. Returns ``failure`` when that fails.
 
-        Without a saved login, ``legendary launch`` crashes with ``ValueError: No saved credentials``.
+        Without a saved login, ``legendary launch`` crashes with ``ValueError: No saved credentials``
+        and ``update`` and ``--check-updates`` stop with "Login failed".
         """
         if self.is_logged_in():
             return None
         if get_exchange_code is None:
-            return NOT_SIGNED_IN
+            return failure
         try:
             code = get_exchange_code()
         except Exception:
             logger.exception("Could not get an exchange code for legendary")
             code = ""
         if not code:
-            return NOT_SIGNED_IN
+            return failure
         result = self.login_with_exchange_code(code)
         if not result.ok:
             logger.warning("Signing legendary in before launch failed: %s", result.message)
-            return NOT_SIGNED_IN
+            return failure
         return None
 
     def launch(self, extra_args: Optional[Sequence[str]] = None, skip_version_check: bool = False,
@@ -1107,6 +1193,10 @@ class FortniteManager:
             except Exception:
                 logger.debug("Launch watcher failed", exc_info=True)
             outcome = RunOutcome(proc.returncode, lines[-100:])
+            if outcome.contains(OUT_OF_DATE_MARKER):
+                logger.info("legendary refused to launch an out of date Fortnite")
+                done(OperationResult(False, OUT_OF_DATE, data={"needs_update": True}))
+                return
             result = self._finish(outcome, "Launch", "Fortnite started.")
             if not result.ok:
                 # The whole output, so a crash's traceback reaches the FA11y log.

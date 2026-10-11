@@ -50,11 +50,13 @@ def test_epic_gamemodes_take_the_match_options_they_offer():
     from lib.utilities import discovery_ops as d
     zb_duo = {"team": "duo", "zero_build": True, "ranked": False}
     assert d.apply_options("experience_br", "Battle Royale", zb_duo) == (
-        "playlist_nobuildbr_duo", "Battle Royale, Zero Build Duos", "")
+        "playlist_nobuildbr_duo", "Battle Royale Zero Build Duos Unranked",
+        "Set other match options such as team fill in Fortnite.")
     link, _, note = d.apply_options("experience_br", "Battle Royale", {"team": "trio", "zero_build": True, "ranked": True})
     assert link is None and "Solo, Duos and Squads" in note
     assert d.apply_options("experience_blitz", "Blitz Royale", {"team": "squad", "ranked": True}) == (
-        "playlist_forbiddenfruitnobuildbrsquad", "Blitz Royale, Squads", "Blitz Royale has no ranked.")
+        "playlist_forbiddenfruitnobuildbrsquad", "Blitz Royale Squads Unranked",
+        "Blitz Royale has no ranked. Set other match options such as team fill in Fortnite.")
     assert d.apply_options("experience_blitz", "Blitz Royale", {"team": "trio"})[0] is None
     assert d.apply_options("experience_reload", "Reload", zb_duo)[0] == "experience_reload"
     assert d.apply_options("campaign", "Save the World", zb_duo) == ("campaign", "Save the World", "")

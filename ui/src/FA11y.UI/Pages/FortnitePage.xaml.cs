@@ -284,11 +284,36 @@ public partial class FortnitePage : PageBase
         }
     }
 
-    /// <summary>fortnite.launch_failed from the core (it has already spoken and played the sound).</summary>
+    /// <summary>fortnite.launch_failed from the core (it has already spoken and played the sound).
+    /// When legendary refused because Fortnite is out of date, offer to update and then start it.</summary>
     public void OnLaunchFailed(JsonElement data)
     {
         if (!_checkingUpdates)
             Summary.Text = data.Str("message");
+        if (data.Bool("needs_update"))
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, OfferUpdate);
+    }
+
+    private bool _offeringUpdate;
+
+    private void OfferUpdate()
+    {
+        if (_busy || _checkingUpdates || _offeringUpdate)
+            return;
+        _offeringUpdate = true;
+        try
+        {
+            if (Dialogs.Confirm(Host, "Update Fortnite",
+                    "Fortnite is out of date and can't start until it is updated. Update it now? " +
+                    "Fortnite starts by itself when the update finishes.", defaultYes: true))
+                StartOperation("Updating", "fortnite.update", new { then_play = true });
+            else
+                PlayButton.Focus();
+        }
+        finally
+        {
+            _offeringUpdate = false;
+        }
     }
 
     private async void OnSignInClick(object sender, RoutedEventArgs e)
@@ -362,7 +387,7 @@ public partial class FortnitePage : PageBase
         string message;
         try
         {
-            var state = await App.Bridge.RequestAsync("fortnite.state", new { check_updates = true }, TimeSpan.FromSeconds(120));
+            var state = await App.Bridge.RequestAsync("fortnite.state", new { check_updates = true }, TimeSpan.FromSeconds(300));
             _checkingUpdates = false;
             UseState(state);
             message = state.Str("message");

@@ -11,7 +11,7 @@ update to 99.0.0 available.
 
 While it runs it reads commands on its own stdin, one per line (the probe uses
 this): summon, summon-content, show-page KEY, hide, notify TITLE|MESSAGE,
-fortnite-running true|false, fortnite-state installed|none|egl, start-setup,
+fortnite-running true|false, fortnite-state installed|none|egl, launch-out-of-date, start-setup,
 screenshot PATH (the window draws itself to a PNG), locker-category NAME,
 social-tab HEADER, key NAME [mods=Control,Shift] [held=LeftShift] (press a key
 in the focused control; test builds only), quit. It prints "STARTED <ui pid>" when the
@@ -479,6 +479,10 @@ class FakeCore:
         elif name == "start-setup":
             self.setup = True
             self.event("setup.start", {"summon": True})
+        elif name == "launch-out-of-date":
+            # What the core sends when legendary refused to start an out of date Fortnite.
+            self.event("fortnite.launch_failed",
+                       {"message": "Fortnite needs an update before it can start.", "needs_update": True})
         elif name == "fortnite-running":
             self.fortnite_running = rest.strip().lower() == "true"
             self.event("fortnite.running", {"running": self.fortnite_running})

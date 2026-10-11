@@ -6,7 +6,7 @@ from typing import Callable, Optional
 from lib.hub import game_watch, sounds
 
 
-def _exchange_code() -> str:
+def exchange_code() -> str:
     """A one-time sign-in code from FA11y's Epic session, for signing legendary in. "" when signed out."""
     from lib.utilities.epic_auth import get_epic_auth_instance
     auth = get_epic_auth_instance()
@@ -16,13 +16,14 @@ def _exchange_code() -> str:
 
 
 def play_fortnite(hub, manager=None, info=None,
-                  on_failed: Optional[Callable[[str], None]] = None) -> None:
+                  on_failed: Optional[Callable[[str, bool], None]] = None) -> None:
     """Launch Fortnite, or bring it forward when it's already running.
 
     info is the latest install status, if the caller has one; it only
     decides whether to point the user at the Fortnite page instead of
     trying to launch something that isn't installed. on_failed gets the
-    message if the launch fails after it started.
+    message if the launch fails after it started, and whether it failed
+    because Fortnite needs an update first.
     """
     if game_watch.is_fortnite_running():
         game_watch.focus_fortnite()
@@ -37,8 +38,8 @@ def play_fortnite(hub, manager=None, info=None,
 
     def launched(result):
         if not result.ok and on_failed is not None:
-            on_failed(result.message)
+            on_failed(result.message, bool(result.data.get("needs_update")))
 
-    result = manager.launch(on_done=launched, get_exchange_code=_exchange_code)
+    result = manager.launch(on_done=launched, get_exchange_code=exchange_code)
     hub.services.speak(result.message)
     sounds.ui("done" if result.ok else "error")

@@ -161,21 +161,43 @@ def test_find_egl_fortnite_missing(tmp_path):
 
 # -- status() with a fake legendary ----------------------------------------------
 
-def _fake_capture(installed=True, logged_in=True, remote="2.0", local="1.0"):
+CSV_HEADER = ("App name,App title,Installed version,Available version,Update available,Install size,"
+              "Install path,Platform\n")
+
+
+def _fake_capture(installed=True, logged_in=True, remote="2.0", local="1.0", cached_remote=None,
+                  meta_remote=None, check_login_fails=False, csv_row=True):
+    """A fake legendary.exe for status().
+
+    remote is what Epic lists now (seen with --check-updates), cached_remote what legendary's
+    assets list held from before (defaults to remote) and meta_remote what the game metadata
+    still says (``info --offline``; defaults to cached_remote).
+    """
     calls = []
+    cached = remote if cached_remote is None else cached_remote
+    meta = cached if meta_remote is None else meta_remote
 
     def run(self, args, timeout=90.0):
         calls.append(list(args))
-        if args[0] == "list-installed" and "--check-updates" not in args:
+        if args[0] == "list-installed" and "--csv" in args:
+            checking = "--check-updates" in args
+            if checking and check_login_fails:
+                available, stderr = cached, "[cli] INFO: Logging in to check for updates...\n" \
+                                            "[cli] ERROR: Login failed! Not checking for updates.\n"
+            else:
+                available, stderr = (remote if checking else cached), ""
+            body = CSV_HEADER
+            if installed and csv_row:
+                body += f"Fortnite,Fortnite,{local},{available},{available != local},123456,C:/Games/Fortnite,Windows\n"
+            return CaptureResult(0, body, stderr)
+        if args[0] == "list-installed":
             data = [{"app_name": "Fortnite", "version": local, "install_path": "C:/Games/Fortnite",
                      "install_size": 123456, "needs_verification": False}] if installed else []
             return CaptureResult(0, "[cli] noise\n" + json.dumps(data))
-        if args[0] == "list-installed":
-            return CaptureResult(0, "[]")
         if args[0] == "status":
             return CaptureResult(0, json.dumps({"account": "Player" if logged_in else "<not logged in>"}))
         if args[0] == "info":
-            return CaptureResult(0, json.dumps({"game": {"version": remote}, "install": {}, "manifest": {}}))
+            return CaptureResult(0, json.dumps({"game": {"version": meta}, "install": {}, "manifest": {}}))
         return CaptureResult(1, "", "unexpected")
 
     return run, calls
@@ -192,7 +214,7 @@ def test_status_installed_update_available(monkeypatch):
     assert st.logged_in and st.account == "Player"
     assert st.update_available and st.remote_version == "2.0" and not st.update_checked
     assert st.managed_by == "legendary" and st.egl_install_path == ""
-    assert ["list-installed", "--check-updates", "--json"] not in calls
+    assert not any("--check-updates" in c for c in calls)
     assert st.to_dict()["installed"] is True
 
 
@@ -201,8 +223,81 @@ def test_status_check_updates_and_up_to_date(monkeypatch):
     monkeypatch.setattr(FortniteManager, "_run_capture", run)
     monkeypatch.setattr(lm, "find_egl_fortnite", lambda *a, **k: None)
     st = FortniteManager(legendary_cmd=["fake"]).status(check_updates=True)
-    assert ["list-installed", "--check-updates", "--json"] in calls
-    assert st.update_checked and not st.update_available
+    assert ["list-installed", "--check-updates", "--csv"] in calls
+    assert st.update_checked and not st.update_available and not st.error
+
+
+def test_check_updates_uses_the_version_launch_compares_with(monkeypatch):
+    """The reported bug: --check-updates refreshes legendary's assets list (what launch checks)
+    but not the game metadata info --offline reads, so FA11y said up to date while launch
+    kept saying "Game is out of date"."""
+    run, calls = _fake_capture(remote="2.0", cached_remote="1.0", meta_remote="1.0")
+    monkeypatch.setattr(FortniteManager, "_run_capture", run)
+    monkeypatch.setattr(lm, "find_egl_fortnite", lambda *a, **k: None)
+    st = FortniteManager(legendary_cmd=["fake"]).status(check_updates=True)
+    assert st.update_checked and st.update_available and st.remote_version == "2.0"
+    assert not any(c[0] == "info" for c in calls)
+
+
+def test_check_updates_with_a_failed_legendary_login_is_not_up_to_date(monkeypatch):
+    run, _ = _fake_capture(remote="2.0", cached_remote="1.0", check_login_fails=True)
+    monkeypatch.setattr(FortniteManager, "_run_capture", run)
+    monkeypatch.setattr(lm, "find_egl_fortnite", lambda *a, **k: None)
+    st = FortniteManager(legendary_cmd=["fake"]).status(check_updates=True)
+    assert not st.update_checked and not st.update_available
+    assert st.error == lm.CHECK_NOT_SIGNED_IN
+
+
+def test_check_updates_crashing_without_credentials_says_sign_in(monkeypatch):
+    """legendary's status can report an account while list-installed --check-updates crashes with
+    "ValueError: No saved credentials"; that is a sign-in problem, not a raw traceback line."""
+    run, calls = _fake_capture(remote="2.0", cached_remote="1.0")
+
+    def crashing(self, args, timeout=90.0):
+        if args[:2] == ["list-installed", "--check-updates"]:
+            calls.append(list(args))
+            return CaptureResult(1, "", "Traceback (most recent call last):\n  ...\n"
+                                        "ValueError: No saved credentials\n")
+        return run(self, args, timeout)
+
+    monkeypatch.setattr(FortniteManager, "_run_capture", crashing)
+    monkeypatch.setattr(lm, "find_egl_fortnite", lambda *a, **k: None)
+    st = FortniteManager(legendary_cmd=["fake"]).status(check_updates=True)
+    assert ["list-installed", "--check-updates", "--csv"] in calls
+    assert not st.update_checked and st.error == lm.CHECK_NOT_SIGNED_IN
+
+
+def test_check_updates_signs_legendary_in_first(monkeypatch):
+    run, calls = _fake_capture(logged_in=False, remote="2.0", cached_remote="1.0")
+    monkeypatch.setattr(FortniteManager, "_run_capture", run)
+    monkeypatch.setattr(lm, "find_egl_fortnite", lambda *a, **k: None)
+    mgr = FortniteManager(legendary_cmd=["fake"])
+    codes = []
+    monkeypatch.setattr(mgr, "login_with_exchange_code",
+                        lambda code: codes.append(code) or lm.OperationResult(True, "ok"))
+    st = mgr.status(check_updates=True, get_exchange_code=lambda: "abc")
+    assert codes == ["abc"]
+    assert st.update_checked and st.update_available and st.logged_in
+
+
+def test_check_updates_without_any_login_says_so(monkeypatch):
+    run, calls = _fake_capture(logged_in=False, remote="3.0", cached_remote="2.0")
+    monkeypatch.setattr(FortniteManager, "_run_capture", run)
+    monkeypatch.setattr(lm, "find_egl_fortnite", lambda *a, **k: None)
+    st = FortniteManager(legendary_cmd=["fake"]).status(check_updates=True, get_exchange_code=lambda: "")
+    assert not any("--check-updates" in c for c in calls)
+    assert not st.update_checked and st.error == lm.CHECK_NOT_SIGNED_IN
+    # The cached assets list still knows about an update a failed launch saw.
+    assert st.update_available and st.remote_version == "2.0"
+
+
+def test_status_falls_back_to_the_metadata_without_a_csv_row(monkeypatch):
+    run, calls = _fake_capture(csv_row=False, meta_remote="3.0")
+    monkeypatch.setattr(FortniteManager, "_run_capture", run)
+    monkeypatch.setattr(lm, "find_egl_fortnite", lambda *a, **k: None)
+    st = FortniteManager(legendary_cmd=["fake"]).status()
+    assert st.remote_version == "3.0" and st.update_available
+    assert any(c[0] == "info" for c in calls)
 
 
 def test_status_egl_only_and_not_logged_in(monkeypatch):
@@ -256,7 +351,15 @@ FAKE_LEGENDARY = textwrap.dedent('''
             out("[DLManager] INFO:  + Download\\t- 50.00 MiB/s (raw) / 60.00 MiB/s (decompressed)")
         out("[cli] INFO: Finished installation process in 3.00 seconds.")
     elif cmd == "update":
-        out("[cli] ERROR: Login failed! Cannot continue with download process.")
+        if "ZERO" in os.environ.get("FAKE_MODE", ""):
+            out("[cli] INFO: Download size is 0, the game is either already up to date or has not changed. Exiting...")
+        else:
+            out("[cli] ERROR: Login failed! Cannot continue with download process.")
+    elif cmd == "launch":
+        out("[cli] INFO: Logging in...")
+        out("[cli] INFO: Checking for updates...")
+        out("[cli] ERROR: Game is out of date, please update or launch with update check skipping!")
+        sys.exit(1)
     elif cmd == "verify":
         sys.stdout.write("Verification progress: 1/2 (50.0%) [10.0 MiB/s]\\t\\r")
         sys.stdout.write("Verification progress: 2/2 (100.0%) [10.0 MiB/s]\\t\\n")
@@ -428,3 +531,59 @@ def test_crash_traceback_gives_its_exception():
 
 def test_get_manager_is_singleton():
     assert lm.get_manager() is lm.get_manager()
+
+
+# -- out of date: launch refuses, update fixes it ------------------------------------
+
+def test_launch_of_an_out_of_date_game_asks_for_an_update(fake_mgr, monkeypatch):
+    monkeypatch.setattr(fake_mgr, "is_logged_in", lambda: True)
+    results = []
+    done = threading.Event()
+    assert fake_mgr.launch([], on_done=lambda r: (results.append(r), done.set())).ok
+    assert done.wait(10)
+    assert not results[0].ok and results[0].message == lm.OUT_OF_DATE
+    assert results[0].data == {"needs_update": True}
+
+
+def test_update_signs_legendary_in_first(fake_mgr, monkeypatch):
+    monkeypatch.setattr(fake_mgr, "is_logged_in", lambda: False)
+    monkeypatch.setattr(fake_mgr, "_run_streaming", lambda *a, **k: pytest.fail("updated without a login"))
+    result = fake_mgr.update(get_exchange_code=lambda: "")
+    assert not result.ok and result.message == lm.UPDATE_NOT_SIGNED_IN
+
+
+def test_update_that_downloads_nothing_checks_the_version_launch_will_see(fake_mgr, monkeypatch):
+    monkeypatch.setenv("FAKE_MODE", "ZERO")
+    monkeypatch.setattr(fake_mgr, "is_logged_in", lambda: True)
+    asked = []
+
+    def row(check_updates):
+        asked.append(check_updates)
+        return {"Installed version": "2.0", "Available version": "2.0"}, "", True
+
+    monkeypatch.setattr(fake_mgr, "_version_row", row)
+    result = fake_mgr.update(get_exchange_code=lambda: "abc")
+    assert result.ok and result.message == "Fortnite is up to date."
+    assert asked == [True] and result.data["version"] == "2.0"
+    assert "still_out_of_date" not in result.data
+
+
+def test_update_says_when_epic_still_lists_a_newer_version(fake_mgr, monkeypatch):
+    monkeypatch.setenv("FAKE_MODE", "ZERO")
+    monkeypatch.setattr(fake_mgr, "is_logged_in", lambda: True)
+    monkeypatch.setattr(fake_mgr, "_version_row",
+                        lambda check_updates: ({"Installed version": "1.0", "Available version": "2.0"}, "", True))
+    result = fake_mgr.update()
+    assert result.ok and result.data["still_out_of_date"]
+    assert "Verify and repair" in result.message
+
+
+def test_version_row_reads_legendarys_csv(monkeypatch):
+    def run(self, args, timeout=90.0):
+        assert args == ["list-installed", "--check-updates", "--csv"]
+        return CaptureResult(0, CSV_HEADER + "Other,Other,1,1,False,1,C:/o,Windows\n"
+                                "Fortnite,Fortnite,++Fortnite+Release-1,++Fortnite+Release-2,True,9,C:/f,Windows\n")
+    monkeypatch.setattr(FortniteManager, "_run_capture", run)
+    row, error, checked = FortniteManager(legendary_cmd=["fake"])._version_row(True)
+    assert checked and not error
+    assert row["Installed version"] == "++Fortnite+Release-1" and row["Available version"] == "++Fortnite+Release-2"

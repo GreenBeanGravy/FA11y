@@ -6,7 +6,10 @@ sends operation.progress {id, percent, message} (percent is null when it
 can't tell) and, at the end, operation.finished {id, ok, message, cancelled}.
 Only one operation runs at a time.
 
-Other events: fortnite.mouse_detected {available, text, detected, found}.
+Other events: fortnite.mouse_detected {available, text, detected, found}, and
+fortnite.launch_failed {message, needs_update} when Play didn't start the game
+(needs_update: legendary refused because Fortnite is out of date, so the window
+offers to update and play).
 """
 from __future__ import annotations
 
@@ -73,7 +76,12 @@ def _cached_or_fresh_status():
 
 
 def _fetch_status(check_updates: bool):
-    st = _manager().status(check_updates=check_updates)
+    if check_updates:
+        # Asking Epic for the latest version needs legendary signed in; use FA11y's Epic session.
+        from lib.hub.play import exchange_code
+        st = _manager().status(check_updates=True, get_exchange_code=exchange_code)
+    else:
+        st = _manager().status(check_updates=False)
     _remember(st)
     return st
 
@@ -102,8 +110,11 @@ def _default_install_base() -> str:
 
 # Operations -----------------------------------------------------------------
 
-def _start(name: str, operation: Callable) -> dict:
-    """Run operation(progress, cancel) on a worker thread and report it with events."""
+def _start(name: str, operation: Callable, after: Optional[Callable] = None) -> dict:
+    """Run operation(progress, cancel) on a worker thread and report it with events.
+
+    after(result), if given, runs on the worker thread once the operation has finished
+    and been reported."""
     global _operation, _next_id
     with _lock:
         if _operation is not None:
@@ -134,6 +145,11 @@ def _start(name: str, operation: Callable) -> dict:
         _send("operation.finished", {"id": op.id, "ok": bool(result.ok), "message": result.message,
                                      "cancelled": bool(getattr(result, "cancelled", False))})
         _send("home.changed")
+        if after is not None:
+            try:
+                after(result)
+            except Exception:
+                logger.exception(f"After {name} failed")
 
     threading.Thread(target=work, name=f"Fortnite-{name}", daemon=True).start()
     return {"id": op.id, "name": name}
@@ -156,8 +172,17 @@ def install(params: dict) -> dict:
 
 
 @handler("fortnite.update")
-def update(_params: dict) -> dict:
-    return _start("Updating", lambda p, c: _manager().update(p, c))
+def update(params: dict) -> dict:
+    """Update Fortnite. then_play: start it once the update succeeded (the out of date prompt)."""
+    from lib.hub.play import exchange_code
+    then_play = bool((params or {}).get("then_play"))
+
+    def after(result) -> None:
+        _fetch_status(False)
+        if then_play and result.ok:
+            _play()
+
+    return _start("Updating", lambda p, c: _manager().update(p, c, get_exchange_code=exchange_code), after)
 
 
 @handler("fortnite.verify")
@@ -206,18 +231,22 @@ def cancel(_params: dict) -> dict:
 @handler("fortnite.play")
 def play(_params: dict) -> dict:
     """Launch Fortnite, or bring it forward. A failed launch is spoken and sent as fortnite.launch_failed."""
+    _play()
+    return {}
+
+
+def _play() -> None:
     from lib.hub.play import play_fortnite
     hub = get_hub()
     if hub is None:
         raise RuntimeError("FA11y is closing.")
 
-    def failed(message: str) -> None:
+    def failed(message: str, needs_update: bool = False) -> None:
         sounds.ui("error")
         hub.services.speak(message)
-        _send("fortnite.launch_failed", {"message": message})
+        _send("fortnite.launch_failed", {"message": message, "needs_update": bool(needs_update)})
 
     play_fortnite(hub, _manager(), _last_status, on_failed=failed)
-    return {}
 
 
 @handler("fortnite.sign_in")

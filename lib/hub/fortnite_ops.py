@@ -77,10 +77,16 @@ def egl_text(st) -> str:
 
 
 def check_message(st) -> str:
-    """What is said after a manual update check."""
+    """What is said after a manual update check. Only says up to date when Epic was asked."""
     if st.update_available:
-        return f"Update available: {st.remote_version}."
-    return st.error or "Fortnite is up to date."
+        return f"Update available: {short_version(st.remote_version)}."
+    if st.error:
+        return st.error
+    if not st.installed:
+        return "Fortnite isn't installed through FA11y, so there is nothing to update."
+    if not st.update_checked:
+        return "Couldn't check for updates. Try again in a moment."
+    return "Fortnite is up to date."
 
 
 def describe_status(st) -> dict:

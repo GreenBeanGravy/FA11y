@@ -125,7 +125,7 @@ def test_launch_uses_the_title_for_nonstandard_codes(monkeypatch):
     done = __import__("threading").Event()
     discovery_ops.launch_gamemode("mymap", "My Map", lambda m: (spoken.append(m), done.set()))
     assert done.wait(3)
-    assert picked == ["My Map"] and spoken == ["My Map selected!"]
+    assert picked == ["My Map"] and spoken == ['My Map selected! Press "P" to ready up!']
 
 
 # Quests -------------------------------------------------------------------------------

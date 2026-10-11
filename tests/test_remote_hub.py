@@ -308,6 +308,31 @@ def test_play_fortnite_runs_the_shared_launch_code(make_hub, monkeypatch):
     assert seen["hub"] is hub
 
 
+def test_play_that_needs_an_update_opens_the_fortnite_page_to_offer_it(make_hub, monkeypatch, world):
+    import lib.hub.play as play
+    monkeypatch.setattr(play, "play_fortnite",
+                        lambda hub, manager=None, info=None, on_failed=None: on_failed("Needs an update.", True))
+    hub, log = make_hub()
+    hub.play_fortnite()
+    wait_for(lambda: events(log, "fortnite.launch_failed"))
+    assert events(log, "fortnite.launch_failed") == [{"message": "Needs an update.", "needs_update": True}]
+    shown = events(log, "ui.show_page")
+    assert shown and shown[-1]["key"] == "fortnite" and shown[-1]["summon"] is True
+    hub.services.speak.assert_called_with("Needs an update.")
+
+
+def test_play_that_fails_otherwise_only_speaks(make_hub, monkeypatch, world):
+    import lib.hub.play as play
+    done = threading.Event()
+    monkeypatch.setattr(play, "play_fortnite",
+                        lambda hub, manager=None, info=None, on_failed=None: (on_failed("Nope.", False), done.set()))
+    hub, log = make_hub()
+    hub.play_fortnite()
+    assert done.wait(5)
+    hub.services.speak.assert_called_with("Nope.")
+    assert not events(log, "fortnite.launch_failed")
+
+
 def test_quit_stops_the_window_and_calls_the_service(make_hub):
     from lib.hub import get_hub
     hub, log = make_hub()

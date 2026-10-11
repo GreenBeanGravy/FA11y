@@ -322,9 +322,13 @@ class RemoteHub:
         from lib.hub.play import play_fortnite
 
         def work():
-            def failed(message: str) -> None:
+            def failed(message: str, needs_update: bool = False) -> None:
                 sounds.ui("error")
                 self.services.speak(message)
+                if needs_update:
+                    # The Fortnite page asks whether to update now and start the game after.
+                    self.show_page("fortnite", summon=True)
+                    self.send("fortnite.launch_failed", {"message": message, "needs_update": True})
             try:
                 play_fortnite(self, info=status.last_install_info(), on_failed=failed)
             except Exception:

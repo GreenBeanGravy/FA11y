@@ -86,11 +86,31 @@ def test_state_when_an_update_is_available(manager):
     assert result["update_available"]
     assert result["summary"].endswith("update available (32.00)")
     assert result["message"] == "Update available: 32.00."
-    manager.status.assert_called_once_with(check_updates=True)
+    manager.status.assert_called_once()
+    assert manager.status.call_args.kwargs["check_updates"] is True
+    # Checking signs legendary in with FA11y's Epic session when it has no login.
+    assert callable(manager.status.call_args.kwargs["get_exchange_code"])
 
 
 def test_state_up_to_date_message(manager):
+    manager.status.return_value.update_checked = True
     assert call("fortnite.state", {"check_updates": True})["message"] == "Fortnite is up to date."
+
+
+def test_a_check_that_did_not_reach_epic_never_says_up_to_date(manager):
+    st = manager.status.return_value
+    st.update_checked = False
+    assert call("fortnite.state", {"check_updates": True})["message"].startswith("Couldn't check for updates")
+    st.error = "Couldn't check for updates because FA11y isn't signed in for downloads."
+    assert call("fortnite.state", {"check_updates": True})["message"] == st.error
+    manager.status.return_value = FortniteStatus(installed=False)
+    assert "isn't installed" in call("fortnite.state", {"check_updates": True})["message"]
+
+
+def test_update_available_message_uses_the_short_version(manager):
+    st = manager.status.return_value
+    st.update_available, st.remote_version = True, "++Fortnite+Release-42.20-CL-58011042-Windows"
+    assert call("fortnite.state", {"check_updates": True})["message"] == "Update available: 42.20."
 
 
 def test_state_for_the_epic_games_launcher_install(manager):
@@ -186,7 +206,7 @@ def test_an_operation_that_raises_finishes_with_an_error(manager, hub):
 
 
 def test_progress_is_clamped_and_indeterminate_is_kept(manager, hub):
-    def update(progress, cancel):
+    def update(progress, cancel, get_exchange_code=None):
         progress(None, "Checking files")
         progress(250.0, "Almost")
         return OperationResult(True, "Updated.")
@@ -232,7 +252,7 @@ def test_play_uses_the_shared_launch_code_and_reports_a_failure(manager, hub, mo
     call("fortnite.play")
     assert seen["hub"] is hub and seen["manager"] is manager
     assert seen["info"] is manager.status.return_value
-    assert hub.named("fortnite.launch_failed") == [{"message": "It didn't start."}]
+    assert hub.named("fortnite.launch_failed") == [{"message": "It didn't start.", "needs_update": False}]
     hub.services.speak.assert_called_once_with("It didn't start.")
     sounds.ui.assert_called_with("error")
 
@@ -423,3 +443,43 @@ def test_setup_asks_about_reset_sensitivity_only_after_played_before():
     assert ("Toggles", "ResetSensitivity") not in collect_values({"played_before": False, "reset_sensitivity": True})
     assert collect_values({"played_before": True, "reset_sensitivity": True})[("Toggles", "ResetSensitivity")] == "true"
     assert collect_values({"played_before": True, "reset_sensitivity": False})[("Toggles", "ResetSensitivity")] == "false"
+
+
+# Out of date: Play offers the update, and the update can start the game ------------
+
+def test_an_out_of_date_launch_tells_the_window_to_offer_the_update(manager, hub, monkeypatch):
+    import lib.hub.play as play
+    monkeypatch.setattr(play, "play_fortnite",
+                        lambda h, mgr=None, info=None, on_failed=None: on_failed("Needs an update.", True))
+    call("fortnite.play")
+    assert hub.named("fortnite.launch_failed") == [{"message": "Needs an update.", "needs_update": True}]
+
+
+def test_update_signs_in_with_the_epic_session_and_then_plays(manager, hub, monkeypatch):
+    import lib.hub.play as play
+    played = []
+    monkeypatch.setattr(play, "play_fortnite", lambda *a, **k: played.append(1))
+    manager.update.side_effect = lambda progress, cancel, get_exchange_code=None: (
+        played.append("code" if callable(get_exchange_code) else "none") or OperationResult(True, "Fortnite was updated."))
+    call("fortnite.update", {"then_play": True})
+    wait_for(lambda: len(played) == 2)
+    assert played == ["code", 1]
+    assert manager.status.call_args.kwargs == {"check_updates": False}  # refreshed for Play
+
+
+def test_a_failed_update_does_not_play(manager, hub, monkeypatch):
+    import lib.hub.play as play
+    monkeypatch.setattr(play, "play_fortnite", lambda *a, **k: pytest.fail("played after a failed update"))
+    manager.update.side_effect = lambda progress, cancel, get_exchange_code=None: OperationResult(False, "No space.")
+    call("fortnite.update", {"then_play": True})
+    wait_for(lambda: hub.named("operation.finished"))
+    wait_for(lambda: manager.status.called)
+    assert hub.named("operation.finished")[0]["ok"] is False
+
+
+def test_a_plain_update_does_not_play(manager, hub, monkeypatch):
+    import lib.hub.play as play
+    monkeypatch.setattr(play, "play_fortnite", lambda *a, **k: pytest.fail("played without being asked"))
+    manager.update.side_effect = lambda progress, cancel, get_exchange_code=None: OperationResult(True, "Updated.")
+    call("fortnite.update")
+    wait_for(lambda: manager.status.called)
