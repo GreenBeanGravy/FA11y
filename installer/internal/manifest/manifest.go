@@ -45,8 +45,11 @@ type Sync struct {
 }
 
 type Component struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Version is the version the download installs, for messages and for
+	// FA11y's own check of the copy it has.
+	Version  string   `json:"version,omitempty"`
 	Reason   string   `json:"reason"`
 	Detect   Detect   `json:"detect"`
 	Download Download `json:"download"`
@@ -60,6 +63,10 @@ type Component struct {
 type Detect struct {
 	PathGlob             string `json:"path_glob,omitempty"`
 	UninstallDisplayName string `json:"uninstall_display_name,omitempty"`
+	// FileSHA256 also requires the file path_glob matches to have this
+	// SHA-256, so changing the pinned download (a new Legendary) replaces
+	// the copy users have. Updaters from before this field ignore it.
+	FileSHA256 string `json:"file_sha256,omitempty"`
 }
 
 type Download struct {
@@ -103,6 +110,9 @@ func Parse(data []byte) (*Manifest, error) {
 		seen[c.ID] = true
 		if c.Detect == (Detect{}) {
 			return nil, fmt.Errorf("manifest: component %s has no detect rule", c.ID)
+		}
+		if c.Detect.FileSHA256 != "" && c.Detect.PathGlob == "" {
+			return nil, fmt.Errorf("manifest: component %s has file_sha256 without path_glob", c.ID)
 		}
 		if c.Download.SHA256 == "" && c.Download.SHA512 == "" {
 			return nil, fmt.Errorf("manifest: component %s download has no hash", c.ID)

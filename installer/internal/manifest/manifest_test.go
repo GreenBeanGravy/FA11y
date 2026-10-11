@@ -39,3 +39,29 @@ func TestParseRejectsBadComponents(t *testing.T) {
 		t.Error("accepted unknown schema")
 	}
 }
+
+func TestLegendaryIsPinnedByHash(t *testing.T) {
+	m, err := Load(filepath.Join("..", "..", "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range m.Components {
+		if c.ID != "legendary" {
+			continue
+		}
+		if c.Version == "" || c.Detect.FileSHA256 == "" || c.Detect.FileSHA256 != c.Download.SHA256 {
+			t.Errorf("legendary must carry its version and detect the exact pinned download: %+v", c)
+		}
+		return
+	}
+	t.Error("no legendary component")
+}
+
+func TestFileSHA256NeedsAPath(t *testing.T) {
+	bad := `{"schema":1,"repo":"a/b","branch":"main","python":{"version":"3.12.9","url":"u","sha256":"h"},` +
+		`"components":[{"id":"x","detect":{"uninstall_display_name":"X","file_sha256":"h"},` +
+		`"download":{"url":"u","sha256":"h"},"install":{"type":"msi"}}]}`
+	if _, err := Parse([]byte(bad)); err == nil {
+		t.Error("accepted file_sha256 without path_glob")
+	}
+}

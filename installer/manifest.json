@@ -117,13 +117,15 @@
     {
       "id": "legendary",
       "name": "Legendary",
+      "version": "0.21.1",
       "reason": "Epic Games login and account features.",
       "detect": {
-        "path_glob": "%FA11Y_FILES%\\legendary.exe"
+        "path_glob": "%FA11Y_FILES%\\legendary.exe",
+        "file_sha256": "6be77857dc0a6dd33ea7442ce8b5291944ec6da53757f81ca95b57ce794baf5b"
       },
       "download": {
-        "url": "https://github.com/derrod/legendary/releases/download/0.20.34/legendary.exe",
-        "sha256": "01ea22ea51749f46a0019657f64fc0d34429fb7cbf9b590c0848c0e0bd9c1f07"
+        "url": "https://github.com/derrod/legendary/releases/download/0.21.1/legendary_windows_x64.exe",
+        "sha256": "6be77857dc0a6dd33ea7442ce8b5291944ec6da53757f81ca95b57ce794baf5b"
       },
       "install": {
         "type": "file",

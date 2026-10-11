@@ -17,6 +17,7 @@ import (
 	"github.com/GreenBeanGravy/FA11y/installer/internal/console"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fetch"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/manifest"
+	"github.com/GreenBeanGravy/FA11y/installer/internal/swap"
 )
 
 var envVar = regexp.MustCompile(`%([^%]+)%`)
@@ -43,6 +44,9 @@ func Installed(c manifest.Component, filesDir string) bool {
 		matches, err := filepath.Glob(Expand(d.PathGlob, filesDir))
 		if err != nil || len(matches) == 0 {
 			return false
+		}
+		if d.FileSHA256 != "" && fetch.VerifyFile(matches[0], fetch.Expect{SHA256: d.FileSHA256}) != nil {
+			return false // an older (or damaged) copy: install the pinned one over it
 		}
 	}
 	if d.UninstallDisplayName != "" && !uninstallEntryExists(d.UninstallDisplayName) {
@@ -159,6 +163,11 @@ func copyFile(src, dest string) error {
 	if err := os.WriteFile(tmp, data, 0o755); err != nil {
 		return err
 	}
-	os.Remove(dest)
-	return os.Rename(tmp, dest)
+	// The old copy may be running (legendary.exe during a download).
+	if _, err := swap.Into(tmp, dest); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	swap.Cleanup(dest)
+	return nil
 }

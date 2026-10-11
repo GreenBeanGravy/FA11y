@@ -989,6 +989,8 @@ def _complete_epic_login(restored: bool, first_run: bool) -> None:
     updater_check.startup_finished(speaker)
     # Runtimes and drivers FA11y needs but doesn't ship: say what's missing and install it.
     _install_missing_components(hub)
+    # legendary.exe at the release the install manifest pins (older updaters never replaced it).
+    _update_legendary()
     # Screen monitors wait for this, so nothing is read off the screen while FA11y loads.
     _app_state.startup_done.set()
     if hub is not None and hasattr(hub, "startup_finished"):
@@ -1003,6 +1005,15 @@ def _install_missing_components(hub) -> None:
             speaker.speak("Restart FA11y to finish.")
 
     components.install_in_background(speaker.speak, restart)
+
+
+def _update_legendary() -> None:
+    try:
+        from lib.fortnite import get_manager
+        from lib.fortnite.legendary_update import ensure_current_in_background
+        ensure_current_in_background(manager=get_manager(), on_updated=print)
+    except Exception as e:
+        logger.warning(f"Could not check legendary's version: {e}")
 
 
 def _startup_progress(percent: int, message: str) -> None:
