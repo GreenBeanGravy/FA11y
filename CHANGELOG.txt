@@ -1,3 +1,10 @@
+10/10/2026 #1 (19.0.0-beta.2, Beta branch):
+- Fixed Fortnite saying it was out of date every time you pressed Play, even after Check for updates said it was up to date. Check for updates now sees the same version Play does, and tells you to sign in on the Epic account page if it couldn't check instead of saying you're up to date.
+- When Fortnite is out of date, FA11y now asks if you want to update it. Choose Yes and Fortnite updates, then launches by itself when it's done. This works from the Play button, the Play keybind and the Home page. Updating Fortnite also signs you in for downloads first, so it should no longer fail with a login error.
+- FA11y should now properly see and install its own updates. Updates no longer get skipped when the version number stays the same, and updating no longer fails when a file is still in use, since the updater now waits for FA11y to close first.
+- The leftover .old files from updates are now cleaned up automatically, and should no longer pile up.
+- Legendary, which FA11y uses to install, update and launch Fortnite, has been updated to version 0.21.1. FA11y now keeps Legendary up to date by itself.
+
 10/7/2026 #1 (overhaul branch):
 - FA11y's Social capabilities have been overhauled! You can now properly join parties, accept and decline invites, and invite your friends through the Social menu. You can also message your friends or your Party more easily in the Social menu, though this is very early. You can view previous conversations from the last 30 days, send messages, and get notified when you receive messages.
 - FA11y should now properly refresh your authentication when it expires if you signed in with browser authentication.
