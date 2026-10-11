@@ -14,7 +14,9 @@
 // in a console instead, which shows FA11y's printed output for
 // troubleshooting. Pass --update to update first even when AutoUpdates is
 // off (FA11y's "Restart to update" button does this). "--branch NAME" is
-// passed on to the updater, which switches the install to that branch.
+// passed on to the updater, which switches the install to that branch, and
+// "--wait-pid N" too, so the updater waits for the FA11y that asked for the
+// update to close before it replaces files that FA11y has loaded.
 package main
 
 import (
@@ -31,6 +33,7 @@ import (
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fa11yconfig"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/layout"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/pyenv"
+	"github.com/GreenBeanGravy/FA11y/installer/internal/swap"
 )
 
 const (
@@ -51,16 +54,23 @@ func main() {
 		console.Fail(2, "could not find the FA11y folder: %v", err)
 	}
 
+	// Copies an earlier update set aside because they were running. The
+	// updater also cleans these, but it doesn't run at all when AutoUpdates
+	// is off, so without this they would stay forever.
+	cleanupSetAside(l)
 	branchArgs := branchArgs(os.Args[1:])
+	updateArgs := append(slices.Clone(branchArgs), waitPIDArgs(os.Args[1:])...)
 	if !installed(l) {
-		code := runUpdater(l, append([]string{"--install"}, branchArgs...)...)
+		code := runUpdater(l, append([]string{"--install"}, updateArgs...)...)
 		if (code != layout.ExitNoUpdate && code != layout.ExitUpdated) || !installed(l) {
 			console.Fail(2, "the install did not finish (updater exit code %d).", code)
 		}
 	} else if forced := slices.Contains(os.Args[1:], "--update"); (forced || fa11yconfig.Bool(l.ConfigFile(), "AutoUpdates", true)) && checkForUpdate(l, branchArgs) {
 		// A failed update is reported in the updater's window; the installed
 		// version starts either way.
-		runUpdater(l, append([]string{"--quick"}, branchArgs...)...)
+		runUpdater(l, append([]string{"--quick"}, updateArgs...)...)
+		// The updater that just exited may have replaced itself; its old copy is free now.
+		cleanupSetAside(l)
 	}
 
 	if err := repairVenv(l); err != nil {
@@ -86,6 +96,31 @@ func branchArgs(args []string) []string {
 		}
 	}
 	return nil
+}
+
+// waitPIDArgs returns every "--wait-pid N" from args, for the updater.
+func waitPIDArgs(args []string) []string {
+	var out []string
+	for i, a := range args {
+		if a == "--wait-pid" && i+1 < len(args) {
+			out = append(out, "--wait-pid", args[i+1])
+		} else if strings.HasPrefix(a, "--wait-pid=") {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// cleanupSetAside deletes "<name>.old" copies of the launcher and updater
+// (and of the launcher's old names) that are no longer running. This
+// launcher's own set-aside copy, if it is the one running, stays until the
+// next start.
+func cleanupSetAside(l layout.Layout) {
+	paths := []string{l.Updater(), l.Launcher()}
+	for _, name := range layout.LegacyLauncherExes {
+		paths = append(paths, filepath.Join(l.Root, name))
+	}
+	swap.Cleanup(paths...)
 }
 
 func installed(l layout.Layout) bool {

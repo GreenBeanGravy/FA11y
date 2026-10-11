@@ -3,8 +3,8 @@
 //
 // Installer releases are tagged "installer-vMAJOR.MINOR.PATCH", separate
 // from FA11y's own release tags. Windows lets a running executable be
-// renamed but not overwritten, so the old file is renamed to "<name>.old"
-// and removed on the next run.
+// renamed but not overwritten, so the old file is set aside as "<name>.old"
+// (see package swap) and removed by a later run once nothing uses it.
 package selfupdate
 
 import (
@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fetch"
+	"github.com/GreenBeanGravy/FA11y/installer/internal/swap"
 )
 
 const TagPrefix = "installer-v"
@@ -116,24 +117,15 @@ func Replace(target string, asset Asset) error {
 	if err := fetch.File(asset.URL, staged, fetch.Expect{SHA256: asset.SHA256}); err != nil {
 		return err
 	}
-	old := target + ".old"
-	os.Remove(old)
-	if _, err := os.Stat(target); err == nil {
-		if err := os.Rename(target, old); err != nil {
-			os.Remove(staged)
-			return err
-		}
-	}
-	if err := os.Rename(staged, target); err != nil {
-		os.Rename(old, target)
+	if _, err := swap.Into(staged, target); err != nil {
+		os.Remove(staged)
 		return err
 	}
 	return nil
 }
 
-// CleanupOld removes "<name>.old" files left by earlier replacements.
+// CleanupOld removes the copies earlier replacements set aside ("<name>.old",
+// "<name>.<n>.old") and any staged "<name>.new", except ones still running.
 func CleanupOld(paths ...string) {
-	for _, p := range paths {
-		os.Remove(p + ".old")
-	}
+	swap.Cleanup(paths...)
 }

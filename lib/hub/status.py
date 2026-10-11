@@ -112,6 +112,13 @@ def launcher_path() -> str:
     return renamed if os.path.exists(renamed) else ""
 
 
+def _wait_args() -> list:
+    """Makes the updater the launcher runs wait for this FA11y to close first. Updating while it
+    still runs fails on files it has loaded (pip can't replace a loaded .pyd, and FA11y's window
+    holds its .dll). Launchers from before this ignore the argument."""
+    return ["--wait-pid", str(os.getpid())]
+
+
 def can_restart_to_update() -> bool:
     """Only installs started by FA11y_Launcher.exe can update by restarting."""
     return bool(launcher_path())
@@ -124,7 +131,7 @@ def restart_to_update(hub) -> None:
         return
     try:
         # --update makes the launcher update even when AutoUpdates is off.
-        subprocess.Popen([launcher, "--update"], cwd=os.path.dirname(launcher),
+        subprocess.Popen([launcher, "--update", *_wait_args()], cwd=os.path.dirname(launcher),
                          creationflags=subprocess.CREATE_NEW_CONSOLE, close_fds=True)
     except OSError as e:
         logger.error(f"Could not start the launcher: {e}")
@@ -140,7 +147,7 @@ def restart(hub) -> bool:
     # The new FA11y waits for this one to exit before it checks for a running copy.
     env = dict(os.environ, FA11Y_WAIT_PID=str(os.getpid()))
     try:
-        subprocess.Popen([launcher], cwd=os.path.dirname(launcher), env=env, close_fds=True)
+        subprocess.Popen([launcher, *_wait_args()], cwd=os.path.dirname(launcher), env=env, close_fds=True)
     except OSError as e:
         logger.error(f"Could not start the launcher: {e}")
         return False
@@ -154,7 +161,7 @@ def switch_branch(hub, name: str) -> None:
     if not launcher:
         return
     try:
-        subprocess.Popen([launcher, "--update", "--branch", name], cwd=os.path.dirname(launcher),
+        subprocess.Popen([launcher, "--update", "--branch", name, *_wait_args()], cwd=os.path.dirname(launcher),
                          creationflags=subprocess.CREATE_NEW_CONSOLE, close_fds=True)
     except OSError as e:
         logger.error(f"Could not start the launcher: {e}")

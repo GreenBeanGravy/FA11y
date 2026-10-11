@@ -23,6 +23,12 @@ type State struct {
 	// Declined lists components the user declined to install (UAC refused).
 	// Quick update checks do not ask for them again; a full update does.
 	Declined []string `json:"declined,omitempty"`
+	// SetAside lists files (relative to the FA11y Files folder) an update
+	// renamed out of the way because they were in use. Later runs delete them.
+	SetAside []string `json:"set_aside,omitempty"`
+	// Source is "local" for an install made with --source (a test install
+	// from a checkout); its files are expected to differ from GitHub's.
+	Source string `json:"source,omitempty"`
 }
 
 func path(filesDir string) string { return filepath.Join(filesDir, FileName) }

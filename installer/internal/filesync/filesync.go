@@ -23,6 +23,7 @@ import (
 	"github.com/GreenBeanGravy/FA11y/installer/internal/fetch"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/manifest"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/state"
+	"github.com/GreenBeanGravy/FA11y/installer/internal/swap"
 )
 
 const workers = 8
@@ -176,6 +177,7 @@ func (r Result) Changed() bool { return len(r.Updated) > 0 || len(r.Removed) > 0
 // manifest's sync rules, and records installed files in st.
 func Sync(filesDir string, src Source, rules manifest.Sync, tree []Entry, st *state.State, say func(string, ...any)) (Result, error) {
 	var res Result
+	CleanupSetAside(filesDir, st)
 	wanted := map[string]bool{}
 	var todo []Entry
 	for _, e := range tree {
@@ -210,8 +212,13 @@ func Sync(filesDir string, src Source, rules manifest.Sync, tree []Entry, st *st
 		go func() {
 			defer wg.Done()
 			for e := range jobs {
-				err := download(filesDir, src, e)
+				aside, err := download(filesDir, src, e)
 				mu.Lock()
+				if aside != "" {
+					if rel, relErr := filepath.Rel(filesDir, aside); relErr == nil {
+						st.SetAside = append(st.SetAside, filepath.ToSlash(rel))
+					}
+				}
 				if err != nil && firstErr == nil {
 					firstErr = err
 				}
@@ -250,8 +257,15 @@ func Sync(filesDir string, src Source, rules manifest.Sync, tree []Entry, st *st
 	for _, path := range stale {
 		local := filepath.Join(filesDir, filepath.FromSlash(path))
 		if err := os.Remove(local); err != nil && !os.IsNotExist(err) {
-			say("Could not remove %s: %v", path, err)
-			continue
+			// In use (a loaded .pyd or .dll): move it out of the way and delete it next time.
+			aside, asideErr := swap.SetAside(local)
+			if asideErr != nil {
+				say("Could not remove %s: %v", path, err)
+				continue
+			}
+			if rel, relErr := filepath.Rel(filesDir, aside); relErr == nil {
+				st.SetAside = append(st.SetAside, filepath.ToSlash(rel))
+			}
 		}
 		delete(st.Files, path)
 		res.Removed = append(res.Removed, path)
@@ -261,18 +275,62 @@ func Sync(filesDir string, src Source, rules manifest.Sync, tree []Entry, st *st
 	return res, nil
 }
 
-func download(filesDir string, src Source, e Entry) error {
+// download fetches e and moves it into place. A file in use (FA11y still
+// closing, or its window holding a .dll) is set aside rather than failing
+// the whole update; the set-aside path is returned for later cleanup.
+func download(filesDir string, src Source, e Entry) (string, error) {
 	local := filepath.Join(filesDir, filepath.FromSlash(e.Path))
 	tmp := local + ".download"
 	if err := src.Fetch(e.Path, tmp); err != nil {
-		return err
+		return "", err
 	}
 	if got := BlobSHA(tmp); got != e.SHA {
 		os.Remove(tmp)
-		return fmt.Errorf("%s: downloaded content does not match the repository (got %s, want %s)", e.Path, got, e.SHA)
+		return "", fmt.Errorf("%s: downloaded content does not match the repository (got %s, want %s)", e.Path, got, e.SHA)
 	}
-	os.Remove(local)
-	return os.Rename(tmp, local)
+	aside, err := swap.Into(tmp, local)
+	if err != nil {
+		os.Remove(tmp)
+	}
+	return aside, err
+}
+
+// CleanupSetAside deletes the files earlier updates set aside, keeping the
+// ones still in use on the list for next time.
+func CleanupSetAside(filesDir string, st *state.State) {
+	kept := st.SetAside[:0]
+	for _, rel := range st.SetAside {
+		err := os.Remove(filepath.Join(filesDir, filepath.FromSlash(rel)))
+		if err != nil && !os.IsNotExist(err) {
+			kept = append(kept, rel)
+		}
+	}
+	st.SetAside = kept
+}
+
+// Pending reports whether installing tree would change any file this
+// install is tracking: a file whose content differs from the one installed,
+// a new file, or one the repository no longer has. It compares against the
+// SHAs recorded when the files were installed, so it reads no file contents.
+func Pending(rules manifest.Sync, tree []Entry, st *state.State) []string {
+	var changed []string
+	wanted := map[string]bool{}
+	for _, e := range tree {
+		if rules.Excluded(e.Path) || rules.IsAddOnly(e.Path) {
+			continue
+		}
+		wanted[e.Path] = true
+		if st.Files[e.Path] != e.SHA {
+			changed = append(changed, e.Path)
+		}
+	}
+	for path := range st.Files {
+		if !wanted[path] {
+			changed = append(changed, path)
+		}
+	}
+	sort.Strings(changed)
+	return changed
 }
 
 func removeEmptyParents(root, dir string) {

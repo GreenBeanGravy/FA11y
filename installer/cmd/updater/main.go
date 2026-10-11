@@ -28,6 +28,7 @@ import (
 	"github.com/GreenBeanGravy/FA11y/installer/internal/manifest"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/selfupdate"
 	"github.com/GreenBeanGravy/FA11y/installer/internal/state"
+	"github.com/GreenBeanGravy/FA11y/installer/internal/swap"
 )
 
 // version is set at build time: -ldflags "-X main.version=1.2.3".
@@ -195,7 +196,8 @@ func run(l layout.Layout, opts options) (int, error) {
 		available := true
 		if !switching && !legacy && installed(l) {
 			remote, err := src.Read("VERSION")
-			available = err == nil && (versionNewer(strings.TrimSpace(string(remote)), readVersion(l)) || !healthy(l, m, st, opts.noComponents))
+			available = err == nil && (versionNewer(strings.TrimSpace(string(remote)), readVersion(l)) ||
+				!healthy(l, m, st, opts.noComponents) || filesChanged(src, m, st))
 		}
 		if !opts.fromLauncher {
 			if available {
@@ -224,7 +226,8 @@ func run(l layout.Layout, opts options) (int, error) {
 	}
 	if opts.quick && installed(l) {
 		remote, err := src.Read("VERSION")
-		if err == nil && !versionNewer(strings.TrimSpace(string(remote)), localVersion) && healthy(l, m, st, opts.noComponents) {
+		if err == nil && !versionNewer(strings.TrimSpace(string(remote)), localVersion) &&
+			healthy(l, m, st, opts.noComponents) && !filesChanged(src, m, st) {
 			console.Say("FA11y is up to date.")
 			return layout.ExitNoUpdate, nil
 		}
@@ -238,6 +241,10 @@ func run(l layout.Layout, opts options) (int, error) {
 	changed, err := update(l, m, src, st, opts)
 	if err == nil {
 		st.Branch = branch
+		st.Source = ""
+		if opts.source != "" {
+			st.Source = "local"
+		}
 	}
 	if saveErr := st.Save(l.Files); err == nil {
 		err = saveErr
@@ -501,7 +508,7 @@ func renameOldLauncher(l layout.Layout) (renamed bool) {
 			continue
 		}
 		if os.Remove(old) != nil {
-			os.Rename(old, old+".old")
+			swap.SetAside(old)
 		}
 	}
 	return renamed
@@ -555,6 +562,23 @@ func installed(l layout.Layout) bool {
 		}
 	}
 	return true
+}
+
+// filesChanged reports whether the branch has files that differ from the
+// installed ones. VERSION alone isn't enough: a push that changes FA11y
+// without bumping VERSION would otherwise never reach anyone whose install
+// updates through the launcher. A test install made from a local checkout
+// (--source) is expected to differ from GitHub and is left alone. A tree that
+// can't be read (offline, rate limited) counts as no change.
+func filesChanged(src filesync.Source, m *manifest.Manifest, st *state.State) bool {
+	if st.Source == "local" || len(st.Files) == 0 {
+		return false
+	}
+	tree, err := src.Tree()
+	if err != nil {
+		return false
+	}
+	return len(filesync.Pending(m.Sync, tree, st)) > 0
 }
 
 // healthy reports whether the install is complete: runtime, venv, current

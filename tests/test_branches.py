@@ -1,4 +1,5 @@
 import json
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -55,8 +56,27 @@ def test_switch_starts_launcher_with_branch(monkeypatch, tmp_path):
     hub = MagicMock()
     monkeypatch.setattr("lib.shell.handlers.app._hub", lambda: hub)
     about.about_switch_branch({"name": "overhaul"})
-    assert popen.call_args[0][0] == [str(launcher), "--update", "--branch", "overhaul"]
+    assert popen.call_args[0][0] == [str(launcher), "--update", "--branch", "overhaul",
+                                     "--wait-pid", str(os.getpid())]
     hub.quit.assert_called_once()
+
+
+def test_every_launcher_restart_makes_the_updater_wait_for_this_fa11y(monkeypatch, tmp_path):
+    """Without --wait-pid the updater replaced files while FA11y was still closing and failed."""
+    launcher = tmp_path / "FA11y_Launcher.exe"
+    launcher.write_text("")
+    monkeypatch.setenv("FA11Y_LAUNCHER", str(launcher))
+    popen = MagicMock()
+    monkeypatch.setattr(status.subprocess, "Popen", popen)
+    hub = MagicMock()
+    status.restart_to_update(hub)
+    status.restart(hub)
+    for call in popen.call_args_list:
+        args = call[0][0]
+        assert args[0] == str(launcher)
+        assert args[-2:] == ["--wait-pid", str(os.getpid())]
+    assert popen.call_args_list[0][0][0][1] == "--update"
+    assert popen.call_count == 2
 
 
 def test_versions_order_pre_releases_before_their_release():
