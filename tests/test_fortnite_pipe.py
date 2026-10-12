@@ -1,3 +1,4 @@
+import pytest
 from lib.utilities.fortnite_pipe import judge, normalize_link
 
 # Lines from FortniteGame.log, trimmed.
@@ -50,15 +51,13 @@ def test_epic_gamemodes_take_the_match_options_they_offer():
     from lib.utilities import discovery_ops as d
     zb_duo = {"team": "duo", "zero_build": True, "ranked": False}
     assert d.apply_options("experience_br", "Battle Royale", zb_duo) == (
-        "playlist_nobuildbr_duo", "Battle Royale Zero Build Duos Unranked",
-        "Set other match options such as team fill in Fortnite.")
+        "playlist_nobuildbr_duo", "Battle Royale Zero Build Duos Unranked", "Set other match options such as team fill in Fortnite.")
     link, _, note = d.apply_options("experience_br", "Battle Royale", {"team": "trio", "zero_build": True, "ranked": True})
     assert link is None and "Solo, Duos and Squads" in note
     assert d.apply_options("experience_blitz", "Blitz Royale", {"team": "squad", "ranked": True}) == (
-        "playlist_forbiddenfruitnobuildbrsquad", "Blitz Royale Squads Unranked",
-        "Blitz Royale has no ranked. Set other match options such as team fill in Fortnite.")
+        "playlist_forbiddenfruitnobuildbrsquad", "Blitz Royale Squads Unranked", "Blitz Royale has no ranked. Set other match options such as team fill in Fortnite.")
     assert d.apply_options("experience_blitz", "Blitz Royale", {"team": "trio"})[0] is None
-    assert d.apply_options("experience_reload", "Reload", zb_duo)[0] == "experience_reload"
+    assert d.apply_options("experience_reload", "Reload", zb_duo)[0] == "playlist_blastberrynobuildduo"
     assert d.apply_options("campaign", "Save the World", zb_duo) == ("campaign", "Save the World", "")
     assert d.apply_options("experience_br", "Battle Royale", None) == ("experience_br", "Battle Royale", "")
 
@@ -66,9 +65,102 @@ def test_epic_gamemodes_take_the_match_options_they_offer():
 def test_no_pipe_falls_back_and_says_options_need_fortnite_from_fa11y(monkeypatch):
     from lib.utilities import discovery_ops as d, gamemode_selection
     import threading
+    from lib.utilities import fortnite_pipe
+    monkeypatch.setattr(fortnite_pipe, "select_island", lambda *a, **k: (False, "no pipe"))
     monkeypatch.setattr(gamemode_selection, "select_gamemode", lambda *a, **k: (True, None))
     said, done = [], threading.Event()
     d.launch_gamemode("experience_br", "Battle Royale", lambda m: (said.append(m), done.set()),
                       {"team": "duo", "zero_build": True, "ranked": False})
     assert done.wait(3)
     assert "Play button" in said[0]
+
+
+@pytest.mark.parametrize("link", ['experience_br\0-uilink=Bad', 'code&bad', 'code with spaces'])
+def test_malformed_links_never_open_the_pipe(monkeypatch, link):
+    from lib.utilities import fortnite_pipe
+    from unittest.mock import Mock
+    discover = Mock()
+    monkeypatch.setattr(fortnite_pipe, "pipe_path", discover)
+    assert fortnite_pipe.select_island(link)[0] is False
+    discover.assert_not_called()
+
+
+def test_unconfirmed_command_is_not_reported_as_selection(monkeypatch):
+    from lib.utilities import fortnite_pipe
+    from unittest.mock import mock_open
+    monkeypatch.setattr(fortnite_pipe, "pipe_path", lambda: "fake")
+    monkeypatch.setattr(fortnite_pipe, "_log_size", lambda: 0)
+    monkeypatch.setattr(fortnite_pipe, "_wait_for_result", lambda *args: None)
+    monkeypatch.setattr("builtins.open", mock_open())
+    ok, error = fortnite_pipe.select_island("experience_br")
+    assert not ok and "has not confirmed" in error
+
+
+@pytest.mark.parametrize('team', ['solo','duo','squad'])
+@pytest.mark.parametrize('zero', [False,True])
+def test_reload_specifics_are_not_discarded(team, zero):
+    from lib.utilities.discovery_ops import apply_options
+    link,name,_=apply_options('experience_reload','Reload',dict(team=team,zero_build=zero))
+    assert link == f"playlist_blastberry{'nobuild' if zero else ''}{team}"
+    assert ('Zero Build' in name) == zero
+
+
+def test_unverified_reload_options_do_not_claim_success():
+    from lib.utilities.discovery_ops import apply_options
+    assert apply_options('experience_reload','Reload',dict(team='trio'))[0] is None
+    assert apply_options('experience_reload','Reload',dict(team='solo',ranked=True))[0] is None
+
+
+def selected_log(build='Zero', team='Solo'):
+    return f'''LogFortIslandOverride: Converting [playlist_blastberrynobuildsolo] to corresponding consoldiated tile [experience_reload] with settings [
+    Selected Island:
+        LinkId [Mnemonic=[experience_reload] Version=[latest]]
+        MatchmakingSettings (V2) [
+        /Fortnite.com/Matchmaking:Ranked [Unranked]
+        /Fortnite.com/BattleRoyale/Matchmaking:TeamSize [{team}]
+        /Fortnite.com/BattleRoyale/Matchmaking:BuildMode [{build}]]
+        Timestamp: 2026.10.12-12.00.00'''
+
+
+def test_same_island_settings_change_is_verified_without_link_change():
+    settings={'BuildMode':'Zero','TeamSize':'Solo','Ranked':'Unranked'}
+    assert judge(selected_log(),'playlist_blastberrynobuildsolo','experience_reload',settings) is True
+    assert judge(selected_log(build='Build'),'playlist_blastberrynobuildsolo','experience_reload',settings) is None
+    assert judge(selected_log(team='Duo'),'playlist_blastberrynobuildsolo','experience_reload',settings) is None
+
+
+def test_playable_island_alone_cannot_confirm_requested_settings():
+    assert judge(TAKEN,'8765-4125-9209',expected_settings={'TeamSize':'Solo'}) is None
+
+
+def test_later_settings_override_does_not_confirm_old_requested_state():
+    log=selected_log()+'\nfrom:\n'+selected_log()+'\nto:\n'+selected_log(build='Build')
+    assert judge(log,'playlist_blastberrynobuildsolo','experience_reload',{'BuildMode':'Zero'}) is None
+    partial=selected_log()+'\nto:\n Selected Island:\n  /Fortnite.com/BattleRoyale/Matchmaking:BuildMode [Build]'
+    assert judge(partial,'playlist_blastberrynobuildsolo','experience_reload',{'BuildMode':'Zero'}) is None
+
+
+def test_bridge_launch_passes_the_exact_requested_settings(monkeypatch):
+    from lib.utilities import discovery_ops as d, fortnite_pipe
+    from unittest.mock import Mock
+    import threading
+    send=Mock(return_value=(True,None))
+    monkeypatch.setattr(fortnite_pipe,'select_island',send)
+    done=threading.Event()
+    d.launch_gamemode('experience_reload','Reload',lambda _:done.set(),
+                     dict(team='solo',zero_build=True,ranked=False))
+    assert done.wait(3)
+    send.assert_called_once_with('playlist_blastberrynobuildsolo',expected_island='experience_reload',
+                                 expected_settings={'TeamSize':'Solo','Ranked':'Unranked','BuildMode':'Zero'})
+
+
+def test_blitz_confirmation_does_not_require_a_ranked_control(monkeypatch):
+    from lib.utilities import discovery_ops as d, fortnite_pipe
+    from unittest.mock import Mock
+    import threading
+    send=Mock(return_value=(True,None));done=threading.Event()
+    monkeypatch.setattr(fortnite_pipe,'select_island',send)
+    d.launch_gamemode('experience_blitz','Blitz',lambda _:done.set(),dict(team='duo'))
+    assert done.wait(3)
+    send.assert_called_once_with('playlist_forbiddenfruitnobuildbrduo',expected_island='experience_blitz',
+                                 expected_settings={'TeamSize':'Duo'})

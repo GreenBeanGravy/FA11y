@@ -113,6 +113,12 @@ class ReloadProfile(BattleRoyaleProfile):
     title_box = (105,690,390,755)
     teams = {'Solo': (1589,380), 'Duos': (1671,380), 'Squads': (1753,380)}
 
+    def matches(self, gray):
+        # The map-rotation card moves Reload's title up by 35 pixels.
+        title_boxes = (self.title_box, (105,655,390,720))
+        return (any(score(gray,self.key,'title',box) > .85 for box in title_boxes)
+                and score(gray,self.key,'labels',self.labels_box) > .85)
+
 
 class FortniteOGProfile(BattleRoyaleProfile):
     key = 'fortnite_og'

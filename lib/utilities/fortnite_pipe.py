@@ -62,34 +62,52 @@ def _log_size() -> int:
         return -1
 
 
-def judge(text: str, link: str) -> Optional[bool]:
+def judge(text: str, link: str, expected_island=None, expected_settings=None) -> Optional[bool]:
     """Read the game's log lines since the message. True when the island stuck, False when the game
     rejected it or switched away again (an unknown code is selected, then dropped within a second),
     None while it's still undecided."""
-    wanted = f"mnemonic=[{link.lower()}]"
+    wanted = f"mnemonic=[{(expected_island or link).lower()}]"
     changed = False
     for line in text.lower().splitlines():
         if "did not parse into valid command" in line:
             return False
         # An old playlist name becomes an island plus settings: playlist_nobuildbr_duo is
         # experience_br with TeamSize Duo and BuildMode Zero.
-        converted = re.search(r"converting \[[^\]]*\] to corresponding \w+ tile \[([^\]]+)\]", line)
-        if converted:
-            wanted = f"mnemonic=[{converted.group(1)}]"
+        converted = re.search(r"converting \[([^\]]*)\] to corresponding \w+ tile \[([^\]]+)\]", line)
+        if converted and converted.group(1) == link.lower():
+            wanted = f"mnemonic=[{converted.group(2)}]"
         if "link id changing" in line:
             before, _, after = line.partition(" to ")
             if wanted in after:
                 changed = True
             elif changed and wanted in before:
                 return False  # dropped again
-        if changed and "found playable island" in line and wanted in line:
+        if not expected_settings and changed and "found playable island" in line and wanted in line:
             return True
+    if expected_settings:
+        # A settings-only change stays on the same consolidated island. Require
+        # the actual selected settings, not merely successful link resolution.
+        selected = []
+        for block in re.split(r"(?im)^\s*Selected Island:\s*\r?\n", text)[1:]:
+            block = re.split(r"\r?\n(?:to:|from:|\[|\s*Current Island:)", block, maxsplit=1)[0]
+            fields = dict(re.findall(r"/[^\s\[]+:(TeamSize|BuildMode|Ranked)\s+\[([^\]]+)\]", block))
+            if "linkid" in block.lower() and fields:
+                selected.append((block.lower(), fields))
+            elif fields and selected:
+                # Fortnite also logs incremental `to: Selected Island` updates.
+                # A later changed field must override an earlier full snapshot.
+                old_block, old_fields = selected[-1]
+                selected.append((old_block, {**old_fields, **fields}))
+        if selected:
+            block, fields = selected[-1]
+            if wanted in block and all(fields.get(k, '').casefold() == v.casefold()
+                                      for k,v in expected_settings.items()):
+                return True
     return None  # parsed with no change yet: the change may still be on its way
 
 
-def _wait_for_result(start: int, link: str, timeout: float) -> Optional[bool]:
-    """Watch the log until judge decides. A change nothing undid by the timeout counts as taken;
-    a parsed command with no change means the island was already selected."""
+def _wait_for_result(start: int, link: str, timeout: float, expected_island=None, expected_settings=None) -> Optional[bool]:
+    """Require observed selection/settings confirmation; a parsed command alone is insufficient."""
     if start < 0:
         return None
     text = ""
@@ -102,17 +120,16 @@ def _wait_for_result(start: int, link: str, timeout: float) -> Optional[bool]:
                 text = f.read()
         except OSError:
             return None
-        result = judge(text, link)
+        result = judge(text, link, expected_island, expected_settings)
         if result is not None:
             return result
-    lowered = text.lower()
-    return True if f"-islandoverride={link.lower()}" in lowered else None
+    return None
 
 
-def select_island(link: str, timeout: float = 3.0) -> Tuple[bool, Optional[str]]:
+def select_island(link: str, timeout: float = 3.0, *, expected_island=None, expected_settings=None) -> Tuple[bool, Optional[str]]:
     """Select an island or playlist in the running Fortnite. Returns (ok, error)."""
     link = normalize_link(link)
-    if not link or any(c.isspace() for c in link) or '"' in link:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", link):
         return False, "That isn't an island code or playlist"
     path = pipe_path()
     if path is None:
@@ -125,8 +142,10 @@ def select_island(link: str, timeout: float = 3.0) -> Tuple[bool, Optional[str]]
     except OSError as e:
         logger.warning(f"Could not write to Fortnite's pipe {path}: {e}")
         return False, "Fortnite didn't answer"
-    result = _wait_for_result(start, link, timeout)
+    result = _wait_for_result(start, link, timeout, expected_island, expected_settings)
     logger.info(f"[gamemode] pipe select {link!r}: {result}")
     if result is False:
         return False, "Fortnite didn't accept that island"
+    if result is None:
+        return False, "Selection was sent, but Fortnite has not confirmed it. Close open screens and check the lobby before retrying."
     return True, None

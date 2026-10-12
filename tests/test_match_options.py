@@ -100,6 +100,7 @@ MODE_STATES = [
  ('og_build','fortnite_og','Build',None,'Duos',False),
  ('og_squad','fortnite_og','Build',None,'Squads',False),
  ('reload_squad','reload','Build',False,'Squads',False),
+ ('reload_rotation_solo','reload','Build',False,'Solo',None),
  ('reload_ranked_squad','reload','Build',True,'Squads',None),
  ('reload_ranked_zero','reload','Zero Build',True,'Squads',None),
  ('reload_ranked_solo','reload','Zero Build',True,'Solo',None),
@@ -146,3 +147,10 @@ def test_mode_specific_click_coordinates():
         current,_=options.read_image(Image.open(FIXTURES/(fixture+'.png')))
         profile=next(p for p in options.PROFILES if p.key==current.mode)
         assert profile.target(current,field,value)==point
+
+
+def test_reload_rotation_title_still_requires_options_labels():
+    image = Image.open(FIXTURES/'reload_rotation_solo.png').convert('RGB')
+    image.paste((0,0,0), options.ReloadProfile.labels_box)
+    with pytest.raises(options.OptionsUnavailable,match='has not been mapped'):
+        options.read_image(image)

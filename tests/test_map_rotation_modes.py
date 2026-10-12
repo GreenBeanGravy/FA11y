@@ -1,3 +1,4 @@
+from pathlib import Path
 
 from lib.utilities import map_rotation
 from lib.utilities.map_rotation import CurrentReloadMap, RotationEntry
@@ -71,3 +72,17 @@ def test_mode_caches_are_distinct():
 
 def test_mini_venture_resolves_to_its_reload_map():
     assert map_rotation.fa11y_map_for_display("Mini-Venture") == "reload_mini_venture"
+
+
+def test_stranger_things_resolves_to_the_captured_reload_map():
+    assert map_rotation.fa11y_map_for_display("Stranger Things") == "reload_stranger_things"
+    assert map_rotation.fa11y_map_for_display("BlendHeaded") == "reload_stranger_things"
+
+
+def test_nightmare_island_resolves_to_the_captured_reload_map():
+    for name in ('Nitemare Island','Nightmare Island','SourSpawn'):
+        assert map_rotation.fa11y_map_for_display(name)=='reload_nightmare_island'
+
+
+def test_surf_city_remix_uses_the_existing_map():
+    assert map_rotation.fa11y_map_for_display("Surf City Remix") == "reload_surfcity"

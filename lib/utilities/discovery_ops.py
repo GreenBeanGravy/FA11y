@@ -169,7 +169,13 @@ _BLITZ_PLAYLISTS = {size: f"playlist_forbiddenfruitnobuildbr{size}" for size in 
 BATTLE_ROYALE = "experience_br"
 BLITZ = "experience_blitz"
 # Modes with match options in Fortnite that FA11y can't set yet.
-_OPTIONS_IN_GAME = {"experience_reload", "experience_og"}
+_OPTIONS_IN_GAME = {"experience_og"}
+RELOAD = "experience_reload"
+# Installed BlastBerryPlaylists assets name these exact Reload variants.
+_RELOAD_PLAYLISTS = {
+    (zero, team): f"playlist_blastberry{'nobuild' if zero else ''}{team}"
+    for zero in (False, True) for team in ("solo", "duo", "squad")
+}
 
 
 def br_playlist(team: str, zero_build: bool, ranked: bool) -> Optional[str]:
@@ -211,9 +217,16 @@ def apply_options(code: str, title: str, options: Optional[dict]) -> Tuple[Optio
         note = f"{title} has no ranked." if ranked else ""
         note = " ".join(filter(None, [note, "Set other match options such as team fill in Fortnite."]))
         return playlist, f"{title} {TEAM_NAMES.get(team, team)} Unranked", note
+    if key == RELOAD:
+        name = f"{title} {br_title(team, zero_build, ranked)}"
+        if ranked:
+            return None, name, "Ranked Reload's bridge playlist mapping hasn't been verified. Use Left Alt+O in Fortnite's match options to change it."
+        playlist = _RELOAD_PLAYLISTS.get((zero_build, team))
+        if playlist is None:
+            return None, name, "Reload has Solo, Duos and Squads."
+        return playlist, name, "Set team fill in Fortnite."
     if key in _OPTIONS_IN_GAME:
-        name = f"{title} {TEAM_NAMES.get(team, team)} {'Ranked' if ranked else 'Unranked'}"
-        return code, name, "Set its team size and ranked choice, and other match options such as team fill, in Fortnite."
+        return code, title, "Its Build/Zero Build and team-size choices were not sent. Use Left Alt+O in Fortnite's match options to set them."
     return code, title, ""
 
 
@@ -231,7 +244,15 @@ def launch_gamemode(code: str, title: str, speak: Callable[[str], None],
             # A game started with -named_pipe (by FA11y or the Epic Games Launcher) takes the island
             # straight from its link code, like fortnite.com's island links. No screen reading.
             from lib.utilities import fortnite_pipe
-            success, error = fortnite_pipe.select_island(link)
+            target = code.lower()
+            settings = None
+            if options and target in (BATTLE_ROYALE, RELOAD, BLITZ):
+                settings = {"TeamSize": str(options.get("team", "duo")).title()}
+                if target != BLITZ:
+                    settings["Ranked"] = "Ranked" if options.get("ranked") else "Unranked"
+                    settings["BuildMode"] = "Zero" if options.get("zero_build") else "Build"
+            success, error = fortnite_pipe.select_island(link, expected_island=target if settings else None,
+                                                        expected_settings=settings)
             if success or error != "no pipe":
                 speak(" ".join(filter(None, [f"{name} selected!", note, 'Press "P" to ready up!'])) if success
                       else f"Failed to select gamemode: {error}")
@@ -240,7 +261,7 @@ def launch_gamemode(code: str, title: str, speak: Callable[[str], None],
             from lib.utilities.gamemode_selection import select_gamemode
             search_text = code if is_standard_code_format(code) else title
             success, error = select_gamemode(search_text, expected_title=title)
-            unset = "" if link == code else (" Its match options weren't changed. Start Fortnite from FA11y's "
+            unset = "" if not settings else (" Its match options weren't changed. Start Fortnite from FA11y's "
                                              "Play button to set them.")
             speak(f'{title} selected!{unset} Press "P" to ready up!' if success else f"Failed to select gamemode: {error}")
         except Exception as e:

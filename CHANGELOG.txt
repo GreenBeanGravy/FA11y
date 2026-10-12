@@ -1,3 +1,8 @@
+10/12/2026 #1 (19.0.0-beta.3, Beta branch):
+- Added Nightmare Island and Stranger Things map images, POIs, and aligned object locations. Map selection now lists Nightmare Island, Surf City, and Stranger Things.
+- Discovery sends unranked Reload Build/Zero Build and Solo/Duos/Squads choices through the launcher bridge and checks the selected settings. Ranked Reload reports that its bridge mapping is unverified.
+- Fixed Left Alt+O recognizing the Reload options screen when the map-rotation card moves its title.
+
 10/10/2026 #1 (19.0.0-beta.2, Beta branch):
 - Fixed Fortnite saying it was out of date every time you pressed Play, even after Check for updates said it was up to date. Check for updates now sees the same version Play does, and tells you to sign in on the Epic account page if it couldn't check instead of saying you're up to date.
 - When Fortnite is out of date, FA11y now asks if you want to update it. Choose Yes and Fortnite updates, then launches by itself when it's done. This works from the Play button, the Play keybind and the Home page. Updating Fortnite also signs you in for downloads first, so it should no longer fail with a login error.
