@@ -1,3 +1,6 @@
+10/12/2026 #1 (18.11.18):
+- Added Nightmare Island and Stranger Things map images, POIs, and aligned object locations. Map selection now lists Nightmare Island, Surf City, and Stranger Things.
+
 10/2/2026 #1:
 
 - Added Horde Rush Ranks to the Social menu's Me tab: current account rank, elimination progress toward the next rank, and all 20 ranks with their benefits and exact values. Uses the existing Epic login; Refresh Account Information updates the account data.

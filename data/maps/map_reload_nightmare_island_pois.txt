@@ -1,0 +1,10 @@
+Terror Turrets,912,317
+Estranged Estate,1093,355
+Gravey Gates,832,439
+Creepy Cabins,1211,450
+Haunted Hamlet,1023,515
+Leech Lake,925,593
+Revenge Reels,1157,593
+Punishment Patch,915,681
+Spooky Suburbs,1222,729
+Retail Ruin,1015,800

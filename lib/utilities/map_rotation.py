@@ -64,12 +64,16 @@ DISPLAY_TO_FA11Y_MAP = {
     "Oasis":        "reload_oasis",
     "Slurp Rush":   "reload_slurp_rush",
     "Surf City":    "reload_surfcity",
+    "Surf City Remix": "reload_surfcity",
     "Elite Stronghold": "reload_elite_stronghold",
     "Springfield":  "reload_springfield",   # The Simpsons collab arena
     "Mini-Venture": "reload_mini_venture",  # Reload variant of Blitz - Venture
-    "Stranger Things": "blitz_stranger_things",
+    "Stranger Things": "reload_stranger_things",
+    "BlendHeaded": "reload_stranger_things",
     "Squid Grounds": None,                  # No FA11y file yet
-    "Nitemare Island": None,                # No FA11y file yet
+    "Nitemare Island": "reload_nightmare_island",
+    "Nightmare Island": "reload_nightmare_island",
+    "SourSpawn": "reload_nightmare_island",
     "PunchBerry":   "reload_oasis",         # codename fallback
     "BlastBerry":   "reload_venture",
     "DashBerry":    "reload_slurp_rush",
