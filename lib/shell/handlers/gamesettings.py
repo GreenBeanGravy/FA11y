@@ -143,10 +143,12 @@ def gamesettings_set(params: dict) -> dict:
         section, key = str(params.get('section', '')), str(params.get('key', ''))
         was_custom = pad.preset(session.draft.save) == pad.CUSTOM_PRESET
         shown = session.view.apply(section, key, params.get('value'))
-        result = {'value': shown, 'status': _status(session)}
+        result = {'value': shown, 'status': _status(session), **_key_display(section, key, shown)}
         notes = []
         if section == pad.PAD_BIND and not was_custom:
             notes.append('Controller preset switched to Custom, so this button counts.')
+            # Other rows the change moved, for the page to show without reloading.
+            result['updates'] = [{'id': f'{pad.PAD_PRESET}/{pad.PRESET}', 'value': pad.CUSTOM_PRESET}]
         others = (binds.conflicts(session.draft.save, key) if section == binds.BIND
                   else turning.conflicts(session.draft.save, key) if section == turning.TURN
                   else pad.pad_conflicts(session.draft.save, key) if section == pad.PAD_BIND else [])
@@ -165,8 +167,17 @@ def gamesettings_reset(params: dict) -> dict:
         section, key = str(params.get('section', '')), str(params.get('key', ''))
         label = str(params.get('label', key))
         current = session.view.apply(section, key, session.view.original_value(section, key))
-        return {'changed': True, 'value': current, 'status': _status(session),
+        return {'changed': True, 'value': current, 'status': _status(session), **_key_display(section, key, current),
                 'message': f'{label} is back to how it was loaded.'}
+
+
+def _key_display(section: str, key: str, value) -> dict:
+    """For a key or button row, the name its button shows."""
+    if section in (binds.BIND, turning.TURN) and not key.startswith('speed:'):
+        return {'display': binds.key_label(value)}
+    if section == pad.PAD_BIND:
+        return {'display': pad.PAD_KEY_LABELS.get(value, value)}
+    return {}
 
 
 def _upload(data: bytes, base: CloudFile) -> str:

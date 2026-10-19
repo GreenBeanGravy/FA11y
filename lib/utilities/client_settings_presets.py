@@ -256,6 +256,8 @@ def _shown(entry: Optional[dict]) -> str:
     """A row's value as the page says it."""
     if entry is None:
         return 'Game default'
+    if 'display' in entry:
+        return entry['display']
     value = entry.get('value')
     for choice in entry.get('choices', []):
         if choice['value'] == value:

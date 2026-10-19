@@ -291,11 +291,11 @@ def pad_label(action: str, scale: float) -> str:
     return split_words(name.replace('_Gamepad', '').replace('.', ' ')) + (' (reverse)' if scale < 0 else '')
 
 
-def pad_key_choices(current: Optional[str]) -> List[dict]:
-    choices = [{'value': UNBOUND, 'label': 'Not bound'}] + [{'value': k, 'label': l} for k, l in PAD_KEYS]
-    if current and current != UNBOUND and current not in dict(PAD_KEYS):
-        choices.append({'value': current, 'label': PAD_KEY_LABELS.get(current, current)})
-    return choices
+def pad_key_fields(current: Optional[str]) -> dict:
+    """A button row's control: it waits for a controller button and shows the button's name."""
+    current = current or UNBOUND
+    return {'kind': 'keybind', 'capture': 'controller', 'value': current,
+            'display': PAD_KEY_LABELS.get(current, current)}
 
 
 def preset(save: Save) -> str:
@@ -331,8 +331,8 @@ def pad_groups(save: Save) -> List[Tuple[str, List[dict]]]:
         note = PAD_NOTES.get(action, '')
         groups.setdefault(heading, []).append({
             'id': f'{PAD_BIND}/{bind_id(action, scale, 1)}', 'section': PAD_BIND, 'key': bind_id(action, scale, 1),
-            'label': label, 'description': note, 'show_description': bool(note), 'kind': 'choice', 'value': key,
-            'choices': pad_key_choices(key), 'default': None})
+            'label': label, 'description': note, 'show_description': bool(note), **pad_key_fields(key),
+            'default': None})
     return [(heading, rows) for heading, rows in groups.items() if rows]
 
 

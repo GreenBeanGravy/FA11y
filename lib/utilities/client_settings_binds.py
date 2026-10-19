@@ -245,15 +245,14 @@ def group_heading(group: str) -> str:
     return split_words(group)
 
 
-def key_choices(current: Optional[str]) -> List[dict]:
-    choices = [{'value': UNBOUND, 'label': KEY_LABELS[UNBOUND]}] + [{'value': k, 'label': l} for k, l in KEYS]
-    if current and current != UNBOUND and current not in dict(KEYS):
-        choices.append({'value': current, 'label': KEY_LABELS.get(current, current)})
-    return choices
-
-
 def key_label(name: Optional[str]) -> str:
     return KEY_LABELS.get(name or UNBOUND, name or '')
+
+
+def key_fields(current: Optional[str]) -> dict:
+    """A key row's control: a button that waits for a key or mouse button and shows the key's name.
+    The window sends back the Fortnite name of what was pressed."""
+    return {'kind': 'keybind', 'capture': 'key', 'value': current or UNBOUND, 'display': key_label(current)}
 
 
 def bind_groups(save: Save) -> List[Tuple[str, List[dict]]]:
@@ -277,7 +276,7 @@ def bind_groups(save: Save) -> List[Tuple[str, List[dict]]]:
                 'id': f'{BIND}/{bind_id(action, scale, slot)}', 'section': BIND, 'key': bind_id(action, scale, slot),
                 'label': label if slot == 1 else f'{label}, second key',
                 'description': note if slot == 1 else '', 'show_description': bool(note) and slot == 1,
-                'kind': 'choice', 'value': key, 'choices': key_choices(key), 'default': None})
+                **key_fields(key), 'default': None})
     camera = groups.pop(CAMERA_HEADING, None)
     gyro = groups.pop(GYRO_HEADING, None)
     return (([(CAMERA_HEADING, camera)] if camera else []) + list(groups.items())

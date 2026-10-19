@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Tuple
 
 from lib.utilities.client_settings import FStr, Save, Struct
 from lib.utilities.client_settings_binds import (MENU_LIST, SHARED_LIST, UNBOUND, KEY_LABELS, _field, _key_prop,
-                                                 _lists, _scale, key_choices, users_of)
+                                                 _lists, _scale, key_fields, users_of)
 
 TURN = 'turn'
 # (row key, axis, direction, label, description)
@@ -77,7 +77,7 @@ def rows(save: Save) -> List[dict]:
         current = key(save, row, 1)
         out.append({'id': f'{TURN}/{row}#1', 'section': TURN, 'key': f'{row}#1', 'label': label_,
                     'description': description, 'show_description': True,
-                    'kind': 'choice', 'value': current, 'choices': key_choices(current), 'default': None})
+                    **key_fields(current), 'default': None})
     for axis, label_, description in SPEEDS:
         value = speed(save, axis)
         out.append({'id': f'{TURN}/speed:{axis}', 'section': TURN, 'key': f'speed:{axis}', 'label': label_,

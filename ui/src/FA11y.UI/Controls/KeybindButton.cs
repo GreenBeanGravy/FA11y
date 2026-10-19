@@ -1,16 +1,31 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Input;
+using System.Windows.Threading;
 using FA11y.UI.Core;
 
 namespace FA11y.UI.Controls;
+
+/// <summary>What a keybind button waits for.</summary>
+public enum KeybindMode
+{
+    /// <summary>FA11y's own keybinds: a key, with Shift or Alt held as part of it.</summary>
+    Combination,
+
+    /// <summary>A Fortnite keybind: one key, mouse button or wheel direction. Shift, Control and Alt bind on their own.</summary>
+    FortniteKey,
+
+    /// <summary>A Fortnite controller binding: one controller button.</summary>
+    Controller,
+}
 
 /// <summary>
 /// The button of one keybind. It draws the key ("Left Control") but is named "Fire: Left Control". Pressed, it
 /// waits for the next key: <see cref="Captured"/> gets the main key's virtual key code and the codes of the
 /// Shift and Alt keys held with it, and the core turns that into FA11y's combination text. Escape or a click
 /// cancels; Shift and Alt on their own wait for the key they go with; the Enter or Space that pressed the
-/// button is ignored until it is let go.
+/// button is ignored until it is let go. For Fortnite (<see cref="Mode"/>) it waits for one key, mouse
+/// button or wheel turn, or for a controller button, and <see cref="CapturedName"/> gets Fortnite's name for it.
 /// </summary>
 public sealed class KeybindButton : IconButton
 {
@@ -31,10 +46,28 @@ public sealed class KeybindButton : IconButton
     }
 
     public string Action { get; set; } = "";
+    public KeybindMode Mode { get; set; }
     public bool Capturing { get; private set; }
+    private DispatcherTimer? _padTimer;
+    private HashSet<string> _padHeld = new();
+
+    /// <summary>What the "press a key" screen says while this button waits.</summary>
+    public string CapturePrompt => Mode == KeybindMode.Controller
+        ? $"Press a controller button to bind to {Action}"
+        : $"Press a key to bind to {Action}";
+
+    public string CaptureHint => Mode switch
+    {
+        KeybindMode.FortniteKey => "Mouse buttons and the mouse wheel work too. Press Escape to cancel.",
+        KeybindMode.Controller => "Press Escape to cancel.",
+        _ => "Mouse buttons work too: middle click, back, and forward. Press Escape or left click to cancel.",
+    };
 
     /// <summary>A key was pressed while capturing: main key's virtual key code, held Shift and Alt key codes.</summary>
     public event Action<int, int[]>? Captured;
+
+    /// <summary>Fortnite modes: Fortnite's name for what was pressed ("LeftShift", "MouseScrollUp", "Gamepad_DPad_Up").</summary>
+    public event Action<string>? CapturedName;
 
     /// <summary>Capturing ended without a key (Escape, a click, focus left).</summary>
     public event Action? Cancelled;
@@ -60,8 +93,35 @@ public sealed class KeybindButton : IconButton
             if (key != Key.None && KeyState.IsDown(key))
                 _ignore.Add(key);
         }
+        if (Mode == KeybindMode.Controller)
+        {
+            Content = "Press a controller button";
+            AutomationProperties.SetName(this, $"{Action}: Press a controller button");
+            // Buttons already held count only once let go and pressed again.
+            _padHeld = Gamepad.Held().ToHashSet();
+            _padTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(15) };
+            _padTimer.Tick += (_, _) => PollController();
+            _padTimer.Start();
+            return;
+        }
         Content = "Press any key";
         AutomationProperties.SetName(this, $"{Action}: Press any key or mouse button");
+    }
+
+    private void PollController()
+    {
+        var held = Gamepad.Held();
+        _padHeld.IntersectWith(held);
+        if (held.FirstOrDefault(b => !_padHeld.Contains(b)) is { } pressed)
+            Bind(pressed);
+    }
+
+    /// <summary>Fortnite modes: stop waiting and hand over the name. The button still says "Press ..." until
+    /// the core answers, so a screen reader never hears the old key in between.</summary>
+    private void Bind(string name)
+    {
+        EndCapture(false);
+        CapturedName?.Invoke(name);
     }
 
     /// <summary>Stop waiting. restore puts back the key that was shown before.</summary>
@@ -71,6 +131,8 @@ public sealed class KeybindButton : IconButton
             return;
         Capturing = false;
         KeyCapture.Active = false;
+        _padTimer?.Stop();
+        _padTimer = null;
         if (restore)
             SetKey(_display);
     }
@@ -126,6 +188,16 @@ public sealed class KeybindButton : IconButton
             Cancel();
             return;
         }
+        if (Mode == KeybindMode.Controller)
+            return;
+        if (Mode == KeybindMode.FortniteKey)
+        {
+            if (FortniteKeys.FromVirtualKey(KeyInterop.VirtualKeyFromKey(key)) is { } name)
+                Bind(name);
+            else
+                Announcer.Announce(this, "Fortnite can't use that key.");
+            return;
+        }
         if (key is Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt)
             return; // wait for the key these go with
         var vk = KeyInterop.VirtualKeyFromKey(key);
@@ -172,7 +244,12 @@ public sealed class KeybindButton : IconButton
     {
         if (!Capturing)
             return;
-        var vk = button switch
+        if (Mode == KeybindMode.FortniteKey && FortniteKeys.FromMouseButton(button) is { } name)
+        {
+            Bind(name);
+            return;
+        }
+        var vk = Mode == KeybindMode.Controller ? 0 : button switch
         {
             MouseButton.Middle => VkMButton,
             MouseButton.XButton1 => VkXButton1,
@@ -193,6 +270,24 @@ public sealed class KeybindButton : IconButton
         // never hears the old key in between.
         EndCapture(false);
         Captured?.Invoke(vk, modifiers.ToArray());
+    }
+
+    /// <summary>The mouse wheel turned while capturing, here or on the "press a key" screen. Fortnite binds it.</summary>
+    public void CaptureWheel(int delta)
+    {
+        if (Capturing && Mode == KeybindMode.FortniteKey && delta != 0)
+            Bind(FortniteKeys.FromWheel(delta));
+    }
+
+    protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)
+    {
+        if (!Capturing)
+        {
+            base.OnPreviewMouseWheel(e);
+            return;
+        }
+        e.Handled = true;
+        CaptureWheel(e.Delta);
     }
 
     protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)

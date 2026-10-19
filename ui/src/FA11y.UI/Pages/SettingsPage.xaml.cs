@@ -19,7 +19,8 @@ namespace FA11y.UI.Pages;
 /// groups, settings) and this page draws. Settings and Keybinds use the settings.* requests; Fortnite Settings
 /// (the game's own settings, view "gamesettings") uses gamesettings.*, and its schema adds buttons
 /// (actions), a status line and a sign-in prompt. A change is saved as it is made (settings.set); the numbers wait a moment
-/// after the last keystroke or arrow press. Shortcuts: R resets the focused setting,
+/// after the last keystroke or arrow press. Fortnite's keybinds wait for a key, mouse button or controller button
+/// like FA11y's own, and save Fortnite's name for it. Shortcuts: R resets the focused setting,
 /// T tests a volume, Delete unbinds a keybind, Ctrl+F searches. Each tab's controls are built the first time
 /// the tab is shown, or while the window is idle. Messages that aren't tied to focus are announced.
 /// </summary>
@@ -41,6 +42,8 @@ public partial class SettingsPage : PageBase
         public FrameworkElement Control { get; set; } = null!;
         public NumberBox? Number { get; set; }
         public KeybindButton? Keybind { get; set; }
+        /// <summary>Fortnite keybinds: Fortnite's name for the key or button the setting has.</summary>
+        public string Bound { get; set; } = "";
         public bool Applying { get; set; }
         public Func<object> Read { get; set; } = () => "";
         public Action<JsonElement> Apply { get; set; } = _ => { };
@@ -589,10 +592,25 @@ public partial class SettingsPage : PageBase
                 control = placed = combo;
                 break;
             case "keybind":
-                var button = new KeybindButton { Action = model.Key, Width = 220, Tag = view };
+                var game = model.Capture.Length > 0;
+                var button = new KeybindButton
+                {
+                    Action = game ? model.Label : model.Key,
+                    Mode = model.Capture == "controller" ? KeybindMode.Controller
+                        : game ? KeybindMode.FortniteKey : KeybindMode.Combination,
+                    Width = 220,
+                    Tag = view,
+                };
                 button.SetKey(model.Display);
                 button.Click += (_, _) => BeginCapture(button);
                 button.Captured += (vk, modifiers) => _ = BindAsync(button, model.Key, vk, modifiers);
+                if (game)
+                {
+                    view.Bound = model.Value.ValueKind == JsonValueKind.String ? model.Value.GetString() ?? "" : "";
+                    view.Read = () => view.Bound;
+                    view.Apply = v => view.Bound = v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : view.Bound;
+                    button.CapturedName += name => _ = BindGameKeyAsync(view, name);
+                }
                 button.Cancelled += () =>
                 {
                     if (_capturing == button)
@@ -812,6 +830,17 @@ public partial class SettingsPage : PageBase
                     var result = await App.Bridge.RequestAsync($"{_api}.set",
                         new { section = model.Section, key = model.Key, kind = model.Kind, value = view.Read() });
                     ShowStatus(result);
+                    if (view.Keybind != null && result.NullableStr("display") is { } display)
+                        view.Keybind.SetKey(display);
+                    // Other settings the change moved (a controller button switches the preset to Custom).
+                    if (result.TryGetProperty("updates", out var updates) && updates.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var update in updates.EnumerateArray())
+                        {
+                            if (_settings.TryGetValue(update.Str("id"), out var other) && update.TryGetProperty("value", out var moved))
+                                other.Apply(moved);
+                        }
+                    }
                     if (result.NullableStr("message") is { Length: > 0 } note)
                         Announce(note);
                     // The core may have held the value to its range; show what was saved.
@@ -821,6 +850,7 @@ public partial class SettingsPage : PageBase
                 catch (Exception e)
                 {
                     Log.Error($"settings.set {model.Id} failed", e);
+                    view.Keybind?.RestoreKey();
                     Announce($"Couldn't save {model.Label}.");
                 }
             }
@@ -862,10 +892,12 @@ public partial class SettingsPage : PageBase
             ShowStatus(result);
             if (result.Bool("changed"))
             {
-                if (model.Kind == "keybind")
+                if (model.Kind == "keybind" && model.Capture.Length == 0)
                     ApplyKeybindChanges(result);
                 else if (result.TryGetProperty("value", out var value))
                     view.Apply(value);
+                if (view.Keybind != null && result.NullableStr("display") is { } display)
+                    view.Keybind.SetKey(display);
             }
             Announce(result.Str("message"));
         }
@@ -899,7 +931,7 @@ public partial class SettingsPage : PageBase
         // Full screen "press a key" screen; clicks anywhere on it reach the button as mouse buttons.
         if (Window.GetWindow(this) is Shell.MainWindow main)
         {
-            main.ShowKeyCapture(button.Action, button.CaptureMouseButton);
+            main.ShowKeyCapture(button);
             button.Focus();
         }
         button.BeginCapture();
@@ -960,8 +992,27 @@ public partial class SettingsPage : PageBase
             main.HideKeyCapture();
     }
 
+    /// <summary>Fortnite keybinds: save the key or button just pressed, then leave the "press a key" screen.</summary>
+    private async Task BindGameKeyAsync(SettingView view, string name)
+    {
+        _capturing = null;
+        var off = SetCaptureAsync(false);
+        view.Bound = name;
+        await CommitAsync(view);
+        // Leave full screen only now, so the screen reader reads the button with its new key.
+        HideKeyCapture();
+        await off;
+    }
+
     private async Task UnbindAsync(SettingView view)
     {
+        if (view.Model.Capture.Length > 0)
+        {
+            view.Bound = "None";
+            await CommitAsync(view);
+            Announce($"{view.Model.Label}: Not bound.");
+            return;
+        }
         var action = view.Model.Key;
         try
         {

@@ -538,34 +538,79 @@ internal static partial class Program
             $"the status line says \"{status}\"");
         Shot(core, shots, "gamesettings-changed");
 
-        // Bind the controller-only Reset Camera to K on the Keybinds tab.
-        var keybinds = _window.FindFirst(TreeScope.Descendants, new AndCondition(
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
-            new PropertyCondition(AutomationElement.NameProperty, "Keybinds")));
-        if (!Check(keybinds != null, "there is a Keybinds tab"))
+        // Bind the controller-only Reset Camera to K on the Keybinds tab, by pressing K as FA11y's own keybinds do.
+        if (!SelectGameTab("Keybinds"))
             return;
-        ((SelectionItemPattern)keybinds!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
-        Thread.Sleep(800);
-        var reset = _window.FindFirst(TreeScope.Descendants, new AndCondition(
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox),
-            new PropertyCondition(AutomationElement.NameProperty, "Reset Camera")));
-        if (!Check(reset != null, "Reset Camera is a combo box"))
+        var reset = WaitForButton("Reset Camera: Not bound");
+        if (!Check(reset != null, "Reset Camera is a keybind button that says its key"))
             return;
-        ((ExpandCollapsePattern)reset!.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
-        Thread.Sleep(300);
-        var k = reset.FindFirst(TreeScope.Descendants, new AndCondition(
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
-            new PropertyCondition(AutomationElement.NameProperty, "K")));
-        if (Check(k != null, "the key list offers K"))
-            ((SelectionItemPattern)k!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
-        ((ExpandCollapsePattern)reset.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Collapse();
+        ((InvokePattern)reset!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+        Check(WaitForButton("Reset Camera: Press any key or mouse button") != null, "pressing it waits for a key");
+        Command(core, "key K");
+        Check(WaitForButton("Reset Camera: K") != null, "pressing K binds K");
         status = "2 unsaved changes: Visualize Sound Effects, Reset Camera.";
         Check(WaitFor(() => _window.FindFirst(TreeScope.Descendants, new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text),
                 new PropertyCondition(AutomationElement.NameProperty, status))) != null, 3000),
             $"the status line says \"{status}\"");
         Shot(core, shots, "gamesettings-keybinds-changed");
+
+        // Shift on its own is a Fortnite key; Escape cancels; Delete unbinds.
+        var turn = WaitForButton("Turn Left: Not bound");
+        if (Check(turn != null, "Turn Left is a keybind button"))
+        {
+            ((InvokePattern)turn!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+            WaitForButton("Turn Left: Press any key or mouse button");
+            Command(core, "key LeftShift");
+            Check(WaitForButton("Turn Left: Left Shift") != null, "Left Shift on its own binds Left Shift");
+            ((InvokePattern)WaitForButton("Turn Left: Left Shift")!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+            WaitForButton("Turn Left: Press any key or mouse button");
+            Command(core, "key Escape");
+            Check(WaitForButton("Turn Left: Left Shift") != null, "Escape cancels and keeps the key");
+            Command(core, "key Delete");
+            Check(WaitForButton("Turn Left: Not bound") != null, "Delete unbinds it");
+        }
+
         PresetChecks(core, shots);
+
+        // Controller Binds: a controller button binds Reset Camera.
+        if (!SelectGameTab("Controller Binds"))
+            return;
+        var padReset = WaitForButton("Reset Camera: Not bound");
+        if (!Check(padReset != null, "Controller Binds starts with Reset Camera as a keybind button"))
+            return;
+        ((InvokePattern)padReset!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+        Check(WaitForButton("Reset Camera: Press a controller button") != null, "it waits for a controller button");
+        Command(core, "key K");
+        Check(WaitForButton("Reset Camera: Press a controller button") != null, "keyboard keys don't bind controller buttons");
+        Command(core, "pad Gamepad_DPad_Down");
+        Check(WaitForButton("Reset Camera: D-pad Down") != null, "pressing D-pad Down binds it");
+        var preset = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox),
+            new PropertyCondition(AutomationElement.NameProperty, "Controller Preset")));
+        string Selected() => ((SelectionPattern)preset!.GetCurrentPattern(SelectionPattern.Pattern)).Current.GetSelection()
+            .FirstOrDefault()?.Current.Name ?? "";
+        Check(preset != null && WaitFor(() => Selected() == "Custom", 3000),
+            $"binding a button switches the Controller Preset to Custom (it says \"{(preset == null ? "" : Selected())}\")");
+    }
+
+    private static bool SelectGameTab(string name)
+    {
+        var tab = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+            new PropertyCondition(AutomationElement.NameProperty, name)));
+        if (!Check(tab != null, $"there is a {name} tab"))
+            return false;
+        ((SelectionItemPattern)tab!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        Thread.Sleep(800);
+        return true;
+    }
+
+    private static AutomationElement? WaitForButton(string name)
+    {
+        AutomationElement? found = null;
+        WaitFor(() => (found = Button(_window, name)) != null, 3000);
+        return found;
     }
 
     /// <summary>
@@ -611,6 +656,7 @@ internal static partial class Program
                 .Cast<AutomationElement>().Any(t => t.Current.Name.StartsWith("5 unsaved changes:") && t.Current.Name.Contains("Auto Open Doors")
                     && t.Current.Name.Contains("Turn Left")), 5000),
             "applying adds the preset's settings to the unsaved changes");
+        Thread.Sleep(1200); // the page reloads after applying: its buttons are new
 
         // Export the four unsaved changes to a file.
         var exported = Path.Combine(_root, $"probe-export-{Environment.TickCount64}.preset");
@@ -1342,8 +1388,14 @@ internal static partial class Program
             .Cast<AutomationElement>().Select(e => e.Current.Name).ToList();
         if (key == "home")
             return headings.Any(h => h.StartsWith("Welcome"));
-        var others = Pages.Where(p => p.Key != key && p.Key != "home").Select(p => p.Title);
-        return headings.Contains(title) && !headings.Any(h => others.Contains(h));
+        var others = Pages.Where(p => p.Key != key && p.Key != "home").Select(p => p.Title).ToList();
+        // A tab of this page may share a page's name (Fortnite settings has a Keybinds tab).
+        var tabs = _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem))
+            .Cast<AutomationElement>().Select(e => e.Current.Name).ToHashSet();
+        var stray = headings.Where(h => others.Contains(h) && !tabs.Contains(h)).Distinct().ToList();
+        if (!headings.Contains(title) || stray.Count > 0)
+            Info($"heading {(headings.Contains(title) ? "found" : "missing")}; other pages' text: {string.Join(", ", stray)}");
+        return headings.Contains(title) && stray.Count == 0;
     }
 
     private static string Safe(AutomationElement? e)

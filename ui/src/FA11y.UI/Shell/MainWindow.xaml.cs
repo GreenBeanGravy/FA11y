@@ -119,6 +119,7 @@ public partial class MainWindow : Window
     // Keybind capture ----------------------------------------------------------------------------------
 
     private Action<MouseButton>? _captureMouse;
+    private Action<int>? _captureWheel;
     private (WindowState State, WindowStyle Style, ResizeMode Resize)? _beforeCapture;
 
     public bool KeyCaptureShown => _captureMouse != null;
@@ -127,10 +128,12 @@ public partial class MainWindow : Window
     /// Go full screen and fade to the "press a key" screen while a keybind waits for its key. The keybind
     /// button keeps keyboard focus under the overlay; mouse buttons pressed anywhere go to onMouse.
     /// </summary>
-    public void ShowKeyCapture(string action, Action<MouseButton> onMouse)
+    public void ShowKeyCapture(KeybindButton button)
     {
-        _captureMouse = onMouse;
-        KeyCaptureTitle.Text = $"Press a key to bind to {action}";
+        _captureMouse = button.CaptureMouseButton;
+        _captureWheel = button.CaptureWheel;
+        KeyCaptureTitle.Text = button.CapturePrompt;
+        KeyCaptureHint.Text = button.CaptureHint;
         if (_beforeCapture == null)
         {
             _beforeCapture = (WindowState, WindowStyle, ResizeMode);
@@ -155,6 +158,7 @@ public partial class MainWindow : Window
         if (_captureMouse == null)
             return;
         _captureMouse = null;
+        _captureWheel = null;
         if (_beforeCapture is { } before)
         {
             _beforeCapture = null;
@@ -194,6 +198,12 @@ public partial class MainWindow : Window
     {
         e.Handled = true;
         _captureMouse?.Invoke(e.ChangedButton);
+    }
+
+    private void OnKeyCaptureMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        e.Handled = true;
+        _captureWheel?.Invoke(e.Delta);
     }
 
     /// <summary>Fade the startup screen out and the sidebar and pages in. No animation if the window is hidden or animations are off.</summary>
@@ -364,7 +374,21 @@ public partial class MainWindow : Window
             bridge.On("test.social_tab", data => (GetPage("social") as SocialPage)?.SelectTabForTest(data.Str("tab")));
             bridge.On("test.where", _ => ReportTestFocus());
             bridge.On("test.key", data => RaiseTestKey(data.Str("key"), data.Bool("up"), data.Str("mods"), data.Str("held")));
+            bridge.On("test.pad", data => PressTestPad(data.Str("button")));
         }
+    }
+
+    /// <summary>Test builds only: report a controller button as held for a moment, as if it was pressed.</summary>
+    private void PressTestPad(string button)
+    {
+        Gamepad.HeldOverride = new HashSet<string> { button };
+        var release = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        release.Tick += (_, _) =>
+        {
+            release.Stop();
+            Gamepad.HeldOverride = new HashSet<string>();
+        };
+        release.Start();
     }
 
     /// <summary>

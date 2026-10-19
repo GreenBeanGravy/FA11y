@@ -544,6 +544,9 @@ class FakeCore:
             data = {"key": words[0] if words else "", "mods": extra.get("mods", ""), "held": extra.get("held", "")}
             self.event("test.key", {**data, "up": False})
             self.event("test.key", {**data, "up": True})
+        elif name == "pad":
+            # A controller button pressed for a moment, by Fortnite's name (Gamepad_DPad_Down); test builds only.
+            self.event("test.pad", {"button": rest.strip()})
         elif name == "quit":
             self.event("ui.quit")
             return False

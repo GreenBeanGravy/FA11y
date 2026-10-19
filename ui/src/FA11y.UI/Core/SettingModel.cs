@@ -29,6 +29,9 @@ public sealed class SettingModel
     /// <summary>For keybinds: the readable name of the key ("Left Control", or "Unbound").</summary>
     public string Display { get; private init; } = "";
 
+    /// <summary>Fortnite keybinds: "key" (one key or mouse button) or "controller"; empty for FA11y's own.</summary>
+    public string Capture { get; private init; } = "";
+
     public static SettingModel From(JsonElement e)
     {
         var choices = new List<(string, string)>();
@@ -54,6 +57,7 @@ public sealed class SettingModel
             Decimals = (int)Number(e, "decimals", 0),
             Choices = choices,
             Display = e.Str("display"),
+            Capture = e.Str("capture"),
         };
     }
 

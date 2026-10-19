@@ -2,6 +2,7 @@
 uploading to Epic cloud storage, and the page's requests."""
 import hashlib
 import os
+import re
 import zlib
 
 import pytest
@@ -138,8 +139,8 @@ def test_keybinds_tab_starts_with_camera_keys():
     rows = {s['label']: s for g in tab['groups'] for s in g['settings']}
     assert rows['Move Forward']['value'] == 'W' and rows['Move Backward, second key']['value'] == 'Down'
     assert rows['Reset Camera']['value'] == 'None' and rows['Reset Camera']['show_description']
-    labels = {c['value']: c['label'] for c in rows['Reload']['choices']}
-    assert labels['None'] == 'Not bound' and labels['ThumbMouseButton'] == 'Mouse Button 4'
+    assert (rows['Reload']['kind'], rows['Reload']['capture'], rows['Reload']['display']) == ('keybind', 'key', 'R')
+    assert rows['Reload, second key']['display'] == 'Not bound'
     descriptions = ' '.join(s['description'] for t in view.schema() for g in t['groups'] for s in g['settings'])
     assert 'menu' not in descriptions.lower()
 
@@ -200,8 +201,12 @@ def test_sensitivity_uses_the_menu_percent_and_goes_below_its_lowest_step():
 def test_set_warns_when_a_key_is_already_used(page):
     gamesettings.gamesettings_schema({})
     result = gamesettings.gamesettings_set({'section': 'bind', 'key': 'Reload@1#2', 'value': 'R'})
-    assert result['message'] == 'Also used by Reload.'
+    assert result['message'] == 'Also used by Reload.' and result['display'] == 'R'
     assert 'message' not in gamesettings.gamesettings_set({'section': 'bind', 'key': 'Reload@1#2', 'value': 'T'})
+    reset = gamesettings.gamesettings_reset({'section': 'bind', 'key': 'Reload@1#2', 'label': 'Reload, second key'})
+    assert (reset['value'], reset['display']) == ('None', 'Not bound')
+    pad_row = gamesettings.gamesettings_set({'section': 'padbind', 'key': 'Fire@1#1', 'value': 'Gamepad_DPad_Up'})
+    assert pad_row['display'] == 'D-pad Up'
 
 
 def test_force_walk_and_jog_are_left_off():
@@ -221,8 +226,8 @@ def test_controller_binds_tab_only_with_a_controller():
         'Old School', 'Quick Builder', 'Combat Pro', 'Builder Pro', 'Custom']
     assert rows['Jump']['value'] == 'Gamepad_FaceButton_Bottom'
     assert [g['heading'] for g in tab['groups']][:2] == ['Camera', 'Preset']
-    labels = {c['value']: c['label'] for c in rows['Reset Camera']['choices']}
-    assert labels['Gamepad_DPad_Left'] == 'D-pad Left' and labels['Gamepad_FaceButton_Bottom'] == 'A (Cross)'
+    assert (rows['Jump']['kind'], rows['Jump']['capture'], rows['Jump']['display']) == ('keybind', 'controller', 'A (Cross)')
+    assert rows['Reset Camera']['display'] == 'Not bound'
 
 
 def test_changing_a_controller_button_switches_to_the_custom_preset(page):
@@ -232,12 +237,13 @@ def test_changing_a_controller_button_switches_to_the_custom_preset(page):
                                             'value': 'Gamepad_FaceButton_Bottom'})
     assert result['message'] == ('Controller preset switched to Custom, so this button counts. '
                                  'Also used by Jump.')
+    assert result['updates'] == [{'id': 'padpreset/InputPresetNameForAthena', 'value': 'ConfigCustom_Athena'}]
     save = gamesettings._session.draft.save
     assert pad.preset(save) == pad.CUSTOM_PRESET
     assert set(gamesettings._session.view.changes()) == {'Controller Preset', 'Reset Camera'}
     again = gamesettings.gamesettings_set({'section': 'padbind', 'key': 'GamepadResetCamera@1#1',
                                            'value': 'Gamepad_DPad_Left'})
-    assert 'message' not in again
+    assert 'message' not in again and 'updates' not in again
     with pytest.raises(ValueError):
         gamesettings.gamesettings_set({'section': 'padbind', 'key': 'Fire@1#1', 'value': 'K'})
 
@@ -464,3 +470,17 @@ def test_discard_and_reset(page):
     gamesettings.gamesettings_set({'section': RECORD, 'key': 'bToggleSprint', 'value': 'off'})
     assert gamesettings.gamesettings_action({'id': 'discard'})['message'] == 'Discarded your changes.'
     assert gamesettings.gamesettings_action({'id': 'upload'})['message'] == 'There are no changes to save.'
+
+
+def test_every_key_the_window_can_capture_is_one_fortnite_accepts():
+    """The window names captured keys and controller buttons itself (FortniteKeys.cs, Gamepad.cs); the core
+    refuses names it doesn't know, so every one must be in its lists."""
+    core = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'src', 'FA11y.UI', 'Core')
+    keys_cs = open(os.path.join(core, 'FortniteKeys.cs'), encoding='utf-8').read()
+    names = set(re.findall(r'"([A-Za-z][A-Za-z0-9]+)"', keys_cs)) - {'NumPad', 'F'}
+    names |= {f'F{i}' for i in range(1, 13)} | {c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}
+    names |= {'NumPad' + d for d in ('Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine')}
+    assert names - set(binds.KEY_LABELS) == set()
+    pad_cs = open(os.path.join(core, 'Gamepad.cs'), encoding='utf-8').read()
+    buttons = set(re.findall(r'"(Gamepad_[A-Za-z_]+)"', pad_cs))
+    assert len(buttons) == 16 and buttons - set(pad.PAD_KEY_LABELS) == set()
