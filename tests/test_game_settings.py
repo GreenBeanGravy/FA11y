@@ -10,6 +10,7 @@ from lib.shell.handlers import gamesettings
 from lib.utilities.client_settings import Raw, SettingsFileError, parse_file, parse_save, walk
 from lib.utilities import client_settings_binds as binds
 from lib.utilities import client_settings_gamepad as pad
+from lib.utilities import client_settings_turning as turning
 from lib.utilities.client_settings_catalog import DEFAULT, RECORD, VOLUME, SettingsView, split_words
 from lib.utilities.epic_cloud_settings import CloudSettingsAPI, CloudSettingsError, FILE_NAME
 from tests.fixtures.client_settings_sample import sample_bytes
@@ -127,16 +128,30 @@ def test_reset_puts_back_the_loaded_value():
     assert view.changes() == []
 
 
-def test_keybinds_tab_lists_actions_and_hidden_ones_first():
+def test_keybinds_tab_starts_with_camera_keys():
     _, view = view_of(sample_bytes())
     tab = next(t for t in view.schema() if t['name'] == 'Keybinds')
-    headings = [g['heading'] for g in tab['groups']]
-    assert headings[:2] == ["Turning (Not in Fortnite's Menu)", "Not in Fortnite's Menu"]
+    assert tab['groups'][0]['heading'] == 'Camera'
+    camera = [s['label'] for s in tab['groups'][0]['settings']]
+    assert camera[:2] == ['Turn Left', 'Turn Left, second key']
+    assert camera[-4:] == ['Turn Speed', 'Look Up and Down Speed', 'Reset Camera', 'Reset Camera, second key']
     rows = {s['label']: s for g in tab['groups'] for s in g['settings']}
     assert rows['Move Forward']['value'] == 'W' and rows['Move Backward, second key']['value'] == 'Down'
     assert rows['Reset Camera']['value'] == 'None' and rows['Reset Camera']['show_description']
     labels = {c['value']: c['label'] for c in rows['Reload']['choices']}
     assert labels['None'] == 'Not bound' and labels['ThumbMouseButton'] == 'Mouse Button 4'
+    descriptions = ' '.join(s['description'] for t in view.schema() for g in t['groups'] for s in g['settings'])
+    assert 'menu' not in descriptions.lower()
+
+
+def test_choices_use_the_menu_names():
+    _, view = view_of(sample_bytes())
+    rows = {s['key']: s for t in view.schema() for g in t['groups'] for s in g['settings']}
+    assert [c['label'] for c in rows['BuildingTweakZone']['choices']] == [
+        'Game default', 'Off', 'Edit mode', 'Build mode', 'Build or edit']
+    combat = [c['label'] for c in rows['CombatTweakZone']['choices']]
+    assert combat[1:5] == ['Off', 'Scope', 'Scope or aiming', 'Always on'] and 'Count' not in combat
+    assert 'Invalid' not in [c['label'] for c in rows['HitNumbersMode']['choices']]
 
 
 def test_binding_a_key_changes_both_lists_and_reports_clashes():
@@ -205,6 +220,7 @@ def test_controller_binds_tab_only_with_a_controller():
     assert [c['label'] for c in rows['Controller Preset']['choices']] == [
         'Old School', 'Quick Builder', 'Combat Pro', 'Builder Pro', 'Custom']
     assert rows['Jump']['value'] == 'Gamepad_FaceButton_Bottom'
+    assert [g['heading'] for g in tab['groups']][:2] == ['Camera', 'Preset']
     labels = {c['value']: c['label'] for c in rows['Reset Camera']['choices']}
     assert labels['Gamepad_DPad_Left'] == 'D-pad Left' and labels['Gamepad_FaceButton_Bottom'] == 'A (Cross)'
 
@@ -295,6 +311,10 @@ def test_turn_keys_add_look_axis_entries_and_take_them_out_again():
         assert axes == [('LookUp', -1.0, 'NumPadEight'), ('Turn', -0.3, 'NumPadFour'),
                         ('Turn', 0.3, 'NumPadSix')], sub
     assert 'Turn Speed' in view.changes() and 'Look Up' in view.changes()
+    view.apply('turn', 'left#2', 'Up')
+    assert turning.conflicts(draft.save, 'left#2') == ['Move Forward']    # both in Movement
+    assert binds.conflicts(draft.save, 'MoveForward@1#2') == ['Turn Left']
+    view.apply('turn', 'left#2', 'None')
     for row in ('left#1', 'right#1', 'up#1'):
         view.apply('turn', row, 'None')
     assert draft.to_bytes() == sample_bytes() and view.changes() == []

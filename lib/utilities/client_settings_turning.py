@@ -18,21 +18,23 @@ from typing import Dict, List, Optional, Tuple
 
 from lib.utilities.client_settings import FStr, Save, Struct
 from lib.utilities.client_settings_binds import (MENU_LIST, SHARED_LIST, UNBOUND, KEY_LABELS, _field, _key_prop,
-                                                 _lists, _scale, key_choices)
+                                                 _lists, _scale, key_choices, users_of)
 
 TURN = 'turn'
-HEADING = 'Turning (Not in Fortnite\'s Menu)'
-# (row key, axis, direction, label)
-DIRECTIONS = [('left', 'Turn', -1.0, 'Turn Left'), ('right', 'Turn', 1.0, 'Turn Right'),
-              ('up', 'LookUp', -1.0, 'Look Up'), ('down', 'LookUp', 1.0, 'Look Down')]
-SPEEDS = [('Turn', 'Turn Speed'), ('LookUp', 'Look Up and Down Speed')]
-AXES = {axis for _key, axis, _sign, _label in DIRECTIONS}
+# (row key, axis, direction, label, description)
+DIRECTIONS = [
+    ('left', 'Turn', -1.0, 'Turn Left', 'Turns the camera left while you hold the key, as moving the mouse does.'),
+    ('right', 'Turn', 1.0, 'Turn Right', 'Turns the camera right while you hold the key, as moving the mouse does.'),
+    ('up', 'LookUp', -1.0, 'Look Up', 'Tilts the camera up while you hold the key, as moving the mouse does.'),
+    ('down', 'LookUp', 1.0, 'Look Down', 'Tilts the camera down while you hold the key, as moving the mouse does.'),
+]
+SPEEDS = [('Turn', 'Turn Speed', 'How fast holding Turn Left or Turn Right turns the camera, in percent. '
+                                 'X-Axis Sensitivity also changes it. Set a turn key first.'),
+          ('LookUp', 'Look Up and Down Speed', 'How fast holding Look Up or Look Down tilts the camera, in '
+                                               'percent. Y-Axis Sensitivity also changes it. Set a key first.')]
+AXES = {spec[1] for spec in DIRECTIONS}
 DEFAULT_SPEED = 100.0
 SPEED_LOW, SPEED_HIGH = 1.0, 1000.0
-NOTE = ('Holding this key turns the camera, as moving the mouse does. Fortnite\'s menu has no turn keys; '
-        'the game uses these anyway.')
-SPEED_NOTE = ('How fast holding a turn key turns, in percent. Your mouse sensitivity also counts, and the '
-              'turn happens a bit each frame. Bind a key first.')
 
 
 def _direction(key: str):
@@ -62,31 +64,33 @@ def speed(save: Save, axis: str) -> Optional[float]:
 
 
 def key(save: Save, row: str, slot: int) -> str:
-    _row, axis, sign, _label = _direction(row)
+    _row, axis, sign, _label, _desc = _direction(row)
     items = _items(save, axis, sign)
     return str(_key_prop(items[0][1], slot).value) if items else UNBOUND
 
 
-def groups(save: Save) -> List[Tuple[str, List[dict]]]:
-    rows = []
-    for row, _axis, _sign, label in DIRECTIONS:
+def rows(save: Save) -> List[dict]:
+    """The turn key rows, two keys each, then the two speeds. The Keybinds tab shows them first,
+    under Camera."""
+    out = []
+    for row, _axis, _sign, label_, description in DIRECTIONS:
         for slot in (1, 2):
             current = key(save, row, slot)
-            rows.append({'id': f'{TURN}/{row}#{slot}', 'section': TURN, 'key': f'{row}#{slot}',
-                         'label': label if slot == 1 else f'{label}, second key',
-                         'description': NOTE if slot == 1 else '', 'show_description': slot == 1,
-                         'kind': 'choice', 'value': current, 'choices': key_choices(current), 'default': None})
-    for axis, label in SPEEDS:
+            out.append({'id': f'{TURN}/{row}#{slot}', 'section': TURN, 'key': f'{row}#{slot}',
+                        'label': label_ if slot == 1 else f'{label_}, second key',
+                        'description': description if slot == 1 else '', 'show_description': slot == 1,
+                        'kind': 'choice', 'value': current, 'choices': key_choices(current), 'default': None})
+    for axis, label_, description in SPEEDS:
         value = speed(save, axis)
-        rows.append({'id': f'{TURN}/speed:{axis}', 'section': TURN, 'key': f'speed:{axis}', 'label': label,
-                     'description': SPEED_NOTE, 'show_description': True, 'kind': 'text',
-                     'value': '' if value is None else f'{value:g}', 'default': None})
-    return [(HEADING, rows)]
+        out.append({'id': f'{TURN}/speed:{axis}', 'section': TURN, 'key': f'speed:{axis}', 'label': label_,
+                    'description': description, 'show_description': True, 'kind': 'text',
+                    'value': '' if value is None else f'{value:g}', 'default': None})
+    return out
 
 
 def label(key_: str) -> str:
     if key_.startswith('speed:'):
-        return dict(SPEEDS)[key_[len('speed:'):]]
+        return {axis: l for axis, l, _desc in SPEEDS}[key_[len('speed:'):]]
     row, _, slot = key_.partition('#')
     text = _direction(row)[3]
     return text if slot == '1' else f'{text}, second key'
@@ -113,7 +117,7 @@ def apply(save: Save, key_: str, value):
     if slot_text not in ('1', '2'):
         raise ValueError('Unknown setting.')
     slot = int(slot_text)
-    _row, axis, sign, _label = _direction(row)
+    _row, axis, sign, _label, _desc = _direction(row)
     name = str(value or '').strip() or UNBOUND
     if name not in KEY_LABELS:
         raise ValueError('That isn\'t one of the keys.')
@@ -166,4 +170,17 @@ def _apply_speed(save: Save, axis: str, value) -> str:
 
 
 def values(save: Save) -> Dict[str, str]:
-    return {e['key']: e['value'] for _heading, rows in groups(save) for e in rows}
+    return {e['key']: e['value'] for e in rows(save)}
+
+
+def conflicts(save: Save, key_: str) -> List[str]:
+    """Other actions in the same section that use the key this turn row now has."""
+    row, _, slot = key_.partition('#')
+    if slot not in ('1', '2'):
+        return []
+    _row, axis, sign, _label, _desc = _direction(row)
+    items = _items(save, axis, sign)
+    if not items:
+        return []
+    mine = next((item for sub, item in items if sub == MENU_LIST), items[0][1])
+    return users_of(_lists(save).get(MENU_LIST, []), mine, int(slot))

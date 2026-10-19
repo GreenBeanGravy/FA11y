@@ -100,16 +100,16 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
     ('Controller', 'Aim', 'bAimAssistEnabled', 'Aim Assist',
      'The game helps keep your aim on targets while you use a controller.'),
     ('Controller', 'Tweak Zone', 'CombatTweakZone', 'Tweak Zone Aiming',
-     'When small right stick movements move the reticle on screen instead of turning the camera: '
-     "Not Scope and Hip Only are choices Fortnite's menu does not show."),
+     'When small right stick movements move the reticle on screen, for fine aim, instead of turning '
+     'the camera: while scoped, while scoped or aiming, always, whenever you are not scoped, or '
+     'whenever you are not aiming.'),
     ('Controller', 'Tweak Zone', 'BuildingTweakZone', 'Tweak Zone Building',
      'When the tweak zone is on while building or editing.'),
     ('Controller', 'Tweak Zone', 'TweakZoneOverlap', 'Tweak Zone',
-     "How much of the stick past the deadzone moves the reticle, from 0 to 1 (the menu's 0 to 100 "
-     'percent). At 1 the whole stick only moves the reticle.'),
+     'How much of the stick past the deadzone moves the reticle, from 0 to 1, where 1 is 100 '
+     'percent. At 1 the whole stick only moves the reticle.'),
     ('Controller', 'Tweak Zone', 'TweakZoneScale', 'Tweak Sensitivity',
-     'How far the tweak zone can move the reticle. 0 turns the tweak zone off; the game does not '
-     'cap higher values.'),
+     'How far the tweak zone can move the reticle. 0 turns the tweak zone off.'),
     ('Controller', 'Feedback', 'bForceFeedbackEnabled', 'Vibration',
      'The controller vibrates.'),
     ('Audio', 'Sound', 'AllowAudioInBackground', 'Play Sound in Background',
@@ -165,6 +165,18 @@ VOLUMES = [
 # "Game default (On)". Settings not listed just say "Game default".
 KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True,
                   'CameraResetAxes': 'ECameraResetAxes::Pitch'}
+# Choice names Fortnite's menu uses (from its settings registry), in the menu's order. Values the
+# menu leaves out get a name in the same style and come after. Other choices are named from the
+# enum value.
+CHOICE_LABELS = {
+    'EActiveCombatMode': [('None', 'Off'), ('ScopeOnly', 'Scope'), ('ScopeADS', 'Scope or aiming'),
+                          ('All', 'Always on'), ('NotScope', 'When not scoped'), ('HipOnly', 'When not aiming')],
+    'EActiveBuildMode': [('None', 'Off'), ('Edit', 'Edit mode'), ('Build', 'Build mode'), ('All', 'Build or edit')],
+    'EFortVoiceChatMethod': [('OpenMic', 'Open mic'), ('PTT', 'Push to talk'), ('Mute', 'Mute')],
+    'ESocialCommsPermission': [('FriendsTeamConnections', 'Friends, teammates and connections')],
+}
+# Enum values that are the engine's bookkeeping, not choices.
+NOT_CHOICES = {'num', 'count', 'max', 'invalid'}
 # The auto interact settings (bAutoInteract*) are left out: the game only runs them while the input
 # type is touch, so on PC they do nothing.
 TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Controller Binds', 'Audio', 'Accessibility', 'Game UI',
@@ -238,7 +250,9 @@ class SettingsView:
         if sensitivity:
             mouse = tabs['Mouse and Keyboard']
             tabs['Mouse and Keyboard'] = {'Sensitivity': sensitivity + mouse.pop('Sensitivity', []), **mouse}
-        tabs['Keybinds'] = dict(turning.groups(self.save) + binds.bind_groups(self.save))
+        keybinds = dict(binds.bind_groups(self.save))
+        tabs['Keybinds'] = {binds.CAMERA_HEADING: turning.rows(self.save) + keybinds.pop(binds.CAMERA_HEADING, []),
+                            **keybinds}
         tabs['Controller'].update(pad.look_entries(self.save))
         if self.controller:
             tabs['Controller Binds'] = dict(pad.pad_groups(self.save))
@@ -279,10 +293,12 @@ class SettingsView:
                        choices=[{'value': DEFAULT, 'label': default_label}, {'value': 'on', 'label': 'On'},
                                 {'value': 'off', 'label': 'Off'}])
         elif kind == 'EnumProperty':
-            names = [n for n in self.enums.get(spec['enum'], []) if n not in ('Num', 'Count', 'MAX')]
+            names = [n for n in self.enums.get(spec['enum'], []) if n.lower() not in NOT_CHOICES]
+            named = dict(CHOICE_LABELS.get(spec['enum'], []))
+            names = [n for n in named if n in names] + [n for n in names if n not in named]
             known = KNOWN_DEFAULTS.get(name)
             choices = [{'value': DEFAULT, 'label': 'Game default' + (f' ({enum_label(known)})' if known else '')}]
-            choices += [{'value': f"{spec['enum']}::{n}", 'label': split_words(n)} for n in names]
+            choices += [{'value': f"{spec['enum']}::{n}", 'label': named.get(n, split_words(n))} for n in names]
             current = str(value) if value is not None else DEFAULT
             if current != DEFAULT and current not in {c['value'] for c in choices}:
                 choices.append({'value': current, 'label': enum_label(current)})

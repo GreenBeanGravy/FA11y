@@ -10,7 +10,8 @@ InputScale. "None" means no key.
 
 The list also holds actions Fortnite's keyboard menu never shows, such as the controller's reset
 camera. The game keeps keys given to them and answers them: Reset Camera on a keyboard key
-recenters the camera in game. They are listed under Not in Fortnite's Menu.
+recenters the camera in game. Reset Camera is listed under Camera, first, with the turn keys
+(client_settings_turning); the gyro actions come last.
 
 Mouse sensitivity is stored as a factor: the menu's X-Axis Sensitivity percent is the stored
 MouseSensitivityX times 400 (stored 0.0025 shows as 1.0%). The game takes values below the menu
@@ -38,10 +39,8 @@ SENSITIVITY = [
     ('scope', 'Scope Sensitivity', ('ScopedSlow',), 100.0, 0.01, 1000.0),
 ]
 SENS_DESCRIPTIONS = {
-    'x': 'Mouse sensitivity left and right, in percent as Fortnite\'s menu shows it. '
-         'You can go below the menu\'s lowest step, down to 0.01 percent.',
-    'y': 'Mouse sensitivity up and down, in percent as Fortnite\'s menu shows it. '
-         'You can go below the menu\'s lowest step, down to 0.01 percent.',
+    'x': 'Mouse sensitivity left and right, in percent, from 0.01 to 1000. Low values suit high-DPI mice.',
+    'y': 'Mouse sensitivity up and down, in percent, from 0.01 to 1000. Low values suit high-DPI mice.',
     'targeting': 'Mouse sensitivity while aiming down sights, as a percent of the normal sensitivity.',
     'scope': 'Mouse sensitivity while looking through a scope, as a percent of the normal sensitivity.',
 }
@@ -75,9 +74,11 @@ KEYS: List[Tuple[str, str]] = (
 KEY_LABELS = dict(KEYS)
 KEY_LABELS.update({UNBOUND: 'Not bound', 'Escape': 'Escape'})
 
-# Actions Fortnite's Keyboard Controls menu leaves out (checked against 42.40's menu).
-HIDDEN = {
-    'GamepadResetCamera': 'Reset Camera',
+# Actions Fortnite's Keyboard Controls menu leaves out (checked against 42.40's menu): Reset
+# Camera goes first under Camera, the gyro actions last.
+CAMERA_HEADING, GYRO_HEADING = 'Camera', 'Gyro Aiming'
+CAMERA = {'GamepadResetCamera': 'Reset Camera'}
+GYRO = {
     'GamepadGyroModifier': 'Gyro Modifier',
     'GamepadResetCameraGyroModifier': 'Gyro Modifier: Reset Camera',
     'GamepadToggleHarvestGyroModifier': 'Gyro Modifier: Toggle Harvesting Tool',
@@ -86,9 +87,12 @@ HIDDEN = {
 # Actions left off this list: forced walking and jogging speeds, and the look axes, which have
 # their own Turning rows (client_settings_turning).
 LEFT_OUT = {'ForceJogToggle', 'ForceJogHold', 'ForceWalkToggle', 'ForceWalkHold', 'Turn', 'LookUp'}
-HIDDEN_HEADING = 'Not in Fortnite\'s Menu'
-HIDDEN_NOTE = 'Fortnite\'s keyboard menu doesn\'t list this action, but a key you give it here works in game.'
-GYRO_NOTE = 'For controllers with motion aiming. Fortnite\'s keyboard menu doesn\'t list this action.'
+NOTES = {
+    'GamepadResetCamera': 'Levels the camera with the horizon. With Reset Camera Axes on the Game tab set to Yaw '
+                          'or Both, it also turns the camera the way you are moving: hold Move Backward and press '
+                          'it to look behind you.',
+}
+GYRO_NOTE = 'Used with motion aiming, on controllers that have it.'
 
 # Menu names for actions, keyed by (ActionName, InputScale) where an axis has two directions.
 LABELS: Dict[object, str] = {
@@ -120,7 +124,8 @@ LABELS: Dict[object, str] = {
     'OpenAugmentSelection': 'Open Augment Select', 'AugmentReroll': 'Augment Reroll',
     'AugmentSelectionViewSwap': 'Augment View Swap',
     **{f'LockerEmote{i}': f'Locker Emote Slot {i}' for i in range(1, 9)},
-    **HIDDEN,
+    **CAMERA,
+    **GYRO,
 }
 # Fortnite's internal group names and code names, as the menu's section headings.
 GROUPS = [
@@ -192,11 +197,41 @@ def current_key(save: Save, action: str, scale: float, slot: int) -> Optional[st
 
 def action_label(action: str, scale: float) -> str:
     from lib.utilities.client_settings_catalog import split_words
+    from lib.utilities.client_settings_turning import DIRECTIONS
+    for _row, axis, sign, label, _desc in DIRECTIONS:
+        if action == axis and math.copysign(1.0, scale) == sign:
+            return label
     label = LABELS.get((action, scale)) or LABELS.get(action)
     if label:
         return label
     words = split_words(action.replace('.', ' '))
     return words + (' (reverse)' if scale < 0 else '')
+
+
+def _heading_of(item: Struct) -> str:
+    """The section the game's own grouping puts an action in. Keys only clash within one."""
+    return group_heading(str(_field(item, 'ActionGroup').value).split('::')[-1])
+
+
+def users_of(items: list, mine: Struct, slot: int, label=None) -> List[str]:
+    """Actions in mine's section that also use the key in mine's slot: other actions in either
+    slot, and mine in its other slot. label names an item."""
+    label = label or (lambda i: action_label(str(_field(i, 'ActionName').value), _scale(_field(i, 'InputScale').value)))
+    key = str(_key_prop(mine, slot).value)
+    if not key or key == UNBOUND:
+        return []
+
+    def ident(item):
+        return str(_field(item, 'ActionName').value), math.copysign(1.0, _scale(_field(item, 'InputScale').value))
+
+    out: List[str] = []
+    for item in items:
+        if ident(item)[0] in LEFT_OUT - {'Turn', 'LookUp'} or _heading_of(item) != _heading_of(mine):
+            continue
+        slots = (3 - slot,) if ident(item) == ident(mine) else (1, 2)
+        if any(str(_key_prop(item, s).value) == key for s in slots) and label(item) not in out:
+            out.append(label(item))
+    return out
 
 
 def group_heading(group: str) -> str:
@@ -222,7 +257,8 @@ def key_label(name: Optional[str]) -> str:
 
 
 def bind_groups(save: Save) -> List[Tuple[str, List[dict]]]:
-    """The menu list's actions, two key rows each, grouped under the menu's headings."""
+    """The menu list's actions, two key rows each, grouped under the menu's headings: Camera
+    first, Gyro Aiming last."""
     groups: Dict[str, List[dict]] = {}
     seen = set()
     for item in _lists(save).get(MENU_LIST, []):
@@ -231,19 +267,21 @@ def bind_groups(save: Save) -> List[Tuple[str, List[dict]]]:
         if (action, scale) in seen or action in LEFT_OUT:
             continue
         seen.add((action, scale))
-        heading = HIDDEN_HEADING if action in HIDDEN else group_heading(str(_field(item, 'ActionGroup').value).split('::')[-1])
+        heading = (CAMERA_HEADING if action in CAMERA else GYRO_HEADING if action in GYRO
+                   else group_heading(str(_field(item, 'ActionGroup').value).split('::')[-1]))
         label = action_label(action, scale)
-        note = (GYRO_NOTE if 'Gyro' in action else HIDDEN_NOTE) if action in HIDDEN else ''
+        note = GYRO_NOTE if action in GYRO else NOTES.get(action, '')
         for slot in (1, 2):
             key = str(_key_prop(item, slot).value)
             groups.setdefault(heading, []).append({
                 'id': f'{BIND}/{bind_id(action, scale, slot)}', 'section': BIND, 'key': bind_id(action, scale, slot),
                 'label': label if slot == 1 else f'{label}, second key',
-                'description': note, 'show_description': bool(note),
+                'description': note if slot == 1 else '', 'show_description': bool(note) and slot == 1,
                 'kind': 'choice', 'value': key, 'choices': key_choices(key), 'default': None})
-    hidden = groups.pop(HIDDEN_HEADING, None)
-    ordered = ([(HIDDEN_HEADING, hidden)] if hidden else []) + list(groups.items())
-    return ordered
+    camera = groups.pop(CAMERA_HEADING, None)
+    gyro = groups.pop(GYRO_HEADING, None)
+    return (([(CAMERA_HEADING, camera)] if camera else []) + list(groups.items())
+            + ([(GYRO_HEADING, gyro)] if gyro else []))
 
 
 def bind_label(key: str) -> str:
@@ -277,18 +315,12 @@ def bind_values(save: Save) -> Dict[str, str]:
 
 
 def conflicts(save: Save, key: str) -> List[str]:
-    """Other menu actions in the same section that use the key this row now has."""
+    """Other actions in the same section that use the key this row now has."""
     action, scale, slot = parse_bind_id(key)
-    name = current_key(save, action, scale, slot)
-    if not name or name == UNBOUND:
-        return []
-    mine = None
-    for heading, entries in bind_groups(save):
-        if any(e['key'] == key for e in entries):
-            mine = (heading, entries)
+    mine = next(_matching(save, action, scale), None)
     if mine is None:
         return []
-    return [e['label'].replace(', second key', '') for e in mine[1] if e['key'] != key and e['value'] == name]
+    return users_of(_lists(save).get(MENU_LIST, []), mine, slot)
 
 
 # Sensitivity -------------------------------------------------------------------------------------

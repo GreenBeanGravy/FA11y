@@ -17,8 +17,8 @@ import math
 from typing import Dict, List, Optional, Tuple
 
 from lib.utilities.client_settings import FStr, Prop, Save, Struct, TypeName
-from lib.utilities.client_settings_binds import (UNBOUND, _field, _key_prop, _scale, bind_id, group_heading,
-                                                 parse_bind_id)
+from lib.utilities.client_settings_binds import (CAMERA, CAMERA_HEADING, UNBOUND, _field, _key_prop, _scale, bind_id,
+                                                 group_heading, parse_bind_id, users_of)
 
 LOOK, PAD_BIND, PAD_PRESET = 'look', 'padbind', 'padpreset'
 USER_OPTIONS = 'GamepadUserOptions'
@@ -48,7 +48,7 @@ LOOK_OPTIONS: List[Tuple[str, str, str, str, str]] = [
     ('Basic', 'bUseAdvancedOptions', 'Use Advanced Options', 'bool',
      'Use the speeds below instead of the Look Sensitivity presets. Needed for any of them to count.'),
     ('Advanced', 'LookHorizontalSpeed', 'Look Horizontal Speed', 'uint',
-     'Turning speed left and right, in percent. The menu stops at 100; higher values are allowed here.'),
+     'Turning speed left and right, in percent. Can go past 100.'),
     ('Advanced', 'LookVerticalSpeed', 'Look Vertical Speed', 'uint',
      'Turning speed up and down, in percent.'),
     ('Advanced', 'LookHorizontalSpeedAds', 'Targeting Horizontal Speed', 'uint',
@@ -56,8 +56,7 @@ LOOK_OPTIONS: List[Tuple[str, str, str, str, str]] = [
     ('Advanced', 'LookVerticalSpeedAds', 'Targeting Vertical Speed', 'uint',
      'Turning speed up and down while aiming down sights, in percent.'),
     ('Advanced', 'LookHorizontalBoostSpeed', 'Turning Horizontal Boost', 'uint',
-     'Extra speed left and right when the stick is pushed all the way, in percent. Higher values '
-     'than the menu allows are accepted here.'),
+     'Extra speed left and right when the stick is pushed all the way, in percent. Can go past 100.'),
     ('Advanced', 'LookVerticalBoostSpeed', 'Turning Vertical Boost', 'uint',
      'Extra speed up and down when the stick is pushed all the way, in percent.'),
     ('Advanced', 'LookHorizontalBoostSpeedAds', 'Targeting Horizontal Boost', 'uint',
@@ -105,6 +104,11 @@ PAD_LABELS = {
     'GamepadSquadQuickChatPicker': 'Squad Comms', 'PlaceMapMarkerInWorld': 'Place Marker',
     'PushToTalk': 'Push to Talk', 'ToggleMapCursor_Gamepad': 'Map Cursor', 'MapZoomIn_Gamepad': 'Map Zoom In',
     'MapZoomOut_Gamepad': 'Map Zoom Out',
+}
+PAD_NOTES = {
+    'GamepadResetCamera': 'Levels the camera with the horizon. With Reset Camera Axes on the Game tab set to Yaw '
+                          'or Both, it also turns the camera the way the left stick points: pull the stick back '
+                          'and press it to look behind you.',
 }
 
 # The menu's five presets in its order (ConfigF_Athena shows as Combat Pro in 42.40).
@@ -305,13 +309,14 @@ def preset_entry(save: Save) -> dict:
     if current and current not in dict(PRESETS):
         choices.append({'value': current, 'label': current})
     return {'id': f'{PAD_PRESET}/{PRESET}', 'section': PAD_PRESET, 'key': PRESET, 'label': 'Controller Preset',
-            'description': 'Which button layout the game uses. The bindings below only count with Custom; '
-                           'changing one switches to Custom.', 'show_description': True, 'kind': 'choice',
+            'description': 'Which button layout the game uses. Your own buttons on this tab only count with '
+                           'Custom; changing one switches to Custom.', 'show_description': True, 'kind': 'choice',
             'value': current or DEFAULT, 'choices': choices, 'default': None}
 
 
 def pad_groups(save: Save) -> List[Tuple[str, List[dict]]]:
-    groups: Dict[str, List[dict]] = {'Preset': [preset_entry(save)]}
+    """Reset Camera first (under Camera), then the preset, then every button under the menu's headings."""
+    groups: Dict[str, List[dict]] = {CAMERA_HEADING: [], 'Preset': [preset_entry(save)]}
     seen = set()
     for item in _pad_items(save):
         action = str(_field(item, 'ActionName').value)
@@ -319,14 +324,16 @@ def pad_groups(save: Save) -> List[Tuple[str, List[dict]]]:
         if (action, scale) in seen:
             continue
         seen.add((action, scale))
-        heading = group_heading(str(_field(item, 'ActionGroup').value).split('::')[-1])
+        heading = (CAMERA_HEADING if action in CAMERA
+                   else group_heading(str(_field(item, 'ActionGroup').value).split('::')[-1]))
         label = pad_label(action, scale)
         key = str(_key_prop(item, 1).value)
+        note = PAD_NOTES.get(action, '')
         groups.setdefault(heading, []).append({
             'id': f'{PAD_BIND}/{bind_id(action, scale, 1)}', 'section': PAD_BIND, 'key': bind_id(action, scale, 1),
-            'label': label, 'description': '', 'show_description': False, 'kind': 'choice', 'value': key,
+            'label': label, 'description': note, 'show_description': bool(note), 'kind': 'choice', 'value': key,
             'choices': pad_key_choices(key), 'default': None})
-    return list(groups.items())
+    return [(heading, rows) for heading, rows in groups.items() if rows]
 
 
 def apply_pad_bind(save: Save, key: str, value) -> Tuple[str, bool]:
@@ -373,15 +380,15 @@ def pad_entry_label(save: Save, section: str, key: str) -> str:
 
 
 def pad_conflicts(save: Save, key: str) -> List[str]:
+    """Other controller actions in the same section that use the button this row now has."""
     action, scale, slot = parse_bind_id(key)
-    for heading, entries in pad_groups(save):
-        mine = next((e for e in entries if e['key'] == key and e['section'] == PAD_BIND), None)
-        if mine is not None:
-            if mine['value'] == UNBOUND:
-                return []
-            return [e['label'] for e in entries if e['section'] == PAD_BIND and e['key'] != key
-                    and e['value'] == mine['value']]
-    return []
+    items = _pad_items(save)
+    mine = next((i for i in items if str(_field(i, 'ActionName').value) == action
+                 and _scale(_field(i, 'InputScale').value) == scale), None)
+    if mine is None:
+        return []
+    return users_of(items, mine, slot,
+                    lambda i: pad_label(str(_field(i, 'ActionName').value), _scale(_field(i, 'InputScale').value)))
 
 
 # Is a controller connected? ----------------------------------------------------------------------

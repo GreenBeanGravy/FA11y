@@ -15,6 +15,7 @@ from typing import Optional
 from lib.shell.bridge import handler
 from lib.utilities import client_settings_binds as binds
 from lib.utilities import client_settings_gamepad as pad
+from lib.utilities import client_settings_turning as turning
 from lib.utilities.client_settings import SettingsFile, SettingsFileError, parse_file
 from lib.utilities.client_settings_catalog import SettingsView
 from lib.utilities.epic_cloud_settings import CloudFile, CloudSettingsAPI, CloudSettingsError, sha1
@@ -135,6 +136,7 @@ def gamesettings_set(params: dict) -> dict:
         if section == pad.PAD_BIND and not was_custom:
             notes.append('Controller preset switched to Custom, so this button counts.')
         others = (binds.conflicts(session.draft.save, key) if section == binds.BIND
+                  else turning.conflicts(session.draft.save, key) if section == turning.TURN
                   else pad.pad_conflicts(session.draft.save, key) if section == pad.PAD_BIND else [])
         if others:
             notes.append('Also used by ' + ', '.join(others[:3]) + '.')
