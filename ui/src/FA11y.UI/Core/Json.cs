@@ -22,6 +22,14 @@ public static class Json
         return fallback;
     }
 
+    public static int Int(this JsonElement e, string name, int fallback = 0)
+    {
+        if (e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number
+            && v.TryGetInt32(out var n))
+            return n;
+        return fallback;
+    }
+
     /// <summary>true, false, or null when the field is null or missing.</summary>
     public static bool? NullableBool(this JsonElement e, string name)
     {

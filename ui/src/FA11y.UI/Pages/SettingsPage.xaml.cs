@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
@@ -8,6 +9,7 @@ using System.Windows.Threading;
 using FA11y.UI.Controls;
 using FA11y.UI.Core;
 using FA11y.UI.Shell;
+using Microsoft.Win32;
 using WpfKey = System.Windows.Input.Key;
 
 namespace FA11y.UI.Pages;
@@ -307,6 +309,18 @@ public partial class SettingsPage : PageBase
         try
         {
             await FlushAsync();
+            switch (id)
+            {
+                case "presets":
+                    await ChoosePresetAsync();
+                    return;
+                case "import_preset":
+                    await ImportPresetAsync();
+                    return;
+                case "export_preset":
+                    await ExportPresetAsync();
+                    return;
+            }
             if (id == "upload" || id == "restore")
                 Announce("Saving to Fortnite.");
             var result = await App.Bridge.RequestAsync($"{_api}.action", new { id }, TimeSpan.FromSeconds(120));
@@ -318,12 +332,152 @@ public partial class SettingsPage : PageBase
         catch (Exception e)
         {
             Log.Error($"{_api}.action {id} failed", e);
-            Announce($"Couldn't {label.ToLowerInvariant()}.");
+            Announce(id == "presets" ? "Couldn't open your presets." : $"Couldn't {label.ToLowerInvariant()}.");
         }
         finally
         {
             _acting = false;
         }
+    }
+
+    // Fortnite Settings: presets ------------------------------------------------------------------------
+
+    private const string PresetFilter = "FA11y presets (*.preset)|*.preset";
+
+    /// <summary>Pick one of the presets, then hear what it changes before applying it.</summary>
+    private async Task ChoosePresetAsync()
+    {
+        var list = await App.Bridge.RequestAsync("gamesettings.presets");
+        var presets = list.GetProperty("presets").EnumerateArray().ToList();
+        if (presets.Count == 0)
+        {
+            Prompts.Message(Host, "Presets",
+                "You have no presets yet. Import Preset adds a .preset file, and Export Preset makes one from your settings.");
+            return;
+        }
+        var names = presets.Select(p =>
+        {
+            var name = p.Bool("builtin") ? $"{p.Str("name")}, from FA11y" : p.Str("name");
+            return p.Str("description") is { Length: > 0 } about ? $"{name}: {about}" : name;
+        }).ToList();
+        var index = Prompts.Choose(Host, "Presets", "Pick a preset. You hear what it changes before anything does.", names);
+        if (index >= 0)
+            await ReviewPresetAsync(presets[index].Str("id"), null);
+    }
+
+    /// <summary>Show what the preset changes, then apply it, delete it, or do nothing.</summary>
+    private async Task ReviewPresetAsync(string id, string? imported)
+    {
+        var preview = await App.Bridge.RequestAsync("gamesettings.preset_preview", new { id, imported });
+        if (!preview.Bool("ok"))
+        {
+            Announce(preview.Str("message"));
+            return;
+        }
+        var name = preview.Str("name");
+        var lines = preview.GetProperty("lines").EnumerateArray().Select(l => l.GetString() ?? "").ToList();
+        var buttons = new List<(string, string)>();
+        if (preview.Int("changes") > 0)
+            buttons.Add(("apply", "Apply"));
+        if (!preview.Bool("builtin"))
+            buttons.Add(("delete", "Delete Preset"));
+        buttons.Add(("cancel", preview.Int("changes") > 0 ? "Cancel" : "Close"));
+        switch (Prompts.Review(Host, name, preview.Str("prompt"), lines, buttons))
+        {
+            case "apply":
+                var result = await App.Bridge.RequestAsync("gamesettings.preset_apply", new { id });
+                ShowStatus(result);
+                if (result.Bool("reload"))
+                    await LoadAsync();
+                Announce(result.Str("message"));
+                break;
+            case "delete":
+                if (!Dialogs.Confirm(Host, "Delete Preset", $"Delete {name} from your presets?"))
+                    return;
+                var deleted = await App.Bridge.RequestAsync("gamesettings.preset_delete", new { id });
+                Announce(deleted.Str("message"));
+                break;
+        }
+    }
+
+    private async Task ImportPresetAsync()
+    {
+        var dialog = new OpenFileDialog { Title = "Import Preset", Filter = PresetFilter };
+        if (dialog.ShowDialog(Host) != true)
+            return;
+        var result = await App.Bridge.RequestAsync("gamesettings.preset_import", new { path = dialog.FileName });
+        if (!result.Bool("ok"))
+        {
+            Prompts.Message(Host, "Import Preset", result.Str("message"));
+            return;
+        }
+        await ReviewPresetAsync(result.Str("id"), result.Str("imported"));
+    }
+
+    /// <summary>Make a preset from the unsaved changes or from sections the user picks, name it, and save it.</summary>
+    private async Task ExportPresetAsync()
+    {
+        const string title = "Export Preset";
+        var options = await App.Bridge.RequestAsync("gamesettings.preset_export_options");
+        var groups = options.GetProperty("groups").EnumerateArray().ToList();
+        var changes = options.Int("changes");
+        var fromChanges = false;
+        if (changes > 0)
+        {
+            var source = Prompts.Choose(Host, title, "What should the preset hold?", new[]
+            {
+                $"Your unsaved changes ({changes} setting{(changes == 1 ? "" : "s")})",
+                "Settings from sections you pick",
+            });
+            if (source < 0)
+                return;
+            fromChanges = source == 0;
+        }
+        var picked = new List<string>();
+        if (!fromChanges)
+        {
+            if (groups.Count == 0)
+            {
+                Prompts.Message(Host, title, "There are no settings to put in a preset.");
+                return;
+            }
+            var labels = groups.Select(g => $"{g.Str("label")} ({g.Int("count")} setting{(g.Int("count") == 1 ? "" : "s")})").ToList();
+            var chosen = Prompts.Pick(Host, title,
+                "Pick the sections to include. A preset holds the settings you have set in them; ones at game default are left out.",
+                labels);
+            if (chosen == null)
+                return;
+            if (chosen.Count == 0)
+            {
+                Announce("No sections picked, so no preset was made.");
+                return;
+            }
+            picked = chosen.Select(i => groups[i].Str("id")).ToList();
+        }
+        var name = Prompts.Ask(Host, title, "Name the preset.")?.Trim();
+        if (string.IsNullOrEmpty(name))
+            return;
+        var save = new SaveFileDialog
+        {
+            Title = title,
+            Filter = PresetFilter,
+            FileName = string.Concat(name.Split(Path.GetInvalidFileNameChars())) + ".preset",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+        };
+        if (save.ShowDialog(Host) != true)
+            return;
+        var request = new { name, changes = fromChanges, groups = picked, path = save.FileName, replace = false };
+        var result = await App.Bridge.RequestAsync("gamesettings.preset_export", request);
+        if (result.Bool("exists"))
+        {
+            if (!Dialogs.Confirm(Host, title, result.Str("message")))
+                return;
+            result = await App.Bridge.RequestAsync("gamesettings.preset_export", request with { replace = true });
+        }
+        if (result.Bool("ok"))
+            Announce(result.Str("message"));
+        else
+            Prompts.Message(Host, title, result.Str("message"));
     }
 
     private async Task SignInAsync()

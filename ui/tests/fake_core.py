@@ -139,6 +139,10 @@ class FakeCore:
         gamesettings._api = lambda: Cloud()
         gamesettings._game_running = lambda: core.fortnite_running
         gamesettings._controller_connected = lambda: True   # show the Controller Binds tab
+        # Presets live under the test root: the user's start empty, FA11y's are whatever is there.
+        from lib.utilities import client_settings_presets as presets
+        presets.USER_DIR = os.path.join(self.root, "fortnite_presets")
+        presets.BUILTIN_DIR = os.path.join(self.root, "fa11y_presets")
 
     def log(self, text: str) -> None:
         with self.lock:

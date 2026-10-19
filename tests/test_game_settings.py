@@ -439,7 +439,8 @@ def test_edit_then_save_to_fortnite(page):
     cloud, state = page
     schema = gamesettings.gamesettings_schema({})
     assert schema['status'] == 'No unsaved changes.'
-    assert [a['id'] for a in schema['actions']] == ['upload', 'discard', 'reload', 'restore']
+    assert [a['id'] for a in schema['actions']] == ['upload', 'discard', 'reload', 'restore', 'presets',
+                                                    'import_preset', 'export_preset']
     result = gamesettings.gamesettings_set({'section': RECORD, 'key': 'bAutoOpenDoorsNonMobile', 'value': 'on'})
     assert result == {'value': 'on', 'status': '1 unsaved change: Auto Open Doors.'}
     state['running'] = True

@@ -565,6 +565,178 @@ internal static partial class Program
                 new PropertyCondition(AutomationElement.NameProperty, status))) != null, 3000),
             $"the status line says \"{status}\"");
         Shot(core, shots, "gamesettings-keybinds-changed");
+        PresetChecks(core, shots);
+    }
+
+    /// <summary>
+    /// Presets, through the dialogs a screen reader user meets: pick one and hear what it changes, apply it,
+    /// export the unsaved changes to a file, import that file again and delete it.
+    /// </summary>
+    private static void PresetChecks(Process core, string? shots)
+    {
+        Console.WriteLine("\n== Fortnite settings presets");
+        var mine = Path.Combine(_root, "fortnite_presets");
+        if (Directory.Exists(mine))
+            Directory.Delete(mine, true);
+        Directory.CreateDirectory(mine);
+        File.WriteAllText(Path.Combine(mine, "Turning.preset"), """
+            {"type": "FA11y Fortnite settings preset", "version": 1, "name": "Turning", "description": "",
+             "settings": [{"tab": "Keybinds", "label": "Turn Left", "section": "turn", "key": "left#1", "value": "Left"},
+                          {"tab": "Game", "label": "Auto Open Doors", "section": "record", "key": "bAutoOpenDoorsNonMobile", "value": "on"}]}
+            """);
+
+        if (!Click("Presets"))
+            return;
+        var choose = WaitForDialog("Presets");
+        if (!Check(choose != null, "Presets opens a list of presets"))
+            return;
+        var list = choose!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List));
+        Check(list != null && ItemNames(list).SequenceEqual(new[] { "Turning" }), "the list holds the preset Turning");
+        Shot(core, shots, "gamesettings-presets");
+        PressIn(choose, "OK");
+
+        var review = WaitForDialog("Turning");
+        if (!Check(review != null, "picking Turning shows what it changes"))
+            return;
+        Check(HasText(review!, "Apply Turning? It changes 3 settings:"), "the dialog asks to apply and says how many settings change (Turn Speed shows once a turn key is set)");
+        var lines = review!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List));
+        var changes = lines == null ? new List<string>() : ItemNames(lines);
+        Info("changes: " + string.Join(" | ", changes));
+        Check(changes.Contains("Turn Left (Keybinds): Not bound to Left Arrow"), "the list says Turn Left goes from Not bound to Left Arrow");
+        foreach (var name in new[] { "Apply", "Delete Preset", "Cancel" })
+            Check(Button(review, name) != null, $"the dialog has a {name} button");
+        Shot(core, shots, "gamesettings-preset-review");
+        PressIn(review, "Apply");
+        Check(WaitFor(() => _window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text))
+                .Cast<AutomationElement>().Any(t => t.Current.Name.StartsWith("5 unsaved changes:") && t.Current.Name.Contains("Auto Open Doors")
+                    && t.Current.Name.Contains("Turn Left")), 5000),
+            "applying adds the preset's settings to the unsaved changes");
+
+        // Export the four unsaved changes to a file.
+        var exported = Path.Combine(_root, $"probe-export-{Environment.TickCount64}.preset");
+        if (!Click("Export Preset"))
+            return;
+        var source = WaitForDialog("Export Preset");
+        if (!Check(source != null, "Export Preset asks what the preset should hold"))
+            return;
+        var sources = source!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List));
+        Check(sources != null && ItemNames(sources).FirstOrDefault() == "Your unsaved changes (5 settings)", "the first choice is the unsaved changes");
+        var sourceId = source.GetRuntimeId();
+        PressIn(source, "OK");
+        var ask = WaitForDialog("Export Preset", sourceId);
+        var nameBox = ask?.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit));
+        if (!Check(nameBox != null && nameBox.Current.Name == "Name the preset.", "then it asks for a name in a named text box"))
+            return;
+        ((ValuePattern)nameBox!.GetCurrentPattern(ValuePattern.Pattern)).SetValue("Probe Export");
+        var askId = ask!.GetRuntimeId();
+        PressIn(ask, "OK");
+        if (!SaveFileAs(WaitForDialog("Export Preset", askId), exported))
+            return;
+        Check(WaitFor(() => File.Exists(exported), 5000), "the preset file is written where the user chose");
+        Check(File.Exists(exported) && File.ReadAllText(exported).Contains("\"name\": \"Probe Export\""), "the file holds the preset's name");
+        Check(Directory.GetFiles(mine, "*.preset").Length == 2, "the preset is also kept with the user's presets");
+
+        // Import it again: it is already there, so the dialog offers it to apply or delete.
+        if (!Click("Import Preset"))
+            return;
+        if (!SaveFileAs(WaitForDialog("Import Preset"), exported))
+            return;
+        var again = WaitForDialog("Probe Export");
+        if (!Check(again != null, "importing shows the preset"))
+            return;
+        Check(HasText(again!, "Probe Export is already in your presets. Your settings already match Probe Export."),
+            "importing a preset you have says so, and that nothing would change");
+        PressIn(again!, "Delete Preset");
+        var confirm = WaitForDialog("Delete Preset");
+        if (Check(confirm != null, "deleting asks first"))
+            PressIn(confirm!, "Yes");
+        Check(WaitFor(() => Directory.GetFiles(mine, "*.preset").Length == 1, 5000), "the preset is deleted from the user's presets");
+        File.Delete(exported);
+    }
+
+    /// <summary>Invoke a button on the main window by name.</summary>
+    private static bool Click(string name)
+    {
+        var button = Button(_window, name);
+        if (!Check(button != null, $"{name} is a button"))
+            return false;
+        ((InvokePattern)button!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+        return true;
+    }
+
+    private static void PressIn(AutomationElement dialog, string name)
+    {
+        var button = Button(dialog, name);
+        if (Check(button != null, $"the {dialog.Current.Name} dialog has {name}"))
+            ((InvokePattern)button!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+    }
+
+    private static AutomationElement? Button(AutomationElement root, string name) =>
+        root.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
+            new PropertyCondition(AutomationElement.NameProperty, name)));
+
+    private static bool HasText(AutomationElement root, string text) =>
+        root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, text)) != null;
+
+    /// <summary>A window of the UI process with this title, other than the main window and the one given.</summary>
+    private static AutomationElement? WaitForDialog(string title, int[]? notThis = null)
+    {
+        AutomationElement? found = null;
+        WaitFor(() =>
+        {
+            found = FindDialog(AutomationElement.RootElement, title, notThis);
+            return found != null;
+        }, 5000);
+        return found;
+    }
+
+    private static AutomationElement? FindDialog(AutomationElement under, string title, int[]? notThis)
+    {
+        var windows = under.FindAll(TreeScope.Children, new AndCondition(
+            new PropertyCondition(AutomationElement.ProcessIdProperty, _uiPid),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window)));
+        foreach (AutomationElement w in windows)
+        {
+            if (w.Current.Name == title && (notThis == null || !w.GetRuntimeId().SequenceEqual(notThis)) && !Automation.Compare(w, _window))
+                return w;
+            // Owned windows can sit under their owner in the tree.
+            if (FindDialog(w, title, notThis) is { } inner)
+                return inner;
+        }
+        return null;
+    }
+
+    /// <summary>Type a path into a Windows file dialog's File name box and press its Save or Open button.</summary>
+    private static bool SaveFileAs(AutomationElement? dialog, string path)
+    {
+        if (!Check(dialog != null, "a file dialog opens"))
+            return false;
+        AutomationElement? box = null, confirm = null;
+        // The dialog fills in after its window appears.
+        WaitFor(() =>
+        {
+            box = dialog!.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit))
+                .Cast<AutomationElement>().FirstOrDefault(e => e.Current.Name.StartsWith("File name"));
+            // Save is a button and Open a split button; both carry the dialog's IDOK id, 1.
+            confirm = dialog.FindFirst(TreeScope.Children, new PropertyCondition(AutomationElement.AutomationIdProperty, "1"));
+            return box != null && confirm != null;
+        }, 5000);
+        if (!Check(box != null, "the file dialog has a File name box"))
+            return false;
+        if (!Check(confirm != null, "the file dialog has its Save or Open button"))
+        {
+            foreach (AutomationElement child in dialog!.FindAll(TreeScope.Children, Condition.TrueCondition))
+                Info($"{Short(child.Current.ControlType)} \"{child.Current.Name}\" id={child.Current.AutomationId}");
+            return false;
+        }
+        ((ValuePattern)box!.GetCurrentPattern(ValuePattern.Pattern)).SetValue(path);
+        // Open shows as a pane with no Invoke, so send the dialog the button's command (WM_COMMAND, IDOK).
+        if (confirm!.TryGetCurrentPattern(InvokePattern.Pattern, out var invoke))
+            ((InvokePattern)invoke).Invoke();
+        else
+            PostMessage(Handle(dialog), 0x0111, (IntPtr)1, IntPtr.Zero);
+        return true;
     }
 
     private static void LockerChecks(Process core, string? shots)
@@ -1263,6 +1435,7 @@ internal static partial class Program
     }
 
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern uint MapVirtualKey(uint code, uint mapType);
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, INPUT[] inputs, int size);
 
