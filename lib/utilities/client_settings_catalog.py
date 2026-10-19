@@ -26,6 +26,7 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from lib.utilities import client_settings_binds as binds
+from lib.utilities import client_settings_gamepad as pad
 from lib.utilities.client_settings import FStr, MapValue, Raw, Save, TypeName
 
 SCHEMA_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'client_settings_schema_4230.json')
@@ -41,6 +42,17 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
      'Pressing sprint once keeps you sprinting until you press it again.'),
     ('Game', 'Movement', 'bAutoOpenDoorsNonMobile', 'Auto Open Doors',
      'Doors open by themselves when you walk into them.'),
+    ('Game', 'Camera', 'CameraResetAxes', 'Reset Camera Axes',
+     'What Reset Camera puts back: Pitch only levels your view, Yaw only turns you to face the way '
+     'your character faces, Both does both.'),
+    ('Game', 'Camera', 'CameraResetTime', 'Reset Camera Time',
+     'How long, in seconds, Reset Camera takes to move the camera back.'),
+    ('Game', 'Camera', 'bAutoCenterCamera', 'Auto Center Camera',
+     'The camera levels itself while you move.'),
+    ('Game', 'Camera', 'ThirdPersonAutoFollowMode', 'Camera Follow',
+     'Whether the camera swings round behind your character as you move: Off, Auto, or Lazy (slowly).'),
+    ('Game', 'Camera', 'bMovingTurnsCamera', 'Moving Turns Camera',
+     'Moving sideways turns the camera with you.'),
     ('Game', 'Combat', 'bTargetingToggleable', 'Toggle Targeting',
      'Pressing aim once keeps you aiming down sights until you press it again.'),
     ('Game', 'Combat', 'bAutoPickupWeaponsConsolePC', 'Auto Pickup Weapons',
@@ -69,6 +81,19 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
      'How far the left stick moves before your character does, from 0 to 1.'),
     ('Controller', 'Sticks', 'GamepadLookStickDeadZone', 'Right Stick Deadzone',
      'How far the right stick moves before the camera does, from 0 to 1.'),
+    ('Controller', 'Flick Stick', 'bFlickStickEnabled', 'Flick Stick',
+     'The right stick turns you straight to the direction you push it: right turns you a quarter turn '
+     'right, down turns you around. Turning the stick round while held then turns you smoothly.'),
+    ('Controller', 'Flick Stick', 'FlickTime', 'Flick Time',
+     'How long, in seconds, a flick takes to turn you.'),
+    ('Controller', 'Flick Stick', 'FlickStickWindingSpeed', 'Flick Stick Rotation Speed',
+     'How fast turning the held stick round turns you.'),
+    ('Controller', 'Flick Stick', 'FlickStickSmoothingThreshold', 'Flick Stick Smoothing',
+     'Small stick movements below this are smoothed out.'),
+    ('Controller', 'Flick Stick', 'FlickForwardDeadZone', 'Flick Forward Deadzone',
+     'How far around straight up the stick counts as straight ahead (no turn).'),
+    ('Controller', 'Flick Stick', 'FlickStickDeadZoneFactor', 'Flick Stick Deadzone',
+     'How far the stick moves before it starts a flick.'),
     ('Controller', 'Aim', 'bAimAssistEnabled', 'Aim Assist',
      'The game helps keep your aim on targets while you use a controller.'),
     ('Controller', 'Feedback', 'bForceFeedbackEnabled', 'Vibration',
@@ -123,7 +148,7 @@ VOLUMES = [
 # Defaults seen in Fortnite's own menu (42.40) for settings the file didn't hold, shown as
 # "Game default (On)". Settings not listed just say "Game default".
 KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True}
-TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Audio', 'Accessibility', 'Game UI',
+TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Controller Binds', 'Audio', 'Accessibility', 'Game UI',
         'Account and Privacy', 'All Settings']
 VOLUME_MAP = 'BusNameVolumesMap'
 # The game's own bookkeeping, not options: versions, migration flags, what was last seen or
@@ -132,6 +157,10 @@ INTERNAL = re.compile(r'(Version|Migrat|^bInitial|^Initial|Seen|^Last|Cache|Dirt
                       r'Onboarding|Revision|Modal|Viewed|^bHas|^Has|Notified|Attempt|Watched|Recently|Hash|Pending|'
                       r'Old|Calibration|Platform$|PresetName|ConfigName|Region|Culture|Subscription|Store|Experiment|'
                       r'bDid|Copied|bStW|STW|Survivor|bShouldShow|Dummy|MaxCameraShotPresets|ShotIndex)')
+
+
+# Settings with their own rows elsewhere (Keybinds, Controller, Controller Binds).
+OWN_PAGES = {binds.BINDINGS, pad.USER_OPTIONS, pad.LOCAL_OPTIONS, pad.PAD_BINDINGS, pad.PRESET}
 
 
 @lru_cache(maxsize=1)
@@ -167,9 +196,10 @@ def _type_name(spec: dict, existing: Optional[TypeName]) -> TypeName:
 class SettingsView:
     """The editor over one loaded settings file: what to show, and applying the user's changes."""
 
-    def __init__(self, save: Save, original: Save):
+    def __init__(self, save: Save, original: Save, controller: bool = False):
         self.save = save
         self.original = original
+        self.controller = controller        # show the Controller Binds tab
         schema = load_schema()
         self.specs: Dict[str, dict] = schema['settings']
         self.enums: Dict[str, List[str]] = schema['enums']
@@ -190,6 +220,9 @@ class SettingsView:
             mouse = tabs['Mouse and Keyboard']
             tabs['Mouse and Keyboard'] = {'Sensitivity': sensitivity + mouse.pop('Sensitivity', []), **mouse}
         tabs['Keybinds'] = dict(binds.bind_groups(self.save))
+        tabs['Controller'].update(pad.look_entries(self.save))
+        if self.controller:
+            tabs['Controller Binds'] = dict(pad.pad_groups(self.save))
         others = sorted((n for n in self.specs if self._listed_in_all(n)),
                         key=lambda n: split_words(n).lower())
         tabs['All Settings']['Every setting'] = [self.entry(n, split_words(n), '') for n in others]
@@ -198,7 +231,7 @@ class SettingsView:
 
     def _listed_in_all(self, name: str) -> bool:
         return (name not in self.curated and not INTERNAL.search(name) and name not in binds.SENS_PROPERTIES
-                and name != binds.BINDINGS)
+                and name not in OWN_PAGES)
 
     def search_entries(self) -> List[dict]:
         entries = []
@@ -260,6 +293,10 @@ class SettingsView:
             return binds.bind_label(key)
         if section == binds.SENS:
             return binds.sens_label(key)
+        if section == pad.LOOK:
+            return pad.look_label(key)
+        if section in (pad.PAD_BIND, pad.PAD_PRESET):
+            return pad.pad_entry_label(self.save, section, key)
         if section == VOLUME:
             return dict(VOLUMES).get(key, split_words(key))
         for _tab, _group, name, label, _desc in CURATED:
@@ -278,6 +315,12 @@ class SettingsView:
             return binds.apply_bind(save, key, value)
         if section == binds.SENS:
             return binds.apply_sens(save, key, value)
+        if section == pad.LOOK:
+            return pad.apply_look(save, key, value)
+        if section == pad.PAD_BIND:
+            return pad.apply_pad_bind(save, key, value)[0]
+        if section == pad.PAD_PRESET:
+            return pad.apply_preset(save, value)
         if section != RECORD or key not in self.specs or (key not in self.curated and INTERNAL.search(key)):
             raise ValueError('Unknown setting.')
         spec = self.specs[key]
@@ -344,6 +387,12 @@ class SettingsView:
             return binds.current_key(self.original, action, scale, slot)
         if section == binds.SENS:
             return binds.sens_value(self.original, key)
+        if section == pad.LOOK:
+            return pad.look_values(self.original)[key]
+        if section == pad.PAD_BIND:
+            return pad.pad_values(self.original).get(f'{pad.PAD_BIND}/{key}')
+        if section == pad.PAD_PRESET:
+            return pad.preset(self.original)
         if section == VOLUME:
             for entry in view._volume_entries():
                 if entry['key'] == key:
@@ -356,8 +405,8 @@ class SettingsView:
         old, new = SettingsView(self.original, self.original), self
         changed = []
         for name in self.specs:
-            if name in binds.SENS_PROPERTIES or name == binds.BINDINGS or (name not in self.curated
-                                                                           and INTERNAL.search(name)):
+            if name in binds.SENS_PROPERTIES or name in OWN_PAGES or (name not in self.curated
+                                                                       and INTERNAL.search(name)):
                 continue
             if old.entry(name, name, '')['value'] != new.entry(name, name, '')['value']:
                 changed.append(self.label(RECORD, name))
@@ -368,6 +417,15 @@ class SettingsView:
         for key, value in binds.bind_values(self.save).items():
             if old_binds.get(key) != value:
                 changed.append(binds.bind_label(key))
+        old_look = pad.look_values(self.original)
+        for key, value in pad.look_values(self.save).items():
+            if old_look[key] != value:
+                changed.append(pad.look_label(key))
+        old_pad = pad.pad_values(self.original)
+        for entry_id, value in pad.pad_values(self.save).items():
+            if old_pad.get(entry_id) != value:
+                section, _, key = entry_id.partition('/')
+                changed.append(pad.pad_entry_label(self.save, section, key))
         old_volumes = {e['key']: e['value'] for e in old._volume_entries()}
         for entry in new._volume_entries():
             if old_volumes.get(entry['key']) != entry['value']:

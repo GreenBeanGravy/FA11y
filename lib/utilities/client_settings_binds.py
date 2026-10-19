@@ -9,7 +9,8 @@ action with an axis (Move Forward and Move Backward) appears once per direction,
 InputScale. "None" means no key.
 
 The list also holds actions Fortnite's keyboard menu never shows, such as the controller's reset
-camera. The game keeps keys given to them; they are listed under Not in Fortnite's Menu.
+camera. The game keeps keys given to them and answers them: Reset Camera on a keyboard key
+recenters the camera in game. They are listed under Not in Fortnite's Menu.
 
 Mouse sensitivity is stored as a factor: the menu's X-Axis Sensitivity percent is the stored
 MouseSensitivityX times 400 (stored 0.0025 shows as 1.0%). The game takes values below the menu
@@ -81,19 +82,18 @@ HIDDEN = {
     'GamepadResetCameraGyroModifier': 'Gyro Modifier: Reset Camera',
     'GamepadToggleHarvestGyroModifier': 'Gyro Modifier: Toggle Harvesting Tool',
     'GamepadToggleCrouchGyroModifier': 'Gyro Modifier: Toggle Crouch',
-    'ForceJogToggle': 'Force Jog (Toggle)',
-    'ForceJogHold': 'Force Jog (Hold)',
 }
+# Actions left off the Keybinds tab: forced walking and jogging speeds.
+LEFT_OUT = {'ForceJogToggle', 'ForceJogHold', 'ForceWalkToggle', 'ForceWalkHold'}
 HIDDEN_HEADING = 'Not in Fortnite\'s Menu'
-HIDDEN_NOTE = ('Fortnite\'s keyboard menu doesn\'t list this action. The game keeps a key you give it here; '
-               'try it in game to see if the action answers to the keyboard.')
+HIDDEN_NOTE = 'Fortnite\'s keyboard menu doesn\'t list this action, but a key you give it here works in game.'
+GYRO_NOTE = 'For controllers with motion aiming. Fortnite\'s keyboard menu doesn\'t list this action.'
 
 # Menu names for actions, keyed by (ActionName, InputScale) where an axis has two directions.
 LABELS: Dict[object, str] = {
     ('MoveForward', 1.0): 'Move Forward', ('MoveForward', -1.0): 'Move Backward',
     ('MoveRight', -1.0): 'Move Left', ('MoveRight', 1.0): 'Move Right',
     'Jump': 'Jump', 'Sprint': 'Sprint', 'AutoRun': 'Auto Run', 'Crouch': 'Crouch',
-    'ForceWalkToggle': 'Force Walk (Toggle)', 'ForceWalkHold': 'Force Walk (Hold)',
     'Fire': 'Weapon Primary (Fire)', 'Target': 'Weapon Secondary (Aim)', 'Reload': 'Reload', 'Use': 'Interact',
     'HotbarKey1': 'Pickaxe (Press) / Gizmos (Hold)', 'HotbarKey2': 'Weapon Slot 1', 'HotbarKey3': 'Weapon Slot 2',
     'HotbarKey4': 'Weapon Slot 3', 'HotbarKey5': 'Weapon Slot 4', 'HotbarKey6': 'Weapon Slot 5',
@@ -227,17 +227,18 @@ def bind_groups(save: Save) -> List[Tuple[str, List[dict]]]:
     for item in _lists(save).get(MENU_LIST, []):
         action = str(_field(item, 'ActionName').value)
         scale = _scale(_field(item, 'InputScale').value)
-        if (action, scale) in seen:
+        if (action, scale) in seen or action in LEFT_OUT:
             continue
         seen.add((action, scale))
         heading = HIDDEN_HEADING if action in HIDDEN else group_heading(str(_field(item, 'ActionGroup').value).split('::')[-1])
         label = action_label(action, scale)
+        note = (GYRO_NOTE if 'Gyro' in action else HIDDEN_NOTE) if action in HIDDEN else ''
         for slot in (1, 2):
             key = str(_key_prop(item, slot).value)
             groups.setdefault(heading, []).append({
                 'id': f'{BIND}/{bind_id(action, scale, slot)}', 'section': BIND, 'key': bind_id(action, scale, slot),
                 'label': label if slot == 1 else f'{label}, second key',
-                'description': HIDDEN_NOTE if action in HIDDEN else '', 'show_description': action in HIDDEN,
+                'description': note, 'show_description': bool(note),
                 'kind': 'choice', 'value': key, 'choices': key_choices(key), 'default': None})
     hidden = groups.pop(HIDDEN_HEADING, None)
     ordered = ([(HIDDEN_HEADING, hidden)] if hidden else []) + list(groups.items())

@@ -72,6 +72,16 @@ def bindings() -> Prop:
         _enum('ESubGame'), TypeName('StructProperty', [TypeName('UserActionBindings', [TypeName(FG)])])]), 0, value)
 
 
+def gamepad_bindings() -> Prop:
+    return Prop(_name('CustomGamepadActionBindings'), TypeName('ArrayProperty', [
+        TypeName('StructProperty', [TypeName('FortActionKeyMapping', [TypeName(FG)])])]), 0, Array([
+            _mapping('GamepadJump', 'AllModes', 'Gamepad_FaceButton_Bottom'),
+            _mapping('GamepadResetCamera', 'AllModes', 'None'),
+            _mapping('Fire', 'CombatAndAthenaLTMAbilities', 'Gamepad_RightTrigger'),
+            _mapping('Target', 'CombatAndAthenaLTMAbilities', 'Gamepad_LeftTrigger'),
+        ]))
+
+
 def sample_save() -> Save:
     partition = Save(header(), [Prop(_name('bHasAvailableAudioInputDevices'), TypeName('BoolProperty'), 0x10, True)],
                      b'')
@@ -92,6 +102,8 @@ def sample_save() -> Save:
         Prop(_name('UpgradedMouseSensitivityX'), TypeName('FloatProperty'), 0, 0.0025),
         Prop(_name('TargetingSlow'), TypeName('FloatProperty'), 0, 0.87),
         bindings(),
+        gamepad_bindings(),
+        Prop(_name('InputPresetNameForAthena'), TypeName('StrProperty'), 0, _name('ConfigF_Athena')),
         Prop(_name('bToggleSprint'), TypeName('BoolProperty'), 0x10, True),
         Prop(_name('bTargetingToggleable'), TypeName('BoolProperty'), 0, False),
         Prop(_name('CombatTweakZone'), TypeName('EnumProperty', [

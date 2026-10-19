@@ -498,7 +498,7 @@ internal static partial class Program
         Check(Named(focusable, "No unsaved changes.", ControlType.Text) != null, "the status line says there are no changes");
         Shot(core, shots, "gamesettings-game");
 
-        foreach (var tabName in new[] { "Mouse and Keyboard", "Keybinds", "Audio", "Accessibility", "All Settings" })
+        foreach (var tabName in new[] { "Mouse and Keyboard", "Keybinds", "Controller", "Controller Binds", "Audio", "Accessibility", "All Settings" })
         {
             var tab = _window.FindFirst(TreeScope.Descendants, new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),

@@ -9,6 +9,7 @@ import pytest
 from lib.shell.handlers import gamesettings
 from lib.utilities.client_settings import Raw, SettingsFileError, parse_file, parse_save, walk
 from lib.utilities import client_settings_binds as binds
+from lib.utilities import client_settings_gamepad as pad
 from lib.utilities.client_settings_catalog import DEFAULT, RECORD, VOLUME, SettingsView, split_words
 from lib.utilities.epic_cloud_settings import CloudSettingsAPI, CloudSettingsError, FILE_NAME
 from tests.fixtures.client_settings_sample import sample_bytes
@@ -188,6 +189,72 @@ def test_set_warns_when_a_key_is_already_used(page):
     assert 'message' not in gamesettings.gamesettings_set({'section': 'bind', 'key': 'Reload@1#2', 'value': 'T'})
 
 
+def test_force_walk_and_jog_are_left_off():
+    _, view = view_of(sample_bytes())
+    keys = {s['key'] for t in view.schema() if t['name'] == 'Keybinds' for g in t['groups'] for s in g['settings']}
+    assert not any(k.startswith(('ForceWalk', 'ForceJog')) for k in keys)
+
+
+def test_controller_binds_tab_only_with_a_controller():
+    draft, original = parse_file(sample_bytes()), parse_file(sample_bytes())
+    assert 'Controller Binds' not in [t['name'] for t in SettingsView(draft.save, original.save).schema()]
+    view = SettingsView(draft.save, original.save, controller=True)
+    tab = next(t for t in view.schema() if t['name'] == 'Controller Binds')
+    rows = {s['label']: s for g in tab['groups'] for s in g['settings']}
+    assert rows['Controller Preset']['value'] == 'ConfigF_Athena'
+    assert rows['Jump']['value'] == 'Gamepad_FaceButton_Bottom'
+    labels = {c['value']: c['label'] for c in rows['Reset Camera']['choices']}
+    assert labels['Gamepad_DPad_Left'] == 'D-pad Left' and labels['Gamepad_FaceButton_Bottom'] == 'A (Cross)'
+
+
+def test_changing_a_controller_button_switches_to_the_custom_preset(page):
+    gamesettings.gamesettings_schema({})
+    gamesettings._session.view.controller = True
+    result = gamesettings.gamesettings_set({'section': 'padbind', 'key': 'GamepadResetCamera@1#1',
+                                            'value': 'Gamepad_FaceButton_Bottom'})
+    assert result['message'] == ('Controller preset switched to Custom, so this button counts. '
+                                 'Also used by Jump.')
+    save = gamesettings._session.draft.save
+    assert pad.preset(save) == pad.CUSTOM_PRESET
+    assert set(gamesettings._session.view.changes()) == {'Controller Preset', 'Reset Camera'}
+    again = gamesettings.gamesettings_set({'section': 'padbind', 'key': 'GamepadResetCamera@1#1',
+                                           'value': 'Gamepad_DPad_Left'})
+    assert 'message' not in again
+    with pytest.raises(ValueError):
+        gamesettings.gamesettings_set({'section': 'padbind', 'key': 'Fire@1#1', 'value': 'K'})
+
+
+def test_controller_look_options_are_added_and_removed():
+    draft, view = view_of(sample_bytes())
+    rows = {s['label']: s for t in view.schema() if t['name'] == 'Controller'
+            for g in t['groups'] for s in g['settings']}
+    assert rows['Use Advanced Options']['value'] == 'default' and rows['Turning Horizontal Boost']['value'] == ''
+    assert view.apply('look', 'Basic.bUseAdvancedOptions', 'on') == 'on'
+    assert view.apply('look', 'Advanced.LookHorizontalBoostSpeed', '250') == '250'   # past the menu's 100
+    assert view.apply('look', 'Basic.LookSensitivityPreset', 'EFortGamepadSensitivity::Insane') ==         'EFortGamepadSensitivity::Insane'
+    data = draft.to_bytes()
+    reread = parse_file(data)
+    assert reread.to_bytes() == data
+    advanced = next(p for p in reread.save.get('GamepadUserOptions').value.props if str(p.name) == 'Advanced')
+    assert [(str(p.name), str(p.type), p.value) for p in advanced.value.props] ==         [('LookHorizontalBoostSpeed', 'UInt32Property', 250)]
+    for bad in ('-1', '2.5', '99999'):
+        with pytest.raises(ValueError):
+            view.apply('look', 'Advanced.LookHorizontalBoostSpeed', bad)
+    for key in ('Basic.bUseAdvancedOptions', 'Advanced.LookHorizontalBoostSpeed', 'Basic.LookSensitivityPreset'):
+        view.apply('look', key, 'default')
+    assert draft.save.get('GamepadUserOptions') is None and view.changes() == []
+
+
+def test_camera_and_flick_stick_rows():
+    _, view = view_of(sample_bytes())
+    tabs = {t['name']: t for t in view.schema()}
+    camera = next(g for g in tabs['Game']['groups'] if g['heading'] == 'Camera')
+    axes = next(s for s in camera['settings'] if s['key'] == 'CameraResetAxes')
+    assert [c['label'] for c in axes['choices']] == ['Game default', 'Pitch', 'Yaw', 'Both']
+    flick = next(g for g in tabs['Controller']['groups'] if g['heading'] == 'Flick Stick')
+    assert flick['settings'][0]['label'] == 'Flick Stick'
+
+
 def test_names_are_readable():
     assert split_words('bAutoOpenDoorsNonMobile') == 'Auto open doors non mobile'
     assert split_words('HUDScale') == 'Hud scale'
@@ -292,6 +359,7 @@ def page(tmp_path, monkeypatch):
     monkeypatch.setattr(gamesettings, '_api', lambda: api(cloud, tmp_path))
     monkeypatch.setattr(gamesettings, '_game_running', lambda: state['running'])
     monkeypatch.setattr(gamesettings, '_session', None)
+    monkeypatch.setattr(gamesettings, '_controller_connected', lambda: False)
     return cloud, state
 
 

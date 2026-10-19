@@ -14,6 +14,7 @@ from typing import Optional
 
 from lib.shell.bridge import handler
 from lib.utilities import client_settings_binds as binds
+from lib.utilities import client_settings_gamepad as pad
 from lib.utilities.client_settings import SettingsFile, SettingsFileError, parse_file
 from lib.utilities.client_settings_catalog import SettingsView
 from lib.utilities.epic_cloud_settings import CloudFile, CloudSettingsAPI, CloudSettingsError, sha1
@@ -43,7 +44,7 @@ class Session:
         self.base = base
         original = parse_file(base.data)
         self.draft = parse_file(base.data)
-        self.view = SettingsView(self.draft.save, original.save)
+        self.view = SettingsView(self.draft.save, original.save, controller=_controller_connected())
 
 
 _session: Optional[Session] = None
@@ -61,6 +62,10 @@ def _api() -> CloudSettingsAPI:
 def _signed_in() -> bool:
     auth = _auth()
     return bool(auth and auth.access_token and auth.account_id)
+
+
+def _controller_connected() -> bool:
+    return pad.controller_connected()
 
 
 def _game_running() -> bool:
@@ -123,12 +128,18 @@ def gamesettings_set(params: dict) -> dict:
     with _lock:
         session = _require()
         section, key = str(params.get('section', '')), str(params.get('key', ''))
+        was_custom = pad.preset(session.draft.save) == pad.CUSTOM_PRESET
         shown = session.view.apply(section, key, params.get('value'))
         result = {'value': shown, 'status': _status(session)}
-        if section == binds.BIND:
-            others = binds.conflicts(session.draft.save, key)
-            if others:
-                result['message'] = 'Also used by ' + ', '.join(others[:3]) + '.'
+        notes = []
+        if section == pad.PAD_BIND and not was_custom:
+            notes.append('Controller preset switched to Custom, so this button counts.')
+        others = (binds.conflicts(session.draft.save, key) if section == binds.BIND
+                  else pad.pad_conflicts(session.draft.save, key) if section == pad.PAD_BIND else [])
+        if others:
+            notes.append('Also used by ' + ', '.join(others[:3]) + '.')
+        if notes:
+            result['message'] = ' '.join(notes)
         return result
 
 

@@ -138,6 +138,7 @@ class FakeCore:
         gamesettings._auth = lambda: Auth()
         gamesettings._api = lambda: Cloud()
         gamesettings._game_running = lambda: core.fortnite_running
+        gamesettings._controller_connected = lambda: True   # show the Controller Binds tab
 
     def log(self, text: str) -> None:
         with self.lock:
