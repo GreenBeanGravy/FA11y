@@ -257,17 +257,23 @@ def test_camera_and_flick_stick_rows():
     assert flick['settings'][0]['label'] == 'Flick Stick'
 
 
-def test_automatic_actions_rows():
+def test_tweak_zone_rows_and_aim_assist_strengths():
     draft, view = view_of(sample_bytes())
     tabs = {t['name']: t for t in view.schema()}
-    auto = next(g for g in tabs['Game']['groups'] if g['heading'].startswith('Automatic Actions'))
-    rows = {s['key']: s for s in auto['settings']}
-    assert list(rows) == ['bAutoInteractContainers', 'bAutoInteractRevives', 'bAutoInteractZiplines',
-                          'bAutoInteractConsumables', 'bAutoInteractSpawnMachines']
-    assert rows['bAutoInteractContainers']['choices'][0]['label'] == 'Game default (Off)'
-    view.apply('record', 'bAutoInteractContainers', 'on')
-    assert parse_file(draft.to_bytes()).save.get('bAutoInteractContainers').value is True
-    assert view.changes() == ['Auto Open Containers']
+    tweak = next(g for g in tabs['Controller']['groups'] if g['heading'] == 'Tweak Zone')
+    rows = {s['key']: s for s in tweak['settings']}
+    assert list(rows) == ['CombatTweakZone', 'BuildingTweakZone', 'TweakZoneOverlap', 'TweakZoneScale']
+    combat = [c['value'] for c in rows['CombatTweakZone']['choices']]
+    assert 'EActiveCombatMode::HipOnly' in combat and 'EActiveCombatMode::NotScope' in combat
+    view.apply('record', 'TweakZoneScale', '3')
+    assert parse_file(draft.to_bytes()).save.get('TweakZoneScale').value == 3.0
+    for k in ('AimAssistSlowStrength', 'AimAssistPullStrength'):
+        assert view.apply('look', f'Advanced.{k}', '200') == '200'
+    advanced = next(p for p in parse_file(draft.to_bytes()).save.get('GamepadUserOptions').value.props
+                    if str(p.name) == 'Advanced')
+    values = {str(p.name): p.value for p in advanced.value.props}
+    assert values['AimAssistSlowStrength'] == 200 and values['AimAssistPullStrength'] == 200
+    assert 'Tweak Sensitivity' in view.changes()
 
 
 def test_turn_keys_add_look_axis_entries_and_take_them_out_again():

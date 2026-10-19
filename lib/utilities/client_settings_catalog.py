@@ -35,7 +35,6 @@ RECORD, VOLUME = 'record', 'volume'
 DEFAULT = 'default'
 ENUM_PACKAGE = '/Script/FortniteGame'
 NUMBER_TYPES = {'IntProperty': True, 'FloatProperty': False, 'DoubleProperty': False}
-AUTOMATIC_HEADING = 'Automatic Actions (Not in Fortnite\'s PC Menu)'
 
 # (tab, group, property, label, description). The labels are the names Fortnite's settings
 # menu uses; descriptions say what the setting does.
@@ -44,19 +43,6 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
      'Pressing sprint once keeps you sprinting until you press it again.'),
     ('Game', 'Movement', 'bAutoOpenDoorsNonMobile', 'Auto Open Doors',
      'Doors open by themselves when you walk into them.'),
-    # Fortnite lists these under its touch controls only, but on PC the game reads them too and
-    # Epic switches automatic actions on from its server.
-    ('Game', AUTOMATIC_HEADING, 'bAutoInteractContainers', 'Auto Open Containers',
-     'Chests, ammo boxes and other containers open by themselves when you come near them, '
-     'unless you are sprinting.'),
-    ('Game', AUTOMATIC_HEADING, 'bAutoInteractRevives', 'Auto Revive Teammate',
-     'Standing near a downed teammate starts reviving them.'),
-    ('Game', AUTOMATIC_HEADING, 'bAutoInteractZiplines', 'Auto Use Ziplines',
-     'Moving onto a zipline or ascender rides it.'),
-    ('Game', AUTOMATIC_HEADING, 'bAutoInteractConsumables', 'Auto Consume Forageable Items',
-     'You eat apples, mushrooms and other forageables you look at.'),
-    ('Game', AUTOMATIC_HEADING, 'bAutoInteractSpawnMachines', 'Auto Use Reboot Vans',
-     'You use a reboot van you look at while you carry a reboot card.'),
     ('Game', 'Camera', 'CameraResetAxes', 'Reset Camera Axes',
      'What Reset Camera puts back: Pitch only levels your view, Yaw only turns you to face the way '
      'your character faces, Both does both.'),
@@ -113,6 +99,17 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
      'How far the stick moves before it starts a flick.'),
     ('Controller', 'Aim', 'bAimAssistEnabled', 'Aim Assist',
      'The game helps keep your aim on targets while you use a controller.'),
+    ('Controller', 'Tweak Zone', 'CombatTweakZone', 'Tweak Zone Aiming',
+     'When small right stick movements move the reticle on screen instead of turning the camera: '
+     "Not Scope and Hip Only are choices Fortnite's menu does not show."),
+    ('Controller', 'Tweak Zone', 'BuildingTweakZone', 'Tweak Zone Building',
+     'When the tweak zone is on while building or editing.'),
+    ('Controller', 'Tweak Zone', 'TweakZoneOverlap', 'Tweak Zone',
+     "How much of the stick past the deadzone moves the reticle, from 0 to 1 (the menu's 0 to 100 "
+     'percent). At 1 the whole stick only moves the reticle.'),
+    ('Controller', 'Tweak Zone', 'TweakZoneScale', 'Tweak Sensitivity',
+     'How far the tweak zone can move the reticle. 0 turns the tweak zone off; the game does not '
+     'cap higher values.'),
     ('Controller', 'Feedback', 'bForceFeedbackEnabled', 'Vibration',
      'The controller vibrates.'),
     ('Audio', 'Sound', 'AllowAudioInBackground', 'Play Sound in Background',
@@ -168,9 +165,8 @@ VOLUMES = [
 # "Game default (On)". Settings not listed just say "Game default".
 KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True,
                   'CameraResetAxes': 'ECameraResetAxes::Pitch'}
-# Automatic actions default to off on PC and console (the game's Fort.AutoInteract.Default* switches).
-KNOWN_DEFAULTS.update({k: False for k in ('bAutoInteractContainers', 'bAutoInteractRevives', 'bAutoInteractZiplines',
-                                          'bAutoInteractConsumables', 'bAutoInteractSpawnMachines')})
+# The auto interact settings (bAutoInteract*) are left out: the game only runs them while the input
+# type is touch, so on PC they do nothing.
 TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Controller Binds', 'Audio', 'Accessibility', 'Game UI',
         'Account and Privacy', 'All Settings']
 VOLUME_MAP = 'BusNameVolumesMap'
