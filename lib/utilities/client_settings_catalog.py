@@ -35,6 +35,7 @@ RECORD, VOLUME = 'record', 'volume'
 DEFAULT = 'default'
 ENUM_PACKAGE = '/Script/FortniteGame'
 NUMBER_TYPES = {'IntProperty': True, 'FloatProperty': False, 'DoubleProperty': False}
+AUTOMATIC_HEADING = 'Automatic Actions (Not in Fortnite\'s PC Menu)'
 
 # (tab, group, property, label, description). The labels are the names Fortnite's settings
 # menu uses; descriptions say what the setting does.
@@ -43,17 +44,32 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
      'Pressing sprint once keeps you sprinting until you press it again.'),
     ('Game', 'Movement', 'bAutoOpenDoorsNonMobile', 'Auto Open Doors',
      'Doors open by themselves when you walk into them.'),
+    # Fortnite lists these under its touch controls only, but on PC the game reads them too and
+    # Epic switches automatic actions on from its server.
+    ('Game', AUTOMATIC_HEADING, 'bAutoInteractContainers', 'Auto Open Containers',
+     'Chests, ammo boxes and other containers open by themselves when you come near them, '
+     'unless you are sprinting.'),
+    ('Game', AUTOMATIC_HEADING, 'bAutoInteractRevives', 'Auto Revive Teammate',
+     'Standing near a downed teammate starts reviving them.'),
+    ('Game', AUTOMATIC_HEADING, 'bAutoInteractZiplines', 'Auto Use Ziplines',
+     'Moving onto a zipline or ascender rides it.'),
+    ('Game', AUTOMATIC_HEADING, 'bAutoInteractConsumables', 'Auto Consume Forageable Items',
+     'You eat apples, mushrooms and other forageables you look at.'),
+    ('Game', AUTOMATIC_HEADING, 'bAutoInteractSpawnMachines', 'Auto Use Reboot Vans',
+     'You use a reboot van you look at while you carry a reboot card.'),
     ('Game', 'Camera', 'CameraResetAxes', 'Reset Camera Axes',
      'What Reset Camera puts back: Pitch only levels your view, Yaw only turns you to face the way '
      'your character faces, Both does both.'),
     ('Game', 'Camera', 'CameraResetTime', 'Reset Camera Time',
      'How long, in seconds, Reset Camera takes to move the camera back.'),
     ('Game', 'Camera', 'bAutoCenterCamera', 'Auto Center Camera',
-     'The camera levels itself while you move.'),
+     'The camera levels itself while you move. Epic keeps this switched off on PC, so it does '
+     'nothing there for now.'),
     ('Game', 'Camera', 'ThirdPersonAutoFollowMode', 'Camera Follow',
      'Whether the camera swings round behind your character as you move: Off, Auto, or Lazy (slowly).'),
     ('Game', 'Camera', 'bMovingTurnsCamera', 'Moving Turns Camera',
-     'Moving sideways turns the camera with you.'),
+     'Moving sideways turns the camera with you. Epic keeps this switched off on PC, so it does '
+     'nothing there for now.'),
     ('Game', 'Combat', 'bTargetingToggleable', 'Toggle Targeting',
      'Pressing aim once keeps you aiming down sights until you press it again.'),
     ('Game', 'Combat', 'bAutoPickupWeaponsConsolePC', 'Auto Pickup Weapons',
@@ -106,7 +122,9 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
     ('Audio', 'Voice Chat', 'VoiceChatMethodNoMute', 'Voice Chat Method',
      'Whether your microphone is always on or you push a key to talk.'),
     ('Accessibility', 'Sound', 'bVisualizeAudioSources', 'Visualize Sound Effects',
-     'Shows on screen where sounds such as footsteps and gunfire come from.'),
+     'Shows on screen where sounds such as footsteps and gunfire come from. Depending on Epic\'s '
+     'server settings, turning it on can also stop game sounds panning, so you no longer hear '
+     'which side they come from.'),
     ('Accessibility', 'Subtitles', 'bEnableSubtitles', 'Subtitles',
      'Shows subtitles for speech.'),
     ('Accessibility', 'Subtitles', 'SubtitleTextSize', 'Subtitle Text Size',
@@ -150,6 +168,9 @@ VOLUMES = [
 # "Game default (On)". Settings not listed just say "Game default".
 KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True,
                   'CameraResetAxes': 'ECameraResetAxes::Pitch'}
+# Automatic actions default to off on PC and console (the game's Fort.AutoInteract.Default* switches).
+KNOWN_DEFAULTS.update({k: False for k in ('bAutoInteractContainers', 'bAutoInteractRevives', 'bAutoInteractZiplines',
+                                          'bAutoInteractConsumables', 'bAutoInteractSpawnMachines')})
 TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Controller Binds', 'Audio', 'Accessibility', 'Game UI',
         'Account and Privacy', 'All Settings']
 VOLUME_MAP = 'BusNameVolumesMap'

@@ -257,6 +257,19 @@ def test_camera_and_flick_stick_rows():
     assert flick['settings'][0]['label'] == 'Flick Stick'
 
 
+def test_automatic_actions_rows():
+    draft, view = view_of(sample_bytes())
+    tabs = {t['name']: t for t in view.schema()}
+    auto = next(g for g in tabs['Game']['groups'] if g['heading'].startswith('Automatic Actions'))
+    rows = {s['key']: s for s in auto['settings']}
+    assert list(rows) == ['bAutoInteractContainers', 'bAutoInteractRevives', 'bAutoInteractZiplines',
+                          'bAutoInteractConsumables', 'bAutoInteractSpawnMachines']
+    assert rows['bAutoInteractContainers']['choices'][0]['label'] == 'Game default (Off)'
+    view.apply('record', 'bAutoInteractContainers', 'on')
+    assert parse_file(draft.to_bytes()).save.get('bAutoInteractContainers').value is True
+    assert view.changes() == ['Auto Open Containers']
+
+
 def test_turn_keys_add_look_axis_entries_and_take_them_out_again():
     draft, view = view_of(sample_bytes())
     rows = {s['label']: s for t in view.schema() if t['name'] == 'Keybinds' for g in t['groups']
