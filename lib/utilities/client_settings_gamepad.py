@@ -107,8 +107,9 @@ PAD_LABELS = {
     'MapZoomOut_Gamepad': 'Map Zoom Out',
 }
 
-PRESETS = [('ConfigD_Athena', 'Old School'), ('ConfigE_Athena', 'Quick Builder'), ('ConfigF_Athena', 'Builder Pro'),
-           ('ConfigG_Athena', 'Combat Pro'), ('ConfigH_Athena', 'Preset H'), (CUSTOM_PRESET, 'Custom')]
+# The menu's five presets in its order (ConfigF_Athena shows as Combat Pro in 42.40).
+PRESETS = [('ConfigD_Athena', 'Old School'), ('ConfigE_Athena', 'Quick Builder'), ('ConfigF_Athena', 'Combat Pro'),
+           ('ConfigG_Athena', 'Builder Pro'), (CUSTOM_PRESET, 'Custom')]
 
 
 # Look options ------------------------------------------------------------------------------------
@@ -173,12 +174,13 @@ def look_entries(save: Save) -> List[Tuple[str, List[dict]]]:
         entry = {'id': f'{LOOK}/{key}', 'section': LOOK, 'key': key, 'label': label, 'description': description,
                  'show_description': True, 'default': None}
         if kind == 'bool':
-            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': 'Game default'},
+            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': 'Game default (Off)'},
                                                                {'value': 'on', 'label': 'On'},
                                                                {'value': 'off', 'label': 'Off'}])
         elif kind in ENUM_CHOICES:
             from lib.utilities.client_settings_catalog import split_words
-            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': 'Game default'}] + [
+            default = 'Game default (Normal)' if kind == SENSITIVITY_ENUM else 'Game default'
+            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': default}] + [
                 {'value': f'{kind}::{n}', 'label': split_words(n).replace(' plus', '+')} for n in ENUM_CHOICES[kind]])
         else:
             entry.update(kind='text', value=value)

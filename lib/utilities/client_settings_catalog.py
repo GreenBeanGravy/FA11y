@@ -147,7 +147,8 @@ VOLUMES = [
 ]
 # Defaults seen in Fortnite's own menu (42.40) for settings the file didn't hold, shown as
 # "Game default (On)". Settings not listed just say "Game default".
-KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True}
+KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True,
+                  'CameraResetAxes': 'ECameraResetAxes::Pitch'}
 TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Controller Binds', 'Audio', 'Accessibility', 'Game UI',
         'Account and Privacy', 'All Settings']
 VOLUME_MAP = 'BusNameVolumesMap'
@@ -261,7 +262,8 @@ class SettingsView:
                                 {'value': 'off', 'label': 'Off'}])
         elif kind == 'EnumProperty':
             names = [n for n in self.enums.get(spec['enum'], []) if n not in ('Num', 'Count', 'MAX')]
-            choices = [{'value': DEFAULT, 'label': 'Game default'}]
+            known = KNOWN_DEFAULTS.get(name)
+            choices = [{'value': DEFAULT, 'label': 'Game default' + (f' ({enum_label(known)})' if known else '')}]
             choices += [{'value': f"{spec['enum']}::{n}", 'label': split_words(n)} for n in names]
             current = str(value) if value is not None else DEFAULT
             if current != DEFAULT and current not in {c['value'] for c in choices}:

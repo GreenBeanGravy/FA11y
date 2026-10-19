@@ -202,6 +202,8 @@ def test_controller_binds_tab_only_with_a_controller():
     tab = next(t for t in view.schema() if t['name'] == 'Controller Binds')
     rows = {s['label']: s for g in tab['groups'] for s in g['settings']}
     assert rows['Controller Preset']['value'] == 'ConfigF_Athena'
+    assert [c['label'] for c in rows['Controller Preset']['choices']] == [
+        'Old School', 'Quick Builder', 'Combat Pro', 'Builder Pro', 'Custom']
     assert rows['Jump']['value'] == 'Gamepad_FaceButton_Bottom'
     labels = {c['value']: c['label'] for c in rows['Reset Camera']['choices']}
     assert labels['Gamepad_DPad_Left'] == 'D-pad Left' and labels['Gamepad_FaceButton_Bottom'] == 'A (Cross)'
@@ -250,7 +252,7 @@ def test_camera_and_flick_stick_rows():
     tabs = {t['name']: t for t in view.schema()}
     camera = next(g for g in tabs['Game']['groups'] if g['heading'] == 'Camera')
     axes = next(s for s in camera['settings'] if s['key'] == 'CameraResetAxes')
-    assert [c['label'] for c in axes['choices']] == ['Game default', 'Pitch', 'Yaw', 'Both']
+    assert [c['label'] for c in axes['choices']] == ['Game default (Pitch)', 'Pitch', 'Yaw', 'Both']
     flick = next(g for g in tabs['Controller']['groups'] if g['heading'] == 'Flick Stick')
     assert flick['settings'][0]['label'] == 'Flick Stick'
 
