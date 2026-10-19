@@ -658,6 +658,8 @@ public partial class SettingsPage : PageBase
                     var result = await App.Bridge.RequestAsync($"{_api}.set",
                         new { section = model.Section, key = model.Key, kind = model.Kind, value = view.Read() });
                     ShowStatus(result);
+                    if (result.NullableStr("message") is { Length: > 0 } note)
+                        Announce(note);
                     // The core may have held the value to its range; show what was saved.
                     if (!view.Wanted && view.Debounce is not { IsEnabled: true } && result.TryGetProperty("value", out var saved))
                         view.Apply(saved);

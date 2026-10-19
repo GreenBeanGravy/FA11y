@@ -8,6 +8,7 @@ import pytest
 
 from lib.shell.handlers import gamesettings
 from lib.utilities.client_settings import Raw, SettingsFileError, parse_file, parse_save, walk
+from lib.utilities import client_settings_binds as binds
 from lib.utilities.client_settings_catalog import DEFAULT, RECORD, VOLUME, SettingsView, split_words
 from lib.utilities.epic_cloud_settings import CloudSettingsAPI, CloudSettingsError, FILE_NAME
 from tests.fixtures.client_settings_sample import sample_bytes
@@ -123,6 +124,68 @@ def test_reset_puts_back_the_loaded_value():
     view.apply(RECORD, 'bToggleSprint', 'off')
     view.apply(RECORD, 'bToggleSprint', view.original_value(RECORD, 'bToggleSprint'))
     assert view.changes() == []
+
+
+def test_keybinds_tab_lists_actions_and_hidden_ones_first():
+    _, view = view_of(sample_bytes())
+    tab = next(t for t in view.schema() if t['name'] == 'Keybinds')
+    headings = [g['heading'] for g in tab['groups']]
+    assert headings[0] == "Not in Fortnite's Menu"
+    rows = {s['label']: s for g in tab['groups'] for s in g['settings']}
+    assert rows['Move Forward']['value'] == 'W' and rows['Move Backward, second key']['value'] == 'Down'
+    assert rows['Reset Camera']['value'] == 'None' and rows['Reset Camera']['show_description']
+    labels = {c['value']: c['label'] for c in rows['Reload']['choices']}
+    assert labels['None'] == 'Not bound' and labels['ThumbMouseButton'] == 'Mouse Button 4'
+
+
+def test_binding_a_key_changes_both_lists_and_reports_clashes():
+    draft, view = view_of(sample_bytes())
+    assert view.apply('bind', 'GamepadResetCamera@1#1', 'K') == 'K'
+    assert view.apply('bind', 'MoveForward@-1#2', 'NumPadTwo') == 'NumPadTwo'
+    assert view.changes() == ['Reset Camera', 'Move Backward, second key']
+    data = draft.to_bytes()
+    again = parse_file(data)
+    assert again.to_bytes() == data
+    for sub, value in again.save.get('UserBindingsPerSubGame').value.items:
+        keys = {(str(m.props[0].value), m.props[5].value): str(m.props[3].value.props[0].value)
+                for m in value.props[0].value.items}
+        assert keys[('GamepadResetCamera', 1.0)] == 'K', sub
+    view.apply('bind', 'Reload@1#2', 'E')
+    assert binds.conflicts(draft.save, 'Reload@1#2') == ['Interact']   # both in Combat
+    view.apply('bind', 'GamepadResetCamera@1#2', 'W')
+    assert binds.conflicts(draft.save, 'GamepadResetCamera@1#2') == []  # Move Forward is in another section
+    view.apply('bind', 'Reload@1#2', 'R')
+    assert binds.conflicts(draft.save, 'Reload@1#2') == ['Reload']
+    with pytest.raises(ValueError):
+        view.apply('bind', 'Reload@1#1', 'NotAKey')
+    with pytest.raises(ValueError):
+        view.apply('bind', 'NoSuchAction@1#1', 'K')
+    assert view.original_value('bind', 'GamepadResetCamera@1#1') == 'None'
+
+
+def test_sensitivity_uses_the_menu_percent_and_goes_below_its_lowest_step():
+    draft, view = view_of(sample_bytes())
+    rows = {s['label']: s for t in view.schema() if t['name'] == 'Mouse and Keyboard'
+            for g in t['groups'] for s in g['settings']}
+    assert rows['X-Axis Sensitivity']['value'] == 1.0 and rows['Targeting Sensitivity']['value'] == 87.0
+    assert 'Y-Axis Sensitivity' not in rows                         # not in this file
+    assert view.apply('sens', 'x', '0.5') == 0.5
+    assert draft.save.get('MouseSensitivityX').value == pytest.approx(0.00125)
+    assert draft.save.get('UpgradedMouseSensitivityX').value == pytest.approx(0.00125)
+    assert view.changes() == ['X-Axis Sensitivity']
+    for bad in ('0', '-1', 'fast', '5000'):
+        with pytest.raises(ValueError):
+            view.apply('sens', 'x', bad)
+    all_settings = {s['key'] for t in view.schema() if t['name'] == 'All Settings'
+                    for g in t['groups'] for s in g['settings']}
+    assert not {'MouseSensitivityX', 'UpgradedMouseSensitivityX', 'UserBindingsPerSubGame'} & all_settings
+
+
+def test_set_warns_when_a_key_is_already_used(page):
+    gamesettings.gamesettings_schema({})
+    result = gamesettings.gamesettings_set({'section': 'bind', 'key': 'Reload@1#2', 'value': 'R'})
+    assert result['message'] == 'Also used by Reload.'
+    assert 'message' not in gamesettings.gamesettings_set({'section': 'bind', 'key': 'Reload@1#2', 'value': 'T'})
 
 
 def test_names_are_readable():

@@ -13,6 +13,7 @@ import threading
 from typing import Optional
 
 from lib.shell.bridge import handler
+from lib.utilities import client_settings_binds as binds
 from lib.utilities.client_settings import SettingsFile, SettingsFileError, parse_file
 from lib.utilities.client_settings_catalog import SettingsView
 from lib.utilities.epic_cloud_settings import CloudFile, CloudSettingsAPI, CloudSettingsError, sha1
@@ -121,8 +122,14 @@ def gamesettings_search_index(_params: dict) -> dict:
 def gamesettings_set(params: dict) -> dict:
     with _lock:
         session = _require()
-        shown = session.view.apply(str(params.get('section', '')), str(params.get('key', '')), params.get('value'))
-        return {'value': shown, 'status': _status(session)}
+        section, key = str(params.get('section', '')), str(params.get('key', ''))
+        shown = session.view.apply(section, key, params.get('value'))
+        result = {'value': shown, 'status': _status(session)}
+        if section == binds.BIND:
+            others = binds.conflicts(session.draft.save, key)
+            if others:
+                result['message'] = 'Also used by ' + ', '.join(others[:3]) + '.'
+        return result
 
 
 @handler('gamesettings.reset')

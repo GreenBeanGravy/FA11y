@@ -498,7 +498,7 @@ internal static partial class Program
         Check(Named(focusable, "No unsaved changes.", ControlType.Text) != null, "the status line says there are no changes");
         Shot(core, shots, "gamesettings-game");
 
-        foreach (var tabName in new[] { "Audio", "Accessibility", "All Settings" })
+        foreach (var tabName in new[] { "Mouse and Keyboard", "Keybinds", "Audio", "Accessibility", "All Settings" })
         {
             var tab = _window.FindFirst(TreeScope.Descendants, new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
@@ -537,6 +537,34 @@ internal static partial class Program
                 new PropertyCondition(AutomationElement.NameProperty, status))) != null, 3000),
             $"the status line says \"{status}\"");
         Shot(core, shots, "gamesettings-changed");
+
+        // Bind the controller-only Reset Camera to K on the Keybinds tab.
+        var keybinds = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+            new PropertyCondition(AutomationElement.NameProperty, "Keybinds")));
+        if (!Check(keybinds != null, "there is a Keybinds tab"))
+            return;
+        ((SelectionItemPattern)keybinds!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        Thread.Sleep(800);
+        var reset = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox),
+            new PropertyCondition(AutomationElement.NameProperty, "Reset Camera")));
+        if (!Check(reset != null, "Reset Camera is a combo box"))
+            return;
+        ((ExpandCollapsePattern)reset!.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+        Thread.Sleep(300);
+        var k = reset.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
+            new PropertyCondition(AutomationElement.NameProperty, "K")));
+        if (Check(k != null, "the key list offers K"))
+            ((SelectionItemPattern)k!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        ((ExpandCollapsePattern)reset.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Collapse();
+        status = "2 unsaved changes: Visualize Sound Effects, Reset Camera.";
+        Check(WaitFor(() => _window.FindFirst(TreeScope.Descendants, new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text),
+                new PropertyCondition(AutomationElement.NameProperty, status))) != null, 3000),
+            $"the status line says \"{status}\"");
+        Shot(core, shots, "gamesettings-keybinds-changed");
     }
 
     private static void LockerChecks(Process core, string? shots)

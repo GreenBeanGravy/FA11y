@@ -13,7 +13,8 @@ the file. Missing on/off settings and choices then show as "Game default", and m
 as an empty box. Choosing "Game default", or clearing the box, takes the setting out of the
 file again so the game uses its default.
 
-Volumes live in BusNameVolumesMap (one entry per slider) and are shown as percents.
+Volumes live in BusNameVolumesMap (one entry per slider) and are shown as percents. Keyboard
+bindings and mouse sensitivity are described in client_settings_binds.
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ import re
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
+from lib.utilities import client_settings_binds as binds
 from lib.utilities.client_settings import FStr, MapValue, Raw, Save, TypeName
 
 SCHEMA_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'client_settings_schema_4230.json')
@@ -59,14 +61,6 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
      'Letting go of the edit button confirms the edit.'),
     ('Game', 'Building', 'EditButtonHoldTime', 'Edit Hold Time',
      'How long, in seconds, you hold the edit button to start editing.'),
-    ('Mouse and Keyboard', 'Sensitivity', 'MouseSensitivityX', 'X-Axis Sensitivity (stored value)',
-     'Mouse sensitivity left and right, as Fortnite stores it. The menu shows a different scale.'),
-    ('Mouse and Keyboard', 'Sensitivity', 'MouseSensitivityY', 'Y-Axis Sensitivity (stored value)',
-     'Mouse sensitivity up and down, as Fortnite stores it. The menu shows a different scale.'),
-    ('Mouse and Keyboard', 'Sensitivity', 'TargetingSlow', 'Targeting Sensitivity (stored value)',
-     'Mouse sensitivity while aiming down sights, as a multiplier of the normal sensitivity.'),
-    ('Mouse and Keyboard', 'Sensitivity', 'ScopedSlow', 'Scope Sensitivity (stored value)',
-     'Mouse sensitivity while looking through a scope, as a multiplier of the normal sensitivity.'),
     ('Mouse and Keyboard', 'Sensitivity', 'BuildingMultiplier', 'Building Mode Sensitivity Multiplier',
      'Mouse sensitivity in build mode, as a multiplier of the normal sensitivity.'),
     ('Mouse and Keyboard', 'Sensitivity', 'EditingMultiplier', 'Edit Mode Sensitivity Multiplier',
@@ -129,7 +123,7 @@ VOLUMES = [
 # Defaults seen in Fortnite's own menu (42.40) for settings the file didn't hold, shown as
 # "Game default (On)". Settings not listed just say "Game default".
 KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True}
-TABS = ['Game', 'Mouse and Keyboard', 'Controller', 'Audio', 'Accessibility', 'Game UI',
+TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Audio', 'Accessibility', 'Game UI',
         'Account and Privacy', 'All Settings']
 VOLUME_MAP = 'BusNameVolumesMap'
 # The game's own bookkeeping, not options: versions, migration flags, what was last seen or
@@ -191,11 +185,20 @@ class SettingsView:
         volumes = self._volume_entries()
         if volumes:
             tabs['Audio'] = {'Volume': volumes, **tabs['Audio']}
-        others = sorted((n for n in self.specs if n not in self.curated and not INTERNAL.search(n)),
+        sensitivity = binds.sens_entries(self.save)
+        if sensitivity:
+            mouse = tabs['Mouse and Keyboard']
+            tabs['Mouse and Keyboard'] = {'Sensitivity': sensitivity + mouse.pop('Sensitivity', []), **mouse}
+        tabs['Keybinds'] = dict(binds.bind_groups(self.save))
+        others = sorted((n for n in self.specs if self._listed_in_all(n)),
                         key=lambda n: split_words(n).lower())
         tabs['All Settings']['Every setting'] = [self.entry(n, split_words(n), '') for n in others]
         return [{'name': tab, 'groups': [{'heading': h, 'settings': s} for h, s in groups.items() if s]}
                 for tab, groups in tabs.items() if groups]
+
+    def _listed_in_all(self, name: str) -> bool:
+        return (name not in self.curated and not INTERNAL.search(name) and name not in binds.SENS_PROPERTIES
+                and name != binds.BINDINGS)
 
     def search_entries(self) -> List[dict]:
         entries = []
@@ -253,6 +256,10 @@ class SettingsView:
                  'default': None} for k in names if isinstance(values[k], float)]
 
     def label(self, section: str, key: str) -> str:
+        if section == binds.BIND:
+            return binds.bind_label(key)
+        if section == binds.SENS:
+            return binds.sens_label(key)
         if section == VOLUME:
             return dict(VOLUMES).get(key, split_words(key))
         for _tab, _group, name, label, _desc in CURATED:
@@ -267,6 +274,10 @@ class SettingsView:
         save = save or self.save
         if section == VOLUME:
             return self._apply_volume(save, key, value)
+        if section == binds.BIND:
+            return binds.apply_bind(save, key, value)
+        if section == binds.SENS:
+            return binds.apply_sens(save, key, value)
         if section != RECORD or key not in self.specs or (key not in self.curated and INTERNAL.search(key)):
             raise ValueError('Unknown setting.')
         spec = self.specs[key]
@@ -328,6 +339,11 @@ class SettingsView:
     def original_value(self, section: str, key: str) -> Any:
         """What the setting's control showed when the file was loaded."""
         view = SettingsView(self.original, self.original)
+        if section == binds.BIND:
+            action, scale, slot = binds.parse_bind_id(key)
+            return binds.current_key(self.original, action, scale, slot)
+        if section == binds.SENS:
+            return binds.sens_value(self.original, key)
         if section == VOLUME:
             for entry in view._volume_entries():
                 if entry['key'] == key:
@@ -340,10 +356,18 @@ class SettingsView:
         old, new = SettingsView(self.original, self.original), self
         changed = []
         for name in self.specs:
-            if name not in self.curated and INTERNAL.search(name):
+            if name in binds.SENS_PROPERTIES or name == binds.BINDINGS or (name not in self.curated
+                                                                           and INTERNAL.search(name)):
                 continue
             if old.entry(name, name, '')['value'] != new.entry(name, name, '')['value']:
                 changed.append(self.label(RECORD, name))
+        for entry in binds.sens_entries(self.save):
+            if binds.sens_value(self.original, entry['key']) != entry['value']:
+                changed.append(entry['label'])
+        old_binds = binds.bind_values(self.original)
+        for key, value in binds.bind_values(self.save).items():
+            if old_binds.get(key) != value:
+                changed.append(binds.bind_label(key))
         old_volumes = {e['key']: e['value'] for e in old._volume_entries()}
         for entry in new._volume_entries():
             if old_volumes.get(entry['key']) != entry['value']:
