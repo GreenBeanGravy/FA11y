@@ -26,6 +26,15 @@ def is_fortnite_running() -> bool:
     return _running
 
 
+def fortnite_running_now() -> bool:
+    """Check the process list now, for actions that must not run beside the game."""
+    try:
+        return _scan()
+    except Exception:
+        logger.exception("Could not check whether Fortnite is running")
+        return _running
+
+
 def _scan() -> bool:
     import psutil
     for proc in psutil.process_iter(["name"]):

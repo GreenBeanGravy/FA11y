@@ -1,0 +1,2002 @@
+{
+ "enums": {
+  "EActiveBuildMode": [
+   "None",
+   "Edit",
+   "All",
+   "Build",
+   "COUNT"
+  ],
+  "EActiveCombatMode": [
+   "None",
+   "ScopeOnly",
+   "ScopeADS",
+   "All",
+   "NotScope",
+   "HipOnly",
+   "COUNT"
+  ],
+  "EAllowedConfrontationalEmoteDisplaySources": [
+   "Anyone",
+   "FriendsInParty",
+   "LocalOnly"
+  ],
+  "EAutorunLockZonePreferenceMobile": [
+   "Off",
+   "Fixed",
+   "Dynamic"
+  ],
+  "EAxisDirection": [
+   "Disabled",
+   "Standard",
+   "Inverted"
+  ],
+  "EBrelmarCameraShake": [
+   "Default",
+   "Low",
+   "Off"
+  ],
+  "ECameraResetAxes": [
+   "Pitch",
+   "Yaw",
+   "Both"
+  ],
+  "ECloudFileState": [
+   "Unitialized",
+   "Saving",
+   "Loading",
+   "Idle"
+  ],
+  "EColorBlindMode": [
+   "Off",
+   "Deuteranope",
+   "Protanope",
+   "Tritanope"
+  ],
+  "ECombinedADSFireMode": [
+   "Disabled",
+   "OnPressed",
+   "WhileHeld"
+  ],
+  "EDoughnutFillingSetting": [
+   "CeilingAngle",
+   "CeilingTimeDelay",
+   "CeilingReleaseInput",
+   "Never",
+   "Always"
+  ],
+  "EDroneCameraControlScheme": [
+   "Default",
+   "Dutch",
+   "TriggerDutch"
+  ],
+  "EFortAllowBackgroundAudioSetting": [
+   "Off",
+   "NotificationsOnly",
+   "AllSounds",
+   "Num"
+  ],
+  "EFortMotionYawAxis": [
+   "Yaw",
+   "Roll"
+  ],
+  "EFortRarity": [
+   "Common",
+   "Uncommon",
+   "Rare",
+   "Epic",
+   "Legendary",
+   "Mythic",
+   "Transcendent",
+   "Unattainable",
+   "NumRarityValues"
+  ],
+  "EFortReticleColor": [
+   "Red",
+   "Orange",
+   "Yellow",
+   "Green",
+   "Cyan",
+   "Blue",
+   "Purple",
+   "Magenta"
+  ],
+  "EFortVoiceChatMethod": [
+   "OpenMic",
+   "PTT",
+   "Mute"
+  ],
+  "EFreeDroneFocusMode": [
+   "Manual",
+   "Auto",
+   "Target"
+  ],
+  "EGyroAcceleration": [
+   "Off",
+   "Low",
+   "Medium",
+   "High",
+   "Custom",
+   "Legacy"
+  ],
+  "EGyroActiveBuildMode": [
+   "None",
+   "Edit",
+   "All"
+  ],
+  "EGyroActiveMode": [
+   "None",
+   "ScopeOnly",
+   "ScopeADS",
+   "ScopeADSHarvesting",
+   "ScopeADSHarvestingFiring",
+   "All"
+  ],
+  "EGyroButton": [
+   "Custom",
+   "ReloadInteract",
+   "TogglePickaxe",
+   "CrouchSlide",
+   "ResetCamera",
+   "Touch"
+  ],
+  "EGyroButtonResponse": [
+   "NoChange",
+   "Disable",
+   "Trackball",
+   "Invert",
+   "Enable"
+  ],
+  "EGyroCalibrationContext": [
+   "Always",
+   "MenusOnly",
+   "Never"
+  ],
+  "EGyroSpace": [
+   "Local",
+   "Player",
+   "World"
+  ],
+  "EGyroStickMode": [
+   "None",
+   "Disables",
+   "Enables"
+  ],
+  "EGyroTouchMode": [
+   "None",
+   "Disables",
+   "Enables"
+  ],
+  "EHitFeedbackMode": [
+   "Invalid",
+   "HitAndIcon",
+   "HitOnly",
+   "Off",
+   "Num"
+  ],
+  "EHitNumbersMode": [
+   "Invalid",
+   "Cumulative",
+   "List",
+   "CumulativeAndList",
+   "Num"
+  ],
+  "EHudVisibilityToggleMode": [
+   "Default",
+   "Replay"
+  ],
+  "EHybridMouseControlMode": [
+   "None",
+   "Left",
+   "Right",
+   "All"
+  ],
+  "EJoyConMotionSelection": [
+   "Left",
+   "Right"
+  ],
+  "ELicensedAudioTreatment": [
+   "None",
+   "MuteOthers",
+   "MuteAll"
+  ],
+  "EMouseBuildMode": [
+   "RequireConfirm",
+   "OnRepeat",
+   "Immediate"
+  ],
+  "EMouseZoomScalingMode": [
+   "Off",
+   "Legacy",
+   "Standard"
+  ],
+  "EOffOnCustom": [
+   "Off",
+   "On",
+   "Custom"
+  ],
+  "EPartyType": [
+   "Public",
+   "FriendsOnly",
+   "Private"
+  ],
+  "EPostpartyClippingState": [
+   "Unset",
+   "Disabled",
+   "Enabled"
+  ],
+  "EQuestMapScreenMode": [
+   "Invalid",
+   "MainCampaign",
+   "Event"
+  ],
+  "EQuickWeaponButtonGroup": [
+   "DPad",
+   "FaceButtons",
+   "Both"
+  ],
+  "EQuickWeaponToggle": [
+   "None",
+   "Secondary",
+   "PreviouslyEquipped"
+  ],
+  "ESmartBuildItemSet": [
+   "SecondaryWall",
+   "SecondaryStairs",
+   "BoxBridge"
+  ],
+  "ESmartBuildPlacementTiming": [
+   "Immediate",
+   "Hold"
+  ],
+  "ESocialCommsPermission": [
+   "Nobody",
+   "FriendsOnly",
+   "FriendsAndTeammates",
+   "FriendsTeamConnections",
+   "Everybody"
+  ],
+  "ESpectatorSquadIdMode": [
+   "AlwaysOff",
+   "AlwaysOn",
+   "HoldToDisplay"
+  ],
+  "ESubtitleDisplayBackgroundOpacity": [
+   "Clear",
+   "Low",
+   "Medium",
+   "High",
+   "Solid"
+  ],
+  "ESubtitleDisplayTextBorder": [
+   "None",
+   "Outline",
+   "DropShadow"
+  ],
+  "ESubtitleDisplayTextColor": [
+   "White",
+   "Yellow"
+  ],
+  "ESubtitleDisplayTextSize": [
+   "ExtraSmall",
+   "Small",
+   "Medium",
+   "Large",
+   "ExtraLarge"
+  ],
+  "EThirdPersonAutoFollowMode": [
+   "Off",
+   "Auto",
+   "Lazy"
+  ],
+  "ETouchInteractMode": [
+   "Off",
+   "InWorld",
+   "Buttons"
+  ],
+  "EVisualizeAudioPriority": [
+   "HighPriority",
+   "All"
+  ]
+ },
+ "settings": {
+  "AboutShopModalVersionSeen": {
+   "type": "IntProperty"
+  },
+  "AllowAudioInBackground": {
+   "enum": "EFortAllowBackgroundAudioSetting",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "AllowedConfrontationalEmoteSources": {
+   "enum": "EAllowedConfrontationalEmoteDisplaySources",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "AndroidStoreSelectionRevision": {
+   "type": "IntProperty"
+  },
+  "Aperture": {
+   "type": "FloatProperty"
+  },
+  "ArrowDistance": {
+   "type": "FloatProperty"
+  },
+  "ArrowScaleMax": {
+   "type": "FloatProperty"
+  },
+  "ArrowScaleMin": {
+   "type": "FloatProperty"
+  },
+  "AutorunLockZonePreferenceMobile": {
+   "enum": "EAutorunLockZonePreferenceMobile",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "BrelmarCameraShake": {
+   "enum": "EBrelmarCameraShake",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "BuildingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "BuildingTweakZone": {
+   "enum": "EActiveBuildMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "CameraAssistsEnabled": {
+   "enum": "EOffOnCustom",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "CameraResetAxes": {
+   "enum": "ECameraResetAxes",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "CameraResetTime": {
+   "type": "FloatProperty"
+  },
+  "CameraShotPreset": {
+   "type": "IntProperty"
+  },
+  "CapMipsExperimentVersion": {
+   "type": "IntProperty"
+  },
+  "ChatVolume": {
+   "type": "FloatProperty"
+  },
+  "CinematicsVolume": {
+   "type": "FloatProperty"
+  },
+  "CloudFileState": {
+   "enum": "ECloudFileState",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "ColorBlindMode": {
+   "enum": "EColorBlindMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "ColorBlindStrength": {
+   "type": "FloatProperty"
+  },
+  "CombatTweakZone": {
+   "enum": "EActiveCombatMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "ControllerPlatform": {
+   "type": "StrProperty"
+  },
+  "CrossplayPreference": {
+   "type": "IntProperty"
+  },
+  "CurrentDeltaUpdateKWSWithCCSSettings": {
+   "type": "IntProperty"
+  },
+  "DamageNumbersScale": {
+   "type": "FloatProperty"
+  },
+  "DefaultADSFireModeOnFreshAccounts": {
+   "enum": "ECombinedADSFireMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "DialogVolume": {
+   "type": "FloatProperty"
+  },
+  "DoughnutCameraSwivelDeadzone": {
+   "type": "FloatProperty"
+  },
+  "DoughnutFillingSetting": {
+   "enum": "EDoughnutFillingSetting",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "DoughnutMusicVolume": {
+   "type": "FloatProperty"
+  },
+  "DoughnutPitchDeadzone": {
+   "type": "FloatProperty"
+  },
+  "DoughnutSfxVolume": {
+   "type": "FloatProperty"
+  },
+  "DoughnutSteerDeadzone": {
+   "type": "FloatProperty"
+  },
+  "DoughnutThrottleDeadzone": {
+   "type": "FloatProperty"
+  },
+  "DroneControlScheme": {
+   "enum": "EDroneCameraControlScheme",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "DroneDirectMovementLinearVelocity": {
+   "type": "FloatProperty"
+  },
+  "DroneDirectMovementRotationVelocity": {
+   "type": "FloatProperty"
+  },
+  "DroneDirectMovementZLinearVelocityMultiplier": {
+   "type": "FloatProperty"
+  },
+  "DroneDragMultiplier": {
+   "type": "FloatProperty"
+  },
+  "DroneDutchAngle": {
+   "type": "FloatProperty"
+  },
+  "DroneDutchAngleStep": {
+   "type": "FloatProperty"
+  },
+  "DroneDutchSpeed": {
+   "type": "FloatProperty"
+  },
+  "DroneDutchSpeedStep": {
+   "type": "FloatProperty"
+  },
+  "DroneFollowLookAtBoneName": {
+   "type": "NameProperty"
+  },
+  "DronePendulumAmplitude": {
+   "type": "FloatProperty"
+  },
+  "DronePendulumArmLength": {
+   "type": "FloatProperty"
+  },
+  "DronePendulumFrequency": {
+   "type": "FloatProperty"
+  },
+  "DroneTriggerDutchSpeed": {
+   "type": "FloatProperty"
+  },
+  "DynamicCameraBoneName": {
+   "type": "StrProperty"
+  },
+  "DynamicCameraDesiredSubjectSize": {
+   "type": "FloatProperty"
+  },
+  "DynamicCameraFOVDamping": {
+   "type": "FloatProperty"
+  },
+  "DynamicCameraPitchDamping": {
+   "type": "FloatProperty"
+  },
+  "DynamicCameraYawDamping": {
+   "type": "FloatProperty"
+  },
+  "EditButtonHoldTime": {
+   "type": "FloatProperty"
+  },
+  "EditingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "FOVMaximum": {
+   "type": "FloatProperty"
+  },
+  "FOVMinimum": {
+   "type": "FloatProperty"
+  },
+  "FPSMultiplier": {
+   "type": "FloatProperty"
+  },
+  "FilmbackPresetName": {
+   "type": "StrProperty"
+  },
+  "FirstPersonFOV": {
+   "type": "FloatProperty"
+  },
+  "FlickForwardDeadZone": {
+   "type": "FloatProperty"
+  },
+  "FlickStickDeadZoneFactor": {
+   "type": "FloatProperty"
+  },
+  "FlickStickSmoothingThreshold": {
+   "type": "FloatProperty"
+  },
+  "FlickStickWindingSpeed": {
+   "type": "FloatProperty"
+  },
+  "FlickTime": {
+   "type": "FloatProperty"
+  },
+  "FocalLength": {
+   "type": "FloatProperty"
+  },
+  "FocalLengthSpeed": {
+   "type": "FloatProperty"
+  },
+  "FortClientSettingRecord": {
+   "type": "BoolProperty"
+  },
+  "FreeDroneFocusMode": {
+   "enum": "EFreeDroneFocusMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GamepadBuildingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GamepadEditModeMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GamepadFPSModeMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GamepadLeftTriggerReleaseThreshold": {
+   "type": "FloatProperty"
+  },
+  "GamepadLookStickDeadZone": {
+   "type": "FloatProperty"
+  },
+  "GamepadMoveStickDeadZone": {
+   "type": "FloatProperty"
+  },
+  "GamepadRightTriggerReleaseThreshold": {
+   "type": "FloatProperty"
+  },
+  "GamepadScopedSlow": {
+   "type": "FloatProperty"
+  },
+  "GamepadTargetingSlow": {
+   "type": "FloatProperty"
+  },
+  "GlobalMaxAspectRatio": {
+   "type": "FloatProperty"
+  },
+  "GyroAccelerationMaxThreshold": {
+   "type": "FloatProperty"
+  },
+  "GyroAccelerationMinThreshold": {
+   "type": "FloatProperty"
+  },
+  "GyroAccelerationMode": {
+   "enum": "EGyroAcceleration",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroAccelerationMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GyroActiveBuildMode": {
+   "enum": "EGyroActiveBuildMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroActiveMode": {
+   "enum": "EGyroActiveMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroAimAssist": {
+   "type": "BoolProperty"
+  },
+  "GyroButton": {
+   "enum": "EGyroButton",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroButtonHoldTime": {
+   "type": "FloatProperty"
+  },
+  "GyroButtonModeX": {
+   "enum": "EGyroButtonResponse",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroButtonModeY": {
+   "enum": "EGyroButtonResponse",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroCalibrationContext": {
+   "enum": "EGyroCalibrationContext",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroDeadZone": {
+   "type": "FloatProperty"
+  },
+  "GyroSensitivity": {
+   "type": "FloatProperty"
+  },
+  "GyroSmoothingThreshold": {
+   "type": "FloatProperty"
+  },
+  "GyroSmoothingWindow": {
+   "type": "FloatProperty"
+  },
+  "GyroSpaceAttached": {
+   "enum": "EGyroSpace",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroSpaceDetached": {
+   "enum": "EGyroSpace",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroSteadyingThreshold": {
+   "type": "FloatProperty"
+  },
+  "GyroStickDisables": {
+   "type": "BoolProperty"
+  },
+  "GyroStickMode": {
+   "enum": "EGyroStickMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroTighteningThreshold": {
+   "type": "FloatProperty"
+  },
+  "GyroTouchMode": {
+   "enum": "EGyroTouchMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroTrackballDecay": {
+   "type": "FloatProperty"
+  },
+  "GyroV2BuildingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GyroV2EditingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GyroV2FPSMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GyroV2HarvestingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GyroV2PitchDirection": {
+   "enum": "EAxisDirection",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroV2RollDirection": {
+   "enum": "EAxisDirection",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroV2ScopedMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GyroV2Sensitivity": {
+   "type": "FloatProperty"
+  },
+  "GyroV2TargetingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "GyroV2YawDirection": {
+   "enum": "EAxisDirection",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "GyroVerticalMultiplier": {
+   "type": "FloatProperty"
+  },
+  "HUDScale": {
+   "type": "FloatProperty"
+  },
+  "HasSeenCommunityVotingTutorial": {
+   "type": "BoolProperty"
+  },
+  "HiddenMatchmakingDelayMaxSeconds": {
+   "type": "IntProperty"
+  },
+  "HighDetailScaleMax": {
+   "type": "FloatProperty"
+  },
+  "HighDetailScaleMin": {
+   "type": "FloatProperty"
+  },
+  "HitFeedbackMode": {
+   "enum": "EHitFeedbackMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "HitNumbersMode": {
+   "enum": "EHitNumbersMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "HudVisibilityToggleMode": {
+   "enum": "EHudVisibilityToggleMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "HybridMouseControlMode": {
+   "enum": "EHybridMouseControlMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "InZoneMapScreenTab": {
+   "type": "ByteProperty"
+  },
+  "InitialAutorunPreferenceMobile": {
+   "enum": "EAutorunLockZonePreferenceMobile",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "InitialColorBlindMode": {
+   "enum": "EColorBlindMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "InitialColorBlindStrength": {
+   "type": "FloatProperty"
+  },
+  "InitialEditButtonHoldTime": {
+   "type": "FloatProperty"
+  },
+  "InitialGammaValue": {
+   "type": "FloatProperty"
+  },
+  "InitialHUDScale": {
+   "type": "FloatProperty"
+  },
+  "InitialMouseSensitivityMultiplierForAircraft": {
+   "type": "FloatProperty"
+  },
+  "InitialSimpleEditButtonHoldTime": {
+   "type": "FloatProperty"
+  },
+  "InitialSlideButtonHoldTime": {
+   "type": "FloatProperty"
+  },
+  "InitialVisualizeAudioPriority": {
+   "enum": "EVisualizeAudioPriority",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "InitialbToggleDoubleTapAutorunMobile": {
+   "type": "BoolProperty"
+  },
+  "InitializeKWSWithCCSSettings": {
+   "type": "IntProperty"
+  },
+  "InputConfigName": {
+   "type": "NameProperty"
+  },
+  "InputKBMPresetNameForAthena": {
+   "type": "StrProperty"
+  },
+  "InputKBMPresetNameForCampaign": {
+   "type": "StrProperty"
+  },
+  "InputPresetNameForAthena": {
+   "type": "StrProperty"
+  },
+  "InputPresetNameForAthenaMobile": {
+   "type": "StrProperty"
+  },
+  "InputPresetNameForCampaign": {
+   "type": "StrProperty"
+  },
+  "InputTemplatePresetNameForAthena": {
+   "type": "StrProperty"
+  },
+  "InputTemplatePresetNameForCampaign": {
+   "type": "StrProperty"
+  },
+  "JoyConMotionSelection": {
+   "enum": "EJoyConMotionSelection",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "KeyboardBackwardDiagonal": {
+   "type": "FloatProperty"
+  },
+  "KeyboardForwardDiagonal": {
+   "type": "FloatProperty"
+  },
+  "KeyboardStrafeDiagonal": {
+   "type": "FloatProperty"
+  },
+  "LastAttemptedSaveCount": {
+   "type": "IntProperty"
+  },
+  "LastKnownBestRegionId": {
+   "type": "StrProperty"
+  },
+  "LastPartyType": {
+   "enum": "EPartyType",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "LastReportedHUDLayoutToolV2LinkingCaptureRevision": {
+   "type": "IntProperty"
+  },
+  "LastRequestSaveCount": {
+   "type": "IntProperty"
+  },
+  "LastSaveAttemptTime": {
+   "type": "DoubleProperty"
+  },
+  "LastSeenCommunityVotingTutorialVersion": {
+   "type": "IntProperty"
+  },
+  "LastSeenCommunityVotingVersion": {
+   "type": "StrProperty"
+  },
+  "LastSeenHabaneroSeason": {
+   "type": "IntProperty"
+  },
+  "LastSeenStandaloneOfferId": {
+   "type": "StrProperty"
+  },
+  "LicensedAudioTreatment": {
+   "enum": "ELicensedAudioTreatment",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "LoadedReplayShotIndex": {
+   "type": "IntProperty"
+  },
+  "LongPressTime": {
+   "type": "FloatProperty"
+  },
+  "LowDetailDistance": {
+   "type": "FloatProperty"
+  },
+  "LowDetailScaleMax": {
+   "type": "FloatProperty"
+  },
+  "LowDetailScaleMin": {
+   "type": "FloatProperty"
+  },
+  "ManualExposureBias": {
+   "type": "FloatProperty"
+  },
+  "ManualFocusDistance": {
+   "type": "FloatProperty"
+  },
+  "MasterVolume": {
+   "type": "FloatProperty"
+  },
+  "MaxCameraShotPresets": {
+   "type": "IntProperty"
+  },
+  "MotionHarvestingToolSlow": {
+   "type": "FloatProperty"
+  },
+  "MotionScopedSlow": {
+   "type": "FloatProperty"
+  },
+  "MotionTargetingSlow": {
+   "type": "FloatProperty"
+  },
+  "MotionYawAxis": {
+   "enum": "EFortMotionYawAxis",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "MotionYawAxisMobile": {
+   "enum": "EFortMotionYawAxis",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "MouseBuildMode": {
+   "enum": "EMouseBuildMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "MouseSensitivity": {
+   "type": "FloatProperty"
+  },
+  "MouseSensitivityDefaultVersion": {
+   "type": "IntProperty"
+  },
+  "MouseSensitivityMultiplierForAircraftValue": {
+   "type": "FloatProperty"
+  },
+  "MouseSensitivityX": {
+   "type": "FloatProperty"
+  },
+  "MouseSensitivityY": {
+   "type": "FloatProperty"
+  },
+  "MouseZoomScaling": {
+   "enum": "EMouseZoomScalingMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "MusicVolume": {
+   "type": "FloatProperty"
+  },
+  "NextCloudSaveTime": {
+   "type": "DoubleProperty"
+  },
+  "OffsetAimingBuildGyro": {
+   "enum": "EActiveBuildMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "OffsetAimingBuildMouse": {
+   "enum": "EActiveBuildMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "OffsetAimingBuildTouch": {
+   "enum": "EActiveBuildMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "OffsetAimingCenteringGyro": {
+   "type": "FloatProperty"
+  },
+  "OffsetAimingCenteringMouse": {
+   "type": "FloatProperty"
+  },
+  "OffsetAimingCenteringTouch": {
+   "type": "FloatProperty"
+  },
+  "OffsetAimingCombatGyro": {
+   "enum": "EActiveCombatMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "OffsetAimingCombatMouse": {
+   "enum": "EActiveCombatMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "OffsetAimingCombatTouch": {
+   "enum": "EActiveCombatMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "OffsetAimingLimitGyro": {
+   "type": "FloatProperty"
+  },
+  "OffsetAimingLimitMouse": {
+   "type": "FloatProperty"
+  },
+  "OffsetAimingLimitTouch": {
+   "type": "FloatProperty"
+  },
+  "OffsetAimingOvershootTurnsCameraGyro": {
+   "enum": "EOffOnCustom",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "OldGyroCalibrationContext": {
+   "enum": "EGyroCalibrationContext",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "PIPVolume": {
+   "type": "FloatProperty"
+  },
+  "PendingCulture": {
+   "type": "StrProperty"
+  },
+  "PostpartyClippingState": {
+   "enum": "EPostpartyClippingState",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "PrevSavedRegion": {
+   "type": "StrProperty"
+  },
+  "QuestListSortType": {
+   "type": "ByteProperty"
+  },
+  "QuestMapEventName": {
+   "type": "StrProperty"
+  },
+  "QuestMapMode": {
+   "enum": "EQuestMapScreenMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "QuickWeaponButtonGroup": {
+   "enum": "EQuickWeaponButtonGroup",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "QuickWeaponDelay": {
+   "type": "FloatProperty"
+  },
+  "QuickWeaponToggleMode": {
+   "enum": "EQuickWeaponToggle",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "RackFocusDistanceStep": {
+   "type": "FloatProperty"
+  },
+  "ReticleEnemyColor": {
+   "enum": "EFortReticleColor",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "RudderDeadZone": {
+   "type": "FloatProperty"
+  },
+  "RudderMaxThrottle": {
+   "type": "FloatProperty"
+  },
+  "SafeZoneOpacity": {
+   "type": "FloatProperty"
+  },
+  "ScopedSlow": {
+   "type": "FloatProperty"
+  },
+  "SeenEnterCabinModeModal": {
+   "type": "IntProperty"
+  },
+  "SeenInterestsSelectionModal": {
+   "type": "IntProperty"
+  },
+  "SeenParentalControlsUpdatedModal": {
+   "type": "IntProperty"
+  },
+  "SeenReviewSettingsModal": {
+   "type": "IntProperty"
+  },
+  "SeenTextChatAccessibilityOnboardingModal": {
+   "type": "IntProperty"
+  },
+  "SeenVoiceReportingSeenReset": {
+   "type": "IntProperty"
+  },
+  "SelectedCompetitiveRegionId": {
+   "type": "StrProperty"
+  },
+  "SelectedRegionId": {
+   "type": "StrProperty"
+  },
+  "SelectedSubregionId": {
+   "type": "StrProperty"
+  },
+  "ShowPickupDotsOnMapByRarity": {
+   "enum": "EFortRarity",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "SimpleEditButtonHoldTime": {
+   "type": "FloatProperty"
+  },
+  "SlideButtonHoldTime": {
+   "type": "FloatProperty"
+  },
+  "SmartBuildItemSet": {
+   "enum": "ESmartBuildItemSet",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "SmartBuildPlacementTiming": {
+   "enum": "ESmartBuildPlacementTiming",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "SnapZoomLengthEnd": {
+   "type": "FloatProperty"
+  },
+  "SnapZoomLengthStart": {
+   "type": "FloatProperty"
+  },
+  "SoundFXVolume": {
+   "type": "FloatProperty"
+  },
+  "SquadIdMode": {
+   "enum": "ESpectatorSquadIdMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "SubtitleBackgroundOpacity": {
+   "enum": "ESubtitleDisplayBackgroundOpacity",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "SubtitleTextBorder": {
+   "enum": "ESubtitleDisplayTextBorder",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "SubtitleTextColor": {
+   "enum": "ESubtitleDisplayTextColor",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "SubtitleTextSize": {
+   "enum": "ESubtitleDisplayTextSize",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "TargetingSlow": {
+   "type": "FloatProperty"
+  },
+  "ThirdPersonAutoFollowMode": {
+   "enum": "EThirdPersonAutoFollowMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "ThirdPersonDistanceToSubject": {
+   "type": "FloatProperty"
+  },
+  "TouchBuildingMultiplier": {
+   "type": "FloatProperty"
+  },
+  "TouchEditModeMultiplier": {
+   "type": "FloatProperty"
+  },
+  "TouchFPSModeMultiplier": {
+   "type": "FloatProperty"
+  },
+  "TouchInteractionMode": {
+   "enum": "ETouchInteractMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "TouchLookAccelerationMultiplier": {
+   "type": "FloatProperty"
+  },
+  "TouchLookSensitivitySetting": {
+   "type": "FloatProperty"
+  },
+  "TouchLookSmoothingWeightSetting": {
+   "type": "FloatProperty"
+  },
+  "TouchScopedSlow": {
+   "type": "FloatProperty"
+  },
+  "TouchTargetingSlow": {
+   "type": "FloatProperty"
+  },
+  "TouchVerticalMultiplier": {
+   "type": "FloatProperty"
+  },
+  "TouchWeaponCombinedADSFireMode": {
+   "enum": "ECombinedADSFireMode",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "TriggerHapticStartPosition": {
+   "type": "ByteProperty"
+  },
+  "TriggerHapticStrength": {
+   "type": "ByteProperty"
+  },
+  "TweakZoneDefaultVersion": {
+   "type": "IntProperty"
+  },
+  "TweakZoneOverlap": {
+   "type": "FloatProperty"
+  },
+  "TweakZoneScale": {
+   "type": "FloatProperty"
+  },
+  "UpgradedMouseSensitivityX": {
+   "type": "FloatProperty"
+  },
+  "UpgradedMouseSensitivityY": {
+   "type": "FloatProperty"
+  },
+  "ViewDistance": {
+   "type": "FloatProperty"
+  },
+  "VirtualPointerCursorOpacity": {
+   "type": "FloatProperty"
+  },
+  "VirtualPointerHapticIntensity": {
+   "type": "FloatProperty"
+  },
+  "VirtualPointerSpeed": {
+   "type": "FloatProperty"
+  },
+  "VisualizeAudioPriority": {
+   "enum": "EVisualizeAudioPriority",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "VoiceChatMethod": {
+   "enum": "EFortVoiceChatMethod",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "VoiceChatMethodNoMute": {
+   "enum": "EFortVoiceChatMethod",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "VoiceChatOpenMicSelfMuted": {
+   "type": "BoolProperty"
+  },
+  "VoiceChatSetting": {
+   "enum": "ESocialCommsPermission",
+   "inner": "ByteProperty",
+   "type": "EnumProperty"
+  },
+  "XboxSafeZone": {
+   "type": "FloatProperty"
+  },
+  "bAimAssistEnabled": {
+   "type": "BoolProperty"
+  },
+  "bAllowAudioInBackground": {
+   "type": "BoolProperty"
+  },
+  "bAllowEmoteBeatSyncing": {
+   "type": "BoolProperty"
+  },
+  "bAllowSidekickFeature1": {
+   "type": "BoolProperty"
+  },
+  "bAnonymousCharacterMode": {
+   "type": "BoolProperty"
+  },
+  "bAnonymousMode": {
+   "type": "BoolProperty"
+  },
+  "bArrowColorEnabled": {
+   "type": "BoolProperty"
+  },
+  "bAudioVolumesInitialized": {
+   "type": "BoolProperty"
+  },
+  "bAugmentsHUDVisibility": {
+   "type": "BoolProperty"
+  },
+  "bAutoCenterCamera": {
+   "type": "BoolProperty"
+  },
+  "bAutoChangeMaterial": {
+   "type": "BoolProperty"
+  },
+  "bAutoChangeMaterialMobile": {
+   "type": "BoolProperty"
+  },
+  "bAutoClamber": {
+   "type": "BoolProperty"
+  },
+  "bAutoDistributePeopleXPEnabled": {
+   "type": "BoolProperty"
+  },
+  "bAutoEquipBetterItems": {
+   "type": "BoolProperty"
+  },
+  "bAutoExposureEnabled": {
+   "type": "BoolProperty"
+  },
+  "bAutoFocusEnabled": {
+   "type": "BoolProperty"
+  },
+  "bAutoHideBuildingMaterials": {
+   "type": "BoolProperty"
+  },
+  "bAutoHurdle": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractConsumables": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractConsumablesMobile": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractContainers": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractContainersMobile": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractRevives": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractRevivesMobile": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractSpawnMachines": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractSpawnMachinesMobile": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractZiplines": {
+   "type": "BoolProperty"
+  },
+  "bAutoInteractZiplinesMobile": {
+   "type": "BoolProperty"
+  },
+  "bAutoJoinGameServerChannel": {
+   "type": "BoolProperty"
+  },
+  "bAutoOpenDoors": {
+   "type": "BoolProperty"
+  },
+  "bAutoOpenDoorsNonMobile": {
+   "type": "BoolProperty"
+  },
+  "bAutoPickUpEnabled": {
+   "type": "BoolProperty"
+  },
+  "bAutoPickUpEnabledConsolePc": {
+   "type": "BoolProperty"
+  },
+  "bAutoPickupWeapons": {
+   "type": "BoolProperty"
+  },
+  "bAutoPickupWeaponsConsolePC": {
+   "type": "BoolProperty"
+  },
+  "bAutoSortConsumablesToRight": {
+   "type": "BoolProperty"
+  },
+  "bBattleMapAutomaticCameraPlacement": {
+   "type": "BoolProperty"
+  },
+  "bBattleMapShowAllSquadMembers": {
+   "type": "BoolProperty"
+  },
+  "bBattleMapShowNearbyChests": {
+   "type": "BoolProperty"
+  },
+  "bBattleMapShowTimeIndicator": {
+   "type": "BoolProperty"
+  },
+  "bBrunoReplayRecordingEnabled": {
+   "type": "BoolProperty"
+  },
+  "bBuildingPossessionShown": {
+   "type": "BoolProperty"
+  },
+  "bCameraDummy": {
+   "type": "BoolProperty"
+  },
+  "bClipRemindersEnabled": {
+   "type": "BoolProperty"
+  },
+  "bConsoleFPS60": {
+   "type": "BoolProperty"
+  },
+  "bContextTutorialEnabled": {
+   "type": "BoolProperty"
+  },
+  "bCreativeModeReplayRecordingEnabled": {
+   "type": "BoolProperty"
+  },
+  "bCreativeTurboDelete": {
+   "type": "BoolProperty"
+  },
+  "bCustomKeyboardDiagonals": {
+   "type": "BoolProperty"
+  },
+  "bDamageFxEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDeviceFeedbackBlockedWithAttachedController": {
+   "type": "BoolProperty"
+  },
+  "bDidMigrateFromPTT2VoiceChatMethod": {
+   "type": "BoolProperty"
+  },
+  "bDirty": {
+   "type": "BoolProperty"
+  },
+  "bDisablePreEditsWhenPlacingBuilding": {
+   "type": "BoolProperty"
+  },
+  "bDisplaySessionRank": {
+   "type": "BoolProperty"
+  },
+  "bDoNotRemindAboutMultiSubs": {
+   "type": "BoolProperty"
+  },
+  "bDoughnutAerialPitchActivationEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDoughnutAerialThrottleBrakeGamepadEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDoughnutAerialThrottleBrakeKBMEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDoughnutIconOnlyNameplates": {
+   "type": "BoolProperty"
+  },
+  "bDoughnutToggleThrottleEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDoughnutToggleThrottleMobileEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDoughnutVerticalKickflipInverted": {
+   "type": "BoolProperty"
+  },
+  "bDroneAttachToBonesEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDroneAttachToThrowableEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDroneDirectMovementEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDroneDirectMovementStateSaved": {
+   "type": "BoolProperty"
+  },
+  "bDroneGazeDirectedVerticalMovementEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDroneIgnoreJump": {
+   "type": "BoolProperty"
+  },
+  "bDronePendulumEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDronePendulumRollEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDroneXInputLockEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDroneYInputLockEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDroneZAxisLockEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDutchControlSchemaEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDynamicCameraDynamicFOVEnabled": {
+   "type": "BoolProperty"
+  },
+  "bDynamicCameraLookAtEnabled": {
+   "type": "BoolProperty"
+  },
+  "bEasyAutorunLockZoneEnabled": {
+   "type": "BoolProperty"
+  },
+  "bEditConfirmOnReleaseEnabled": {
+   "type": "BoolProperty"
+  },
+  "bEnableCircularMinimapShape": {
+   "type": "BoolProperty"
+  },
+  "bEnableGameVoiceChannel": {
+   "type": "BoolProperty"
+  },
+  "bEnableHousepartyCasting": {
+   "type": "BoolProperty"
+  },
+  "bEnablePartyVoiceChannel": {
+   "type": "BoolProperty"
+  },
+  "bEnablePeripheralLighting": {
+   "type": "BoolProperty"
+  },
+  "bEnablePlayerAlwaysFaceNorth": {
+   "type": "BoolProperty"
+  },
+  "bEnablePreferredItemSlots": {
+   "type": "BoolProperty"
+  },
+  "bEnableRudderControl": {
+   "type": "BoolProperty"
+  },
+  "bEnableSpeechToText": {
+   "type": "BoolProperty"
+  },
+  "bEnableSubtitles": {
+   "type": "BoolProperty"
+  },
+  "bEnableTextToSpeech": {
+   "type": "BoolProperty"
+  },
+  "bEnableTryBuildOnFocus": {
+   "type": "BoolProperty"
+  },
+  "bEnableVoiceChat3D": {
+   "type": "BoolProperty"
+  },
+  "bEnableVoiceChatPTT": {
+   "type": "BoolProperty"
+  },
+  "bEpicPartiesPreviewEnabled": {
+   "type": "BoolProperty"
+  },
+  "bFabricTooltipsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bFirstPlaceHighlightEnabled": {
+   "type": "BoolProperty"
+  },
+  "bFlickStickEnabled": {
+   "type": "BoolProperty"
+  },
+  "bFocusOnFirstBuildingPieceWhenQuickbarSwapped": {
+   "type": "BoolProperty"
+  },
+  "bFocusOnFirstBuildingPieceWhenQuickbarSwappedAthena": {
+   "type": "BoolProperty"
+  },
+  "bForceFeedbackEnabled": {
+   "type": "BoolProperty"
+  },
+  "bForceMaxTouchpadSensitivity": {
+   "type": "BoolProperty"
+  },
+  "bGameplayContinuousFireEnabled": {
+   "type": "BoolProperty"
+  },
+  "bGyroAdvancedSettingsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bGyroDisabledWhileDriving": {
+   "type": "BoolProperty"
+  },
+  "bGyroUseZoomSensitivityScaling": {
+   "type": "BoolProperty"
+  },
+  "bGyroVibrationConpensation": {
+   "type": "BoolProperty"
+  },
+  "bHasChangedTweakZoneSettings": {
+   "type": "BoolProperty"
+  },
+  "bHasCompletedCustomizableUIEditorTutorial": {
+   "type": "BoolProperty"
+  },
+  "bHasCompletedFTUEFlow": {
+   "type": "BoolProperty"
+  },
+  "bHasCompletedGuidedTutorial": {
+   "type": "BoolProperty"
+  },
+  "bHasCompletedHUDLayoutToolV2Tutorial": {
+   "type": "BoolProperty"
+  },
+  "bHasCopiedInputForExistingSTWPlayer": {
+   "type": "BoolProperty"
+  },
+  "bHasDisabledAutoSlottingOfSurvivorSquadsAfterQuest": {
+   "type": "BoolProperty"
+  },
+  "bHasEnabledAutoSlottingOfSurvivorSquadsDuringOnboarding": {
+   "type": "BoolProperty"
+  },
+  "bHasMigratedCCSSettings": {
+   "type": "BoolProperty"
+  },
+  "bHasMigratedToVoiceChatMethodNoMute": {
+   "type": "BoolProperty"
+  },
+  "bHasSeenCreativeControlsChangedTutorial": {
+   "type": "BoolProperty"
+  },
+  "bHideOtherPlayerNames": {
+   "type": "BoolProperty"
+  },
+  "bHidePerkRecombobulatorHelp": {
+   "type": "BoolProperty"
+  },
+  "bHideStwItemRefundHelp": {
+   "type": "BoolProperty"
+  },
+  "bHighQualityFxEnabled": {
+   "type": "BoolProperty"
+  },
+  "bHighQualityReplayRecordingEnabled": {
+   "type": "BoolProperty"
+  },
+  "bHybridMouseSwapAxes": {
+   "type": "BoolProperty"
+  },
+  "bIgnoreGamepadInput": {
+   "type": "BoolProperty"
+  },
+  "bInitialAutoOpenDoors": {
+   "type": "BoolProperty"
+  },
+  "bInitialAutoPickUpEnabled": {
+   "type": "BoolProperty"
+  },
+  "bInitialAutoPickUpEnabledConsolePc": {
+   "type": "BoolProperty"
+  },
+  "bInitialAutoPickupWeapons": {
+   "type": "BoolProperty"
+  },
+  "bInitialAutoPickupWeaponsConsolePC": {
+   "type": "BoolProperty"
+  },
+  "bInitialAutoSortConsumablesToRight": {
+   "type": "BoolProperty"
+  },
+  "bInitialEasyAutorunLockZoneEnabled": {
+   "type": "BoolProperty"
+  },
+  "bInitialEnablePreferredItemSlots": {
+   "type": "BoolProperty"
+  },
+  "bInitialEnableTryBuildOnFocus": {
+   "type": "BoolProperty"
+  },
+  "bInitialIgnoreGamepadInput": {
+   "type": "BoolProperty"
+  },
+  "bInitialIsEasyLootGridEnabled": {
+   "type": "BoolProperty"
+  },
+  "bInitialSwapFireInputsForDualWieldShotgunSMG": {
+   "type": "BoolProperty"
+  },
+  "bInitialUseTapToShoot": {
+   "type": "BoolProperty"
+  },
+  "bInvertedLook": {
+   "type": "BoolProperty"
+  },
+  "bInvertedLookController": {
+   "type": "BoolProperty"
+  },
+  "bInvertedLookMobile": {
+   "type": "BoolProperty"
+  },
+  "bInvertedLookMouse": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForAircraftPrimary": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForAircraftSecondary": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForAircraftTouch": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForFighters": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForFightersGamepad": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForFightersMouse": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForFightersTouch": {
+   "type": "BoolProperty"
+  },
+  "bInvertedPitchForMotion": {
+   "type": "BoolProperty"
+  },
+  "bInvertedYaw": {
+   "type": "BoolProperty"
+  },
+  "bInvertedYawForMotion": {
+   "type": "BoolProperty"
+  },
+  "bInvertedYawMobile": {
+   "type": "BoolProperty"
+  },
+  "bIsChatNotificationClientMigrationDone": {
+   "type": "BoolProperty"
+  },
+  "bIsEasyLootGridEnabled": {
+   "type": "BoolProperty"
+  },
+  "bJunoFreeMeleeDirection": {
+   "type": "BoolProperty"
+  },
+  "bLargeTeamReplayRecordingEnabled": {
+   "type": "BoolProperty"
+  },
+  "bLastLeaderFriendsOnly": {
+   "type": "BoolProperty"
+  },
+  "bLastLeaderInvitesOnly": {
+   "type": "BoolProperty"
+  },
+  "bLocalNotificationsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bLockPrimaryInputMethodToMouse": {
+   "type": "BoolProperty"
+  },
+  "bLockPrimaryInputMethodToMouseInitial": {
+   "type": "BoolProperty"
+  },
+  "bMotionControlsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bMoveStickAcceleratesVehicles": {
+   "type": "BoolProperty"
+  },
+  "bMovingTurnsCamera": {
+   "type": "BoolProperty"
+  },
+  "bNameplatesEnabled": {
+   "type": "BoolProperty"
+  },
+  "bNewFocusOnFirstBuildingPieceWhenQuickbarSwapped": {
+   "type": "BoolProperty"
+  },
+  "bNewFocusOnFirstBuildingPieceWhenQuickbarSwappedAthena": {
+   "type": "BoolProperty"
+  },
+  "bNewHitmarkersEnabled": {
+   "type": "BoolProperty"
+  },
+  "bNotifyUsersWhenPlaying": {
+   "type": "BoolProperty"
+  },
+  "bOffsetAimSupportedInThisGameMode": {
+   "type": "BoolProperty"
+  },
+  "bPlaceDangerMarkerWhenTargeting": {
+   "type": "BoolProperty"
+  },
+  "bPlayerOutlinesEnabled": {
+   "type": "BoolProperty"
+  },
+  "bPlayerSurveysAllowed": {
+   "type": "BoolProperty"
+  },
+  "bQuickEditEnabled": {
+   "type": "BoolProperty"
+  },
+  "bQuickEditEnabledSTW": {
+   "type": "BoolProperty"
+  },
+  "bQuickWeaponInstantToggleEnabled": {
+   "type": "BoolProperty"
+  },
+  "bQuickWeaponToggleEnabled": {
+   "type": "BoolProperty"
+  },
+  "bRackFocusEnabled": {
+   "type": "BoolProperty"
+  },
+  "bRackFocusPlaneVisibility": {
+   "type": "BoolProperty"
+  },
+  "bRelevancyZoneVisible": {
+   "type": "BoolProperty"
+  },
+  "bReplayRecordingEnabled": {
+   "type": "BoolProperty"
+  },
+  "bReplayRecordingIndicatorEnabled": {
+   "type": "BoolProperty"
+  },
+  "bRequiresHUDConversion": {
+   "type": "BoolProperty"
+  },
+  "bResetConfirmOnReleaseEnabled": {
+   "type": "BoolProperty"
+  },
+  "bReticleColorChangeForEnemyEnabled": {
+   "type": "BoolProperty"
+  },
+  "bReticleRecoilPull": {
+   "type": "BoolProperty"
+  },
+  "bSaveToCloud": {
+   "type": "BoolProperty"
+  },
+  "bScaleWindingWithZoom": {
+   "type": "BoolProperty"
+  },
+  "bScalingOptionsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bShadowPlayHighlightsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bShareActivity": {
+   "type": "BoolProperty"
+  },
+  "bShareLensSettings": {
+   "type": "BoolProperty"
+  },
+  "bShouldShowBothQuickbars": {
+   "type": "BoolProperty"
+  },
+  "bShouldShowContentGatingTutorial": {
+   "type": "BoolProperty"
+  },
+  "bShouldShowHabaneroTutorial": {
+   "type": "BoolProperty"
+  },
+  "bShouldShowJethroOnboarding": {
+   "type": "BoolProperty"
+  },
+  "bShouldShowSimpleBuildTutorial": {
+   "type": "BoolProperty"
+  },
+  "bShouldShowSimpleEditTutorial": {
+   "type": "BoolProperty"
+  },
+  "bShowClamberIndicator": {
+   "type": "BoolProperty"
+  },
+  "bShowFirstPersonReticleRecoil": {
+   "type": "BoolProperty"
+  },
+  "bShowFirstPersonReticleSpread": {
+   "type": "BoolProperty"
+  },
+  "bShowGlobalChatEnabled": {
+   "type": "BoolProperty"
+  },
+  "bShowQuickbarKeybinds": {
+   "type": "BoolProperty"
+  },
+  "bShowSeasonLevel": {
+   "type": "BoolProperty"
+  },
+  "bShowSessionIDWatermark": {
+   "type": "BoolProperty"
+  },
+  "bShowTeamColor": {
+   "type": "BoolProperty"
+  },
+  "bShowTemperature": {
+   "type": "BoolProperty"
+  },
+  "bShowThirdPersonReticleRecoil": {
+   "type": "BoolProperty"
+  },
+  "bShowThirdPersonReticleSpread": {
+   "type": "BoolProperty"
+  },
+  "bShowViewerCount": {
+   "type": "BoolProperty"
+  },
+  "bShowVoiceIndicatorsNotifications": {
+   "type": "BoolProperty"
+  },
+  "bSmartBuildEnabled": {
+   "type": "BoolProperty"
+  },
+  "bSmartBuildEnabledSTW": {
+   "type": "BoolProperty"
+  },
+  "bSnapZoomEnabled": {
+   "type": "BoolProperty"
+  },
+  "bStWQuickbarUpdated": {
+   "type": "BoolProperty"
+  },
+  "bStormEffectsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bSuppressEmoteMusicInJam": {
+   "type": "BoolProperty"
+  },
+  "bSwapFireInputsForDualWieldShotgunSMG": {
+   "type": "BoolProperty"
+  },
+  "bTankGamepadCameraControls": {
+   "type": "BoolProperty"
+  },
+  "bTankKBMCameraControls": {
+   "type": "BoolProperty"
+  },
+  "bTapInteractEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTapQuickEditEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTargetTypeIndicatorVisible": {
+   "type": "BoolProperty"
+  },
+  "bTargetingToggleable": {
+   "type": "BoolProperty"
+  },
+  "bTargetingToggleableMobile": {
+   "type": "BoolProperty"
+  },
+  "bTelekineticonToggleActivation": {
+   "type": "BoolProperty"
+  },
+  "bThirdPersonCameraCollision": {
+   "type": "BoolProperty"
+  },
+  "bToggleDoubleTapAutorunMobile": {
+   "type": "BoolProperty"
+  },
+  "bToggleSprint": {
+   "type": "BoolProperty"
+  },
+  "bToggleSprintMobile": {
+   "type": "BoolProperty"
+  },
+  "bTouchAimAssistEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTouchEditEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTouchPulseAnimationEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTouchWeaponContinuousFireEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTouchWeaponReleaseToFireEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTriggerHapticsEnabled": {
+   "type": "BoolProperty"
+  },
+  "bTriggerPullUsesHapticThreshold": {
+   "type": "BoolProperty"
+  },
+  "bTurboBuild": {
+   "type": "BoolProperty"
+  },
+  "bTurboBuildMobile": {
+   "type": "BoolProperty"
+  },
+  "bUnlockConsoleFPS": {
+   "type": "BoolProperty"
+  },
+  "bUseFirstPersonCamera": {
+   "type": "BoolProperty"
+  },
+  "bUseGamepadAutoRun": {
+   "type": "BoolProperty"
+  },
+  "bUseGamepadEditModeAimAssist": {
+   "type": "BoolProperty"
+  },
+  "bUseHoldToSwapPickup": {
+   "type": "BoolProperty"
+  },
+  "bUsePowerSavingMode": {
+   "type": "BoolProperty"
+  },
+  "bUseSmallInventoryTiles": {
+   "type": "BoolProperty"
+  },
+  "bUseVCUCamera": {
+   "type": "BoolProperty"
+  },
+  "bVisualizeAudioSources": {
+   "type": "BoolProperty"
+  },
+  "bWantsAutoSlottingOfSurvivorSquads": {
+   "type": "BoolProperty"
+  },
+  "bWeaponModsUIHoverInteractCollapsedStatus": {
+   "type": "BoolProperty"
+  },
+  "bWeaponStayADSWhenManualReloadEnabled": {
+   "type": "BoolProperty"
+  }
+ },
+ "source": "Fortnite 42.30 mappings (CL 58557680), FortClientSettingsRecord"
+}

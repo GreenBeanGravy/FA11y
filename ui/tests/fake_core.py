@@ -81,6 +81,7 @@ class FakeCore:
         self.friends = [("f1", "Zed"), ("f2", "amy"), ("f3", "Bob"), ("f4", "Cy"), ("f5", "Dana")]
         self.party_leader = True
         self.handlers = self.real_handlers(root)
+        self.fake_game_settings()
 
     @staticmethod
     def real_handlers(root: str) -> dict:
@@ -100,6 +101,43 @@ class FakeCore:
         settings_handlers._schedule_reload = lambda parser: None
         settings_handlers._tester.play = lambda *args, **kwargs: None
         return registry.handlers
+
+    def fake_game_settings(self) -> None:
+        """The real Fortnite Settings handlers over a pretend Epic cloud. The file is the made-up sample
+        from tests/fixtures, or FA11Y_FAKE_GAMESETTINGS (a ClientSettings.Sav path) for a real file."""
+        import hashlib
+        from lib.shell.handlers import gamesettings
+        from lib.utilities.epic_cloud_settings import CloudFile
+        from tests.fixtures.client_settings_sample import sample_bytes
+        path = os.environ.get("FA11Y_FAKE_GAMESETTINGS")
+        core = self
+        account = "0123456789abcdef0123456789abcdef"
+
+        class Cloud:
+            data = open(path, "rb").read() if path else sample_bytes()
+
+            def download(self):
+                time.sleep(0.3)
+                return CloudFile(self.data, hashlib.sha1(self.data).hexdigest(), account)
+
+            def upload(self, data, base, is_running):
+                if is_running():
+                    from lib.utilities.epic_cloud_settings import CloudSettingsError
+                    raise CloudSettingsError("Close Fortnite first. While it runs, it would put its own settings back.")
+                time.sleep(0.5)
+                Cloud.data = data
+                return "Saved. Fortnite uses these settings the next time it starts."
+
+            def latest_backup(self):
+                return None
+
+        class Auth:
+            account_id = account
+
+        gamesettings._signed_in = lambda: core.signed_in
+        gamesettings._auth = lambda: Auth()
+        gamesettings._api = lambda: Cloud()
+        gamesettings._game_running = lambda: core.fortnite_running
 
     def log(self, text: str) -> None:
         with self.lock:
@@ -288,7 +326,7 @@ class FakeCore:
             return {"action": self.close_action}
         if method == "app.state":
             return self.hello()
-        if method.startswith(("settings.", "keybinds.")) and method in self.handlers:
+        if method.startswith(("settings.", "keybinds.", "gamesettings.")) and method in self.handlers:
             return self.handlers[method](params)
         if method.startswith(("discover.", "quests.", "passes.")):
             from fake_pages import Pages

@@ -1,3 +1,7 @@
+10/18/2026 #1 (19.0.0-beta.4, Beta branch):
+- Added the Fortnite settings page, under Play. It shows Fortnite's own game settings (the ones in the game's settings menu) so you can change them without the in-game menu: toggles like Toggle Sprint and Auto Open Doors, sensitivity, controller deadzones, volumes, Visualize Sound Effects, subtitles, color blind mode and more, plus an All Settings tab with every other setting. Settings you have never changed show as Game default.
+- Changes on the Fortnite settings page are kept until you press Save to Fortnite, which saves them to your Epic account for the next time Fortnite starts. Fortnite must be closed while you save. Discard Changes drops them, Reload gets your settings from Epic again, and Restore Previous Settings puts back your settings from before FA11y last saved them. You need to be signed in on the Epic account page.
+
 10/12/2026 #1 (19.0.0-beta.3, Beta branch):
 - Added Nightmare Island and Stranger Things map images, POIs, and aligned object locations. Map selection now lists Nightmare Island, Surf City, and Stranger Things.
 - Discovery sends unranked Reload Build/Zero Build and Solo/Duos/Squads choices through the launcher bridge and checks the selected settings. Ranked Reload reports that its bridge mapping is unverified.

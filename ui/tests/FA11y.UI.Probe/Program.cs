@@ -41,6 +41,7 @@ internal static partial class Program
         ("home", "Home", ""),
         ("fortnite", "Fortnite", "Play"),
         ("discover", "Discover", "Play"),
+        ("gamesettings", "Fortnite settings", "Play"),
         ("account", "Epic account", "Account"),
         ("locker", "Locker", "Account"),
         ("social", "Social", "Account"),
@@ -387,6 +388,8 @@ internal static partial class Program
                 SocialChecks(core, shotsDir);
             else if (key == "locker")
                 LockerChecks(core, shotsDir);
+            else if (key == "gamesettings")
+                GameSettingsChecks(shotsDir, core);
             else
                 CheckFocusable($"{page.Title}");
         }
@@ -484,6 +487,56 @@ internal static partial class Program
             Check(Named(focusable, name, ControlType.Edit) != null, $"{name} is a named read-only edit box");
         Check(Named(focusable, "Refresh Account Information") != null, "Refresh Account Information is focusable and named");
         Shot(core, shots, "social-me");
+    }
+
+    /// <summary>Fortnite settings: the buttons, the tabs, and an edit showing up in the status line.</summary>
+    private static void GameSettingsChecks(string? shots, Process core)
+    {
+        var focusable = CheckFocusable("Fortnite settings");
+        foreach (var name in new[] { "Save to Fortnite", "Discard Changes", "Reload", "Restore Previous Settings" })
+            Check(Named(focusable, name, ControlType.Button) != null, $"{name} is a named button");
+        Check(Named(focusable, "No unsaved changes.", ControlType.Text) != null, "the status line says there are no changes");
+        Shot(core, shots, "gamesettings-game");
+
+        foreach (var tabName in new[] { "Audio", "Accessibility", "All Settings" })
+        {
+            var tab = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+                new PropertyCondition(AutomationElement.NameProperty, tabName)));
+            if (!Check(tab != null, $"there is a {tabName} tab"))
+                continue;
+            ((SelectionItemPattern)tab!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            Thread.Sleep(800);
+            var shown = CheckFocusable($"the {tabName} tab");
+            Check(shown.Count > 4, $"the {tabName} tab has settings ({shown.Count} focusable)");
+            Shot(core, shots, "gamesettings-" + tabName.ToLowerInvariant().Replace(' ', '-'));
+        }
+
+        // Change Visualize Sound Effects to On through its combo box; the status line should name it.
+        var access = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+            new PropertyCondition(AutomationElement.NameProperty, "Accessibility")));
+        ((SelectionItemPattern)access.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        Thread.Sleep(600);
+        var combo = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox),
+            new PropertyCondition(AutomationElement.NameProperty, "Visualize Sound Effects")));
+        if (!Check(combo != null, "Visualize Sound Effects is a combo box"))
+            return;
+        ((ExpandCollapsePattern)combo!.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+        Thread.Sleep(300);
+        var on = combo.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
+            new PropertyCondition(AutomationElement.NameProperty, "On")));
+        if (Check(on != null, "the combo box offers On"))
+            ((SelectionItemPattern)on!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        ((ExpandCollapsePattern)combo.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Collapse();
+        var status = "1 unsaved change: Visualize Sound Effects.";
+        Check(WaitFor(() => _window.FindFirst(TreeScope.Descendants, new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text),
+                new PropertyCondition(AutomationElement.NameProperty, status))) != null, 3000),
+            $"the status line says \"{status}\"");
+        Shot(core, shots, "gamesettings-changed");
     }
 
     private static void LockerChecks(Process core, string? shots)

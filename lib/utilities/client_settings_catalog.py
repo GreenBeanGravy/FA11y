@@ -1,0 +1,351 @@
+"""Fortnite's own settings (ClientSettings.Sav) as the settings editor shows them.
+
+Settings come from two places:
+
+* A short list of well-known settings, grouped the way Fortnite's settings menu groups them,
+  with the names the menu uses.
+* Every other editable setting the game defines (lib/data/client_settings_schema_4230.json,
+  read from the game's class layout), under All Settings with a name made from the
+  property name.
+
+Fortnite only saves settings that differ from its defaults, so a setting can be missing from
+the file. Missing on/off settings and choices then show as "Game default", and missing numbers
+as an empty box. Choosing "Game default", or clearing the box, takes the setting out of the
+file again so the game uses its default.
+
+Volumes live in BusNameVolumesMap (one entry per slider) and are shown as percents.
+"""
+from __future__ import annotations
+
+import json
+import math
+import os
+import re
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple
+
+from lib.utilities.client_settings import FStr, MapValue, Raw, Save, TypeName
+
+SCHEMA_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'client_settings_schema_4230.json')
+RECORD, VOLUME = 'record', 'volume'
+DEFAULT = 'default'
+ENUM_PACKAGE = '/Script/FortniteGame'
+NUMBER_TYPES = {'IntProperty': True, 'FloatProperty': False, 'DoubleProperty': False}
+
+# (tab, group, property, label, description). The labels are the names Fortnite's settings
+# menu uses; descriptions say what the setting does.
+CURATED: List[Tuple[str, str, str, str, str]] = [
+    ('Game', 'Movement', 'bToggleSprint', 'Toggle Sprint',
+     'Pressing sprint once keeps you sprinting until you press it again.'),
+    ('Game', 'Movement', 'bAutoOpenDoorsNonMobile', 'Auto Open Doors',
+     'Doors open by themselves when you walk into them.'),
+    ('Game', 'Combat', 'bTargetingToggleable', 'Toggle Targeting',
+     'Pressing aim once keeps you aiming down sights until you press it again.'),
+    ('Game', 'Combat', 'bAutoPickupWeaponsConsolePC', 'Auto Pickup Weapons',
+     'Weapons you walk over are picked up when you have a free slot.'),
+    ('Game', 'Combat', 'bAutoSortConsumablesToRight', 'Auto Sort Consumables to Right',
+     'Healing items and other consumables move to the right end of your inventory.'),
+    ('Game', 'Combat', 'bUseHoldToSwapPickup', 'Hold to Swap Pickup',
+     'Holding interact swaps the item you look at with the one in your hand.'),
+    ('Game', 'Combat', 'bAutoEquipBetterItems', 'Auto Equip Better Items',
+     'A better version of the item in your hand is equipped as you pick it up.'),
+    ('Game', 'Building', 'bTurboBuild', 'Turbo Building',
+     'Holding the build button keeps placing pieces.'),
+    ('Game', 'Building', 'bAutoChangeMaterial', 'Auto Material Change',
+     'Building switches material when the one you use runs out.'),
+    ('Game', 'Building', 'bDisablePreEditsWhenPlacingBuilding', 'Disable Pre-Edit Option',
+     'Pieces are placed without the edit you had chosen beforehand.'),
+    ('Game', 'Building', 'bEditConfirmOnReleaseEnabled', 'Confirm Edit on Release',
+     'Letting go of the edit button confirms the edit.'),
+    ('Game', 'Building', 'EditButtonHoldTime', 'Edit Hold Time',
+     'How long, in seconds, you hold the edit button to start editing.'),
+    ('Mouse and Keyboard', 'Sensitivity', 'MouseSensitivityX', 'X-Axis Sensitivity (stored value)',
+     'Mouse sensitivity left and right, as Fortnite stores it. The menu shows a different scale.'),
+    ('Mouse and Keyboard', 'Sensitivity', 'MouseSensitivityY', 'Y-Axis Sensitivity (stored value)',
+     'Mouse sensitivity up and down, as Fortnite stores it. The menu shows a different scale.'),
+    ('Mouse and Keyboard', 'Sensitivity', 'TargetingSlow', 'Targeting Sensitivity (stored value)',
+     'Mouse sensitivity while aiming down sights, as a multiplier of the normal sensitivity.'),
+    ('Mouse and Keyboard', 'Sensitivity', 'ScopedSlow', 'Scope Sensitivity (stored value)',
+     'Mouse sensitivity while looking through a scope, as a multiplier of the normal sensitivity.'),
+    ('Mouse and Keyboard', 'Sensitivity', 'BuildingMultiplier', 'Building Mode Sensitivity Multiplier',
+     'Mouse sensitivity in build mode, as a multiplier of the normal sensitivity.'),
+    ('Mouse and Keyboard', 'Sensitivity', 'EditingMultiplier', 'Edit Mode Sensitivity Multiplier',
+     'Mouse sensitivity in edit mode, as a multiplier of the normal sensitivity.'),
+    ('Controller', 'Sticks', 'GamepadMoveStickDeadZone', 'Left Stick Deadzone',
+     'How far the left stick moves before your character does, from 0 to 1.'),
+    ('Controller', 'Sticks', 'GamepadLookStickDeadZone', 'Right Stick Deadzone',
+     'How far the right stick moves before the camera does, from 0 to 1.'),
+    ('Controller', 'Aim', 'bAimAssistEnabled', 'Aim Assist',
+     'The game helps keep your aim on targets while you use a controller.'),
+    ('Controller', 'Feedback', 'bForceFeedbackEnabled', 'Vibration',
+     'The controller vibrates.'),
+    ('Audio', 'Sound', 'AllowAudioInBackground', 'Play Sound in Background',
+     'Whether you hear the game while another window is in front.'),
+    ('Audio', 'Voice Chat', 'VoiceChatSetting', 'Voice Chat',
+     'Who you can talk to with voice chat.'),
+    ('Audio', 'Voice Chat', 'VoiceChatMethodNoMute', 'Voice Chat Method',
+     'Whether your microphone is always on or you push a key to talk.'),
+    ('Accessibility', 'Sound', 'bVisualizeAudioSources', 'Visualize Sound Effects',
+     'Shows on screen where sounds such as footsteps and gunfire come from.'),
+    ('Accessibility', 'Subtitles', 'bEnableSubtitles', 'Subtitles',
+     'Shows subtitles for speech.'),
+    ('Accessibility', 'Subtitles', 'SubtitleTextSize', 'Subtitle Text Size',
+     'How big subtitles are.'),
+    ('Accessibility', 'Text Chat', 'bEnableTextToSpeech', 'Text to Speech',
+     'Reads text chat aloud.'),
+    ('Accessibility', 'Text Chat', 'bEnableSpeechToText', 'Speech to Text',
+     'Shows other players\' voice chat as text.'),
+    ('Accessibility', 'Color', 'ColorBlindMode', 'Color Blind Mode',
+     'Changes the game\'s colors for a type of color blindness.'),
+    ('Accessibility', 'Color', 'ColorBlindStrength', 'Color Blind Strength',
+     'How strongly Color Blind Mode changes colors, from 0 to 10.'),
+    ('Game UI', 'HUD', 'HUDScale', 'HUD Scale',
+     'How big the on-screen HUD is, as a fraction of its normal size.'),
+    ('Game UI', 'HUD', 'bShowQuickbarKeybinds', 'Show Keybinds on Quickbar',
+     'Shows the key for each quickbar slot.'),
+    ('Game UI', 'Combat', 'HitNumbersMode', 'Damage Numbers',
+     'How damage numbers appear when you hit something.'),
+    ('Game UI', 'Combat', 'bReticleColorChangeForEnemyEnabled', 'Reticle Changes Color on Enemies',
+     'The crosshair changes color while it is over an enemy.'),
+    ('Game UI', 'Tutorials', 'bContextTutorialEnabled', 'Context Tutorials',
+     'Shows hints about the game as you play.'),
+    ('Account and Privacy', 'Privacy', 'bAnonymousMode', 'Hide My Name',
+     'Other players see you with a generic name.'),
+    ('Account and Privacy', 'Privacy', 'bHideOtherPlayerNames', 'Hide Other Players\' Names',
+     'You see other players with generic names.'),
+    ('Account and Privacy', 'Replays', 'bReplayRecordingEnabled', 'Record Replays',
+     'Saves replays of your Battle Royale matches.'),
+    ('Account and Privacy', 'Replays', 'bCreativeModeReplayRecordingEnabled', 'Record Creative Replays',
+     'Saves replays of Creative sessions.'),
+]
+
+VOLUMES = [
+    ('CB_Slider_Main', 'Main Volume'), ('CB_Slider_Music', 'Music Volume'),
+    ('CB_Slider_SFX', 'Sound Effects Volume'), ('CB_Slider_Dialogue', 'Dialogue Volume'),
+    ('CB_Slider_Chat', 'Voice Chat Volume'), ('CB_Slider_Cinematics', 'Cinematics Volume'),
+    ('CB_Slider_LobbyMusic', 'Lobby Music Volume'), ('CB_Slider_PIP', 'Picture in Picture Volume'),
+]
+TABS = ['Game', 'Mouse and Keyboard', 'Controller', 'Audio', 'Accessibility', 'Game UI',
+        'Account and Privacy', 'All Settings']
+VOLUME_MAP = 'BusNameVolumesMap'
+# The game's own bookkeeping, not options: versions, migration flags, what was last seen or
+# saved, cached state. All Settings leaves these out so they can't be changed by mistake.
+INTERNAL = re.compile(r'(Version|Migrat|^bInitial|^Initial|Seen|^Last|Cache|Dirty|Cloud|Save|Count$|Tutorial|'
+                      r'Onboarding|Revision|Modal|Viewed|^bHas|^Has|Notified|Attempt|Watched|Recently|Hash|Pending|'
+                      r'Old|Calibration|Platform$|PresetName|ConfigName|Region|Culture|Subscription|Store|Experiment|'
+                      r'bDid|Copied|bStW|STW|Survivor|bShouldShow|Dummy|MaxCameraShotPresets|ShotIndex)')
+
+
+@lru_cache(maxsize=1)
+def load_schema() -> dict:
+    with open(SCHEMA_FILE, encoding='utf-8') as f:
+        return json.load(f)
+
+
+def split_words(name: str) -> str:
+    """'bAutoOpenDoorsNonMobile' -> 'Auto open doors non mobile'."""
+    if re.match(r'b[A-Z]', name):
+        name = name[1:]
+    words = re.sub(r'(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', ' ', name).replace('_', ' ').split()
+    text = ' '.join(words)
+    return text[:1].upper() + text[1:].lower() if text else name
+
+
+def enum_label(value: str) -> str:
+    return split_words(value.split('::')[-1])
+
+
+def _type_name(spec: dict, existing: Optional[TypeName]) -> TypeName:
+    """The tag type for a setting that is not in the file yet."""
+    if existing is not None:
+        return existing
+    kind = spec['type']
+    if kind == 'EnumProperty':
+        return TypeName('EnumProperty', [TypeName(spec['enum'], [TypeName(ENUM_PACKAGE)]),
+                                         TypeName(spec.get('inner', 'ByteProperty'))])
+    return TypeName(kind)
+
+
+class SettingsView:
+    """The editor over one loaded settings file: what to show, and applying the user's changes."""
+
+    def __init__(self, save: Save, original: Save):
+        self.save = save
+        self.original = original
+        schema = load_schema()
+        self.specs: Dict[str, dict] = schema['settings']
+        self.enums: Dict[str, List[str]] = schema['enums']
+        self.curated = {name for _tab, _group, name, _label, _desc in CURATED}
+
+    # Describing ----------------------------------------------------------------------------------
+
+    def schema(self) -> List[dict]:
+        tabs: Dict[str, Dict[str, List[dict]]] = {tab: {} for tab in TABS}
+        for tab, group, name, label, description in CURATED:
+            if name in self.specs:
+                tabs[tab].setdefault(group, []).append(self.entry(name, label, description))
+        volumes = self._volume_entries()
+        if volumes:
+            tabs['Audio'] = {'Volume': volumes, **tabs['Audio']}
+        others = sorted((n for n in self.specs if n not in self.curated and not INTERNAL.search(n)),
+                        key=lambda n: split_words(n).lower())
+        tabs['All Settings']['Every setting'] = [self.entry(n, split_words(n), '') for n in others]
+        return [{'name': tab, 'groups': [{'heading': h, 'settings': s} for h, s in groups.items() if s]}
+                for tab, groups in tabs.items() if groups]
+
+    def search_entries(self) -> List[dict]:
+        entries = []
+        for tab in self.schema():
+            for group in tab['groups']:
+                for s in group['settings']:
+                    entries.append({'id': s['id'], 'label': s['label'], 'tab': tab['name'], 'tab_name': tab['name'],
+                                    'map': None, 'description': s['description'],
+                                    'hay': f"{s['label']} {s['key']} {s['description']}".lower(),
+                                    'text': f"{s['label']}, {tab['name']}"})
+        return entries
+
+    def entry(self, name: str, label: str, description: str) -> dict:
+        spec = self.specs[name]
+        prop = self.save.get(name)
+        value = None if prop is None or isinstance(prop.value, Raw) else prop.value
+        out: Dict[str, Any] = {'id': f'{RECORD}/{name}', 'section': RECORD, 'key': name, 'label': label,
+                               'description': description, 'show_description': bool(description)}
+        kind = spec['type']
+        if prop is not None and isinstance(prop.value, Raw):
+            out.update(kind='text', value='(can\'t be edited here)')
+        elif kind == 'BoolProperty':
+            out.update(kind='choice', value=DEFAULT if value is None else ('on' if value else 'off'),
+                       choices=[{'value': DEFAULT, 'label': 'Game default'}, {'value': 'on', 'label': 'On'},
+                                {'value': 'off', 'label': 'Off'}])
+        elif kind == 'EnumProperty':
+            names = [n for n in self.enums.get(spec['enum'], []) if n not in ('Num', 'Count', 'MAX')]
+            choices = [{'value': DEFAULT, 'label': 'Game default'}]
+            choices += [{'value': f"{spec['enum']}::{n}", 'label': split_words(n)} for n in names]
+            current = str(value) if value is not None else DEFAULT
+            if current != DEFAULT and current not in {c['value'] for c in choices}:
+                choices.append({'value': current, 'label': enum_label(current)})
+            out.update(kind='choice', value=current, choices=choices)
+        elif kind in NUMBER_TYPES and value is not None:
+            integer = NUMBER_TYPES[kind]
+            out.update(kind='number', value=value if integer else round(float(value), 6),
+                       min=-1e9, max=1e9, step=1 if integer else 0.01, decimals=0 if integer else 4)
+        else:
+            out.update(kind='text', value='' if value is None else _number_text(value))
+        out['default'] = None
+        return out
+
+    def _volume_entries(self) -> List[dict]:
+        volumes = self.save.get(VOLUME_MAP)
+        if volumes is None or not isinstance(volumes.value, MapValue):
+            return []
+        values = {str(k): v for k, v in volumes.value.items}
+        names = [k for k, _ in VOLUMES if k in values] + sorted(k for k in values if k not in dict(VOLUMES))
+        labels = dict(VOLUMES)
+        return [{'id': f'{VOLUME}/{k}', 'section': VOLUME, 'key': k, 'label': labels.get(k, split_words(k)),
+                 'description': '', 'show_description': False, 'kind': 'number',
+                 'value': int(round(float(values[k]) * 100)), 'min': 0, 'max': 100, 'step': 1, 'decimals': 0,
+                 'default': None} for k in names if isinstance(values[k], float)]
+
+    def label(self, section: str, key: str) -> str:
+        if section == VOLUME:
+            return dict(VOLUMES).get(key, split_words(key))
+        for _tab, _group, name, label, _desc in CURATED:
+            if name == key:
+                return label
+        return split_words(key)
+
+    # Changing ------------------------------------------------------------------------------------
+
+    def apply(self, section: str, key: str, value: Any, save: Optional[Save] = None) -> Any:
+        """Set one setting from what its control holds. Returns what the control should show."""
+        save = save or self.save
+        if section == VOLUME:
+            return self._apply_volume(save, key, value)
+        if section != RECORD or key not in self.specs or (key not in self.curated and INTERNAL.search(key)):
+            raise ValueError('Unknown setting.')
+        spec = self.specs[key]
+        prop = save.get(key)
+        if prop is not None and isinstance(prop.value, Raw):
+            raise ValueError('This setting can\'t be edited here.')
+        kind = spec['type']
+        text = '' if value is None else str(value).strip()
+        if text in ('', DEFAULT):
+            save.remove(key)
+            return DEFAULT if kind in ('BoolProperty', 'EnumProperty') else ''
+        if kind == 'BoolProperty':
+            if text not in ('on', 'off'):
+                raise ValueError('Choose Game default, On or Off.')
+            save.set(key, _type_name(spec, prop.type if prop else None), text == 'on')
+            return text
+        if kind == 'EnumProperty':
+            allowed = {f"{spec['enum']}::{n}" for n in self.enums.get(spec['enum'], [])}
+            if prop is not None:
+                allowed.add(str(prop.value))
+            if text not in allowed:
+                raise ValueError('That isn\'t one of the choices.')
+            save.set(key, _type_name(spec, prop.type if prop else None), FStr(text, False))
+            return text
+        if kind in NUMBER_TYPES:
+            try:
+                number = float(text)
+            except ValueError:
+                raise ValueError('Enter a number.') from None
+            if not math.isfinite(number):
+                raise ValueError('Enter a number.')
+            if NUMBER_TYPES[kind]:
+                if not number.is_integer() or abs(number) >= 2 ** 31:
+                    raise ValueError('Enter a whole number.')
+                number = int(number)
+            save.set(key, _type_name(spec, prop.type if prop else None), number)
+            # A text box (a setting that wasn't in the file) gets text back; a number box a number.
+            return _number_text(number) if isinstance(value, str) else number
+        if kind in ('StrProperty', 'NameProperty'):
+            save.set(key, _type_name(spec, prop.type if prop else None),
+                     FStr(text, getattr(prop.value, 'wide', False) if prop else False))
+            return text
+        raise ValueError('This setting can\'t be edited here.')
+
+    def _apply_volume(self, save: Save, key: str, value: Any) -> int:
+        volumes = save.get(VOLUME_MAP)
+        if volumes is None or not isinstance(volumes.value, MapValue):
+            raise ValueError('Unknown setting.')
+        try:
+            percent = max(0, min(int(round(float(value))), 100))
+        except (TypeError, ValueError):
+            raise ValueError('Enter a number from 0 to 100.') from None
+        for i, (k, v) in enumerate(volumes.value.items):
+            if str(k) == key:
+                volumes.value.items[i] = (k, percent / 100.0)
+                return percent
+        raise ValueError('Unknown setting.')
+
+    def original_value(self, section: str, key: str) -> Any:
+        """What the setting's control showed when the file was loaded."""
+        view = SettingsView(self.original, self.original)
+        if section == VOLUME:
+            for entry in view._volume_entries():
+                if entry['key'] == key:
+                    return entry['value']
+            raise ValueError('Unknown setting.')
+        return view.entry(key, key, '')['value']
+
+    def changes(self) -> List[str]:
+        """Labels of the settings that differ from the file as loaded."""
+        old, new = SettingsView(self.original, self.original), self
+        changed = []
+        for name in self.specs:
+            if name not in self.curated and INTERNAL.search(name):
+                continue
+            if old.entry(name, name, '')['value'] != new.entry(name, name, '')['value']:
+                changed.append(self.label(RECORD, name))
+        old_volumes = {e['key']: e['value'] for e in old._volume_entries()}
+        for entry in new._volume_entries():
+            if old_volumes.get(entry['key']) != entry['value']:
+                changed.append(entry['label'])
+        return changed
+
+
+def _number_text(value) -> str:
+    if isinstance(value, float):
+        return f'{value:.6f}'.rstrip('0').rstrip('.') or '0'
+    return str(value)

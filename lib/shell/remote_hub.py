@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 READY_TIMEOUT_SECONDS = 10.0
 NO_WINDOW_MESSAGE = "FA11y's window couldn't start. Run Updater.exe to repair FA11y."
 EDITOR_PAGES = ("settings", "keybinds")  # the config editor's two views
-PAGE_KEYS = ("home", "fortnite", "discover", "account", "locker", "social", "quests",
+PAGE_KEYS = ("home", "fortnite", "discover", "gamesettings", "account", "locker", "social", "quests",
              "settings", "keybinds", "about")
 
 
@@ -100,7 +100,7 @@ class RemoteHub:
     @staticmethod
     def _load_handlers() -> None:
         from lib.shell.handlers import about, account, app, fortnite, home, locker, settings, setup, social  # noqa: F401 (they register themselves)
-        from lib.shell.handlers import discover, passes, quests  # noqa: F401
+        from lib.shell.handlers import discover, gamesettings, passes, quests  # noqa: F401
 
     # Lifecycle -----------------------------------------------------------
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import threading
 
-ACCOUNT_PAGES = ("social", "quests", "locker", "discover")
+ACCOUNT_PAGES = ("social", "quests", "locker", "discover", "gamesettings")
 
 
 def account_info() -> dict:

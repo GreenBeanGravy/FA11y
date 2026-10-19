@@ -29,6 +29,7 @@ public partial class MainWindow : Window
         new("home", "Home", "home", ""),
         new("fortnite", "Fortnite", "device-gamepad-2", "Play"),
         new("discover", "Discover", "compass", "Play"),
+        new("gamesettings", "Fortnite settings", "settings", "Play"),
         new("account", "Epic account", "user", "Account"),
         new("locker", "Locker", "shirt", "Account"),
         new("social", "Social", "users", "Account"),
@@ -512,7 +513,7 @@ public partial class MainWindow : Window
             "locker" => new LockerPage(),
             "discover" => new DiscoverPage(),
             "quests" => new QuestsPage(),
-            "settings" or "keybinds" => new SettingsPage(key),
+            "settings" or "keybinds" or "gamesettings" => new SettingsPage(key),
             _ => throw new ArgumentException($"Unknown page: {key}"),
         };
         var element = (FrameworkElement)page;

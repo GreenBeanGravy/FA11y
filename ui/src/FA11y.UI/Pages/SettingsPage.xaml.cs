@@ -13,8 +13,10 @@ using WpfKey = System.Windows.Input.Key;
 namespace FA11y.UI.Pages;
 
 /// <summary>
-/// The Settings and Keybinds pages: one editor the core describes with settings.schema (tabs, groups,
-/// settings) and this page draws. A change is saved as it is made (settings.set); the numbers wait a moment
+/// The Settings, Keybinds and Fortnite Settings pages: one editor the core describes with a schema (tabs,
+/// groups, settings) and this page draws. Settings and Keybinds use the settings.* requests; Fortnite Settings
+/// (the game's own settings, view "gamesettings") uses gamesettings.*, and its schema adds buttons
+/// (actions), a status line and a sign-in prompt. A change is saved as it is made (settings.set); the numbers wait a moment
 /// after the last keystroke or arrow press. Shortcuts: R resets the focused setting,
 /// T tests a volume, Delete unbinds a keybind, Ctrl+F searches. Each tab's controls are built the first time
 /// the tab is shown, or while the window is idle. Messages that aren't tied to focus are announced.
@@ -63,6 +65,9 @@ public partial class SettingsPage : PageBase
     }
 
     private readonly string _view;
+    // Request prefix: "settings" for FA11y's own settings and keybinds, "gamesettings" for Fortnite's.
+    private readonly string _api;
+    private bool _acting;
     private readonly Dictionary<string, SettingView> _settings = new();
     private readonly List<TabState> _tabs = new();
     private TabControl? _tabControl;
@@ -76,6 +81,7 @@ public partial class SettingsPage : PageBase
     public SettingsPage(string view)
     {
         _view = view;
+        _api = view == "gamesettings" ? "gamesettings" : "settings";
         InitializeComponent();
         Heading.Text = Title;
         LoadingText.Text = "Loading…";
@@ -87,7 +93,12 @@ public partial class SettingsPage : PageBase
     }
 
     public override string Key => _view;
-    public override string Title => _view == "keybinds" ? "Keybinds" : "Settings";
+    public override string Title => _view switch
+    {
+        "keybinds" => "Keybinds",
+        "gamesettings" => "Fortnite settings",
+        _ => "Settings",
+    };
 
     public override void OnShown()
     {
@@ -100,7 +111,7 @@ public partial class SettingsPage : PageBase
     {
         CancelCapture();
         _ = FlushAsync();
-        App.Bridge.Notify("settings.leave");
+        App.Bridge.Notify($"{_api}.leave");
     }
 
     public override void Refresh() => _ = LoadAsync();
@@ -108,7 +119,7 @@ public partial class SettingsPage : PageBase
     public override FrameworkElement? FirstFocus()
     {
         if (!_loaded)
-            return LoadingText;
+            return ActionsHost.Children.OfType<FrameworkElement>().FirstOrDefault() ?? LoadingText;
         var tab = CurrentTab();
         if (tab == null)
             return null;
@@ -125,12 +136,13 @@ public partial class SettingsPage : PageBase
         _loading = true;
         try
         {
-            var schema = await App.Bridge.RequestAsync("settings.schema", new { view = _view }, TimeSpan.FromSeconds(30));
+            var schema = await App.Bridge.RequestAsync($"{_api}.schema", new { view = _view },
+                TimeSpan.FromSeconds(_api == "gamesettings" ? 90 : 30));
             Rebuild(schema);
         }
         catch (Exception e)
         {
-            Log.Error($"settings.schema ({_view}) failed", e);
+            Log.Error($"{_api}.schema ({_view}) failed", e);
             if (!_loaded)
                 LoadingText.Text = $"Couldn't load the {Title.ToLowerInvariant()}.";
         }
@@ -153,6 +165,7 @@ public partial class SettingsPage : PageBase
         _entries = null;
         _tabControl = null;
         ContentHost.Children.Clear();
+        BuildActions(schema);
 
         foreach (var tab in schema.GetProperty("tabs").EnumerateArray())
         {
@@ -172,7 +185,9 @@ public partial class SettingsPage : PageBase
 
         if (_tabs.Count == 0)
         {
-            LoadingText.Text = "There is nothing to show here.";
+            _loaded = false;
+            LoadingText.Text = schema.NullableStr("message") ?? "There is nothing to show here.";
+            ContentHost.Children.Add(LoadingText);
             return;
         }
         if (_tabs.Count == 1)
@@ -235,6 +250,108 @@ public partial class SettingsPage : PageBase
 
     private TabState? CurrentTab() =>
         _tabs.Count == 1 ? _tabs[0] : (_tabControl?.SelectedItem as TabItem)?.Tag as TabState;
+
+    // Fortnite Settings: buttons, the status line and signing in ----------------------------------------
+
+    /// <summary>Draw the schema's buttons and status line (none for FA11y's own settings).</summary>
+    private void BuildActions(JsonElement schema)
+    {
+        ActionsHost.Children.Clear();
+        if (schema.Bool("login"))
+        {
+            var signIn = new IconButton { Content = "Sign In", Variant = "primary", Margin = new Thickness(0, 0, 8, 8) };
+            AutomationProperties.SetName(signIn, "Sign In");
+            AutomationProperties.SetHelpText(signIn, "Signs in to your Epic account.");
+            signIn.Click += (_, _) => _ = SignInAsync();
+            ActionsHost.Children.Add(signIn);
+        }
+        if (schema.TryGetProperty("actions", out var actions) && actions.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var action in actions.EnumerateArray())
+            {
+                var id = action.Str("id");
+                var label = action.Str("label");
+                var confirm = action.NullableStr("confirm");
+                var button = new IconButton
+                {
+                    Content = label,
+                    Margin = new Thickness(0, 0, 8, 8),
+                    Variant = id == "upload" ? "primary" : "secondary",
+                };
+                AutomationProperties.SetName(button, label);
+                AutomationProperties.SetHelpText(button, action.Str("help"));
+                button.Click += (_, _) => _ = RunActionAsync(id, label, confirm);
+                ActionsHost.Children.Add(button);
+            }
+        }
+        ActionsHost.Visibility = ActionsHost.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        StatusText.Visibility = Visibility.Collapsed;
+        ShowStatus(schema);
+    }
+
+    private void ShowStatus(JsonElement result)
+    {
+        if (result.ValueKind != JsonValueKind.Object || result.NullableStr("status") is not { } status)
+            return;
+        StatusText.Text = status;
+        StatusText.Visibility = status.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async Task RunActionAsync(string id, string label, string? confirm)
+    {
+        if (_acting)
+            return;
+        if (confirm != null && !Dialogs.Confirm(Host, label, confirm))
+            return;
+        _acting = true;
+        try
+        {
+            await FlushAsync();
+            if (id == "upload" || id == "restore")
+                Announce("Saving to Fortnite.");
+            var result = await App.Bridge.RequestAsync($"{_api}.action", new { id }, TimeSpan.FromSeconds(120));
+            ShowStatus(result);
+            if (result.Bool("reload"))
+                await LoadAsync();
+            Announce(result.Str("message"));
+        }
+        catch (Exception e)
+        {
+            Log.Error($"{_api}.action {id} failed", e);
+            Announce($"Couldn't {label.ToLowerInvariant()}.");
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+
+    private async Task SignInAsync()
+    {
+        if (_acting)
+            return;
+        _acting = true;
+        try
+        {
+            var result = await App.Bridge.RequestAsync("account.sign_in", null, Timeout.InfiniteTimeSpan);
+            if (Host is { } host && WindowTools.ForegroundIsFa11y(App.CoreProcessId))
+                WindowTools.BringToFront(host);
+            if (result.Bool("authenticated"))
+            {
+                Announce($"Logged in as {result.Str("name")}");
+                await LoadAsync();
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error("account.sign_in failed", e);
+            Announce("Error during login");
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
 
     // Building a tab -------------------------------------------------------------------------------------
 
@@ -538,8 +655,9 @@ public partial class SettingsPage : PageBase
                 var model = view.Model;
                 try
                 {
-                    var result = await App.Bridge.RequestAsync("settings.set",
+                    var result = await App.Bridge.RequestAsync($"{_api}.set",
                         new { section = model.Section, key = model.Key, kind = model.Kind, value = view.Read() });
+                    ShowStatus(result);
                     // The core may have held the value to its range; show what was saved.
                     if (!view.Wanted && view.Debounce is not { IsEnabled: true } && result.TryGetProperty("value", out var saved))
                         view.Apply(saved);
@@ -583,8 +701,9 @@ public partial class SettingsPage : PageBase
         view.Wanted = false;
         try
         {
-            var result = await App.Bridge.RequestAsync("settings.reset",
+            var result = await App.Bridge.RequestAsync($"{_api}.reset",
                 new { section = model.Section, key = model.Key, kind = model.Kind, label = model.Label });
+            ShowStatus(result);
             if (result.Bool("changed"))
             {
                 if (model.Kind == "keybind")
@@ -774,7 +893,7 @@ public partial class SettingsPage : PageBase
         {
             if (_entries == null)
             {
-                var result = await App.Bridge.RequestAsync("settings.search_index", new { view = _view });
+                var result = await App.Bridge.RequestAsync($"{_api}.search_index", new { view = _view });
                 _entries = result.GetProperty("entries").EnumerateArray()
                     .Select(e => new SearchEntry(e.Str("id"), e.Str("label"), e.Str("tab"), e.Str("tab_name"),
                         e.NullableStr("map"), e.Str("hay"), e.Str("text")))
