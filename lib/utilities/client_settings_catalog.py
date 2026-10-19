@@ -121,10 +121,14 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
 
 VOLUMES = [
     ('CB_Slider_Main', 'Main Volume'), ('CB_Slider_Music', 'Music Volume'),
-    ('CB_Slider_SFX', 'Sound Effects Volume'), ('CB_Slider_Dialogue', 'Dialogue Volume'),
+    ('CB_Slider_LobbyMusic', 'Music - Lobby Volume'), ('CB_Slider_Pilgrim_Music', 'Music - Festival Volume'),
+    ('CB_Slider_SFX', 'Gameplay Volume'), ('CB_Slider_Dialogue', 'Dialogue Volume'),
     ('CB_Slider_Chat', 'Voice Chat Volume'), ('CB_Slider_Cinematics', 'Cinematics Volume'),
-    ('CB_Slider_LobbyMusic', 'Lobby Music Volume'), ('CB_Slider_PIP', 'Picture in Picture Volume'),
+    ('CB_Slider_PIP', 'Picture in Picture Volume'),
 ]
+# Defaults seen in Fortnite's own menu (42.40) for settings the file didn't hold, shown as
+# "Game default (On)". Settings not listed just say "Game default".
+KNOWN_DEFAULTS = {'bToggleSprint': True, 'bAutoOpenDoorsNonMobile': False, 'bVisualizeAudioSources': True}
 TABS = ['Game', 'Mouse and Keyboard', 'Controller', 'Audio', 'Accessibility', 'Game UI',
         'Account and Privacy', 'All Settings']
 VOLUME_MAP = 'BusNameVolumesMap'
@@ -214,8 +218,10 @@ class SettingsView:
         if prop is not None and isinstance(prop.value, Raw):
             out.update(kind='text', value='(can\'t be edited here)')
         elif kind == 'BoolProperty':
+            known = KNOWN_DEFAULTS.get(name)
+            default_label = 'Game default' + ('' if known is None else (' (On)' if known else ' (Off)'))
             out.update(kind='choice', value=DEFAULT if value is None else ('on' if value else 'off'),
-                       choices=[{'value': DEFAULT, 'label': 'Game default'}, {'value': 'on', 'label': 'On'},
+                       choices=[{'value': DEFAULT, 'label': default_label}, {'value': 'on', 'label': 'On'},
                                 {'value': 'off', 'label': 'Off'}])
         elif kind == 'EnumProperty':
             names = [n for n in self.enums.get(spec['enum'], []) if n not in ('Num', 'Count', 'MAX')]

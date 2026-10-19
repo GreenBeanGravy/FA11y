@@ -82,6 +82,9 @@ class CloudSettingsAPI:
                                          else 'Could not reach Epic Games. Try again in a moment.') from None
             if response.status_code == 401 and not mutation and attempt == 0 and self.auth.refresh_access_token():
                 continue
+            if response.status_code == 401 and hasattr(self.auth, 'invalidate_auth'):
+                # Epic ended the session (starting Fortnite does this): let FA11y sign in again.
+                self.auth.invalidate_auth()
             if response.status_code not in (200, 204):
                 message = {401: 'Your Epic sign-in has expired. Sign in again, then try again.',
                            403: 'Epic did not allow this account to change that file.',

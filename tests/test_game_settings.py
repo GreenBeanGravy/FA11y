@@ -69,7 +69,9 @@ def test_missing_settings_show_game_default_and_present_ones_their_value():
     _, view = view_of(sample_bytes())
     assert view.entry('bToggleSprint', 'x', '')['value'] == 'on'
     assert view.entry('bTargetingToggleable', 'x', '')['value'] == 'off'
-    assert view.entry('bAutoOpenDoorsNonMobile', 'x', '')['value'] == DEFAULT
+    doors = view.entry('bAutoOpenDoorsNonMobile', 'x', '')
+    assert doors['value'] == DEFAULT and doors['choices'][0]['label'] == 'Game default (Off)'
+    assert view.entry('bAutoClamber', 'x', '')['choices'][0]['label'] == 'Game default'
     assert view.entry('MouseSensitivityX', 'x', '')['kind'] == 'number'
     assert view.entry('HUDScale', 'x', '')['kind'] == 'text'
 
