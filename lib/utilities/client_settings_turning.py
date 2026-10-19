@@ -70,16 +70,14 @@ def key(save: Save, row: str, slot: int) -> str:
 
 
 def rows(save: Save) -> List[dict]:
-    """The turn key rows, two keys each, then the two speeds. The Keybinds tab shows them first,
-    under Camera."""
+    """The turn key rows, one key each (a second key would only turn the same way at the same
+    speed), then the two speeds. The Keybinds tab shows them first, under Camera."""
     out = []
     for row, _axis, _sign, label_, description in DIRECTIONS:
-        for slot in (1, 2):
-            current = key(save, row, slot)
-            out.append({'id': f'{TURN}/{row}#{slot}', 'section': TURN, 'key': f'{row}#{slot}',
-                        'label': label_ if slot == 1 else f'{label_}, second key',
-                        'description': description if slot == 1 else '', 'show_description': slot == 1,
-                        'kind': 'choice', 'value': current, 'choices': key_choices(current), 'default': None})
+        current = key(save, row, 1)
+        out.append({'id': f'{TURN}/{row}#1', 'section': TURN, 'key': f'{row}#1', 'label': label_,
+                    'description': description, 'show_description': True,
+                    'kind': 'choice', 'value': current, 'choices': key_choices(current), 'default': None})
     for axis, label_, description in SPEEDS:
         value = speed(save, axis)
         out.append({'id': f'{TURN}/speed:{axis}', 'section': TURN, 'key': f'speed:{axis}', 'label': label_,
@@ -91,9 +89,7 @@ def rows(save: Save) -> List[dict]:
 def label(key_: str) -> str:
     if key_.startswith('speed:'):
         return {axis: l for axis, l, _desc in SPEEDS}[key_[len('speed:'):]]
-    row, _, slot = key_.partition('#')
-    text = _direction(row)[3]
-    return text if slot == '1' else f'{text}, second key'
+    return _direction(key_.partition('#')[0])[3]
 
 
 def _template(save: Save) -> Struct:
@@ -113,10 +109,9 @@ def _set_key(item: Struct, slot: int, name: str) -> None:
 def apply(save: Save, key_: str, value):
     if key_.startswith('speed:'):
         return _apply_speed(save, key_[len('speed:'):], value)
-    row, _, slot_text = key_.partition('#')
-    if slot_text not in ('1', '2'):
+    row, _, slot = key_.partition('#')
+    if slot != '1':
         raise ValueError('Unknown setting.')
-    slot = int(slot_text)
     _row, axis, sign, _label, _desc = _direction(row)
     name = str(value or '').strip() or UNBOUND
     if name not in KEY_LABELS:
@@ -136,8 +131,10 @@ def apply(save: Save, key_: str, value):
             _set_key(entry, 2, UNBOUND)
             lists[sub].append(entry)
         items = _items(save, axis, sign)
+    # One key per direction: the key replaces any second key an older FA11y gave it.
     for _sub, item in items:
-        _set_key(item, slot, name)
+        _set_key(item, 1, name)
+        _set_key(item, 2, UNBOUND)
     # An entry with no keys left is taken out again.
     for sub, item in items:
         if str(_key_prop(item, 1).value) == UNBOUND and str(_key_prop(item, 2).value) == UNBOUND:
@@ -176,7 +173,7 @@ def values(save: Save) -> Dict[str, str]:
 def conflicts(save: Save, key_: str) -> List[str]:
     """Other actions in the same section that use the key this turn row now has."""
     row, _, slot = key_.partition('#')
-    if slot not in ('1', '2'):
+    if slot != '1':
         return []
     _row, axis, sign, _label, _desc = _direction(row)
     items = _items(save, axis, sign)

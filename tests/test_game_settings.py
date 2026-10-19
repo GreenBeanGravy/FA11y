@@ -133,7 +133,7 @@ def test_keybinds_tab_starts_with_camera_keys():
     tab = next(t for t in view.schema() if t['name'] == 'Keybinds')
     assert tab['groups'][0]['heading'] == 'Camera'
     camera = [s['label'] for s in tab['groups'][0]['settings']]
-    assert camera[:2] == ['Turn Left', 'Turn Left, second key']
+    assert camera[:4] == ['Turn Left', 'Turn Right', 'Look Up', 'Look Down']        # one key each
     assert camera[-4:] == ['Turn Speed', 'Look Up and Down Speed', 'Reset Camera', 'Reset Camera, second key']
     rows = {s['label']: s for g in tab['groups'] for s in g['settings']}
     assert rows['Move Forward']['value'] == 'W' and rows['Move Backward, second key']['value'] == 'Down'
@@ -311,10 +311,12 @@ def test_turn_keys_add_look_axis_entries_and_take_them_out_again():
         assert axes == [('LookUp', -1.0, 'NumPadEight'), ('Turn', -0.3, 'NumPadFour'),
                         ('Turn', 0.3, 'NumPadSix')], sub
     assert 'Turn Speed' in view.changes() and 'Look Up' in view.changes()
-    view.apply('turn', 'left#2', 'Up')
-    assert turning.conflicts(draft.save, 'left#2') == ['Move Forward']    # both in Movement
+    view.apply('turn', 'left#1', 'Up')
+    assert turning.conflicts(draft.save, 'left#1') == ['Move Forward']    # both in Movement
     assert binds.conflicts(draft.save, 'MoveForward@1#2') == ['Turn Left']
-    view.apply('turn', 'left#2', 'None')
+    view.apply('turn', 'left#1', 'NumPadFour')
+    with pytest.raises(ValueError):
+        view.apply('turn', 'left#2', 'K')
     for row in ('left#1', 'right#1', 'up#1'):
         view.apply('turn', row, 'None')
     assert draft.to_bytes() == sample_bytes() and view.changes() == []
