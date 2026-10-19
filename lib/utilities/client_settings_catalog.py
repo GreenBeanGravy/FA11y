@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from lib.utilities import client_settings_binds as binds
 from lib.utilities import client_settings_gamepad as pad
+from lib.utilities import client_settings_turning as turning
 from lib.utilities.client_settings import FStr, MapValue, Raw, Save, TypeName
 
 SCHEMA_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'client_settings_schema_4230.json')
@@ -220,7 +221,7 @@ class SettingsView:
         if sensitivity:
             mouse = tabs['Mouse and Keyboard']
             tabs['Mouse and Keyboard'] = {'Sensitivity': sensitivity + mouse.pop('Sensitivity', []), **mouse}
-        tabs['Keybinds'] = dict(binds.bind_groups(self.save))
+        tabs['Keybinds'] = dict(turning.groups(self.save) + binds.bind_groups(self.save))
         tabs['Controller'].update(pad.look_entries(self.save))
         if self.controller:
             tabs['Controller Binds'] = dict(pad.pad_groups(self.save))
@@ -297,6 +298,8 @@ class SettingsView:
             return binds.sens_label(key)
         if section == pad.LOOK:
             return pad.look_label(key)
+        if section == turning.TURN:
+            return turning.label(key)
         if section in (pad.PAD_BIND, pad.PAD_PRESET):
             return pad.pad_entry_label(self.save, section, key)
         if section == VOLUME:
@@ -319,6 +322,8 @@ class SettingsView:
             return binds.apply_sens(save, key, value)
         if section == pad.LOOK:
             return pad.apply_look(save, key, value)
+        if section == turning.TURN:
+            return turning.apply(save, key, value)
         if section == pad.PAD_BIND:
             return pad.apply_pad_bind(save, key, value)[0]
         if section == pad.PAD_PRESET:
@@ -391,6 +396,8 @@ class SettingsView:
             return binds.sens_value(self.original, key)
         if section == pad.LOOK:
             return pad.look_values(self.original)[key]
+        if section == turning.TURN:
+            return turning.values(self.original)[key]
         if section == pad.PAD_BIND:
             return pad.pad_values(self.original).get(f'{pad.PAD_BIND}/{key}')
         if section == pad.PAD_PRESET:
@@ -419,6 +426,10 @@ class SettingsView:
         for key, value in binds.bind_values(self.save).items():
             if old_binds.get(key) != value:
                 changed.append(binds.bind_label(key))
+        old_turn = turning.values(self.original)
+        for key, value in turning.values(self.save).items():
+            if old_turn[key] != value:
+                changed.append(turning.label(key))
         old_look = pad.look_values(self.original)
         for key, value in pad.look_values(self.save).items():
             if old_look[key] != value:

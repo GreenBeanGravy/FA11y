@@ -131,7 +131,7 @@ def test_keybinds_tab_lists_actions_and_hidden_ones_first():
     _, view = view_of(sample_bytes())
     tab = next(t for t in view.schema() if t['name'] == 'Keybinds')
     headings = [g['heading'] for g in tab['groups']]
-    assert headings[0] == "Not in Fortnite's Menu"
+    assert headings[:2] == ["Turning (Not in Fortnite's Menu)", "Not in Fortnite's Menu"]
     rows = {s['label']: s for g in tab['groups'] for s in g['settings']}
     assert rows['Move Forward']['value'] == 'W' and rows['Move Backward, second key']['value'] == 'Down'
     assert rows['Reset Camera']['value'] == 'None' and rows['Reset Camera']['show_description']
@@ -255,6 +255,31 @@ def test_camera_and_flick_stick_rows():
     assert [c['label'] for c in axes['choices']] == ['Game default (Pitch)', 'Pitch', 'Yaw', 'Both']
     flick = next(g for g in tabs['Controller']['groups'] if g['heading'] == 'Flick Stick')
     assert flick['settings'][0]['label'] == 'Flick Stick'
+
+
+def test_turn_keys_add_look_axis_entries_and_take_them_out_again():
+    draft, view = view_of(sample_bytes())
+    rows = {s['label']: s for t in view.schema() if t['name'] == 'Keybinds' for g in t['groups']
+            for s in g['settings']}
+    assert rows['Turn Left']['value'] == 'None' and rows['Turn Speed']['value'] == ''
+    with pytest.raises(ValueError):
+        view.apply('turn', 'speed:Turn', '50')                 # no turn key yet
+    assert view.apply('turn', 'left#1', 'NumPadFour') == 'NumPadFour'
+    assert view.apply('turn', 'up#1', 'NumPadEight') == 'NumPadEight'
+    assert view.apply('turn', 'speed:Turn', '30') == '30'
+    view.apply('turn', 'right#1', 'NumPadSix')                 # a new direction keeps the speed
+    data = draft.to_bytes()
+    reread = parse_file(data)
+    assert reread.to_bytes() == data
+    for sub, value in reread.save.get('UserBindingsPerSubGame').value.items:
+        axes = sorted((str(m.props[0].value), round(m.props[5].value, 3), str(m.props[3].value.props[0].value))
+                      for m in value.props[0].value.items if str(m.props[0].value) in ('Turn', 'LookUp'))
+        assert axes == [('LookUp', -1.0, 'NumPadEight'), ('Turn', -0.3, 'NumPadFour'),
+                        ('Turn', 0.3, 'NumPadSix')], sub
+    assert 'Turn Speed' in view.changes() and 'Look Up' in view.changes()
+    for row in ('left#1', 'right#1', 'up#1'):
+        view.apply('turn', row, 'None')
+    assert draft.to_bytes() == sample_bytes() and view.changes() == []
 
 
 def test_names_are_readable():

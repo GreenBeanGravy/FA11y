@@ -83,8 +83,9 @@ HIDDEN = {
     'GamepadToggleHarvestGyroModifier': 'Gyro Modifier: Toggle Harvesting Tool',
     'GamepadToggleCrouchGyroModifier': 'Gyro Modifier: Toggle Crouch',
 }
-# Actions left off the Keybinds tab: forced walking and jogging speeds.
-LEFT_OUT = {'ForceJogToggle', 'ForceJogHold', 'ForceWalkToggle', 'ForceWalkHold'}
+# Actions left off this list: forced walking and jogging speeds, and the look axes, which have
+# their own Turning rows (client_settings_turning).
+LEFT_OUT = {'ForceJogToggle', 'ForceJogHold', 'ForceWalkToggle', 'ForceWalkHold', 'Turn', 'LookUp'}
 HIDDEN_HEADING = 'Not in Fortnite\'s Menu'
 HIDDEN_NOTE = 'Fortnite\'s keyboard menu doesn\'t list this action, but a key you give it here works in game.'
 GYRO_NOTE = 'For controllers with motion aiming. Fortnite\'s keyboard menu doesn\'t list this action.'
