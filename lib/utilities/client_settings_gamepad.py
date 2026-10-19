@@ -76,15 +76,9 @@ LOOK_OPTIONS: List[Tuple[str, str, str, str, str]] = [
      'Linear turns at a speed in step with the stick; Exponential is slow near the middle.'),
     ('Advanced', 'ScopedSensitivityMultiplier', 'Scope Sensitivity Multiplier', 'float',
      'Turning speed through a scope, as a multiplier.'),
-    ('Advanced', 'AimAssistStrength', 'Aim Assist Strength', 'uint',
-     'How strongly aim assist helps, in percent. The menu stops at 100; higher values are allowed '
-     'here. The game multiplies them into its own strength and caps the result at full strength.'),
-    ('Advanced', 'AimAssistSlowStrength', 'Precision Aim Assist Strength', 'uint',
-     'How much aim assist slows your aim near targets, in percent. 0 turns this part off.'),
-    ('Advanced', 'AimAssistPullStrength', 'Tracking Aim Assist Strength', 'uint',
-     'How much aim assist moves your aim along with targets you follow, in percent. 0 turns this '
-     'part off.'),
 ]
+# Aim assist strength (AimAssistStrength, AimAssistSlowStrength, AimAssistPullStrength) is left
+# out on purpose: raising it past the menu's 100 percent did nothing in game.
 ENUM_CHOICES = {SENSITIVITY_ENUM: SENSITIVITY_PRESETS, CURVE_ENUM: ['Linear', 'Exponential']}
 
 # Gamepad key names and how to say them (Xbox name, then PlayStation).

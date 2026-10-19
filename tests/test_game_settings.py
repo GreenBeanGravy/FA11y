@@ -257,7 +257,7 @@ def test_camera_and_flick_stick_rows():
     assert flick['settings'][0]['label'] == 'Flick Stick'
 
 
-def test_tweak_zone_rows_and_aim_assist_strengths():
+def test_tweak_zone_rows_and_no_aim_assist_strength():
     draft, view = view_of(sample_bytes())
     tabs = {t['name']: t for t in view.schema()}
     tweak = next(g for g in tabs['Controller']['groups'] if g['heading'] == 'Tweak Zone')
@@ -267,13 +267,12 @@ def test_tweak_zone_rows_and_aim_assist_strengths():
     assert 'EActiveCombatMode::HipOnly' in combat and 'EActiveCombatMode::NotScope' in combat
     view.apply('record', 'TweakZoneScale', '3')
     assert parse_file(draft.to_bytes()).save.get('TweakZoneScale').value == 3.0
-    for k in ('AimAssistSlowStrength', 'AimAssistPullStrength'):
-        assert view.apply('look', f'Advanced.{k}', '200') == '200'
-    advanced = next(p for p in parse_file(draft.to_bytes()).save.get('GamepadUserOptions').value.props
-                    if str(p.name) == 'Advanced')
-    values = {str(p.name): p.value for p in advanced.value.props}
-    assert values['AimAssistSlowStrength'] == 200 and values['AimAssistPullStrength'] == 200
     assert 'Tweak Sensitivity' in view.changes()
+    keys = [s['key'] for t in view.schema() for g in t['groups'] for s in g['settings']]
+    assert not [k for k in keys if 'AimAssist' in k and 'Strength' in k]
+    for k in ('AimAssistStrength', 'AimAssistSlowStrength', 'AimAssistPullStrength'):
+        with pytest.raises(ValueError):
+            view.apply('look', f'Advanced.{k}', '100')
 
 
 def test_turn_keys_add_look_axis_entries_and_take_them_out_again():
