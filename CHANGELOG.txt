@@ -12,6 +12,7 @@
 - The Fortnite settings page has presets. Presets lists them and reads out every setting one would change, and to what, before you apply it. Export Preset saves your unsaved changes, or sections you pick, as a .preset file you can send to friends, and Import Preset adds one. FA11y doesn't come with presets yet.
 - Keybinds on the Fortnite settings page now work like FA11y's own: press Enter on one, then the key, mouse button or mouse wheel direction you want. On Controller Binds, press the controller button instead (Xbox controllers, and PlayStation controllers plugged in directly). Delete unbinds, and R puts back the key it had when the page loaded.
 - Fixed the Next button in FA11y's setup sometimes reading its shortcut as Alt and a blank key. It now reads Alt+N again.
+- Exporting a preset from sections now takes every setting in them, including ones at game default and keys that aren't bound, and the section list has a Select all check box. Each section says how many of its settings are at game default. When someone applies a preset like that and its game default settings would change some of theirs, FA11y lists those and asks whether to use them or keep their own.
 
 10/12/2026 #1 (19.0.0-beta.3, Beta branch):
 - Added Nightmare Island and Stranger Things map images, POIs, and aligned object locations. Map selection now lists Nightmare Island, Surf City, and Stranger Things.

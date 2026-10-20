@@ -368,7 +368,10 @@ public partial class SettingsPage : PageBase
             await ReviewPresetAsync(presets[index].Str("id"), null);
     }
 
-    /// <summary>Show what the preset changes, then apply it, delete it, or do nothing.</summary>
+    /// <summary>
+    /// Show what the preset changes, then apply it, delete it, or do nothing. A preset with settings at game
+    /// default (or unbound keys) that differ from the user's asks first whether to use those.
+    /// </summary>
     private async Task ReviewPresetAsync(string id, string? imported)
     {
         var preview = await App.Bridge.RequestAsync("gamesettings.preset_preview", new { id, imported });
@@ -376,6 +379,22 @@ public partial class SettingsPage : PageBase
         {
             Announce(preview.Str("message"));
             return;
+        }
+        var defaults = true;
+        if (preview.Bool("ask_defaults"))
+        {
+            var reset = preview.GetProperty("lines").EnumerateArray().Select(l => l.GetString() ?? "").ToList();
+            var answer = Prompts.Review(Host, preview.Str("name"), preview.Str("prompt"), reset,
+                new[] { ("yes", "Use Them"), ("no", "Keep Mine"), ("cancel", "Cancel") });
+            if (answer is not ("yes" or "no"))
+                return;
+            defaults = answer == "yes";
+            preview = await App.Bridge.RequestAsync("gamesettings.preset_preview", new { id, defaults });
+            if (!preview.Bool("ok"))
+            {
+                Announce(preview.Str("message"));
+                return;
+            }
         }
         var name = preview.Str("name");
         var lines = preview.GetProperty("lines").EnumerateArray().Select(l => l.GetString() ?? "").ToList();
@@ -388,7 +407,7 @@ public partial class SettingsPage : PageBase
         switch (Prompts.Review(Host, name, preview.Str("prompt"), lines, buttons))
         {
             case "apply":
-                var result = await App.Bridge.RequestAsync("gamesettings.preset_apply", new { id });
+                var result = await App.Bridge.RequestAsync("gamesettings.preset_apply", new { id, defaults });
                 ShowStatus(result);
                 if (result.Bool("reload"))
                     await LoadAsync();
@@ -444,10 +463,11 @@ public partial class SettingsPage : PageBase
                 Prompts.Message(Host, title, "There are no settings to put in a preset.");
                 return;
             }
-            var labels = groups.Select(g => $"{g.Str("label")} ({g.Int("count")} setting{(g.Int("count") == 1 ? "" : "s")})").ToList();
+            var labels = groups.Select(g => $"{g.Str("label")} ({g.Str("detail")})").ToList();
             var chosen = Prompts.Pick(Host, title,
-                "Pick the sections to include. A preset holds the settings you have set in them; ones at game default are left out.",
-                labels);
+                "Pick the sections to include. A preset holds every setting in them, game defaults too: "
+                + "whoever applies it chooses whether to use those.",
+                labels, selectAll: "Select all");
             if (chosen == null)
                 return;
             if (chosen.Count == 0)

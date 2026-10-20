@@ -698,6 +698,87 @@ internal static partial class Program
             PressIn(confirm!, "Yes");
         Check(WaitFor(() => Directory.GetFiles(mine, "*.preset").Length == 1, 5000), "the preset is deleted from the user's presets");
         File.Delete(exported);
+
+        SectionPickChecks();
+        DefaultsQuestionChecks(mine);
+    }
+
+    /// <summary>Export from sections: Select all comes first, checks every section, and follows the others.</summary>
+    private static void SectionPickChecks()
+    {
+        Thread.Sleep(800);
+        if (!Click("Export Preset"))
+            return;
+        var holds = WaitForDialog("Export Preset");
+        if (!Check(holds != null, "Export Preset asks what the preset should hold"))
+            return;
+        var choices = holds!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List));
+        var sections = choices?.FindAll(TreeScope.Children, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem))
+            .Cast<AutomationElement>().ElementAtOrDefault(1);
+        if (!Check(sections?.Current.Name == "Settings from sections you pick", "the second choice is sections you pick"))
+            return;
+        ((SelectionItemPattern)sections!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        var holdsId = holds.GetRuntimeId();
+        PressIn(holds, "OK");
+        var pick = WaitForDialog("Export Preset", holdsId);
+        if (!Check(pick != null, "then it lists the sections"))
+            return;
+        var boxes = pick!.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.CheckBox))
+            .Cast<AutomationElement>().ToList();
+        if (!Check(boxes.Count > 2 && boxes[0].Current.Name == "Select all", "Select all is the first check box"))
+            return;
+        Check(WaitFor(() => boxes[0].Current.HasKeyboardFocus, 2000), "Select all has focus when the dialog opens");
+        Check(boxes.Skip(1).Any(b => b.Current.Name.Contains(" at game default")) && boxes.Skip(1).Any(b => b.Current.Name.Contains(" not bound")),
+            "sections say how many of their settings are at game default or not bound");
+        ToggleState State(AutomationElement box) => ((TogglePattern)box.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState;
+        void Toggle(AutomationElement box) => ((TogglePattern)box.GetCurrentPattern(TogglePattern.Pattern)).Toggle();
+        Toggle(boxes[0]);
+        Check(WaitFor(() => boxes.All(b => State(b) == ToggleState.On), 2000), "Select all checks every section");
+        Toggle(boxes[2]);
+        Check(WaitFor(() => State(boxes[0]) == ToggleState.Off && State(boxes[1]) == ToggleState.On, 2000),
+            "clearing one section clears Select all and leaves the rest");
+        Toggle(boxes[2]);
+        Check(WaitFor(() => State(boxes[0]) == ToggleState.On, 2000), "checking it again checks Select all");
+        Toggle(boxes[0]);
+        Check(WaitFor(() => boxes.All(b => State(b) == ToggleState.Off), 2000), "clearing Select all clears every section");
+        PressIn(pick, "Cancel");
+    }
+
+    /// <summary>A preset with settings at game default asks whether to use them, and lists what they change.</summary>
+    private static void DefaultsQuestionChecks(string mine)
+    {
+        File.WriteAllText(Path.Combine(mine, "Defaults.preset"), """
+            {"type": "FA11y Fortnite settings preset", "version": 1, "name": "Defaults", "description": "",
+             "settings": [{"tab": "Game", "label": "Toggle Sprint", "section": "record", "key": "bToggleSprint", "value": "default"},
+                          {"tab": "Keybinds", "label": "Turn Right", "section": "turn", "key": "right#1", "value": "None"}]}
+            """);
+        Thread.Sleep(500);
+        if (!Click("Presets"))
+            return;
+        var choose = WaitForDialog("Presets");
+        if (!Check(choose != null, "Presets opens the list again"))
+            return;
+        var list = choose!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List));
+        Check(list != null && ItemNames(list).FirstOrDefault() == "Defaults", "Defaults is first in the list");
+        PressIn(choose, "OK");
+        var question = WaitForDialog("Defaults");
+        if (!Check(question != null, "picking Defaults asks about its game default settings first"))
+            return;
+        Check(HasText(question!, "Defaults also has settings at game default and keys that aren't bound. Use them too? That changes 1 setting of yours:"),
+            "the question says what kind of settings and how many of yours they change");
+        var lines = question!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List));
+        Check(lines != null && ItemNames(lines).SequenceEqual(new[] { "Toggle Sprint (Game): On to Game default (On)" }),
+            "it lists the setting that would go back to game default");
+        foreach (var name in new[] { "Use Them", "Keep Mine", "Cancel" })
+            Check(Button(question, name) != null, $"the question has a {name} button");
+        var questionId = question.GetRuntimeId();
+        PressIn(question, "Use Them");
+        var review = WaitForDialog("Defaults", questionId);
+        if (!Check(review != null, "Use Them goes on to the usual review"))
+            return;
+        Check(HasText(review!, "Apply Defaults? It changes 1 setting:"), "the review counts the game default setting");
+        PressIn(review!, "Cancel");
+        File.Delete(Path.Combine(mine, "Defaults.preset"));
     }
 
     /// <summary>Invoke a button on the main window by name.</summary>

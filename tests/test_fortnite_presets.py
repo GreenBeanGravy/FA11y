@@ -57,18 +57,59 @@ def test_preview_says_what_changes_and_leaves_the_draft_alone():
     assert draft.to_bytes() == sample_bytes()
 
 
-def test_sections_and_changes_make_presets_that_only_set_things():
+def test_sections_hold_every_setting_and_changes_only_what_changed():
     draft = parse_file(sample_bytes())
     view = SettingsView(draft.save, parse_file(sample_bytes()).save)
-    groups = {g['id']: g['count'] for g in presets.export_groups(view)}
-    assert groups['Game/Movement'] == 1 and 'Keybinds/Camera' not in groups      # nothing bound there yet
+    groups = {g['id']: g['detail'] for g in presets.export_groups(view)}
+    assert groups['Game/Movement'] == '2 settings, 1 at game default'
+    assert groups['Keybinds/Camera'] == '8 settings, 2 at game default, 6 not bound'
+    assert groups['Keybinds/Movement'] == '4 settings'
     view.apply('turn', 'left#1', 'Left')
     rows = presets.rows_from_groups(view, ['Keybinds/Camera', 'Game/Movement'])
-    assert [(r['label'], r['value']) for r in rows] == [('Toggle Sprint', 'on'), ('Turn Left', 'Left'),
-                                                        ('Turn Speed', '100')]
+    assert [(r['label'], r['value']) for r in rows] == [
+        ('Toggle Sprint', 'on'), ('Auto Open Doors', 'default'), ('Turn Left', 'Left'), ('Turn Right', 'None'),
+        ('Look Up', 'None'), ('Look Down', 'None'), ('Turn Speed', '100'), ('Look Up and Down Speed', ''),
+        ('Reset Camera', 'None'), ('Reset Camera, second key', 'None')]
     view.apply('record', 'bToggleSprint', 'default')
     changed = [(r['label'], r['value']) for r in presets.rows_from_changes(view)]
     assert changed == [('Toggle Sprint', 'default'), ('Turn Left', 'Left'), ('Turn Speed', '100')]
+
+
+def test_a_preset_of_the_whole_page_applies_cleanly_to_the_same_settings():
+    draft = parse_file(sample_bytes())
+    view = SettingsView(draft.save, parse_file(sample_bytes()).save)
+    rows = presets.rows_from_groups(view, [g['id'] for g in presets.export_groups(view)])
+    assert len(rows) == sum(g['count'] for g in presets.export_groups(view)) and len(rows) < presets.MAX_SETTINGS
+    every = presets.parse(presets.to_bytes(presets.Preset('Everything', rows)))
+    assert presets.preview(draft.to_bytes(), parse_file(sample_bytes()).save, every) == ([], [])
+
+
+def test_unset_rows_are_asked_about_before_they_change_anything(page, folders):
+    gamesettings.gamesettings_schema({})
+    rows = [{'tab': 'Game', 'label': 'Toggle Sprint', 'section': 'record', 'key': 'bToggleSprint', 'value': 'default'},
+            {'tab': 'Keybinds', 'label': 'Turn Right', 'section': 'turn', 'key': 'right#1', 'value': 'None'},
+            ROWS[0]]
+    mine = presets.save_user(presets.Preset('Mine', rows))
+    assert presets.unset_kinds(mine) == 'settings at game default and keys that aren\'t bound'
+    asked = gamesettings.gamesettings_preset_preview({'id': mine.id, 'imported': 'added'})
+    assert asked['ask_defaults'] and asked['lines'] == ['Toggle Sprint (Game): On to Game default (On)']
+    assert asked['prompt'] == ('Added Mine to your presets. Mine also has settings at game default and keys that '
+                               'aren\'t bound. Use them too? That changes 1 setting of yours:')
+    kept = gamesettings.gamesettings_preset_preview({'id': mine.id, 'defaults': False})
+    assert kept['prompt'] == 'Apply Mine? It changes 1 setting:' and 'ask_defaults' not in kept
+    assert kept['lines'] == ['Auto Open Doors (Game): Game default (Off) to On']
+    used = gamesettings.gamesettings_preset_preview({'id': mine.id, 'defaults': True})
+    assert used['prompt'] == 'Apply Mine? It changes 2 settings:'
+    done = gamesettings.gamesettings_preset_apply({'id': mine.id, 'defaults': False})
+    assert done['message'] == 'Applied Mine: 1 setting changed. Save to Fortnite to keep them.'
+    assert done['status'] == '1 unsaved change: Auto Open Doors.'
+
+    only = presets.save_user(presets.Preset('Only defaults', rows[:2]))
+    assert gamesettings.gamesettings_preset_preview({'id': only.id, 'defaults': False})['prompt'] == (
+        'Apart from its settings at game default and keys that aren\'t bound, your settings already match Only defaults.')
+    unbound = presets.save_user(presets.Preset('Unbound', rows[1:2]))     # changes nothing: no question
+    shown = gamesettings.gamesettings_preset_preview({'id': unbound.id})
+    assert 'ask_defaults' not in shown and shown['prompt'] == 'Your settings already match Unbound.'
 
 
 def test_apply_a_preset_to_the_page(page, folders):
@@ -91,7 +132,8 @@ def test_export_import_and_delete(page, folders):
     gamesettings.gamesettings_schema({})
     gamesettings.gamesettings_set({'section': 'turn', 'key': 'right#1', 'value': 'Right'})
     options = gamesettings.gamesettings_preset_export_options({})
-    assert options['changes'] == 2 and {'id': 'Game/Movement', 'label': 'Game: Movement', 'count': 1} in options['groups']
+    assert options['changes'] == 2 and {'id': 'Game/Movement', 'label': 'Game: Movement', 'count': 2,
+                                        'detail': '2 settings, 1 at game default'} in options['groups']
     path = folders / 'shared.preset'
     done = gamesettings.gamesettings_preset_export({'name': 'Turning', 'changes': True, 'path': str(path)})
     assert done['ok'] and done['message'] == f'Saved Turning, with 2 settings, to your presets and to {path}.'
@@ -99,7 +141,7 @@ def test_export_import_and_delete(page, folders):
     clash = gamesettings.gamesettings_preset_export({'name': 'turning', 'groups': ['Game/Movement']})
     assert clash['exists'] and not clash['ok']
     replaced = gamesettings.gamesettings_preset_export({'name': 'turning', 'groups': ['Game/Movement'], 'replace': True})
-    assert replaced['message'] == 'Saved turning to your presets, with 1 setting.'
+    assert replaced['message'] == 'Saved turning to your presets, with 2 settings.'
     assert [p['name'] for p in gamesettings.gamesettings_presets({})['presets']] == ['turning']
 
     imported = gamesettings.gamesettings_preset_import({'path': str(path)})      # same name, other settings
@@ -132,7 +174,7 @@ def test_controller_buttons_that_match_leave_the_controller_preset_alone():
     draft = parse_file(sample_bytes())
     view = SettingsView(draft.save, parse_file(sample_bytes()).save)
     rows = presets.rows_from_groups(view, [g['id'] for g in presets.export_groups(view) if g['id'].startswith('Controller Binds')])
-    assert any(r['section'] == 'padbind' for r in rows) and rows[0]['section'] == 'padpreset'
+    assert [r['section'] for r in rows][:2] == ['padbind', 'padpreset']      # Reset Camera, unbound, comes first
     changes, _ = presets.preview(draft.to_bytes(), parse_file(sample_bytes()).save, presets.Preset('Same', rows))
     assert changes == []
     moved = [dict(r, value='Gamepad_DPad_Down') if r['key'] == 'GamepadJump@1#1' else r for r in rows]

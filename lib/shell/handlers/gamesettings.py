@@ -252,19 +252,35 @@ def gamesettings_presets(_params: dict) -> dict:
 
 @handler('gamesettings.preset_preview')
 def gamesettings_preset_preview(params: dict) -> dict:
-    """What a preset would change, as the sentences the confirm dialog shows."""
+    """What a preset would change, as the sentences the confirm dialog shows.
+
+    Without defaults (true or false), a preset whose game default settings or unbound keys would
+    change some of the user's settings first gets ask_defaults: a question and the settings they
+    would change. The window asks, then previews again with the answer."""
+    intro = {'added': 'Added {} to your presets. ',
+             'already': '{} is already in your presets. '}.get(str(params.get('imported', '')), '')
+    defaults = params.get('defaults')
     with _lock:
         session = _require()
         try:
             preset = presets.find(str(params.get('id', '')))
         except presets.PresetError as e:
             return {'ok': False, 'message': str(e)}
-        changes, skipped = presets.preview(session.draft.to_bytes(), session.view.original, preset)
-    intro = {'added': f'Added {preset.name} to your presets. ',
-             'already': f'{preset.name} is already in your presets. '}.get(str(params.get('imported', '')), '')
+        intro = intro.format(preset.name)
+        if defaults is None:
+            extra = presets.unset_changes(session.draft.to_bytes(), session.view.original, preset)
+            if extra:
+                return {'ok': True, 'ask_defaults': True, 'id': preset.id, 'name': preset.name,
+                        'builtin': preset.builtin, 'changes': len(extra), 'lines': [c.text() for c in extra],
+                        'prompt': f'{intro}{preset.name} also has {presets.unset_kinds(preset)}. Use them too? '
+                                  f'That changes {_plural(len(extra))} of yours:'}
+        changes, skipped = presets.preview(session.draft.to_bytes(), session.view.original, preset,
+                                           defaults=defaults is not False)
     about = f'{preset.description} ' if preset.description else ''
     if changes:
         prompt = f'{intro}Apply {preset.name}? {about}It changes {_plural(len(changes))}:'
+    elif defaults is False:
+        prompt = f'{intro}{about}Apart from its {presets.unset_kinds(preset)}, your settings already match {preset.name}.'
     else:
         prompt = f'{intro}{about}Your settings already match {preset.name}.'
     if skipped:
@@ -281,8 +297,9 @@ def gamesettings_preset_apply(params: dict) -> dict:
             preset = presets.find(str(params.get('id', '')))
         except presets.PresetError as e:
             return {'message': str(e), 'reload': False}
-        changes, _skipped = presets.preview(session.draft.to_bytes(), session.view.original, preset)
-        presets.apply_rows(session.view, preset)
+        defaults = params.get('defaults') is not False
+        changes, _skipped = presets.preview(session.draft.to_bytes(), session.view.original, preset, defaults)
+        presets.apply_rows(session.view, preset, defaults)
         if not changes:
             return {'message': f'Nothing changed. Your settings already match {preset.name}.', 'reload': False,
                     'status': _status(session)}

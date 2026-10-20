@@ -4,6 +4,10 @@ A preset changes only the settings it lists. Applying one edits the page's draft
 changing those settings by hand: the user is told what will change first, Discard Changes undoes
 it, and nothing reaches the account until Save to Fortnite.
 
+A preset made from sections holds every setting in them, unset ones too (at game default, or a key
+that isn't bound). Those would put the user's own settings back to game default, so whoever
+applies the preset is asked whether to use them (defaults=False leaves them out).
+
 A preset is a .preset file, UTF-8 JSON:
 
     {"type": "FA11y Fortnite settings preset", "version": 1, "name": "Turn keys", "description": "",
@@ -216,9 +220,8 @@ def _rows(view: SettingsView) -> List[Tuple[str, str, dict]]:
             for entry in group['settings']]
 
 
-def _is_set(entry: dict) -> bool:
-    value = entry.get('value')
-    return value not in UNSET and value != NOT_EDITABLE
+def _editable(entry: dict) -> bool:
+    return entry.get('value') != NOT_EDITABLE
 
 
 def _row(tab: str, entry: dict) -> dict:
@@ -226,21 +229,33 @@ def _row(tab: str, entry: dict) -> dict:
             'value': entry['value']}
 
 
+def _plural(n: int) -> str:
+    return f"{n} setting{'s' if n != 1 else ''}"
+
+
 def export_groups(view: SettingsView) -> List[dict]:
-    """The page's sections that have settings set, as {id, label, count}."""
-    counts: Dict[Tuple[str, str], int] = {}
+    """The page's sections, as {id, label, count, detail}: every setting that can be edited here,
+    with how many of them are at game default or not bound."""
+    counts: Dict[Tuple[str, str], List[int]] = {}
     for tab, heading, entry in _rows(view):
-        if _is_set(entry):
-            counts[(tab, heading)] = counts.get((tab, heading), 0) + 1
-    return [{'id': f'{tab}/{heading}', 'label': f'{tab}: {heading}', 'count': n} for (tab, heading), n in counts.items()]
+        if _editable(entry):
+            n = counts.setdefault((tab, heading), [0, 0, 0])
+            n[0] += 1
+            n[1] += entry.get('value') in UNSET and entry.get('value') != binds.UNBOUND
+            n[2] += entry.get('value') == binds.UNBOUND
+    out = []
+    for (tab, heading), (count, default, unbound) in counts.items():
+        detail = _plural(count) + (f', {default} at game default' if default else '') + (
+            f', {unbound} not bound' if unbound else '')
+        out.append({'id': f'{tab}/{heading}', 'label': f'{tab}: {heading}', 'count': count, 'detail': detail})
+    return out
 
 
 def rows_from_groups(view: SettingsView, group_ids: List[str]) -> List[dict]:
-    """The settings set in the chosen sections. Settings left at game default and keys left
-    unbound are not included, so the preset never clears anything."""
+    """Every setting in the chosen sections, the ones at game default and keys that aren't bound too."""
     wanted = set(group_ids)
     return [_row(tab, entry) for tab, heading, entry in _rows(view)
-            if f'{tab}/{heading}' in wanted and _is_set(entry)]
+            if f'{tab}/{heading}' in wanted and _editable(entry)]
 
 
 def rows_from_changes(view: SettingsView) -> List[dict]:
@@ -269,13 +284,34 @@ def _shown(entry: Optional[dict]) -> str:
     return str(value)
 
 
-def apply_rows(view: SettingsView, preset: Preset) -> List[str]:
-    """Set each listed setting on the view's file. Returns what was skipped, and why.
+def unset_rows(preset: Preset) -> List[dict]:
+    """The preset's settings at game default and keys that aren't bound."""
+    return [row for row in preset.settings if row.get('value') in UNSET]
+
+
+def unset_kinds(preset: Preset) -> str:
+    """What the unset rows are, for a sentence: "settings at game default", "keys that aren't bound" or both."""
+    values = {row.get('value') for row in unset_rows(preset)}
+    default, unbound = bool(values - {binds.UNBOUND}), binds.UNBOUND in values
+    kinds = (['settings at game default'] if default else []) + (['keys that aren\'t bound'] if unbound else [])
+    return ' and '.join(kinds)
+
+
+def _chosen(preset: Preset, defaults: bool) -> Preset:
+    if defaults:
+        return preset
+    return Preset(preset.name, [row for row in preset.settings if row.get('value') not in UNSET],
+                  preset.description, preset.path, preset.builtin)
+
+
+def apply_rows(view: SettingsView, preset: Preset, defaults: bool = True) -> List[str]:
+    """Set each listed setting on the view's file (without defaults, leave out the unset ones).
+    Returns what was skipped, and why.
 
     Setting a controller button switches the controller preset to Custom, so buttons that already
     match are left alone and the preset's own Controller Preset row goes last."""
     skipped = []
-    rows = sorted(preset.settings, key=lambda r: r['section'] == pad.PAD_PRESET)
+    rows = sorted(_chosen(preset, defaults).settings, key=lambda r: r['section'] == pad.PAD_PRESET)
     buttons = pad.pad_values(view.save)
     for row in rows:
         if row['section'] == pad.PAD_BIND and buttons.get(f"{pad.PAD_BIND}/{row['key']}") == row['value']:
@@ -289,17 +325,27 @@ def apply_rows(view: SettingsView, preset: Preset) -> List[str]:
     return skipped
 
 
-def preview(save_bytes: bytes, original: Save, preset: Preset) -> Tuple[List[Change], List[str]]:
+def preview(save_bytes: bytes, original: Save, preset: Preset,
+            defaults: bool = True) -> Tuple[List[Change], List[str]]:
     """What applying the preset to this file would change, without changing it: every row whose
     value would differ (side effects included, like the controller preset switching to Custom),
     and the settings that would be skipped."""
     copy = parse_file(save_bytes)
     view = SettingsView(copy.save, original)
     before = {entry['id']: entry for _tab, _heading, entry in _rows(view)}
-    skipped = apply_rows(view, preset)
+    skipped = apply_rows(view, preset, defaults)
     changes = []
     for tab, _heading, entry in _rows(view):
         old = before.get(entry['id'])
         if old is None or old.get('value') != entry.get('value'):
             changes.append(Change(entry['label'], tab, _shown(old), _shown(entry)))
     return changes, skipped
+
+
+def unset_changes(save_bytes: bytes, original: Save, preset: Preset) -> List[Change]:
+    """What the preset's unset rows would change on top of the rest: the user's own settings they
+    would put back to game default, and keys they would unbind."""
+    if not unset_rows(preset):
+        return []
+    kept = {c.text() for c in preview(save_bytes, original, preset, defaults=False)[0]}
+    return [c for c in preview(save_bytes, original, preset)[0] if c.text() not in kept]

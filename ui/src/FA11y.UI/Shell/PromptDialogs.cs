@@ -59,8 +59,13 @@ public static class Prompts
         return window.ShowDialog() == true ? list.SelectedIndex : -1;
     }
 
-    /// <summary>Ask which of the choices are wanted, as check boxes. Returns the checked indexes, or null when cancelled.</summary>
-    public static IReadOnlyList<int>? Pick(Window? owner, string title, string prompt, IReadOnlyList<string> choices)
+    /// <summary>
+    /// Ask which of the choices are wanted, as check boxes. Returns the checked indexes, or null when cancelled.
+    /// With selectAll, a check box with that label comes first: it checks or clears them all, and is checked
+    /// while they all are.
+    /// </summary>
+    public static IReadOnlyList<int>? Pick(Window? owner, string title, string prompt, IReadOnlyList<string> choices,
+        string? selectAll = null)
     {
         var boxes = choices.Select(c => new CheckOption { Content = c, Margin = new Thickness(0, 0, 0, 4) }).ToList();
         var panel = new StackPanel();
@@ -74,8 +79,39 @@ public static class Prompts
             Focusable = false,
             Content = panel,
         };
-        var window = new PromptWindow(owner, title, prompt, scroll, null);
-        window.Loaded += (_, _) => boxes.FirstOrDefault()?.Focus();
+        UIElement input = scroll;
+        CheckOption? all = null;
+        if (selectAll != null && boxes.Count > 1)
+        {
+            all = new CheckOption { Content = selectAll, Margin = new Thickness(0, 12, 0, 0) };
+            scroll.Margin = new Thickness(0, 8, 0, 0);
+            // Checked and Unchecked, not Click: a screen reader's toggle (UIA) changes IsChecked without a click.
+            var syncing = false;
+            void Sync(Action change)
+            {
+                if (syncing)
+                    return;
+                syncing = true;
+                try { change(); }
+                finally { syncing = false; }
+            }
+            RoutedEventHandler setAll = (_, _) => Sync(() =>
+            {
+                foreach (var box in boxes)
+                    box.IsChecked = all.IsChecked == true;
+            });
+            all.Checked += setAll;
+            all.Unchecked += setAll;
+            RoutedEventHandler follow = (_, _) => Sync(() => all.IsChecked = boxes.All(b => b.IsChecked == true));
+            foreach (var box in boxes)
+            {
+                box.Checked += follow;
+                box.Unchecked += follow;
+            }
+            input = new StackPanel { Children = { all, scroll } };
+        }
+        var window = new PromptWindow(owner, title, prompt, input, null);
+        window.Loaded += (_, _) => ((UIElement?)all ?? boxes.FirstOrDefault())?.Focus();
         if (window.ShowDialog() != true)
             return null;
         return Enumerable.Range(0, boxes.Count).Where(i => boxes[i].IsChecked == true).ToList();
