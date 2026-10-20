@@ -255,8 +255,8 @@ def gamesettings_preset_preview(params: dict) -> dict:
     """What a preset would change, as the sentences the confirm dialog shows.
 
     Without defaults (true or false), a preset whose game default settings or unbound keys would
-    change some of the user's settings first gets ask_defaults: a question and the settings they
-    would change. The window asks, then previews again with the answer."""
+    reset some of the user's settings first gets ask_defaults: a question and the settings it
+    resets. The window asks, then previews again with the answer."""
     intro = {'added': 'Added {} to your presets. ',
              'already': '{} is already in your presets. '}.get(str(params.get('imported', '')), '')
     defaults = params.get('defaults')
@@ -272,15 +272,15 @@ def gamesettings_preset_preview(params: dict) -> dict:
             if extra:
                 return {'ok': True, 'ask_defaults': True, 'id': preset.id, 'name': preset.name,
                         'builtin': preset.builtin, 'changes': len(extra), 'lines': [c.text() for c in extra],
-                        'prompt': f'{intro}{preset.name} also has {presets.unset_kinds(preset)}. Use them too? '
-                                  f'That changes {_plural(len(extra))} of yours:'}
+                        'prompt': f'{intro}{preset.name} also resets {_plural(len(extra))} of yours. '
+                                  f"Reset {'it' if len(extra) == 1 else 'them'} too?"}
         changes, skipped = presets.preview(session.draft.to_bytes(), session.view.original, preset,
                                            defaults=defaults is not False)
     about = f'{preset.description} ' if preset.description else ''
     if changes:
         prompt = f'{intro}Apply {preset.name}? {about}It changes {_plural(len(changes))}:'
     elif defaults is False:
-        prompt = f'{intro}{about}Apart from its {presets.unset_kinds(preset)}, your settings already match {preset.name}.'
+        prompt = f'{intro}{about}Apart from the resets, your settings already match {preset.name}.'
     else:
         prompt = f'{intro}{about}Your settings already match {preset.name}.'
     if skipped:

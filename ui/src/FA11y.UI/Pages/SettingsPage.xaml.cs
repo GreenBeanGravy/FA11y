@@ -369,8 +369,8 @@ public partial class SettingsPage : PageBase
     }
 
     /// <summary>
-    /// Show what the preset changes, then apply it, delete it, or do nothing. A preset with settings at game
-    /// default (or unbound keys) that differ from the user's asks first whether to use those.
+    /// Show what the preset changes, then apply it, delete it, or do nothing. A preset that would reset some of
+    /// the user's settings to game default (or unbind keys) asks first whether to reset them.
     /// </summary>
     private async Task ReviewPresetAsync(string id, string? imported)
     {
@@ -385,7 +385,7 @@ public partial class SettingsPage : PageBase
         {
             var reset = preview.GetProperty("lines").EnumerateArray().Select(l => l.GetString() ?? "").ToList();
             var answer = Prompts.Review(Host, preview.Str("name"), preview.Str("prompt"), reset,
-                new[] { ("yes", "Use Them"), ("no", "Keep Mine"), ("cancel", "Cancel") });
+                new[] { ("yes", "Yes"), ("no", "No"), ("cancel", "Cancel") });
             if (answer is not ("yes" or "no"))
                 return;
             defaults = answer == "yes";
@@ -463,10 +463,9 @@ public partial class SettingsPage : PageBase
                 Prompts.Message(Host, title, "There are no settings to put in a preset.");
                 return;
             }
-            var labels = groups.Select(g => $"{g.Str("label")} ({g.Str("detail")})").ToList();
+            var labels = groups.Select(g => $"{g.Str("label")} ({g.Int("count")} setting{(g.Int("count") == 1 ? "" : "s")})").ToList();
             var chosen = Prompts.Pick(Host, title,
-                "Pick the sections to include. A preset holds every setting in them, game defaults too: "
-                + "whoever applies it chooses whether to use those.",
+                "Pick the sections to export. Every setting in them is included, game defaults too.",
                 labels, selectAll: "Select all");
             if (chosen == null)
                 return;

@@ -229,26 +229,13 @@ def _row(tab: str, entry: dict) -> dict:
             'value': entry['value']}
 
 
-def _plural(n: int) -> str:
-    return f"{n} setting{'s' if n != 1 else ''}"
-
-
 def export_groups(view: SettingsView) -> List[dict]:
-    """The page's sections, as {id, label, count, detail}: every setting that can be edited here,
-    with how many of them are at game default or not bound."""
-    counts: Dict[Tuple[str, str], List[int]] = {}
+    """The page's sections, as {id, label, count}: every setting that can be edited here counts."""
+    counts: Dict[Tuple[str, str], int] = {}
     for tab, heading, entry in _rows(view):
         if _editable(entry):
-            n = counts.setdefault((tab, heading), [0, 0, 0])
-            n[0] += 1
-            n[1] += entry.get('value') in UNSET and entry.get('value') != binds.UNBOUND
-            n[2] += entry.get('value') == binds.UNBOUND
-    out = []
-    for (tab, heading), (count, default, unbound) in counts.items():
-        detail = _plural(count) + (f', {default} at game default' if default else '') + (
-            f', {unbound} not bound' if unbound else '')
-        out.append({'id': f'{tab}/{heading}', 'label': f'{tab}: {heading}', 'count': count, 'detail': detail})
-    return out
+            counts[(tab, heading)] = counts.get((tab, heading), 0) + 1
+    return [{'id': f'{tab}/{heading}', 'label': f'{tab}: {heading}', 'count': n} for (tab, heading), n in counts.items()]
 
 
 def rows_from_groups(view: SettingsView, group_ids: List[str]) -> List[dict]:
@@ -287,14 +274,6 @@ def _shown(entry: Optional[dict]) -> str:
 def unset_rows(preset: Preset) -> List[dict]:
     """The preset's settings at game default and keys that aren't bound."""
     return [row for row in preset.settings if row.get('value') in UNSET]
-
-
-def unset_kinds(preset: Preset) -> str:
-    """What the unset rows are, for a sentence: "settings at game default", "keys that aren't bound" or both."""
-    values = {row.get('value') for row in unset_rows(preset)}
-    default, unbound = bool(values - {binds.UNBOUND}), binds.UNBOUND in values
-    kinds = (['settings at game default'] if default else []) + (['keys that aren\'t bound'] if unbound else [])
-    return ' and '.join(kinds)
 
 
 def _chosen(preset: Preset, defaults: bool) -> Preset:

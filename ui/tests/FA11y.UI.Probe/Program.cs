@@ -596,9 +596,11 @@ internal static partial class Program
 
     private static bool SelectGameTab(string name)
     {
-        var tab = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+        AutomationElement? tab = null;
+        // Right after a dialog closes the page can be briefly out of the tree.
+        WaitFor(() => (tab = _window.FindFirst(TreeScope.Descendants, new AndCondition(
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
-            new PropertyCondition(AutomationElement.NameProperty, name)));
+            new PropertyCondition(AutomationElement.NameProperty, name)))) != null, 3000);
         if (!Check(tab != null, $"there is a {name} tab"))
             return false;
         ((SelectionItemPattern)tab!.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
@@ -728,8 +730,8 @@ internal static partial class Program
         if (!Check(boxes.Count > 2 && boxes[0].Current.Name == "Select all", "Select all is the first check box"))
             return;
         Check(WaitFor(() => boxes[0].Current.HasKeyboardFocus, 2000), "Select all has focus when the dialog opens");
-        Check(boxes.Skip(1).Any(b => b.Current.Name.Contains(" at game default")) && boxes.Skip(1).Any(b => b.Current.Name.Contains(" not bound")),
-            "sections say how many of their settings are at game default or not bound");
+        Check(HasText(pick, "Pick the sections to export. Every setting in them is included, game defaults too."),
+            "the dialog says every setting in a section is exported");
         ToggleState State(AutomationElement box) => ((TogglePattern)box.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState;
         void Toggle(AutomationElement box) => ((TogglePattern)box.GetCurrentPattern(TogglePattern.Pattern)).Toggle();
         Toggle(boxes[0]);
@@ -744,7 +746,7 @@ internal static partial class Program
         PressIn(pick, "Cancel");
     }
 
-    /// <summary>A preset with settings at game default asks whether to use them, and lists what they change.</summary>
+    /// <summary>A preset that would reset some of the user's settings asks first, and lists them.</summary>
     private static void DefaultsQuestionChecks(string mine)
     {
         File.WriteAllText(Path.Combine(mine, "Defaults.preset"), """
@@ -762,21 +764,21 @@ internal static partial class Program
         Check(list != null && ItemNames(list).FirstOrDefault() == "Defaults", "Defaults is first in the list");
         PressIn(choose, "OK");
         var question = WaitForDialog("Defaults");
-        if (!Check(question != null, "picking Defaults asks about its game default settings first"))
+        if (!Check(question != null, "picking Defaults asks about its resets first"))
             return;
-        Check(HasText(question!, "Defaults also has settings at game default and keys that aren't bound. Use them too? That changes 1 setting of yours:"),
-            "the question says what kind of settings and how many of yours they change");
+        Check(HasText(question!, "Defaults also resets 1 setting of yours. Reset it too?"),
+            "the question says how many of yours it resets");
         var lines = question!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.List));
         Check(lines != null && ItemNames(lines).SequenceEqual(new[] { "Toggle Sprint (Game): On to Game default (On)" }),
-            "it lists the setting that would go back to game default");
-        foreach (var name in new[] { "Use Them", "Keep Mine", "Cancel" })
+            "it lists the setting it resets");
+        foreach (var name in new[] { "Yes", "No", "Cancel" })
             Check(Button(question, name) != null, $"the question has a {name} button");
         var questionId = question.GetRuntimeId();
-        PressIn(question, "Use Them");
+        PressIn(question, "Yes");
         var review = WaitForDialog("Defaults", questionId);
-        if (!Check(review != null, "Use Them goes on to the usual review"))
+        if (!Check(review != null, "Yes goes on to the usual review"))
             return;
-        Check(HasText(review!, "Apply Defaults? It changes 1 setting:"), "the review counts the game default setting");
+        Check(HasText(review!, "Apply Defaults? It changes 1 setting:"), "the review counts the reset");
         PressIn(review!, "Cancel");
         File.Delete(Path.Combine(mine, "Defaults.preset"));
     }
