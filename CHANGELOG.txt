@@ -11,6 +11,7 @@
 - Controller Binds starts with Reset Camera too. Choices now use the game's own names, like Push to Talk and Scope or Aiming, and FA11y warns when a turn key is already used.
 - The Fortnite settings page has presets. Presets lists them and reads out every setting one would change, and to what, before you apply it. Export Preset saves your unsaved changes, or sections you pick, as a .preset file you can send to friends, and Import Preset adds one. FA11y doesn't come with presets yet.
 - Keybinds on the Fortnite settings page now work like FA11y's own: press Enter on one, then the key, mouse button or mouse wheel direction you want. On Controller Binds, press the controller button instead (Xbox controllers, and PlayStation controllers plugged in directly). Delete unbinds, and R puts back the key it had when the page loaded.
+- Fixed the Next button in FA11y's setup sometimes reading its shortcut as Alt and a blank key. It now reads Alt+N again.
 
 10/12/2026 #1 (19.0.0-beta.3, Beta branch):
 - Added Nightmare Island and Stranger Things map images, POIs, and aligned object locations. Map selection now lists Nightmare Island, Surf City, and Stranger Things.

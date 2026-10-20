@@ -47,7 +47,16 @@ internal sealed class LeafButtonPeer : ButtonAutomationPeer
     protected override List<AutomationPeer>? GetChildrenCore() => null;
 
     // WPF reports a bare "N"; NVDA reads "Alt+N" from its own dialogs, so say it the same way.
-    protected override string GetAccessKeyCore() => base.GetAccessKeyCore() is { Length: 1 } key ? "Alt+" + key : base.GetAccessKeyCore();
+    // A default button (IsDefault) also registers Enter ("\r") as an access key, and WPF can hand
+    // that back instead of the label's letter, so take the letter from the label then.
+    protected override string GetAccessKeyCore()
+    {
+        var key = base.GetAccessKeyCore();
+        if (key is { Length: 1 } && !char.IsControl(key[0])) return "Alt+" + key;
+        if (Owner is ContentControl { Content: string label } && label.IndexOf('_') is var i and >= 0 && i + 1 < label.Length)
+            return "Alt+" + label[i + 1];
+        return key is { Length: 1 } ? string.Empty : key;
+    }
 }
 
 /// <summary>A check box as one element, with the same rule: no stray label text inside it.</summary>
