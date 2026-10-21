@@ -88,7 +88,7 @@ GYRO = {
 # their own Turning rows (client_settings_turning).
 LEFT_OUT = {'ForceJogToggle', 'ForceJogHold', 'ForceWalkToggle', 'ForceWalkHold', 'Turn', 'LookUp'}
 NOTES = {
-    'GamepadResetCamera': 'Levels the camera with the horizon. With Reset Camera Axes on the Game tab set to Yaw '
+    'GamepadResetCamera': 'Levels the camera with the horizon. With Reset Camera Axes on the Controller tab set to Yaw '
                           'or Both, it also turns the camera the way you are moving: hold Move Backward and press '
                           'it to look behind you.',
 }

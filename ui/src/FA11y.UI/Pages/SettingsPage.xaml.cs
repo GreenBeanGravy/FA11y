@@ -653,9 +653,24 @@ public partial class SettingsPage : PageBase
                 control = placed = text;
                 break;
         }
+        // A number the game picks while it isn't set: its value goes beside the box, and into the box's name.
+        var gameDefault = model.Kind is "number" or "text" && model.Default.ValueKind == JsonValueKind.String
+            ? model.Default.GetString() ?? ""
+            : "";
+        if (gameDefault.Length > 0)
+        {
+            var hint = new HiddenText
+            {
+                Text = $"Game default: {gameDefault}",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(10, 0, 0, 0),
+                Foreground = (Brush)FindResource("TextMuted"),
+            };
+            placed = new StackPanel { Orientation = Orientation.Horizontal, Children = { placed, hint } };
+        }
         view.Control = control;
         if (model.Kind != "keybind")
-            AutomationProperties.SetName(control, model.Label);
+            AutomationProperties.SetName(control, gameDefault.Length > 0 ? $"{model.Label}, game default {gameDefault}" : model.Label);
         AutomationProperties.SetHelpText(control, model.Description);
 
         var grid = new Grid { Margin = new Thickness(0, 0, 0, 4) };

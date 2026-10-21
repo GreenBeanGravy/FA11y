@@ -18,7 +18,8 @@ ROWS = [
     {'tab': 'Controller Binds', 'label': 'Reset Camera', 'section': 'padbind', 'key': 'GamepadResetCamera@1#1',
      'value': 'Gamepad_DPad_Down'},
     {'tab': 'Keybinds', 'label': 'Fly', 'section': 'bind', 'key': 'Fly@1#1', 'value': 'K'},
-    {'tab': 'All Settings', 'label': 'Last seen', 'section': 'record', 'key': 'LastSeenVersion', 'value': '1'},
+    {'tab': 'All Settings', 'label': 'Clip reminders enabled', 'section': 'record', 'key': 'bClipRemindersEnabled',
+     'value': 'on'},
 ]
 
 
@@ -53,7 +54,7 @@ def test_preview_says_what_changes_and_leaves_the_draft_alone():
     assert 'Turn Left (Keybinds): Not bound to Left Arrow' in texts
     assert 'Turn Speed (Keybinds): Game default to 50' in texts
     assert 'Controller Preset (Controller Binds): Combat Pro to Custom' in texts   # switched by the button
-    assert skipped == ['Fly (Keybinds): isn\'t in your settings.', 'Last seen (All Settings): isn\'t in your settings.']
+    assert skipped == ['Fly (Keybinds): isn\'t in your settings.', 'Clip reminders enabled (All Settings): FA11y doesn\'t show this setting.']
     assert draft.to_bytes() == sample_bytes()
 
 
@@ -61,11 +62,12 @@ def test_sections_hold_every_setting_and_changes_only_what_changed():
     draft = parse_file(sample_bytes())
     view = SettingsView(draft.save, parse_file(sample_bytes()).save)
     groups = {g['id']: g['count'] for g in presets.export_groups(view)}
-    assert (groups['Game/Movement'], groups['Keybinds/Camera'], groups['Keybinds/Movement']) == (2, 8, 4)
+    assert (groups['Game/Movement'], groups['Keybinds/Camera'], groups['Keybinds/Movement']) == (4, 8, 4)
     view.apply('turn', 'left#1', 'Left')
     rows = presets.rows_from_groups(view, ['Keybinds/Camera', 'Game/Movement'])
     assert [(r['label'], r['value']) for r in rows] == [
-        ('Toggle Sprint', 'on'), ('Auto Open Doors', 'default'), ('Turn Left', 'Left'), ('Turn Right', 'None'),
+        ('Toggle Sprint', 'on'), ('Auto Open Doors', 'default'), ('Mantle Activation', 'default'),
+        ('Hurdle Activation', 'default'), ('Turn Left', 'Left'), ('Turn Right', 'None'),
         ('Look Up', 'None'), ('Look Down', 'None'), ('Turn Speed', '100'), ('Look Up and Down Speed', ''),
         ('Reset Camera', 'None'), ('Reset Camera, second key', 'None')]
     view.apply('record', 'bToggleSprint', 'default')
@@ -115,7 +117,7 @@ def test_apply_a_preset_to_the_page(page, folders):
     assert [(p['name'], p['builtin'], p['count']) for p in listed] == [('Mine', False, len(ROWS))]
     shown = gamesettings.gamesettings_preset_preview({'id': stored.id})
     assert shown['prompt'] == 'Apply Mine? It changes 5 settings: 2 settings in it are skipped.'
-    assert shown['lines'][-1] == 'Skipped: Last seen (All Settings): isn\'t in your settings.'
+    assert shown['lines'][-1] == 'Skipped: Clip reminders enabled (All Settings): FA11y doesn\'t show this setting.'
     done = gamesettings.gamesettings_preset_apply({'id': stored.id})
     assert done['message'] == 'Applied Mine: 5 settings changed. Save to Fortnite to keep them.' and done['reload']
     assert done['status'].startswith('5 unsaved changes: ')
@@ -128,7 +130,7 @@ def test_export_import_and_delete(page, folders):
     gamesettings.gamesettings_schema({})
     gamesettings.gamesettings_set({'section': 'turn', 'key': 'right#1', 'value': 'Right'})
     options = gamesettings.gamesettings_preset_export_options({})
-    assert options['changes'] == 2 and {'id': 'Game/Movement', 'label': 'Game: Movement', 'count': 2} in options['groups']
+    assert options['changes'] == 2 and {'id': 'Game/Movement', 'label': 'Game: Movement', 'count': 4} in options['groups']
     path = folders / 'shared.preset'
     done = gamesettings.gamesettings_preset_export({'name': 'Turning', 'changes': True, 'path': str(path)})
     assert done['ok'] and done['message'] == f'Saved Turning, with 2 settings, to your presets and to {path}.'
@@ -136,7 +138,7 @@ def test_export_import_and_delete(page, folders):
     clash = gamesettings.gamesettings_preset_export({'name': 'turning', 'groups': ['Game/Movement']})
     assert clash['exists'] and not clash['ok']
     replaced = gamesettings.gamesettings_preset_export({'name': 'turning', 'groups': ['Game/Movement'], 'replace': True})
-    assert replaced['message'] == 'Saved turning to your presets, with 2 settings.'
+    assert replaced['message'] == 'Saved turning to your presets, with 4 settings.'
     assert [p['name'] for p in gamesettings.gamesettings_presets({})['presets']] == ['turning']
 
     imported = gamesettings.gamesettings_preset_import({'path': str(path)})      # same name, other settings

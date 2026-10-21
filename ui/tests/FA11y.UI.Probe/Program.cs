@@ -498,7 +498,7 @@ internal static partial class Program
         Check(Named(focusable, "No unsaved changes.", ControlType.Text) != null, "the status line says there are no changes");
         Shot(core, shots, "gamesettings-game");
 
-        foreach (var tabName in new[] { "Mouse and Keyboard", "Keybinds", "Controller", "Controller Binds", "Audio", "Accessibility", "All Settings" })
+        foreach (var tabName in new[] { "Mouse and Keyboard", "Keybinds", "Controller", "Controller Binds", "Audio", "Accessibility", "Game UI", "Account and Privacy" })
         {
             var tab = _window.FindFirst(TreeScope.Descendants, new AndCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
@@ -511,13 +511,35 @@ internal static partial class Program
             Check(shown.Count > 4, $"the {tabName} tab has settings ({shown.Count} focusable)");
             Shot(core, shots, "gamesettings-" + tabName.ToLowerInvariant().Replace(' ', '-'));
         }
+        Check(_window.FindFirst(TreeScope.Descendants, new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
+                new PropertyCondition(AutomationElement.NameProperty, "All Settings"))) == null,
+            "there is no All Settings tab");
+
+        // A number that isn't set says the game's default in its name; a choice says it in Game default.
+        if (SelectGameTab("Controller"))
+            Check(_window.FindFirst(TreeScope.Descendants, new AndCondition(
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
+                    new PropertyCondition(AutomationElement.NameProperty, "Reset Camera Time, game default 0.1"))) != null,
+                "the empty Reset Camera Time box is named \"Reset Camera Time, game default 0.1\"");
 
         // Change Visualize Sound Effects to On through its combo box; the status line should name it.
-        var access = _window.FindFirst(TreeScope.Descendants, new AndCondition(
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem),
-            new PropertyCondition(AutomationElement.NameProperty, "Accessibility")));
-        ((SelectionItemPattern)access.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
-        Thread.Sleep(600);
+        if (!SelectGameTab("Audio"))
+            return;
+        var hitmarkers = _window.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox),
+            new PropertyCondition(AutomationElement.NameProperty, "Hitmarkers")));
+        var hitmarkersShows = hitmarkers == null ? "" : ((SelectionPattern)hitmarkers.GetCurrentPattern(SelectionPattern.Pattern))
+            .Current.GetSelection().FirstOrDefault()?.Current.Name ?? "";
+        Check(hitmarkersShows == "Game default (Default)",
+            $"Hitmarkers is on the Audio tab and shows \"Game default (Default)\" (shows \"{hitmarkersShows}\")");
+        // Ctrl+F finds settings where the game's menu has them, and nothing from the old All Settings list.
+        // Tree mode has no foreground, so the keys go through the test core.
+        var (wasCore, wasSynthetic) = (_core, _synthetic);
+        (_core, _synthetic) = (core, true);
+        SearchAndJump("hitmarkers", "Hitmarkers, Audio", "Hitmarkers");
+        SearchFindsNothing("aperture");
+        (_core, _synthetic) = (wasCore, wasSynthetic);
         var combo = _window.FindFirst(TreeScope.Descendants, new AndCondition(
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox),
             new PropertyCondition(AutomationElement.NameProperty, "Visualize Sound Effects")));
@@ -1280,6 +1302,33 @@ internal static partial class Program
         Press(Vk.Enter);
         Check(WaitFor(() => SearchWindowElement() == null, 2000), "Enter closes the popup");
         Check(FocusIs(focusedName), $"the setting \"{focusedName}\" has focus (is {FocusedText()})");
+    }
+
+    /// <summary>Ctrl+F and the words: the results list is empty. Escape closes the popup.</summary>
+    private static void SearchFindsNothing(string query)
+    {
+        Press(Vk.F, mods: "Control");
+        if (!Check(WaitFor(() => SearchWindowElement() != null, 3000), $"Ctrl+F opens the search popup ({query})"))
+            return;
+        Thread.Sleep(250);
+        var box = SearchWindowElement()!.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.NameProperty, "Search settings"),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit)));
+        if (_synthetic)
+        {
+            box!.SetFocus();
+            SetText(box, query);
+        }
+        else
+        {
+            TypeText(query);
+        }
+        Thread.Sleep(250);
+        var results = SearchWindowElement()!.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "Results"));
+        var count = results?.FindAll(TreeScope.Children, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem)).Count ?? 0;
+        Check(count == 0, $"nothing matches \"{query}\" ({count} results)");
+        Press(Vk.Escape);
+        Check(WaitFor(() => SearchWindowElement() == null, 2000), "Escape closes the popup");
     }
 
     private static void EditorChecks()

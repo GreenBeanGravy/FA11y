@@ -39,7 +39,7 @@ UINT_HIGH = 10000          # the menu stops at 100 (or less); larger values are 
 LOOK_OPTIONS: List[Tuple[str, str, str, str, str]] = [
     ('Basic', 'LookSensitivityPreset', 'Look Sensitivity', SENSITIVITY_ENUM,
      'How fast the right stick turns the camera, from Slow to Insane.'),
-    ('Basic', 'LookSensitivityPresetAds', 'Look Sensitivity (Targeting)', SENSITIVITY_ENUM,
+    ('Basic', 'LookSensitivityPresetAds', 'Aim Sensitivity (ADS)', SENSITIVITY_ENUM,
      'How fast the right stick turns the camera while aiming down sights.'),
     ('Basic', 'LookBuildModeMultiplier', 'Build Mode Sensitivity Multiplier', 'float',
      'Turning speed in build mode, as a multiplier of the normal speed.'),
@@ -51,29 +51,29 @@ LOOK_OPTIONS: List[Tuple[str, str, str, str, str]] = [
      'Turning speed left and right, in percent. Can go past 100.'),
     ('Advanced', 'LookVerticalSpeed', 'Look Vertical Speed', 'uint',
      'Turning speed up and down, in percent.'),
-    ('Advanced', 'LookHorizontalSpeedAds', 'Targeting Horizontal Speed', 'uint',
+    ('Advanced', 'LookHorizontalSpeedAds', 'ADS Look Horizontal Speed', 'uint',
      'Turning speed left and right while aiming down sights, in percent.'),
-    ('Advanced', 'LookVerticalSpeedAds', 'Targeting Vertical Speed', 'uint',
+    ('Advanced', 'LookVerticalSpeedAds', 'ADS Look Vertical Speed', 'uint',
      'Turning speed up and down while aiming down sights, in percent.'),
     ('Advanced', 'LookHorizontalBoostSpeed', 'Turning Horizontal Boost', 'uint',
      'Extra speed left and right when the stick is pushed all the way, in percent. Can go past 100.'),
     ('Advanced', 'LookVerticalBoostSpeed', 'Turning Vertical Boost', 'uint',
      'Extra speed up and down when the stick is pushed all the way, in percent.'),
-    ('Advanced', 'LookHorizontalBoostSpeedAds', 'Targeting Horizontal Boost', 'uint',
+    ('Advanced', 'LookHorizontalBoostSpeedAds', 'ADS Turning Horizontal Boost', 'uint',
      'Extra speed left and right while aiming, with the stick all the way, in percent.'),
-    ('Advanced', 'LookVerticalBoostSpeedAds', 'Targeting Vertical Boost', 'uint',
+    ('Advanced', 'LookVerticalBoostSpeedAds', 'ADS Turning Vertical Boost', 'uint',
      'Extra speed up and down while aiming, with the stick all the way, in percent.'),
     ('Advanced', 'LookBoostAccelerationTime', 'Turning Boost Ramp Time', 'float',
      'How long, in seconds, the boost takes to reach full speed. 0 is instant.'),
-    ('Advanced', 'LookBoostAccelerationTimeAds', 'Targeting Boost Ramp Time', 'float',
+    ('Advanced', 'LookBoostAccelerationTimeAds', 'ADS Turning Boost Ramp Time', 'float',
      'How long, in seconds, the boost takes to reach full speed while aiming.'),
     ('Advanced', 'bInstantBoostWhenBuilding', 'Instant Boost When Building', 'bool',
      'The boost starts at full speed in build mode.'),
-    ('Advanced', 'LookEaseTime', 'Look Ease Time', 'float',
+    ('Advanced', 'LookEaseTime', 'Look Dampening Time', 'float',
      'How long, in seconds, turning takes to speed up when you push the stick.'),
     ('Advanced', 'LookInputCurve', 'Look Input Curve', CURVE_ENUM,
      'Linear turns at a speed in step with the stick; Exponential is slow near the middle.'),
-    ('Advanced', 'ScopedSensitivityMultiplier', 'Scope Sensitivity Multiplier', 'float',
+    ('Advanced', 'ScopedSensitivityMultiplier', 'Scoped Speed Multiplier', 'float',
      'Turning speed through a scope, as a multiplier.'),
 ]
 # Aim assist strength (AimAssistStrength, AimAssistSlowStrength, AimAssistPullStrength) is left
@@ -106,7 +106,7 @@ PAD_LABELS = {
     'MapZoomOut_Gamepad': 'Map Zoom Out',
 }
 PAD_NOTES = {
-    'GamepadResetCamera': 'Levels the camera with the horizon. With Reset Camera Axes on the Game tab set to Yaw '
+    'GamepadResetCamera': 'Levels the camera with the horizon. With Reset Camera Axes on the Controller tab set to Yaw '
                           'or Both, it also turns the camera the way the left stick points: pull the stick back '
                           'and press it to look behind you.',
 }
@@ -171,22 +171,29 @@ def _display(kind: str, value):
 
 
 def look_entries(save: Save) -> List[Tuple[str, List[dict]]]:
+    from lib.utilities.client_settings_catalog import load_defaults, split_words
+    defaults = load_defaults().get(USER_OPTIONS, {})
     groups: Dict[str, List[dict]] = {}
     for part, name, label, kind, description in LOOK_OPTIONS:
         key = f'{part}.{name}'
         value = _display(kind, look_value(save, key))
+        known = defaults.get(key)
         entry = {'id': f'{LOOK}/{key}', 'section': LOOK, 'key': key, 'label': label, 'description': description,
                  'show_description': True, 'default': None}
         if kind == 'bool':
-            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': 'Game default (Off)'},
+            shown = '' if not isinstance(known, bool) else (' (On)' if known else ' (Off)')
+            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': 'Game default' + shown},
                                                                {'value': 'on', 'label': 'On'},
                                                                {'value': 'off', 'label': 'Off'}])
         elif kind in ENUM_CHOICES:
-            from lib.utilities.client_settings_catalog import split_words
-            default = 'Game default (Normal)' if kind == SENSITIVITY_ENUM else 'Game default'
-            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': default}] + [
-                {'value': f'{kind}::{n}', 'label': split_words(n).replace(' plus', '+')} for n in ENUM_CHOICES[kind]])
+            def choice_label(n: str) -> str:
+                return split_words(n).replace(' plus', '+')
+            shown = f" ({choice_label(known.split('::')[-1])})" if isinstance(known, str) else ''
+            entry.update(kind='choice', value=value, choices=[{'value': DEFAULT, 'label': 'Game default' + shown}] + [
+                {'value': f'{kind}::{n}', 'label': choice_label(n)} for n in ENUM_CHOICES[kind]])
         else:
+            if isinstance(known, (int, float)) and not isinstance(known, bool):
+                entry['default'] = _display(kind, known)
             entry.update(kind='text', value=value)
         heading = 'Look Sensitivity' if part == 'Basic' else 'Advanced Look Options'
         groups.setdefault(heading, []).append(entry)

@@ -57,16 +57,27 @@ def test_broken_files_raise_settings_errors():
 
 # The editor ---------------------------------------------------------------------------------------
 
-def test_schema_has_menu_tabs_and_every_other_setting():
+def test_schema_has_the_menus_tabs_and_sections():
     _, view = view_of(sample_bytes())
     tabs = {t['name']: t for t in view.schema()}
-    assert {'Game', 'Audio', 'Accessibility', 'All Settings'} <= set(tabs)
-    labels = [s['label'] for g in tabs['Game']['groups'] for s in g['settings']]
-    assert 'Toggle Sprint' in labels and 'Auto Open Doors' in labels
-    every = [s['key'] for g in tabs['All Settings']['groups'] for s in g['settings']]
-    assert 'bAutoClamber' in every
-    # Bookkeeping is never offered.
-    assert not any(k in every for k in ('bDirty', 'CloudFileState', 'MouseSensitivityDefaultVersion'))
+    assert {'Game', 'Audio', 'Accessibility', 'Game UI'} <= set(tabs) and 'All Settings' not in tabs
+
+    def where(key):
+        return next((t['name'], g['heading']) for t in view.schema() for g in t['groups'] for s in g['settings']
+                    if s['key'] == key)
+    # Where Fortnite's own menu has them.
+    assert where('bNewHitmarkersEnabled') == ('Audio', 'Sound')
+    assert where('bVisualizeAudioSources') == ('Audio', 'Sound')
+    assert where('bEnableSubtitles') == ('Audio', 'Subtitles')
+    assert where('bAutoClamber') == ('Game', 'Movement')
+    assert where('CameraResetTime') == ('Controller', 'Input')
+    assert where('bReplayRecordingEnabled') == ('Game', 'Replays')
+    keys = [s['key'] for t in view.schema() for g in t['groups'] for s in g['settings']]
+    assert len(keys) == len(set(keys))
+    # Bookkeeping and settings the menu doesn't have are never offered.
+    assert not set(keys) & {'bDirty', 'CloudFileState', 'MouseSensitivityDefaultVersion', 'bClipRemindersEnabled'}
+    with pytest.raises(ValueError, match='doesn\'t show'):
+        view.apply('record', 'bClipRemindersEnabled', 'on')
 
 
 def test_missing_settings_show_game_default_and_present_ones_their_value():
@@ -75,8 +86,15 @@ def test_missing_settings_show_game_default_and_present_ones_their_value():
     assert view.entry('bTargetingToggleable', 'x', '')['value'] == 'off'
     doors = view.entry('bAutoOpenDoorsNonMobile', 'x', '')
     assert doors['value'] == DEFAULT and doors['choices'][0]['label'] == 'Game default (Off)'
-    assert view.entry('bAutoClamber', 'x', '')['choices'][0]['label'] == 'Game default'
+    assert [c['label'] for c in view.entry('bAutoClamber', 'x', '')['choices']] == [
+        'Game default (Hold jump)', 'Hold forward', 'Hold jump']
+    assert view.entry('bNewHitmarkersEnabled', 'x', '')['choices'][0]['label'] == 'Game default (Default)'
+    # Settings the game decides while it runs just say Game default.
+    assert view.entry('bAutoPickupWeaponsConsolePC', 'x', '')['choices'][0]['label'] == 'Game default'
     assert view.entry('MouseSensitivityX', 'x', '')['kind'] == 'number'
+    # A number that isn't set keeps an empty box, with the default beside it.
+    reset_time = view.entry('CameraResetTime', 'x', '')
+    assert (reset_time['kind'], reset_time['value'], reset_time['default']) == ('text', '', '0.1')
     assert view.entry('HUDScale', 'x', '')['kind'] == 'text'
 
 
@@ -193,9 +211,8 @@ def test_sensitivity_uses_the_menu_percent_and_goes_below_its_lowest_step():
     for bad in ('0', '-1', 'fast', '5000'):
         with pytest.raises(ValueError):
             view.apply('sens', 'x', bad)
-    all_settings = {s['key'] for t in view.schema() if t['name'] == 'All Settings'
-                    for g in t['groups'] for s in g['settings']}
-    assert not {'MouseSensitivityX', 'UpgradedMouseSensitivityX', 'UserBindingsPerSubGame'} & all_settings
+    records = {s['key'] for t in view.schema() for g in t['groups'] for s in g['settings'] if s['section'] == RECORD}
+    assert not {'MouseSensitivityX', 'UpgradedMouseSensitivityX', 'UserBindingsPerSubGame'} & records
 
 
 def test_set_warns_when_a_key_is_already_used(page):
@@ -272,8 +289,8 @@ def test_controller_look_options_are_added_and_removed():
 def test_camera_and_flick_stick_rows():
     _, view = view_of(sample_bytes())
     tabs = {t['name']: t for t in view.schema()}
-    camera = next(g for g in tabs['Game']['groups'] if g['heading'] == 'Camera')
-    axes = next(s for s in camera['settings'] if s['key'] == 'CameraResetAxes')
+    controls = next(g for g in tabs['Controller']['groups'] if g['heading'] == 'Input')
+    axes = next(s for s in controls['settings'] if s['key'] == 'CameraResetAxes')
     assert [c['label'] for c in axes['choices']] == ['Game default (Pitch)', 'Pitch', 'Yaw', 'Both']
     flick = next(g for g in tabs['Controller']['groups'] if g['heading'] == 'Flick Stick')
     assert flick['settings'][0]['label'] == 'Flick Stick'
