@@ -40,7 +40,7 @@ public class IconButton : Button
 }
 
 /// <summary>A button as one element: its label's text (with the access key underscore) is not a separate item.</summary>
-internal sealed class LeafButtonPeer : ButtonAutomationPeer
+internal class LeafButtonPeer : ButtonAutomationPeer
 {
     public LeafButtonPeer(Button owner) : base(owner) { }
 

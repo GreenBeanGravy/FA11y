@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
 using System.Windows.Input;
 using System.Windows.Threading;
 using FA11y.UI.Core;
@@ -168,6 +170,29 @@ public sealed class KeybindButton : IconButton
             return;
         _keyArmed = false;
         base.OnClick();
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new KeybindButtonPeer(this);
+
+    /// <summary>
+    /// A screen reader's activate command (UIA Invoke) presses the button whatever input came last.
+    /// Activating the window counts as keyboard input, so the Enter guard above would drop it.
+    /// </summary>
+    private sealed class KeybindButtonPeer : LeafButtonPeer, IInvokeProvider
+    {
+        public KeybindButtonPeer(KeybindButton owner) : base(owner) { }
+
+        void IInvokeProvider.Invoke()
+        {
+            if (!IsEnabled())
+                throw new ElementNotEnabledException();
+            var button = (KeybindButton)Owner;
+            button.Dispatcher.InvokeAsync(() =>
+            {
+                button._keyArmed = true;
+                button.OnClick();
+            }, DispatcherPriority.Input);
+        }
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
