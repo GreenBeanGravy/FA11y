@@ -365,6 +365,10 @@ TABS = ['Game', 'Mouse and Keyboard', 'Keybinds', 'Controller', 'Controller Bind
         'Account and Privacy']
 VOLUME_MAP = 'BusNameVolumesMap'
 LOOK_HEADING = 'Look Sensitivity'
+# Voice Chat Method. The game's setter keeps VoiceChatMethod and VoiceChatMethodNoMute equal, except that
+# Mute is stored as Open mic with VoiceChatOpenMicSelfMuted on; its getter reads one of the two, picked by
+# a switch Epic sets at run time (NoMute on PC since the migration). FA11y writes all three the same way.
+VOICE_METHOD, VOICE_LEGACY, VOICE_SELF_MUTED = 'VoiceChatMethodNoMute', 'VoiceChatMethod', 'VoiceChatOpenMicSelfMuted'
 NOT_SHOWN ='FA11y doesn\'t show this setting.'
 
 
@@ -497,6 +501,8 @@ class SettingsView:
             choices = [{'value': DEFAULT, 'label': 'Game default' + shown}]
             choices += [{'value': f"{spec['enum']}::{n}", 'label': choice_label(n)} for n in names]
             current = str(value) if value is not None else DEFAULT
+            if name == VOICE_METHOD:
+                current = self._voice_method(current)
             if current != DEFAULT and current not in {c['value'] for c in choices}:
                 choices.append({'value': current, 'label': choice_label(current.split('::')[-1])})
             out.update(kind='choice', value=current, choices=choices)
@@ -513,6 +519,18 @@ class SettingsView:
         else:
             out.update(kind='text', value='' if value is None else _number_text(value))
         return out
+
+    def _voice_method(self, current: str) -> str:
+        """Voice Chat Method as the game's menu reads it, except that Open mic with self mute switched on
+        (how the game stores Mute) is Mute."""
+        props = [self.save.get(n) for n in (VOICE_METHOD, VOICE_LEGACY, VOICE_SELF_MUTED)]
+        if any(isinstance(p.value, Raw) for p in props if p is not None):
+            return current
+        muted = props[2] is not None and props[2].value is True
+        method = str(props[0].value) if props[0] is not None else default_value(VOICE_METHOD)
+        if method is None or (props[0] is None and props[1] is None and not muted):
+            return current
+        return method.split('::')[0] + '::Mute' if method.endswith('::OpenMic') and muted else method
 
     def _volume_entries(self) -> List[dict]:
         volumes = self.save.get(VOLUME_MAP)
@@ -573,6 +591,8 @@ class SettingsView:
             raise ValueError('This setting can\'t be edited here.')
         kind = spec['type']
         text = '' if value is None else str(value).strip()
+        if key == VOICE_METHOD:
+            return self._apply_voice_method(save, text)
         if text in ('', DEFAULT):
             save.remove(key)
             return DEFAULT if kind in ('BoolProperty', 'EnumProperty') else ''
@@ -608,6 +628,26 @@ class SettingsView:
                      FStr(text, getattr(prop.value, 'wide', False) if prop else False))
             return text
         raise ValueError('This setting can\'t be edited here.')
+
+    def _apply_voice_method(self, save: Save, text: str) -> str:
+        """Set Voice Chat Method the way the game's own setter does (see VOICE_METHOD)."""
+        names = (VOICE_METHOD, VOICE_LEGACY, VOICE_SELF_MUTED)
+        if any(save.get(n) is not None and isinstance(save.get(n).value, Raw) for n in names):
+            raise ValueError('This setting can\'t be edited here.')
+        if text in ('', DEFAULT):
+            for n in names:
+                save.remove(n)
+            return DEFAULT
+        enum = self.specs[VOICE_METHOD]['enum']
+        choice = text.split('::')[-1]
+        if text != f'{enum}::{choice}' or choice not in ('OpenMic', 'PTT', 'Mute'):
+            raise ValueError('That isn\'t one of the choices.')
+        mute = choice == 'Mute'
+        for n, v in ((VOICE_METHOD, FStr(f"{enum}::{'OpenMic' if mute else choice}", False)),
+                     (VOICE_LEGACY, FStr(text, False)), (VOICE_SELF_MUTED, mute)):
+            prop = save.get(n)
+            save.set(n, _type_name(self.specs[n], prop.type if prop else None), v)
+        return text
 
     def _apply_volume(self, save: Save, key: str, value: Any) -> int:
         volumes = save.get(VOLUME_MAP)

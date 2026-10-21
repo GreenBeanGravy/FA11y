@@ -151,6 +151,30 @@ def test_reset_puts_back_the_loaded_value():
     assert view.changes() == []
 
 
+def test_voice_chat_method_is_written_like_the_games_own_setter():
+    draft, view = view_of(sample_bytes())
+    method = 'EFortVoiceChatMethod::'
+
+    def stored():
+        back = parse_file(draft.to_bytes()).save
+        return tuple(None if back.get(n) is None else back.get(n).value
+                     for n in ('VoiceChatMethodNoMute', 'VoiceChatMethod', 'VoiceChatOpenMicSelfMuted'))
+    assert view.entry('VoiceChatMethodNoMute', 'x', '')['value'] == DEFAULT
+    # Mute is Open mic with self mute on; the other choices go in both fields and switch self mute off.
+    assert view.apply(RECORD, 'VoiceChatMethodNoMute', method + 'Mute') == method + 'Mute'
+    assert stored() == (method + 'OpenMic', method + 'Mute', True)
+    assert view.entry('VoiceChatMethodNoMute', 'x', '')['value'] == method + 'Mute'
+    assert view.changes() == ['Voice Chat Method']
+    view.apply(RECORD, 'VoiceChatMethodNoMute', method + 'PTT')
+    assert stored() == (method + 'PTT', method + 'PTT', False)
+    view.apply(RECORD, 'VoiceChatMethodNoMute', method + 'OpenMic')
+    assert view.entry('VoiceChatMethodNoMute', 'x', '')['value'] == method + 'OpenMic'
+    assert view.apply(RECORD, 'VoiceChatMethodNoMute', DEFAULT) == DEFAULT
+    assert stored() == (None, None, None) and view.changes() == []
+    with pytest.raises(ValueError):
+        view.apply(RECORD, 'VoiceChatMethodNoMute', method + 'EFortVoiceChatMethod_MAX')
+
+
 def test_keybinds_tab_starts_with_camera_keys():
     _, view = view_of(sample_bytes())
     tab = next(t for t in view.schema() if t['name'] == 'Keybinds')
