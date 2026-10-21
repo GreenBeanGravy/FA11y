@@ -72,6 +72,10 @@ def test_schema_has_the_menus_tabs_and_sections():
     assert where('bAutoClamber') == ('Game', 'Movement')
     assert where('CameraResetTime') == ('Controller', 'Input')
     assert where('bReplayRecordingEnabled') == ('Game', 'Replays')
+    # Each row edits the field the game's own getter for that menu row reads.
+    assert where('bInvertedLookMouse') == ('Mouse and Keyboard', 'Sensitivity')
+    assert where('bInvertedLookController') == ('Controller', 'Input')
+    assert where('bNewFocusOnFirstBuildingPieceWhenQuickbarSwappedAthena') == ('Game', 'Building')
     keys = [s['key'] for t in view.schema() for g in t['groups'] for s in g['settings']]
     assert len(keys) == len(set(keys))
     # Bookkeeping and settings the menu doesn't have are never offered.

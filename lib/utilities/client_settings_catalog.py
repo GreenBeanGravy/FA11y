@@ -79,7 +79,7 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
      'Healing items and other consumables move to the right end of your inventory.'),
     ('Game', 'Building', 'bSmartBuildEnabled', 'Simple Build',
      'Building needs fewer buttons.'),
-    ('Game', 'Building', 'bFocusOnFirstBuildingPieceWhenQuickbarSwappedAthena', 'Reset Building Choice',
+    ('Game', 'Building', 'bNewFocusOnFirstBuildingPieceWhenQuickbarSwappedAthena', 'Reset Building Choice',
      'Switching to build mode always starts on the first building piece. When off, you get the piece '
      'you used last.'),
     ('Game', 'Building', 'bTurboBuild', 'Turbo Building',
@@ -113,6 +113,8 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
     ('Game', 'Replays', 'bHighQualityReplayRecordingEnabled', 'Record High Quality Replays',
      'Replays record more often, so they play back with fewer glitches. This can lower performance and '
      'takes more disk space.'),
+    ('Mouse and Keyboard', 'Sensitivity', 'bInvertedLookMouse', 'Invert Mouse View',
+     'Moving the mouse up makes you look down.'),
     ('Mouse and Keyboard', 'Sensitivity', 'BuildingMultiplier', 'Building Sensitivity',
      'Mouse sensitivity in build mode, as a multiplier of the normal sensitivity.'),
     ('Mouse and Keyboard', 'Sensitivity', 'EditingMultiplier', 'Editing Sensitivity',
@@ -156,6 +158,8 @@ CURATED: List[Tuple[str, str, str, str, str]] = [
     ('Mouse and Keyboard', 'Mouse Flight', 'MouseSensitivityMultiplierForAircraftValue',
      'Mouse Sensitivity Multiplier For Aircraft Steering',
      'Mouse sensitivity is multiplied by this when you steer an aircraft with the mouse.'),
+    ('Controller', 'Input', 'bInvertedLookController', 'Invert Controller View',
+     'Pushing the right stick up makes you look down.'),
     ('Controller', 'Input', 'bInvertedPitchForAircraftPrimary', 'Invert Aircraft Controller Controls',
      'Pushing the stick forward points an aircraft down.'),
     ('Controller', 'Input', 'bInvertedPitchForFightersGamepad', 'Invert Fighter Controller Controls',

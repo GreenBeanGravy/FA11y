@@ -57,7 +57,6 @@
   "CurrentDeltaUpdateKWSWithCCSSettings": 1,
   "CustomCompeteFiltersMap_Key": 112,
   "DamageNumbersScale": 1.0,
-  "DefaultADSFireModeOnFreshAccounts": "ECombinedADSFireMode::Disabled",
   "DialogVolume": 1.0,
   "DoughnutCameraSwivelDeadzone": 0.0,
   "DoughnutFillingSetting": "EDoughnutFillingSetting::CeilingReleaseInput",
