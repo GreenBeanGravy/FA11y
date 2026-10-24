@@ -1,3 +1,7 @@
+10/24/2026 #1 (19.0.0-beta.6, Beta branch):
+- Fixed browser sign in to Epic Games failing with Verification Failed for some people, even after they signed in. Browser login now starts on Fortnite's own sign in page, which is the sign in Epic needs before it gives FA11y a code.
+- If Epic says you aren't signed in yet, the login window goes back to the sign in page and tells you, instead of leaving you on a page of text. When Epic refuses the code, the message now says why.
+
 10/20/2026 #2 (19.0.0-beta.5, Beta branch):
 - The Fortnite settings page now follows Fortnite's own settings menu. The All Settings tab is gone, so Ctrl+F only finds settings that are on the page. Most settings from it that the game's menu has on PC are now in the same tab and section as in the game, like Hitmarkers under Audio, Mantle Activation under Game and Offset Aim Modes under Mouse and Keyboard.
 - Settings at Game default now say what the game uses, like Game default (On) or Game default (Hold jump). A number you've never changed shows the game's default next to its empty box, and your screen reader reads it with the setting's name.
