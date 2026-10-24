@@ -51,6 +51,7 @@ class EpicAuth:
         self._reauth_lock = threading.Lock()
         self._refresh_lock = threading.RLock()
         self._access_expires_at = None
+        self.last_error = ""  # why the last authorization code was refused
 
         # Epic Games Fortnite client credentials (public)
         self.CLIENT_ID = "ec684b8c687f479fadea3cb2ad83f5c6"
@@ -223,8 +224,9 @@ class EpicAuth:
     def exchange_code_for_token(self, authorization_code: str) -> bool:
         """
         Exchange authorization code for access token
-        Returns True if successful, False otherwise
+        Returns True if successful, False otherwise; ``last_error`` then says why
         """
+        self.last_error = ""
         try:
             auth = base64.b64encode(f"{self.CLIENT_ID}:{self.CLIENT_SECRET}".encode()).decode()
 
@@ -272,10 +274,12 @@ class EpicAuth:
 
                 return True
             else:
+                self.last_error = _error_code(response) or f"HTTP {response.status_code}"
                 logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
                 return False
 
         except Exception as e:
+            self.last_error = "could not reach Epic" if isinstance(e, requests.RequestException) else "unexpected error"
             logger.error(f"Error exchanging code for token: {e}")
             return False
 

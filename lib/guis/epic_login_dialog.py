@@ -85,7 +85,8 @@ class LoginDialog(AccessibleDialog):
             manual_panel,
             label="Alternative method: Get an authorization code manually.\n\n"
                   "1. Click 'Open Authorization Page' to open your browser\n"
-                  "2. Log in to your Epic Games account\n"
+                  "2. Log in to your Epic Games account. If the page says authorizationCode is null,\n"
+                  "    sign in at accounts.epicgames.com/fnauth first, then open the authorization page again\n"
                   "3. Copy the authorization code from the page\n"
                   "4. Paste the code below and click 'Submit Code'"
         )

@@ -9,12 +9,36 @@ import logging
 import time
 import urllib.parse
 
+from lib.utilities.epic_redirect import (
+    FNAUTH_URL, code_from_auth_url, is_fnauth_page, is_login_page, is_redirect_endpoint,
+    parse_redirect_response, safe_url,
+)
+
 logger = logging.getLogger(__name__)
 
 # Epic Games URLs
 EPIC_LOGIN_URL = "https://www.epicgames.com/id/login"
 EPIC_ACCOUNT_URL = "https://www.epicgames.com/account/personal"
 EPIC_REDIRECT_URL = "https://www.epicgames.com/id/api/redirect"
+
+# How long to wait for Epic's reply after asking for a code, and how long to wait for the page to report that it
+# has loaded before reading it anyway.
+REDIRECT_WAIT_SECONDS = 8.0
+REDIRECT_LOADED_GRACE = 4.0
+# Epic's pages can look signed in before the sign in is done, so only this many automatic tries are made.
+MAX_AUTO_ATTEMPTS = 2
+
+
+def _read_page(browser):
+    """The page as text and as source; an empty string for whichever the web view can't give."""
+    pages = []
+    for read in (browser.GetPageText, browser.GetPageSource):
+        try:
+            pages.append(read() or "")
+        except Exception as e:
+            logger.debug(f"Could not read the page: {e}")
+            pages.append("")
+    return tuple(pages)
 
 
 class SilentAuthDialog(wx.Frame):
@@ -44,6 +68,7 @@ class SilentAuthDialog(wx.Frame):
         self._finished = False
         self._timer = None
         self._redirect_requested = False
+        self._followed = set()
 
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -105,89 +130,53 @@ class SilentAuthDialog(wx.Frame):
     def _handle_navigation(self, url):
         if self._finished or self.auth_successful:
             return
-        parsed = urllib.parse.urlparse(url)
+        logger.debug(f"Silent auth page: {safe_url(url)}")
         # Only the Fortnite redirect carries the authorization code for our client.
-        if parsed.hostname == "accounts.epicgames.com" and parsed.path == "/fnauth" and "code=" in parsed.query:
-            self._extract_and_complete(url)
+        code = code_from_auth_url(url)
+        if code:
+            self._complete_with_code(code)
             return
         if not self._redirect_requested and (
-            "epicgames.com/account" in url or "store.epicgames.com" in url
+            "epicgames.com/account" in url or "store.epicgames.com" in url or is_fnauth_page(url)
         ):
             self._redirect_requested = True
             self.browser.LoadURL(self.auth_instance.get_authorization_url())
 
     def _check_page_source(self):
-        """Check page source for auth code in JSON response"""
+        """Look for Epic's reply, with the authorization code, in the page"""
         if self.auth_successful or not self.browser:
             return
 
         try:
-            page_source = self.browser.GetPageSource()
-            if not page_source or 'redirectUrl' not in page_source:
+            reply = parse_redirect_response(*_read_page(self.browser))
+            if reply is None:
                 return
 
-            logger.debug("Silent auth: Found redirectUrl in page source")
-
-            # Try to parse JSON response
-            import json
-            import re
-
-            # Try to extract JSON from page
-            json_match = re.search(r'\{[^}]*"redirectUrl"[^}]+\}', page_source)
-            if json_match:
-                try:
-                    json_data = json.loads(json_match.group(0))
-                    redirect_url_value = json_data.get('redirectUrl', '')
-
-                    if redirect_url_value and 'code=' in redirect_url_value:
-                        logger.debug("Epic browser authentication navigation")
-                        self._extract_and_complete(redirect_url_value)
-                        return
-                except json.JSONDecodeError:
-                    pass
-
-            # Fallback: regex extraction
-            match = re.search(r'"redirectUrl"\s*:\s*"([^"]+)"', page_source)
-            if match:
-                redirect_url_value = match.group(1)
-                redirect_url_value = redirect_url_value.replace('\\u0026', '&').replace('\\/', '/')
-
-                if 'code=' in redirect_url_value:
-                    logger.debug("Epic browser authentication navigation")
-                    self._extract_and_complete(redirect_url_value)
-                    return
+            if reply.code:
+                logger.debug("Silent auth: Epic's reply has a sign-in code")
+                self._complete_with_code(reply.code)
+                return
 
             # An intermediate redirect may still reuse the saved browser session.
             # Keep navigating until the authorization response or the timeout.
-            if json_match:
-                try:
-                    destination = json.loads(json_match.group(0)).get('redirectUrl', '')
-                    parsed = urllib.parse.urlparse(destination)
-                    if parsed.scheme == 'https' and parsed.hostname and (parsed.hostname == 'epicgames.com' or parsed.hostname.endswith('.epicgames.com')):
-                        self.browser.LoadURL(destination)
-                except (ValueError, TypeError):
-                    pass
+            destination = reply.destination or ''
+            parsed = urllib.parse.urlparse(destination)
+            if (parsed.scheme == 'https' and parsed.hostname
+                    and (parsed.hostname == 'epicgames.com' or parsed.hostname.endswith('.epicgames.com'))
+                    and destination not in self._followed):
+                self._followed.add(destination)
+                self.browser.LoadURL(destination)
 
         except Exception as e:
             logger.debug(f"Silent auth: Error checking page source: {e}")
 
-    def _extract_and_complete(self, url: str):
-        """Extract auth code and complete authentication"""
+    def _complete_with_code(self, auth_code: str):
+        """Exchange the authorization code and complete authentication"""
         if self.auth_successful:
             return  # Already processed
 
         try:
-            # Parse authorization code from URL
-            parsed = urllib.parse.urlparse(url)
-            params = urllib.parse.parse_qs(parsed.query)
-            auth_code = params.get('code', [None])[0]
-
-            if not auth_code:
-                # No code in this URL, keep waiting for redirect
-                logger.debug("Silent auth: No code in this URL yet, waiting for redirect...")
-                return
-
-            logger.debug("Epic browser authentication navigation")
+            logger.debug("Silent auth: exchanging the sign-in code")
 
             # Exchange code for token
             if self.auth_instance.exchange_code_for_token(auth_code):
@@ -199,7 +188,7 @@ class SilentAuthDialog(wx.Frame):
                 else:
                     logger.warning("Silent auth: Token exchange succeeded but auth not valid")
             else:
-                logger.warning("Silent auth: Failed to exchange auth code")
+                logger.warning(f"Silent auth: Epic refused the sign-in code ({self.auth_instance.last_error or 'no reason given'})")
 
             # Don't close on failure - let timeout handle it
             # The code might be expired, but we'll let the timeout close the dialog
@@ -214,7 +203,7 @@ class SilentAuthDialog(wx.Frame):
         Navigate in the same window instead of opening new window.
         """
         url = event.GetURL()
-        logger.debug("Epic browser authentication navigation")
+        logger.debug(f"Silent auth: new window for {safe_url(url)}")
         if self.browser:
             self.browser.LoadURL(url)
 
@@ -273,6 +262,11 @@ class EpicBrowserLoginDialog(wx.Dialog):
         self.login_successful = False
         self._login_detected = False
         self._auto_completing = False
+        self._auto_attempts = 0
+        self._auto_hold = False
+        self._redirect_loaded = False
+        self._failure_kind = ""
+        self._failure_detail = ""
 
         self._setup_ui()
         self._bind_events()
@@ -358,7 +352,9 @@ class EpicBrowserLoginDialog(wx.Dialog):
         """Start the login flow by navigating to Epic login page"""
         if self.browser:
             logger.debug("Starting Epic Games browser login")
-            self.browser.LoadURL(EPIC_LOGIN_URL)
+            # Epic only answers the redirect with a code when the browser is signed in on Fortnite's own sign in
+            # page as well, which www.epicgames.com/id/login does not do. Signing in here covers both.
+            self.browser.LoadURL(FNAUTH_URL)
 
     def _on_new_window(self, event):
         """
@@ -366,7 +362,7 @@ class EpicBrowserLoginDialog(wx.Dialog):
         Instead of opening a new window, navigate the current browser to that URL.
         """
         url = event.GetURL()
-        logger.debug("Epic browser authentication navigation")
+        logger.debug(f"Epic login new window: {safe_url(url)}")
 
         # Navigate to the URL in the same browser window
         if self.browser:
@@ -375,17 +371,16 @@ class EpicBrowserLoginDialog(wx.Dialog):
 
     def _on_navigating(self, event):
         """Handle navigation start"""
-        url = event.GetURL()
-        logger.debug("Epic browser authentication navigation")
+        logger.debug(f"Epic login navigating: {safe_url(event.GetURL())}")
 
     def _on_navigated(self, event):
         """Handle navigation events"""
         url = event.GetURL()
-        logger.debug("Epic browser authentication navigation")
+        logger.debug(f"Epic login navigated: {safe_url(url)}")
 
-        # Check if URL contains authorization code
-        if 'code=' in url:
-            logger.debug("Epic browser authentication navigation")
+        # Only Fortnite's own redirect carries the authorization code; Google's and Facebook's come back with
+        # a code of their own that Epic would refuse.
+        if code_from_auth_url(url):
             wx.CallAfter(self._extract_and_use_auth_code, url)
             return
 
@@ -407,11 +402,17 @@ class EpicBrowserLoginDialog(wx.Dialog):
     def _on_page_loaded(self, event):
         """Handle page load completion"""
         url = event.GetURL()
-        logger.debug("Epic browser authentication navigation")
+        logger.debug(f"Epic login page loaded: {safe_url(url)}")
 
-        # Check if URL contains authorization code
-        if 'code=' in url:
-            logger.debug("Epic browser authentication navigation")
+        if is_redirect_endpoint(url):
+            self._redirect_loaded = True
+
+        # Back on a sign in page: whatever signed-in page comes next is a real sign in.
+        if is_login_page(url):
+            self._auto_hold = False
+            self._auto_attempts = 0
+
+        if code_from_auth_url(url):
             wx.CallAfter(self._extract_and_use_auth_code, url)
             return
 
@@ -432,6 +433,8 @@ class EpicBrowserLoginDialog(wx.Dialog):
             "store.epicgames.com",
             "launcher.store.epicgames.com",
         ]
+        if is_fnauth_page(url):
+            return True
         url_lower = url.lower()
         # Don't trigger on login page
         if "epicgames.com/id/login" in url_lower:
@@ -443,69 +446,88 @@ class EpicBrowserLoginDialog(wx.Dialog):
         if hasattr(self, 'status_label'):
             self.status_label.SetLabel(f"Status: {message}")
 
+    def _begin_attempt(self) -> bool:
+        """Claim the sign in, so only one attempt runs at a time and a code is never used twice."""
+        if self.login_successful or self._auto_completing:
+            return False
+        self._auto_completing = True
+        self._failure_kind = ""
+        self._failure_detail = ""
+        return True
+
+    def _exchange(self, code: str) -> bool:
+        """Trade an authorization code for a token; when that fails, ``_failure_kind`` says why."""
+        if not self.auth_instance.exchange_code_for_token(code):
+            self._failure_kind = "refused"
+            self._failure_detail = getattr(self.auth_instance, "last_error", "") or ""
+            logger.error(f"Epic refused the sign-in code: {self._failure_detail or 'no reason given'}")
+            return False
+        if not (self.auth_instance.is_valid and self.auth_instance.access_token):
+            self._failure_kind = "refused"
+            self._failure_detail = "token not confirmed"
+            logger.error("Token exchange succeeded but auth is not valid")
+            return False
+        return True
+
+    def _failure_message(self) -> str:
+        """What to tell the person about the attempt that just failed."""
+        if self._failure_kind == "not_signed_in":
+            return "Epic says you are not signed in yet. Sign in on the page, then choose I'm Logged In."
+        if self._failure_kind == "refused":
+            detail = f" ({self._failure_detail})" if self._failure_detail else ""
+            return f"Epic did not accept the sign-in code{detail}. Choose I'm Logged In to try again."
+        return ("FA11y could not read Epic's answer. Choose I'm Logged In to try again, "
+                "or use the Manual Code tab in the sign-in window.")
+
+    def _return_to_login_if_needed(self):
+        """When Epic says nobody is signed in, bring the sign in page back so the person isn't left on Epic's reply."""
+        if self._failure_kind == "not_signed_in" and self.browser:
+            # Loading it must not start another automatic try before the person has signed in again.
+            self._auto_hold = True
+            self.browser.LoadURL(FNAUTH_URL)
+
     def _extract_and_use_auth_code(self, url: str):
         """
-        Extract authorization code from URL and use it to authenticate.
+        Use the authorization code in Fortnite's redirect URL.
         This is the primary authentication method when browser navigates to a URL with code.
         """
-        # Prevent multiple auth attempts
-        if self.login_successful or self._auto_completing:
+        auth_code = code_from_auth_url(url)
+        if not auth_code or not self._begin_attempt():
             return
-        self._auto_completing = True
 
         try:
             self._update_status("Authorization code detected! Exchanging for token...")
             wx.SafeYield()
 
-            # Parse the authorization code from URL
-            parsed = urllib.parse.urlparse(url)
-            params = urllib.parse.parse_qs(parsed.query)
-            auth_code = params.get('code', [None])[0]
-
-            if not auth_code:
-                logger.debug("Epic browser authentication navigation")
-                self._auto_completing = False
-                return
-
-            logger.debug("Epic browser authentication navigation")
-
-            # Exchange code for token using the auth instance
-            if self.auth_instance.exchange_code_for_token(auth_code):
-                # Verify token was actually obtained
-                if self.auth_instance.is_valid and self.auth_instance.access_token:
-                    logger.info(f"Successfully authenticated as {self.auth_instance.display_name}")
-                    self.login_successful = True
-                    self._update_status(f"✓ Successfully authenticated as {self.auth_instance.display_name}!")
-                    wx.CallLater(500, self._safe_end_modal, wx.ID_OK)
-                else:
-                    logger.error("Token exchange succeeded but auth is not valid")
-                    self._auto_completing = False
-                    self._update_status("Token exchange succeeded but authentication not confirmed. Please try again.")
+            if self._exchange(auth_code):
+                logger.info(f"Successfully authenticated as {self.auth_instance.display_name}")
+                self.login_successful = True
+                self._update_status(f"✓ Successfully authenticated as {self.auth_instance.display_name}!")
+                wx.CallLater(500, self._safe_end_modal, wx.ID_OK)
             else:
-                logger.error("Failed to exchange auth code for token")
-                self._auto_completing = False
-                self._update_status("Failed to exchange authorization code. Please try again.")
+                self._update_status(self._failure_message())
 
         except Exception as e:
             logger.error(f"Error extracting/using auth code: {e}")
-            self._auto_completing = False
             self._update_status(f"Error during authentication: {e}")
+        finally:
+            self._auto_completing = False
 
     def _auto_complete_login(self):
         """
         Automatically try to complete login when detected.
         Called when we detect the user is on a logged-in page.
         """
-        # Prevent multiple auto-complete attempts
-        if self.login_successful or self._auto_completing:
+        if self._auto_hold or self._auto_attempts >= MAX_AUTO_ATTEMPTS or not self._begin_attempt():
             return
-        self._auto_completing = True
+        self._auto_attempts += 1
 
-        self._update_status("Verifying authentication...")
-        wx.SafeYield()
-
-        # Try to get auth code
-        success = self._try_get_auth_code()
+        try:
+            self._update_status("Verifying authentication...")
+            wx.SafeYield()
+            success = self._try_get_auth_code()
+        finally:
+            self._auto_completing = False
 
         if success:
             self.login_successful = True
@@ -513,34 +535,36 @@ class EpicBrowserLoginDialog(wx.Dialog):
             wx.CallLater(500, self._safe_end_modal, wx.ID_OK)
         else:
             # Auto-complete failed, let user try manual button
-            self._auto_completing = False
-            self._update_status("Auto-verification failed. Click 'I'm Logged In' to try again.")
+            self._update_status(self._failure_message())
+            self._return_to_login_if_needed()
 
     def _on_logged_in_clicked(self, event):
         """
         Handle the 'I'm Logged In' button click.
         Try to authenticate using the redirect API.
         """
-        self._update_status("Verifying login and getting authentication...")
-        wx.SafeYield()
+        if not self._begin_attempt():
+            if not self.login_successful:
+                self._update_status("Still verifying your login...")
+            return
 
-        # Try to get auth code using the redirect API
-        success = self._try_get_auth_code()
+        try:
+            self._update_status("Verifying login and getting authentication...")
+            wx.SafeYield()
+            success = self._try_get_auth_code()
+        finally:
+            self._auto_completing = False
 
         if success:
             self.login_successful = True
             self._update_status("Authentication successful!")
             wx.CallLater(500, self._safe_end_modal, wx.ID_OK)
-        else:
-            # Show error and let user retry
-            wx.MessageBox(
-                "Could not verify login. Please make sure you are fully logged in to Epic Games, "
-                "then try clicking 'I'm Logged In' again.\n\n"
-                "Tip: Try navigating to epicgames.com/account first to ensure you're logged in.",
-                "Verification Failed",
-                wx.OK | wx.ICON_WARNING
-            )
-            self._update_status("Verification failed. Please try again.")
+            return
+
+        message = self._failure_message()
+        self._return_to_login_if_needed()
+        self._update_status(message)
+        wx.MessageBox(message, "Verification Failed", wx.OK | wx.ICON_WARNING)
 
     def _try_get_auth_code(self) -> bool:
         """
@@ -551,123 +575,65 @@ class EpicBrowserLoginDialog(wx.Dialog):
             True if authentication was successful and token was obtained
         """
         try:
-            # Primary method: Navigate to redirect URL and capture auth code from URL
             logger.debug("Attempting to get auth code via redirect URL navigation")
             if self._try_redirect_in_browser():
-                # Verify token was actually obtained
-                if self.auth_instance.is_valid and self.auth_instance.access_token:
-                    logger.info("Successfully obtained and verified token via redirect")
-                    return True
-                else:
-                    logger.warning("Redirect method completed but token not valid")
+                logger.info("Successfully obtained and verified token via redirect")
+                return True
 
-            logger.error("Authentication failed")
+            logger.error(f"Authentication failed ({self._failure_kind or 'unknown'})")
             return False
 
         except Exception as e:
             logger.error(f"Error getting auth code: {e}")
+            self._failure_kind = self._failure_kind or "unreadable"
             return False
 
     def _try_redirect_in_browser(self) -> bool:
         """
-        Navigate to the redirect URL and try to capture the auth code.
-        This method will trigger URL navigation which will be caught by _extract_and_use_auth_code.
+        Ask Epic's redirect page for an authorization code with the browser's session, then use it.
+        The code arrives in the page's JSON reply, or in Fortnite's redirect if Epic sends the browser on.
         """
+        self._failure_kind = "unreadable"
         if not self.browser:
             logger.error("Browser not available for redirect method")
             return False
 
-        try:
-            # Navigate to redirect URL - this will trigger navigation events
-            redirect_url = f"https://www.epicgames.com/id/api/redirect?clientId={self.auth_instance.CLIENT_ID}&responseType=code"
-            
-            logger.debug(f"Navigating to redirect URL: {redirect_url}")
-            self.browser.LoadURL(redirect_url)
+        redirect_url = self.auth_instance.get_authorization_url()
+        logger.debug(f"Navigating to redirect URL: {safe_url(redirect_url)}")
+        self._redirect_loaded = False
+        self.browser.LoadURL(redirect_url)
 
-            # Wait for navigation and potential auth code capture
-            # The _on_navigated and _on_page_loaded handlers will catch the auth code
-            for i in range(50):  # Wait up to 5 seconds
-                wx.SafeYield()
-                time.sleep(0.1)
+        started = time.monotonic()
+        while time.monotonic() - started < REDIRECT_WAIT_SECONDS:
+            wx.SafeYield()
+            time.sleep(0.1)
+            if self.login_successful:
+                return True
 
-                current_url = self.browser.GetCurrentURL()
+            current_url = self.browser.GetCurrentURL()
+            code = code_from_auth_url(current_url)
+            if code:
+                logger.debug("Auth code detected in Fortnite's redirect")
+                return self._exchange(code)
 
-                # Check if we got redirected to a URL with an auth code
-                if 'code=' in current_url and current_url != redirect_url:
-                    logger.debug(f"Auth code detected in redirect URL (attempt {i+1})")
-                    parsed = urllib.parse.urlparse(current_url)
-                    params = urllib.parse.parse_qs(parsed.query)
-                    auth_code = params.get('code', [None])[0]
+            # The page is Epic's reply only once it has loaded. Until then it is the page we came from, which
+            # can hold old or unrelated JSON.
+            waited = time.monotonic() - started
+            if not is_redirect_endpoint(current_url) or not (self._redirect_loaded or waited > REDIRECT_LOADED_GRACE):
+                continue
+            reply = parse_redirect_response(*_read_page(self.browser))
+            if reply is None:
+                continue
+            if reply.code:
+                logger.debug("Auth code found in Epic's reply")
+                return self._exchange(reply.code)
 
-                    if auth_code:
-                        logger.debug("Epic browser authentication navigation")
-                        if self.auth_instance.exchange_code_for_token(auth_code):
-                            logger.info("Successfully exchanged auth code from redirect")
-                            return True
-                        else:
-                            logger.error("Failed to exchange auth code from redirect")
-                            return False
-
-                # Check if the page content contains the redirect URL with code
-                try:
-                    page_source = self.browser.GetPageSource()
-                    if page_source and 'redirectUrl' in page_source:
-                        # Try to parse JSON response
-                        import json
-                        import re
-                        
-                        # Try to extract JSON from page
-                        json_match = re.search(r'\{[^}]*"redirectUrl"[^}]+\}', page_source)
-                        if json_match:
-                            try:
-                                json_data = json.loads(json_match.group(0))
-                                redirect_url_value = json_data.get('redirectUrl', '')
-                                
-                                if redirect_url_value and 'code=' in redirect_url_value:
-                                    parsed = urllib.parse.urlparse(redirect_url_value)
-                                    params = urllib.parse.parse_qs(parsed.query)
-                                    auth_code = params.get('code', [None])[0]
-
-                                    if auth_code:
-                                        logger.debug("Epic browser authentication navigation")
-                                        if self.auth_instance.exchange_code_for_token(auth_code):
-                                            logger.info("Successfully exchanged auth code from JSON")
-                                            return True
-                                        else:
-                                            logger.error("Failed to exchange auth code from JSON")
-                                            return False
-                            except json.JSONDecodeError:
-                                pass
-                        
-                        # Fallback: regex extraction
-                        match = re.search(r'"redirectUrl"\s*:\s*"([^"]+)"', page_source)
-                        if match:
-                            redirect_url_value = match.group(1)
-                            # Unescape the URL
-                            redirect_url_value = redirect_url_value.replace('\\u0026', '&').replace('\\/', '/')
-
-                            if 'code=' in redirect_url_value:
-                                parsed = urllib.parse.urlparse(redirect_url_value)
-                                params = urllib.parse.parse_qs(parsed.query)
-                                auth_code = params.get('code', [None])[0]
-
-                                if auth_code:
-                                    logger.debug("Epic browser authentication navigation")
-                                    if self.auth_instance.exchange_code_for_token(auth_code):
-                                        logger.info("Successfully exchanged auth code from regex")
-                                        return True
-                                    else:
-                                        logger.error("Failed to exchange auth code from regex")
-                                        return False
-                except Exception as e:
-                    logger.debug(f"Error parsing page source (attempt {i+1}): {e}")
-
-            logger.warning("Redirect method timed out waiting for auth code")
+            logger.debug("Epic's reply has no code: the browser is not signed in")
+            self._failure_kind = "not_signed_in"
             return False
 
-        except Exception as e:
-            logger.error(f"Error in redirect method: {e}")
-            return False
+        logger.warning("Redirect method timed out waiting for Epic's reply")
+        return False
 
     def _on_error(self, event):
         """Handle WebView errors"""
