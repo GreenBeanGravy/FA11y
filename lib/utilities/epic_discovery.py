@@ -6,10 +6,16 @@ import logging
 import requests
 import re
 import time
+from urllib.parse import urlencode
 from html.parser import HTMLParser
 from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+try:
+    from curl_cffi import requests as browser_requests
+except ImportError:
+    browser_requests = None
 
 try:
     import cloudscraper
@@ -132,7 +138,25 @@ class EpicDiscovery:
 
         # Fetch using reusable scraper if available
         try:
-            if self._scraper:
+            response = None
+            if browser_requests is not None:
+                # Match Chrome's TLS/HTTP fingerprint as well as its headers.
+                # Keep the impersonated User-Agent consistent with that profile.
+                browser_headers = {
+                    key: value for key, value in headers.items()
+                    if key.lower() != "user-agent"
+                }
+                try:
+                    response = browser_requests.get(
+                        url, headers=browser_headers, impersonate="chrome",
+                        timeout=15, allow_redirects=True,
+                    )
+                except Exception as exc:
+                    logger.warning("Browser HTTP client failed for %s: %s", url, exc)
+
+            if response is not None:
+                pass
+            elif self._scraper:
                 response = self._scraper.get(url, headers=headers, timeout=15, allow_redirects=True)
             elif HAS_CLOUDSCRAPER:
                 # Fallback: create temporary scraper
@@ -153,6 +177,9 @@ class EpicDiscovery:
                 return None
 
             html = response.text
+            if "_cf_chl_opt" in html or 'id="challenge-error-text"' in html:
+                logger.error("Security check returned instead of discovery data for %s", url)
+                return None
 
             # Cache the response
             if use_cache:
@@ -462,7 +489,7 @@ class EpicDiscovery:
                 params["search"] = search_query
 
             # Build query string
-            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            query_string = urlencode(params)
             url = f"{base_url}?{query_string}" if query_string else base_url
 
 
@@ -544,7 +571,7 @@ class EpicDiscovery:
         """
         Fetch and parse a single creator page
         """
-        url = f"https://fortnite.gg/creator?name={creator_name}"
+        url = "https://fortnite.gg/creator?" + urlencode({"name": creator_name})
         if page_num > 1:
             url += f"&page={page_num}"
 

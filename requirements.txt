@@ -37,3 +37,4 @@ wxPython
 PyQt6
 numpy==1.26.4
 cloudscraper
+curl_cffi==0.13.0
