@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Optional
 
 from lib.utilities.utilities import read_config
+from lib.utilities.user_paths import resolve
 
 logger = logging.getLogger(__name__)
 
@@ -374,7 +375,7 @@ class FavoritesManager:
         Args:
             filename: Path to favorites file
         """
-        self.filename = filename
+        self.filename = resolve(filename)
         self.favorites: List[FavoritePOI] = []
         self._load_lock = threading.RLock()
         self.load_favorites()

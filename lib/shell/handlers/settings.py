@@ -90,11 +90,57 @@ def _schedule_reload(parser) -> None:
 
 # Reading ------------------------------------------------------------------------------
 
+IMPORT_ACTIONS = [
+    {"id": "import_config_file", "label": "Import config.txt",
+     "help": "Moves a config.txt you already have into FA11y's settings folder and uses it."},
+    {"id": "import_config_folder", "label": "Import Config Folder",
+     "help": "Moves a config folder you already have (or an FA11y folder with one in it) into "
+             "FA11y's settings folder: config.txt, favorites, custom POIs and the rest."},
+]
+
+
 @handler("settings.schema")
 def settings_schema(params: dict) -> dict:
-    """Every tab of the editor with its groups and settings, for view 'settings' or 'keybinds'."""
+    """Every tab of the editor with its groups and settings, for view 'settings' or 'keybinds'.
+
+    While every setting is still the default, the settings view also offers to import a
+    config.txt or config folder you already have (settings.import_config)."""
+    from lib.utilities.utilities import config_uses_defaults_only
     view = _view(params)
-    return schema.build_schema(_read(), view, _maps_with_objects())
+    parser = _read()
+    result = schema.build_schema(parser, view, _maps_with_objects())
+    if view == "settings" and config_uses_defaults_only(parser):
+        result["actions"] = IMPORT_ACTIONS
+        result["status"] = ("FA11y is using its default settings. If you have a config.txt or config "
+                            "folder from before, import it here.")
+    return result
+
+
+@handler("settings.import_config")
+def import_config(params: dict) -> dict:
+    """Move a config.txt or config folder into the settings folder and start using it."""
+    from lib.utilities import user_paths
+    from lib.utilities.utilities import save_config
+    try:
+        result = user_paths.import_config(str(params.get("path", "")))
+    except user_paths.ConfigImportError as error:
+        return {"ok": False, "message": str(error)}
+    except OSError as error:
+        logger.exception("Importing settings failed")
+        return {"ok": False, "message": f"Couldn't move those files: {error.strerror or error}."}
+    parser = _read()        # also adds any setting this version has that the import lacks
+    if not save_config(parser):
+        raise RuntimeError("Could not save the configuration.")
+    _schedule_reload(parser)
+    moved = result["moved"]
+    message = "Imported your settings."
+    if len(moved) > 1:
+        message = (f"Imported your settings and {len(moved) - 1} other saved files. Restart FA11y "
+                   "so favorites, custom POIs and sign-in use them.")
+    if result["backup"]:
+        message += " The settings they replaced are in a before import folder in the settings folder."
+    logger.info("Imported settings from %s: %s", params.get("path"), ", ".join(moved))
+    return {"ok": True, "message": message}
 
 
 @handler("settings.map")

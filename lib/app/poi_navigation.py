@@ -44,6 +44,7 @@ from lib.detection.player_position import (
 from lib.managers.custom_poi_manager import load_custom_pois
 from lib.managers.game_object_manager import game_object_manager
 from lib.managers.poi_data_manager import POIData
+from lib.utilities.user_paths import config_path
 from lib.utilities.utilities import (
     Config,
     clear_config_cache,
@@ -79,7 +80,7 @@ def get_poi_category(poi_name: str) -> str:
             and current_map == 'main'):
         return POI_CATEGORY_SPECIAL
 
-    favorites_file = 'config/FAVORITE_POIS.txt'
+    favorites_file = config_path('FAVORITE_POIS.txt')
     if os.path.exists(favorites_file):
         try:
             with open(favorites_file, 'r') as f:

@@ -23,9 +23,13 @@ except ImportError:
     HAS_FCNTL = False
 
 from lib.config.config_manager import config_manager
+from lib.utilities import user_paths
 
 speaker = Auto()
-CONFIG_FILE = 'config/config.txt'
+# %APPDATA%\FA11y\config\config.txt (lib/utilities/user_paths.py), outside the install folder.
+CONFIG_FILE = user_paths.config_file()
+# Before anything reads config.txt: a fresh default file in AppData would block the move.
+user_paths.migrate_install_config()
 
 # Global lock for config file operations
 _config_lock = threading.RLock()
@@ -63,8 +67,8 @@ def _notify_config_listeners(config):
             print(f"Error in config change listener: {e}")
 
 def ensure_config_dir():
-    """Create config directory if it doesn't exist"""
-    os.makedirs('config', exist_ok=True)
+    """Create the settings folder (user_paths.config_dir) if it doesn't exist"""
+    os.makedirs(user_paths.config_dir(), exist_ok=True)
 
 def migrate_config_files():
     """
@@ -91,7 +95,7 @@ def migrate_config_files():
     migrated_count = 0
     for filename in files_to_migrate:
         src = filename
-        dst = os.path.join('config', filename)
+        dst = user_paths.config_path(filename)
 
         # Only migrate if source exists in root and destination doesn't exist
         if os.path.exists(src) and not os.path.exists(dst):
@@ -120,7 +124,7 @@ def _migrate_open_fa11y_keybind() -> None:
     Left Alt+Left Shift+F and Toggle POI Favorite moves to Left Alt+Left Shift+B.
     Edits the two lines in place so the rest of the file stays as it is.
     """
-    cfg_path = os.path.join('config', 'config.txt')
+    cfg_path = CONFIG_FILE
     if not os.path.exists(cfg_path):
         return
     try:
@@ -149,7 +153,7 @@ def _recover_lowercase_corrupted_config() -> bool:
     well-known TitleCase key but not the TitleCase form itself. Returns True
     if a restore was performed.
     """
-    cfg_path = os.path.join('config', 'config.txt')
+    cfg_path = CONFIG_FILE
     bak_path = f"{cfg_path}.premigration"
     if not os.path.exists(cfg_path) or not os.path.exists(bak_path):
         return False
@@ -206,7 +210,7 @@ def _migrate_current_map_slug():
         return
 
     # 1. config.txt :: [POI] current_map
-    cfg_path = os.path.join('config', 'config.txt')
+    cfg_path = CONFIG_FILE
     if os.path.exists(cfg_path):
         try:
             # Must preserve key case - default ConfigParser lowercases all
@@ -232,7 +236,7 @@ def _migrate_current_map_slug():
             print(f"current_map slug migration failed: {e}")
 
     # 2. FAVORITE_POIS.txt :: JSON entries, "map_name" per entry
-    fav_path = os.path.join('config', 'FAVORITE_POIS.txt')
+    fav_path = user_paths.config_path('FAVORITE_POIS.txt')
     if os.path.exists(fav_path):
         try:
             import json
@@ -262,7 +266,7 @@ def _migrate_current_map_slug():
             print(f"favorites slug migration failed: {e}")
 
     # 3. CUSTOM_POI.txt :: CSV lines, 4th column is map_name
-    cpoi_path = os.path.join('config', 'CUSTOM_POI.txt')
+    cpoi_path = user_paths.config_path('CUSTOM_POI.txt')
     if os.path.exists(cpoi_path):
         try:
             with open(cpoi_path, 'r', encoding='utf-8') as f:
@@ -943,6 +947,26 @@ def save_config(config: configparser.ConfigParser) -> bool:
     if should_notify:
         _notify_config_listeners(config)
     return should_notify
+
+def config_uses_defaults_only(config: Optional[configparser.ConfigParser] = None) -> bool:
+    """True while config.txt is missing or every value in it is still FA11y's default.
+
+    FA11y then offers to import a config.txt or config folder you already have
+    (lib/utilities/user_paths.import_config)."""
+    if not os.path.exists(CONFIG_FILE):
+        return True
+    config = config if config is not None else read_config(use_cache=False)
+    defaults = _create_config_parser_with_case_preserved()
+    defaults.read_string(DEFAULT_CONFIG)
+
+    def value(raw):
+        return str(raw).split('"')[0].strip().lower()
+    for section in config.sections():
+        for key, raw in config.items(section):
+            if not defaults.has_option(section, key) or value(raw) != value(defaults.get(section, key)):
+                return False
+    return True
+
 
 def update_config(current_config: configparser.ConfigParser) -> configparser.ConfigParser:
     """Reconcile the user's config with the default layout (in-place save)."""

@@ -1,3 +1,7 @@
+11/2/2026 #1 (19.0.0-beta.7, Beta branch):
+- FA11y now keeps your settings in your Windows profile (the FA11y folder in AppData) instead of the FA11y folder, so updates and synced folders like Dropbox or OneDrive can no longer overwrite them. This covers config.txt, favorites, custom POIs, sign-in and other saved data. The first time you start this version, FA11y moves your existing settings there for you. Open settings folder on the About page opens it.
+- While every setting is still the default, the Settings page has Import config.txt and Import Config Folder buttons. Pick a config.txt, a config folder, or an old FA11y folder, and FA11y moves your settings in and uses them.
+
 10/24/2026 #1 (19.0.0-beta.6, Beta branch):
 - Fixed browser sign in to Epic Games failing with Verification Failed for some people, even after they signed in. Browser login now starts on Fortnite's own sign in page, which is the sign in Epic needs before it gives FA11y a code.
 - If Epic says you aren't signed in yet, the login window goes back to the sign in page and tells you, instead of leaving you on a page of text. When Epic refuses the code, the message now says why.

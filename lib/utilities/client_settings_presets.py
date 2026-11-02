@@ -32,12 +32,13 @@ from lib.utilities import client_settings_gamepad as pad
 from lib.utilities import client_settings_turning as turning
 from lib.utilities.client_settings import Save, parse_file
 from lib.utilities.client_settings_catalog import DEFAULT, RECORD, VOLUME, SettingsView
+from lib.utilities.user_paths import config_path
 
 TYPE = 'FA11y Fortnite settings preset'
 VERSION = 1
 EXTENSION = '.preset'
 BUILTIN_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'fortnite_presets')
-USER_DIR = os.path.join('config', 'fortnite_presets')
+USER_DIR = config_path('fortnite_presets')
 MAX_BYTES = 2_000_000
 MAX_SETTINGS = 5000
 NAME_LENGTH = 80

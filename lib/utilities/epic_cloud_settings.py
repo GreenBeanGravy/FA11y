@@ -23,12 +23,13 @@ from urllib.parse import quote
 import requests
 
 from lib.utilities.epic_passes import rejection_detail
+from lib.utilities.user_paths import config_path
 
 logger = logging.getLogger(__name__)
 
 FILE_NAME = 'ClientSettings.Sav'
 CLOUD_URL = 'https://fngw-mcp-gc-livefn.ol.epicgames.com/fortnite/api/cloudstorage/user/'
-BACKUP_DIR = os.path.join('config', 'fortnite_settings_backups')
+BACKUP_DIR = config_path('fortnite_settings_backups')
 BACKUPS_KEPT = 10
 _OPERATIONS = threading.RLock()
 

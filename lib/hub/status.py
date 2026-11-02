@@ -71,8 +71,12 @@ def full_changelog(path: str = "CHANGELOG.txt") -> str:
 
 
 def open_folder(name: str) -> None:
-    """Open one of FA11y's folders (logs, config) in Explorer."""
-    path = os.path.abspath(name)
+    """Open one of FA11y's folders (logs, config) in Explorer. config is the settings folder in AppData."""
+    if name == 'config':
+        from lib.utilities.user_paths import config_dir
+        path = config_dir()
+    else:
+        path = os.path.abspath(name)
     os.makedirs(path, exist_ok=True)
     os.startfile(path)
 

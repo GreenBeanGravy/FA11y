@@ -323,6 +323,10 @@ public partial class SettingsPage : PageBase
                 case "export_preset":
                     await ExportPresetAsync();
                     return;
+                case "import_config_file":
+                case "import_config_folder":
+                    await ImportConfigAsync(id == "import_config_folder");
+                    return;
             }
             if (id == "upload" || id == "restore")
                 Announce("Saving to Fortnite.");
@@ -341,6 +345,40 @@ public partial class SettingsPage : PageBase
         {
             _acting = false;
         }
+    }
+
+    // FA11y settings: importing a config.txt or config folder you already have --------------------------
+
+    /// <summary>Pick a config.txt or a config folder, then move it into FA11y's settings folder.</summary>
+    private async Task ImportConfigAsync(bool folder)
+    {
+        var title = folder ? "Import Config Folder" : "Import config.txt";
+        string path;
+        if (folder)
+        {
+            var dialog = new OpenFolderDialog { Title = title };
+            if (dialog.ShowDialog(Host) != true)
+                return;
+            path = dialog.FolderName;
+        }
+        else
+        {
+            var dialog = new OpenFileDialog { Title = title, Filter = "FA11y settings (config.txt)|config.txt|Text files (*.txt)|*.txt" };
+            if (dialog.ShowDialog(Host) != true)
+                return;
+            path = dialog.FileName;
+        }
+        var what = folder ? "every file in that folder" : "that config.txt";
+        if (!Dialogs.Confirm(Host, title, $"FA11y moves {what} into its own settings folder and uses it from now on. It will no longer be at {path}. Continue?"))
+            return;
+        var result = await App.Bridge.RequestAsync("settings.import_config", new { path }, TimeSpan.FromSeconds(60));
+        if (!result.Bool("ok"))
+        {
+            Prompts.Message(Host, title, result.Str("message"));
+            return;
+        }
+        await LoadAsync();
+        Announce(result.Str("message"));
     }
 
     // Fortnite Settings: presets ------------------------------------------------------------------------

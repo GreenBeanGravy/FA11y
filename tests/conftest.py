@@ -6,6 +6,10 @@ import pytest
 import numpy as np
 from unittest.mock import MagicMock
 
+# Settings stay in the checkout's config folder, as before they moved to AppData: never the
+# real %APPDATA%\FA11y\config (lib/utilities/user_paths.py). Set before any lib import.
+os.environ.setdefault('FA11Y_CONFIG_DIR', 'config')
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
