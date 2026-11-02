@@ -24,11 +24,12 @@ from lib.utilities.utilities import read_config, Config, clear_config_cache, sav
 from lib.detection.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quadrant, get_position_in_quadrant
 from lib.managers.custom_poi_manager import load_custom_pois
 from lib.managers.game_object_manager import game_object_manager
+from lib.utilities.user_paths import config_path
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
 
-CONFIG_FILE = 'config/config.txt'
+CONFIG_FILE = config_path('config.txt')
 POI_TYPE = Union[Tuple[str, str, str], str]
 
 _favorites_lock = threading.RLock()

@@ -130,8 +130,8 @@ class CurrentReloadMap:
 
 def _cache_path(ranked: Optional[bool]) -> Path:
     """Where we stash the fetched rotation payload on disk."""
-    project_root = Path(__file__).resolve().parents[2]
-    cache_dir = project_root / 'config'
+    from lib.utilities.user_paths import config_dir
+    cache_dir = Path(config_dir())
     cache_dir.mkdir(exist_ok=True)
     mode = "ranked" if ranked is True else "unranked" if ranked is False else "unknown"
     return cache_dir / f'map_rotation_cache_{mode}.json'

@@ -29,12 +29,13 @@ import os
 import threading
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
+from lib.utilities.user_paths import config_path
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-_FILE_PATH = os.path.join('config', 'fa11y_ow_calibration.json')
+_FILE_PATH = config_path('fa11y_ow_calibration.json')
 # Bundled with FA11y so users have a working transform out of the box.
 # User calibrations in _FILE_PATH override per-map; ``_DEFAULT_KEY`` is
 # the catch-all entry — every Fortnite map shares the same screen scale

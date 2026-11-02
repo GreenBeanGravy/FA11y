@@ -17,6 +17,7 @@ from lib.guis.gui_utilities import (
 )
 from lib.managers.poi_data_manager import POIData
 from lib.utilities.utilities import read_config
+from lib.utilities.user_paths import config_path
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
@@ -261,10 +262,10 @@ class CustomPOIGUI(AccessibleDialog):
     
     def poi_name_exists(self, poi_name: str) -> bool:
         try:
-            if not os.path.exists('config/CUSTOM_POI.txt'):
+            if not os.path.exists(config_path('CUSTOM_POI.txt')):
                 return False
                 
-            with open('config/CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
+            with open(config_path('CUSTOM_POI.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -293,14 +294,14 @@ class CustomPOIGUI(AccessibleDialog):
         x, y = coordinates
         
         try:
-            poi_file_dir = os.path.dirname('config/CUSTOM_POI.txt')
+            poi_file_dir = os.path.dirname(config_path('CUSTOM_POI.txt'))
             if poi_file_dir:
                 os.makedirs(poi_file_dir, exist_ok=True)
             
-            if os.path.exists('config/CUSTOM_POI.txt'):
+            if os.path.exists(config_path('CUSTOM_POI.txt')):
                 lines = []
                 try:
-                    with open('config/CUSTOM_POI.txt', 'r', encoding='utf-8') as f:
+                    with open(config_path('CUSTOM_POI.txt'), 'r', encoding='utf-8') as f:
                         lines = f.readlines()
                 except Exception as e:
                     logger.error(f"Error reading existing POI file: {e}")
@@ -323,14 +324,14 @@ class CustomPOIGUI(AccessibleDialog):
                         filtered_lines.append(line + '\n')
                 
                 try:
-                    with open('config/CUSTOM_POI.txt', 'w', encoding='utf-8') as f:
+                    with open(config_path('CUSTOM_POI.txt'), 'w', encoding='utf-8') as f:
                         f.writelines(filtered_lines)
                 except Exception as e:
                     logger.error(f"Error writing filtered POI file: {e}")
                     return False
             
             try:
-                with open('config/CUSTOM_POI.txt', 'a', encoding='utf-8') as f:
+                with open(config_path('CUSTOM_POI.txt'), 'a', encoding='utf-8') as f:
                     f.write(f"{name},{x},{y},{map_name}\n")
                     f.flush()
                     os.fsync(f.fileno())

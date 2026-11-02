@@ -1,3 +1,7 @@
+11/2/2026 #1 (18.11.20):
+- FA11y now keeps your settings in your Windows profile (the FA11y folder in AppData) instead of the FA11y folder, so updates and synced folders like Dropbox or OneDrive can no longer overwrite them. This covers config.txt, favorites, custom POIs, sign-in and other saved data. The first time you start this version, FA11y moves your existing settings there for you.
+- While every setting is still the default, the configuration menu has Import config.txt and Import Config Folder buttons. Pick a config.txt, a config folder, or an old FA11y folder, and FA11y moves your settings in and uses them.
+
 10/26/2026 #1 (18.11.19):
 - Fixed Fortnite.gg errors.
 

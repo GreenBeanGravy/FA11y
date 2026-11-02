@@ -26,11 +26,12 @@ from lib.detection.player_position import ROI_START_ORIG, ROI_END_ORIG, get_quad
 from lib.managers.custom_poi_manager import load_custom_pois
 from lib.managers.game_object_manager import game_object_manager
 from lib.detection.match_tracker import match_tracker
+from lib.utilities.user_paths import config_path
 
 logger = logging.getLogger(__name__)
 speaker = Auto()
 
-CONFIG_FILE = 'config/config.txt'
+CONFIG_FILE = config_path('config.txt')
 OBJECT_TYPE = Union[Tuple[str, str, str, str], str]
 
 _objects_lock = threading.RLock()

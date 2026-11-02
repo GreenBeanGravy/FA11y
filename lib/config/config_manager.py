@@ -63,7 +63,8 @@ class ConfigManager:
         self._global_lock = threading.RLock()
 
         # Ensure config directory exists
-        os.makedirs('config', exist_ok=True)
+        from lib.utilities.user_paths import config_dir
+        config_dir()
 
     def register(self, config_id: str, filename: str,
                  format: str = 'json',
@@ -76,7 +77,8 @@ class ConfigManager:
 
         Args:
             config_id: Unique identifier for this config
-            filename: Path to config file (relative to FA11y root)
+            filename: Path to config file; 'config/name' is name in the settings folder
+                (FA11y's settings folder in AppData, lib/utilities/user_paths.py)
             format: 'json', 'ini', or 'custom'
             default: Default value if file doesn't exist
             cache_timeout: How long to cache in memory (seconds)
@@ -88,9 +90,10 @@ class ConfigManager:
                 # Already registered, just return
                 return
 
+            from lib.utilities.user_paths import resolve
             registry = ConfigRegistry(
                 config_id=config_id,
-                filename=filename,
+                filename=resolve(filename),
                 format=format,
                 default=default,
                 cache_timeout=cache_timeout,

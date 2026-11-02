@@ -23,7 +23,7 @@ from lib.utilities.utilities import (
     DEFAULT_CONFIG, get_default_config_value_string, 
     get_available_sounds, is_audio_setting, is_game_objects_setting, 
     get_maps_with_game_objects, is_map_specific_game_object_setting,
-    get_game_objects_config_order
+    get_game_objects_config_order, config_uses_defaults_only, read_config
 )
 from lib.utilities.input import (
     VK_KEYS, is_mouse_button, get_pressed_key_combination, parse_key_combination,
@@ -102,6 +102,17 @@ class ConfigGUI(AccessibleDialog):
 
     def makeSettings(self, settingsSizer: BoxSizerHelper):
         """Create dialog structure with minimal content"""
+        # No saved settings yet: offer to bring in a config.txt or config folder from before.
+        if config_uses_defaults_only(getattr(self.config, 'config', None)):
+            settingsSizer.addItem(wx.StaticText(self, label=(
+                "FA11y is using its default settings. If you have a config.txt or config folder "
+                "from before, import it here.")))
+            buttons = ButtonHelper(wx.HORIZONTAL)
+            import_file = buttons.addButton(self, label="Import config.txt")
+            import_folder = buttons.addButton(self, label="Import Config Folder")
+            import_file.Bind(wx.EVT_BUTTON, lambda event: self.import_config(folder=False))
+            import_folder.Bind(wx.EVT_BUTTON, lambda event: self.import_config(folder=True))
+            settingsSizer.addItem(buttons)
         self.notebook = wx.Notebook(self)
         settingsSizer.addItem(self.notebook, flag=wx.EXPAND, proportion=1)
         
@@ -1354,6 +1365,53 @@ class ConfigGUI(AccessibleDialog):
                 return section
         return None
     
+    def import_config(self, folder: bool) -> None:
+        """Move a config.txt or config folder into FA11y's settings folder, then apply it and close.
+
+        This dialog's own values are the defaults, so it closes without saving them."""
+        from lib.utilities import user_paths
+        title = "Import Config Folder" if folder else "Import config.txt"
+        if folder:
+            dialog = wx.DirDialog(self, title, style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+        else:
+            dialog = wx.FileDialog(self, title, wildcard="FA11y settings (config.txt)|config.txt|Text files (*.txt)|*.txt",
+                                   style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        try:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            path = dialog.GetPath()
+        finally:
+            dialog.Destroy()
+        what = "every file in that folder" if folder else "that config.txt"
+        if wx.MessageBox(f"FA11y moves {what} into its own settings folder and uses it from now on. "
+                         f"It will no longer be at {path}. Continue?", title, wx.YES_NO | wx.NO_DEFAULT, self) != wx.YES:
+            return
+        try:
+            result = user_paths.import_config(path)
+        except user_paths.ConfigImportError as error:
+            wx.MessageBox(str(error), title, wx.OK | wx.ICON_WARNING, self)
+            return
+        except OSError as error:
+            logger.exception("Importing settings failed")
+            wx.MessageBox(f"Couldn't move those files: {error.strerror or error}.", title, wx.OK | wx.ICON_ERROR, self)
+            return
+        message = "Imported your settings."
+        if len(result['moved']) > 1:
+            message = (f"Imported your settings and {len(result['moved']) - 1} other saved files. Restart FA11y "
+                       "so favorites, custom POIs and sign-in use them.")
+        if result['backup']:
+            message += " The settings they replaced are in a before import folder in the settings folder."
+        logger.info("Imported settings from %s: %s", path, ", ".join(result['moved']))
+        self.update_callback(read_config(use_cache=False))     # saves the imported config and applies it
+        for audio_instance in self.test_audio_instances.values():
+            try:
+                audio_instance.cleanup()
+            except Exception:
+                pass
+        self.test_audio_instances.clear()
+        speaker.speak(message)
+        self.EndModal(wx.ID_OK)
+
     def save_and_close(self):
         """Save configuration and close"""
         try:
